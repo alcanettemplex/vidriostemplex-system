@@ -29,6 +29,7 @@ import {
   CotizadorCalibracionMargen,
   CotizadorCalibracionHolgura,
   CotizadorCalibracionSistema,
+  CotizadorMultiplicadorCategoria,
 } from '../models';
 import type {
   Bucket,
@@ -44,6 +45,7 @@ import type {
   MapeoAccesorios,
   Margenes,
   ModeloCorte,
+  Multiplicador,
   Parametros,
   Producto,
   Sistemas,
@@ -109,6 +111,7 @@ async function cargarProductos(): Promise<Map<string, Producto>> {
     }
     // Mismo criterio: la clave solo existe en los perfiles por pieza entera.
     if (f.largo_pieza_mm != null) base.largoPiezaMm = Number(f.largo_pieza_mm);
+    if (f.precio_a_cotizar === true) base.precioACotizar = true;
     mapa.set(base.codigo, base);
   }
 
@@ -132,6 +135,19 @@ async function cargarProductos(): Promise<Map<string, Producto>> {
     mapa.set(codigo, resuelto);
   }
 
+  return mapa;
+}
+
+async function cargarMultiplicadores(): Promise<Map<string, Multiplicador>> {
+  const filas = (await CotizadorMultiplicadorCategoria.findAll({ raw: true })) as unknown as Record<string, unknown>[];
+  const mapa = new Map<string, Multiplicador>();
+  for (const f of filas) {
+    mapa.set(String(f.categoria).toUpperCase(), {
+      pa: Number(f.multiplicador_pa),
+      pm: Number(f.multiplicador_pm),
+      pb: Number(f.multiplicador_pb),
+    });
+  }
   return mapa;
 }
 
@@ -159,6 +175,10 @@ async function cargarParametros(): Promise<Parametros> {
     },
     alquiler_andamio: fila.alquiler_andamio as number,
     huacal: fila.huacal as number,
+    mo_ensamble_ventana_m2: Number(fila.mo_ensamble_ventana_m2),
+    mo_instalacion_ventana_m2: Number(fila.mo_instalacion_ventana_m2),
+    mo_instalacion_cabina_und: Number(fila.mo_instalacion_cabina_und),
+    mo_instalacion_espejo_tablero_m2: Number(fila.mo_instalacion_espejo_tablero_m2),
     asesores: fila.asesores as string[],
     estados_cotizacion: fila.estados_cotizacion as string[],
   };
@@ -332,7 +352,7 @@ async function cargarGeometria(): Promise<GeometriaOverrides> {
 // ─── Precarga e invalidación ────────────────────────────────────────────────
 
 async function construirTodo(): Promise<DatosCotizador> {
-  const [productos, parametros, disenos, calibracion, mapeoAccesorios, geometriaOverrides] =
+  const [productos, parametros, disenos, calibracion, mapeoAccesorios, geometriaOverrides, multiplicadores] =
     await Promise.all([
       cargarProductos(),
       cargarParametros(),
@@ -340,6 +360,7 @@ async function construirTodo(): Promise<DatosCotizador> {
       cargarCalibracion(),
       cargarAccesorios(),
       cargarGeometria(),
+      cargarMultiplicadores(),
     ]);
 
   verificarTipos(productos);
@@ -354,6 +375,7 @@ async function construirTodo(): Promise<DatosCotizador> {
     sistemas: calibracion.sistemas,
     mapeoAccesorios,
     geometriaOverrides,
+    multiplicadores,
   };
 }
 
@@ -413,8 +435,12 @@ export async function recargar(bucket: Bucket): Promise<void> {
     const anterior = datos;
     switch (bucket) {
       case 'precios': {
-        const [productos, parametros] = await Promise.all([cargarProductos(), cargarParametros()]);
-        datos = { ...anterior, productos, parametros };
+        const [productos, parametros, multiplicadores] = await Promise.all([
+          cargarProductos(),
+          cargarParametros(),
+          cargarMultiplicadores(),
+        ]);
+        datos = { ...anterior, productos, parametros, multiplicadores };
         break;
       }
       case 'disenos': {
@@ -487,6 +513,9 @@ export function getProductos(): Map<string, Producto> {
 }
 export function getParametros(): Parametros {
   return exigirDatos().parametros;
+}
+export function getMultiplicador(categoria: string): Multiplicador | null {
+  return exigirDatos().multiplicadores.get(String(categoria).toUpperCase()) ?? null;
 }
 export function getDisenos(): Diseno[] {
   return exigirDatos().disenosOrdenados;

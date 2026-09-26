@@ -26,7 +26,7 @@ const labelClass = CONTROL_LABEL_CLASS;
 // 40px de alto: el objetivo de clic mínimo que pide la guía, y suficiente para
 // que el sufijo de unidad quepa dentro del control sin apretar el texto.
 const controlBase =
-    'w-full h-10 px-3 text-sm rounded-lg bg-white text-slate-800 border transition ' +
+    'w-full h-10 px-3 text-sm rounded-lg bg-white text-slate-900 placeholder:text-slate-400 border transition ' +
     'focus:outline-none focus:ring-2';
 const controlNormal = CONTROL_NORMAL;
 const controlError = CONTROL_ERROR;
@@ -86,7 +86,7 @@ const CampoDinamico: React.FC<Props> = ({ campo, value, onChange, error, segment
     const sufijo = esCampoMedidaCm ? 'mm' : esCampoPorcentaje ? '%' : null;
 
     const mensajeError = hayError ? (
-        <p id={errorId} className="flex items-start gap-1 text-[11px] font-semibold text-rose-600 mt-1">
+        <p id={errorId} className="flex items-start gap-1 text-[11px] font-semibold text-rose-700 mt-1">
             <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
             <span>{error}</span>
         </p>
@@ -114,13 +114,13 @@ const CampoDinamico: React.FC<Props> = ({ campo, value, onChange, error, segment
                     <input
                         id={controlId}
                         type="checkbox"
-                        className="w-4 h-4 accent-indigo-600 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400"
+                        className="w-4 h-4 accent-templex-600 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-templex-400"
                         checked={Boolean(value)}
                         aria-invalid={hayError || undefined}
                         aria-describedby={describedBy}
                         onChange={e => onChange(e.target.checked)}
                     />
-                    <label htmlFor={controlId} className="text-sm text-slate-700 cursor-pointer">
+                    <label htmlFor={controlId} className="text-sm font-semibold text-slate-900 cursor-pointer">
                         {campo.etiqueta}
                         {campo.requerido && <span className="text-rose-500"> *</span>}
                     </label>
@@ -186,7 +186,7 @@ const CampoDinamico: React.FC<Props> = ({ campo, value, onChange, error, segment
                         }}
                     />
                     {sufijo && (
-                        <span className="absolute inset-y-0 right-3 flex items-center text-[11px] font-bold text-slate-400 font-cotizador-head pointer-events-none">
+                        <span className="absolute inset-y-0 right-3 flex items-center text-[11px] font-semibold text-slate-600 pointer-events-none">
                             {sufijo}
                         </span>
                     )}

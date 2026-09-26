@@ -4,24 +4,27 @@ import {
 } from '../../../components/ui/icons';
 
 import { ModuloMeta } from '../types';
-import { Etiqueta } from './ui';
+import { descripcionComercial } from '../descripcionesModulo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Selector de producto del cotizador: una tarjeta por módulo (seis productos más
-// "Ítem libre" desde el 2026-09-22), la activa en indigo sólido y el resto
-// neutras, más la descripción completa del módulo elegido debajo.
+// "Ítem libre" desde el 2026-09-22) y, debajo, la descripción del elegido.
 //
-// Vivía dentro de `TabCotizar` como bloque suelto; se extrae para que la
-// pestaña quede con la estructura del configurador (contexto → cargos →
-// selector → configuración | resultado) y no con 40 líneas de markup de
-// botones en medio. Es presentación pura: no conoce el carrito, ni el
-// resultado, ni las propuestas. Quién resetea el cálculo al cambiar de módulo
-// sigue siendo el padre, exactamente como antes.
+// Es presentación pura: no conoce el carrito, ni el resultado, ni las
+// propuestas. Quién resetea el cálculo al cambiar de módulo sigue siendo el
+// padre (TabCotizar).
 //
-// DESCRIPCIÓN (2026-09-22, ajustada 2026-09-23): la descripción del módulo
-// activo va debajo de las tarjetas, completa, como texto corto. Hasta el
-// 2026-09-23 era un panel con `flex-1` que se estiraba hasta el alto de Cargos
-// de obra y quedaba casi vacío; ahora lo elástico son las filas de tarjetas.
+// FORMA (2026-09-26, Fase 5 del sistema visual): es el PASO 1 de la pestaña y
+// va a lo ancho, arriba de todo. Las siete tarjetas caben en UNA fila en
+// escritorio, con alto fijo de 64 px: hasta hoy compartían fila con Cargos de
+// obra y se estiraban hasta su alto, y quedaban de ~200 px casi vacías. En
+// tableta 4 + 3; en móvil una rejilla compacta de 2 columnas (sin scroll
+// horizontal: con siete opciones, esconder tres detrás de un deslizamiento
+// es esconderlas). La activa lleva el azul de marca (`templex`); antes era
+// índigo, el acento propio que tenía el módulo.
+//
+// DESCRIPCIÓN: la frase comercial de `descripcionesModulo.ts`, no el texto
+// técnico del backend (que sigue siendo el respaldo si falta la frase).
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Íconos por id de módulo (backend-api/src/cotizador/modules/registry.ts). No
@@ -46,21 +49,13 @@ interface Props {
 const SelectorProducto: React.FC<Props> = ({ modulos, moduloId, onCambiar }) => {
     if (modulos.length === 0) return null;
     const activo = modulos.find(m => m.id === moduloId) ?? null;
-    const IconoActivo = activo ? (ICONOS_MODULO[activo.id] || Package) : Package;
 
     return (
-        // Tarjeta con borde, como Cargos de obra a su lado: las dos llenan el
-        // mismo alto (`h-full` + `items-stretch` del padre) y sus bordes caen
-        // en la misma línea.
-        <div className="h-full flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-card p-3 space-y-2.5">
             <div
                 role="group"
                 aria-label="Producto a cotizar"
-                // 4 columnas fijas (2026-09-23): con `auto-fit` las 7 tarjetas caían
-                // en una sola fila y los nombres se partían en dos líneas. Con 4 quedan
-                // 4 + 3, y `auto-rows-fr` + `flex-1` reparten la altura sobrante entre
-                // las filas en vez de dejar un bloque vacío debajo.
-                className="flex-1 grid grid-cols-2 sm:grid-cols-4 auto-rows-fr gap-2.5"
+                className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2"
             >
                 {modulos.map(m => {
                     const esActivo = moduloId === m.id;
@@ -71,27 +66,27 @@ const SelectorProducto: React.FC<Props> = ({ modulos, moduloId, onCambiar }) => 
                             type="button"
                             onClick={() => onCambiar(m.id)}
                             aria-pressed={esActivo}
-                            title={m.descripcion}
+                            title={descripcionComercial(m)}
                             className={
-                                'min-w-0 text-left rounded-xl px-3 py-3 flex items-center gap-2.5 transition ' +
-                                'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 ' +
+                                'min-w-0 h-16 text-left rounded-xl border px-2.5 flex items-center gap-2.5 transition ' +
+                                'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-templex-400 ' +
                                 (esActivo
-                                    ? 'bg-indigo-600 border border-indigo-600 shadow-lg shadow-indigo-600/25'
-                                    : 'bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300')
+                                    ? 'bg-templex-50 border-templex-500 ring-1 ring-templex-500'
+                                    : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-templex-300')
                             }
                         >
                             <span
                                 className={
-                                    'w-8 h-8 rounded-full flex items-center justify-center shrink-0 ' +
-                                    (esActivo ? 'bg-white/15' : 'bg-slate-100')
+                                    'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ' +
+                                    (esActivo ? 'bg-templex-600' : 'bg-slate-100')
                                 }
                             >
-                                <Icono className={`w-4 h-4 ${esActivo ? 'text-white' : 'text-slate-400'}`} />
+                                <Icono className={`w-4 h-4 ${esActivo ? 'text-white' : 'text-slate-600'}`} />
                             </span>
                             <span
                                 className={
-                                    'min-w-0 text-[12.5px] font-extrabold font-cotizador-head leading-tight ' +
-                                    (esActivo ? 'text-white' : 'text-slate-700')
+                                    'min-w-0 text-[13px] font-semibold leading-tight ' +
+                                    (esActivo ? 'text-templex-900' : 'text-slate-900')
                                 }
                             >
                                 {m.nombre}
@@ -101,13 +96,12 @@ const SelectorProducto: React.FC<Props> = ({ modulos, moduloId, onCambiar }) => 
                 })}
             </div>
 
-            {/* Descripción completa del módulo elegido, sin recortar. Ya no es un
-                panel que se estira: la altura sobrante la toman las tarjetas. */}
+            {/* Una línea para el asesor: qué cotiza el módulo elegido. */}
             {activo && (
-                <div className="border-t border-slate-100 pt-2.5">
-                    <Etiqueta icono={IconoActivo}>{activo.nombre}</Etiqueta>
-                    <p className="mt-1 text-[12px] text-slate-500 leading-snug">{activo.descripcion}</p>
-                </div>
+                <p className="text-[12.5px] text-slate-800 leading-snug" title={descripcionComercial(activo)}>
+                    <span className="font-semibold text-slate-900">{activo.nombre}:</span>{' '}
+                    {descripcionComercial(activo)}
+                </p>
             )}
         </div>
     );

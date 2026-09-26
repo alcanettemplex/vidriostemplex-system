@@ -30,9 +30,9 @@ import { BotonPeligro, BotonPrimario, BotonSecundario, Campo, Chip, ChipNivelCor
 
 type SubTab = 'sistemas' | 'holguras' | 'historial';
 
-const TONO_ESTADO_SISTEMA: Record<EstadoSistemaCalibracion['estado'], 'esmeralda' | 'indigo' | 'ambar'> = {
+const TONO_ESTADO_SISTEMA: Record<EstadoSistemaCalibracion['estado'], 'esmeralda' | 'marca' | 'ambar'> = {
     EN_PRODUCCION: 'esmeralda',
-    VALIDADO: 'indigo',
+    VALIDADO: 'marca',
     EN_CALIBRACION: 'ambar',
 };
 
@@ -119,7 +119,7 @@ const TabCalibracion: React.FC = () => {
 
     return (
         <div className="p-4 space-y-4">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 {([
                     { key: 'sistemas', label: 'Sistemas y piezas', icon: <Layers className="w-4 h-4" /> },
                     { key: 'holguras', label: 'Holguras', icon: <Ruler className="w-4 h-4" /> },
@@ -128,8 +128,10 @@ const TabCalibracion: React.FC = () => {
                     <button
                         key={t.key}
                         onClick={() => setSub(t.key)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg border ${
-                            sub === t.key ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg border transition ${
+                            sub === t.key
+                                ? 'bg-templex-600 border-templex-600 text-white shadow-sm'
+                                : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-slate-400'
                         }`}
                     >
                         {t.icon}{t.label}
@@ -138,29 +140,33 @@ const TabCalibracion: React.FC = () => {
             </div>
 
             {sub === 'sistemas' && (
-                <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-4">
                     <Tarjeta titulo={`Sistemas (${sistemas.length})`} sinRelleno>
                         {cargandoSistemas ? (
-                            <div className="p-6 flex justify-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+                            <div className="p-6 flex justify-center text-slate-500"><Loader2 className="w-5 h-5 animate-spin" /></div>
                         ) : (
                             <ul className="divide-y divide-slate-100 max-h-[560px] overflow-y-auto">
                                 {sistemas.map((s) => (
                                     <li key={s.sistema}>
                                         <button
                                             onClick={() => seleccionarSistema(s.sistema)}
-                                            className={`w-full text-left px-3 py-2.5 hover:bg-indigo-50/50 ${sistemaSel === s.sistema ? 'bg-indigo-50' : ''}`}
+                                            className={`w-full text-left px-3 py-2.5 border-l-2 transition ${
+                                                sistemaSel === s.sistema
+                                                    ? 'bg-templex-50 border-templex-600'
+                                                    : 'border-transparent hover:bg-slate-50'
+                                            }`}
                                         >
                                             <div className="flex items-center justify-between gap-2">
-                                                <span className="text-sm font-semibold text-slate-800">{s.sistema}</span>
+                                                <span className="text-sm font-semibold text-slate-900">{s.sistema}</span>
                                                 <ChipEstadoSistema estado={s.estado} />
                                             </div>
-                                            <div className="text-xs text-slate-500 mt-0.5">
+                                            <div className="text-[12px] text-slate-700 mt-0.5">
                                                 {s.piezasConMargen}/{s.piezasTotales - s.piezasVetadas} piezas calibradas
                                                 {s.piezasVetadas > 0 && ` · ${s.piezasVetadas} vetada(s) (nivel C)`}
                                                 {' · '}{fmtPct(s.cobertura)}
                                             </div>
                                             {s.pausadoManualmente && (
-                                                <div className="text-[11px] text-amber-700 mt-0.5">⏸ Pausado manualmente</div>
+                                                <div className="text-[11px] font-semibold text-amber-800 mt-0.5">⏸ Pausado manualmente</div>
                                             )}
                                         </button>
                                     </li>
@@ -169,9 +175,9 @@ const TabCalibracion: React.FC = () => {
                         )}
                     </Tarjeta>
 
-                    <div>
+                    <div className="min-w-0">
                         {!sistemaSel ? (
-                            <div className="border border-dashed border-slate-200 rounded-xl p-10 text-center text-slate-400 text-sm">
+                            <div className="border border-dashed border-slate-300 rounded-xl p-10 text-center text-slate-700 text-sm bg-white">
                                 Elegí un sistema de la lista para ver sus piezas.
                             </div>
                         ) : (
@@ -213,12 +219,15 @@ const PanelSistema: React.FC<PanelSistemaProps> = ({
     sistema, piezas, cargandoPiezas, piezaSel, onSeleccionarPieza, onTogglePausa, onToggleFirma, onCambio,
 }) => (
     <div className="space-y-3">
-        <div className="border border-slate-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
-                <div className="text-sm font-bold text-slate-800">{sistema.sistema}</div>
-                <div className="text-xs text-slate-500">{sistema.motivo}</div>
+        <div className="bg-white border border-slate-200 rounded-xl shadow-card p-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-bold text-slate-900">{sistema.sistema}</span>
+                    <ChipEstadoSistema estado={sistema.estado} />
+                </div>
+                <div className="text-[12.5px] text-slate-700 mt-0.5">{sistema.motivo}</div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 <BotonSecundario compacto icono={sistema.pausadoManualmente ? Play : Pause} onClick={() => onTogglePausa(sistema)}>
                     {sistema.pausadoManualmente ? 'Reanudar' : 'Pausar'}
                 </BotonSecundario>
@@ -231,26 +240,27 @@ const PanelSistema: React.FC<PanelSistemaProps> = ({
         </div>
 
         <Tarjeta sinRelleno>
-            <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px] text-sm text-slate-800">
+                <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-900">
                     <tr>
                         <th className="text-left px-3 py-2">Pieza</th>
                         <th className="text-left px-3 py-2">Material</th>
                         <th className="text-left px-3 py-2">Nivel</th>
                         <th className="text-left px-3 py-2">Margen efectivo</th>
                         <th className="text-left px-3 py-2">Contrastes</th>
-                        <th></th>
+                        <th><span className="sr-only">Acciones</span></th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                     {cargandoPiezas ? (
-                        <tr><td colSpan={6} className="p-6 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
+                        <tr><td colSpan={6} className="p-6 text-center text-slate-500"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
                     ) : piezas.length === 0 ? (
-                        <tr><td colSpan={6} className="p-6 text-center text-slate-400">Este sistema no tiene piezas.</td></tr>
+                        <tr><td colSpan={6} className="p-6 text-center text-slate-700">Este sistema no tiene piezas.</td></tr>
                     ) : piezas.map((p) => (
-                        <tr key={p.ref} className={piezaSel?.ref === p.ref ? 'bg-indigo-50/50' : ''}>
-                            <td className="px-3 py-2 font-semibold text-slate-800">{p.ref}</td>
-                            <td className="px-3 py-2 text-slate-600">{p.material}</td>
+                        <tr key={p.ref} className={piezaSel?.ref === p.ref ? 'bg-templex-50' : ''}>
+                            <td className="px-3 py-2 font-semibold text-slate-900 whitespace-nowrap">{p.ref}</td>
+                            <td className="px-3 py-2 text-slate-800">{p.material}</td>
                             <td className="px-3 py-2">
                                 {/* `p.nivelCorte` es `NivelCorte | null`; el ternario original caía a
                                     "A" cuando no era ni 'C' ni 'B' (incluido `null`) — se preserva ese
@@ -258,14 +268,17 @@ const PanelSistema: React.FC<PanelSistemaProps> = ({
                                     para el caso sin nivel, que es un cambio de lógica y no de forma. */}
                                 <ChipNivelCorte nivel={p.nivelCorte ?? 'A'} alertaEnC />
                             </td>
-                            <td className="px-3 py-2 text-slate-600">
+                            <td className="px-3 py-2 whitespace-nowrap">
                                 {p.margenEfectivo.origen === 'sin-calibrar' ? (
-                                    <span className="text-slate-400">sin calibrar</span>
+                                    <span className="text-slate-700 italic">sin calibrar</span>
                                 ) : (
-                                    <span>{p.margenEfectivo.margenMm} mm <span className="text-slate-400">({p.margenEfectivo.origen})</span></span>
+                                    <span>
+                                        <span className="font-semibold text-slate-900">{p.margenEfectivo.margenMm} mm</span>{' '}
+                                        <span className="text-slate-700">({p.margenEfectivo.origen})</span>
+                                    </span>
                                 )}
                             </td>
-                            <td className="px-3 py-2 text-slate-600">{p.contrastesVigentes}</td>
+                            <td className="px-3 py-2 text-slate-800">{p.contrastesVigentes}</td>
                             <td className="px-3 py-2 text-right">
                                 <BotonSecundario compacto onClick={() => onSeleccionarPieza(p)}>Ver</BotonSecundario>
                             </td>
@@ -273,6 +286,7 @@ const PanelSistema: React.FC<PanelSistemaProps> = ({
                     ))}
                 </tbody>
             </table>
+            </div>
         </Tarjeta>
 
         {piezaSel && (
@@ -379,9 +393,9 @@ const PanelPieza: React.FC<{ sistema: string; pieza: PiezaCalibracion; onCambio:
     };
 
     return (
-        <div className="border border-indigo-200 rounded-xl p-3 bg-indigo-50/30 space-y-3">
-            <div className="flex items-center justify-between">
-                <div className="text-sm font-bold text-slate-800">Pieza {pieza.ref} — {pieza.material}</div>
+        <div className="border border-templex-200 rounded-xl p-3 bg-templex-50/40 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-bold text-slate-900">Pieza {pieza.ref} — {pieza.material}</div>
                 <BotonPrimario compacto icono={CheckCircle2} cargando={analizando} onClick={analizar}>Analizar</BotonPrimario>
             </div>
 
@@ -390,7 +404,7 @@ const PanelPieza: React.FC<{ sistema: string; pieza: PiezaCalibracion; onCambio:
                     {analisis.puedeProponer ? (
                         <>
                             <p className="font-semibold text-emerald-800">Se puede proponer un margen de {analisis.margenMm} mm ({analisis.tipo}).</p>
-                            <p className="text-emerald-700 mt-1">{analisis.explicacion}</p>
+                            <p className="text-emerald-800 mt-1">{analisis.explicacion}</p>
                             <BotonPrimario compacto className="mt-2" onClick={aprobar}>Aprobar este margen</BotonPrimario>
                         </>
                     ) : (
@@ -421,35 +435,35 @@ const PanelPieza: React.FC<{ sistema: string; pieza: PiezaCalibracion; onCambio:
             </form>
 
             <div>
-                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Contrastes registrados</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-900 mb-1">Contrastes registrados</div>
                 {cargando ? (
-                    <div className="p-3 text-slate-400"><Loader2 className="w-4 h-4 animate-spin inline" /></div>
+                    <div className="p-3 text-slate-500"><Loader2 className="w-4 h-4 animate-spin inline" /></div>
                 ) : contrastes.length === 0 ? (
-                    <div className="p-3 text-sm text-slate-400">Sin contrastes todavía.</div>
+                    <div className="p-3 text-sm text-slate-700">Sin contrastes todavía.</div>
                 ) : (
-                    <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg">
-                        <table className="w-full text-xs">
-                            <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                    <div className="max-h-64 overflow-auto border border-slate-200 rounded-lg bg-white">
+                        <table className="w-full min-w-[520px] text-[12.5px] text-slate-800">
+                            <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-900 sticky top-0">
                                 <tr>
                                     <th className="text-left px-2 py-1.5">Fecha</th>
                                     <th className="text-left px-2 py-1.5">Sistema</th>
                                     <th className="text-left px-2 py-1.5">Maestro</th>
                                     <th className="text-left px-2 py-1.5">Vano</th>
                                     <th className="text-left px-2 py-1.5">Registró</th>
-                                    <th></th>
+                                    <th><span className="sr-only">Acciones</span></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {contrastes.map((c) => (
                                     <tr key={c.id} className={c.anulado ? 'opacity-50 line-through' : ''}>
-                                        <td className="px-2 py-1.5">{fmtFecha(c.registrado_en)}</td>
+                                        <td className="px-2 py-1.5 whitespace-nowrap">{fmtFecha(c.registrado_en)}</td>
                                         <td className="px-2 py-1.5">{c.medida_sistema_bruta_mm} mm</td>
                                         <td className="px-2 py-1.5">{c.medida_maestro_mm} mm</td>
                                         <td className="px-2 py-1.5">{c.ancho_vano_mm ?? '—'}×{c.alto_vano_mm ?? '—'}</td>
                                         <td className="px-2 py-1.5">{c.registrado_por || '—'}</td>
                                         <td className="px-2 py-1.5 text-right">
                                             {!c.anulado && (
-                                                <button onClick={() => anular(c)} className="text-rose-600 hover:text-rose-800" title="Anular">
+                                                <button onClick={() => anular(c)} className="p-1 rounded text-rose-700 hover:text-rose-800 hover:bg-rose-50" title="Anular" aria-label="Anular contraste">
                                                     <XCircle className="w-3.5 h-3.5" />
                                                 </button>
                                             )}
@@ -526,30 +540,31 @@ const PanelHolguras: React.FC<{ sistemas: EstadoSistemaCalibracion[] }> = ({ sis
     };
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-4">
             <Tarjeta titulo="Holguras vigentes" sinRelleno>
                 {cargando ? (
-                    <div className="p-6 flex justify-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+                    <div className="p-6 flex justify-center text-slate-500"><Loader2 className="w-5 h-5 animate-spin" /></div>
                 ) : holguras.length === 0 ? (
-                    <div className="p-6 text-sm text-slate-400">Sin holguras configuradas.</div>
+                    <div className="p-6 text-sm text-slate-700">Sin holguras configuradas.</div>
                 ) : (
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                    <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-sm text-slate-800">
+                        <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-900">
                             <tr>
                                 <th className="text-left px-3 py-2">Ámbito</th>
                                 <th className="text-left px-3 py-2">Medida</th>
                                 <th className="text-left px-3 py-2">Nota</th>
                                 <th className="text-left px-3 py-2">Definida por</th>
-                                <th></th>
+                                <th><span className="sr-only">Acciones</span></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {holguras.map((h) => (
                                 <tr key={h.id}>
-                                    <td className="px-3 py-2 font-semibold text-slate-800">{h.ambito === 'global' ? 'Global' : h.sistema}</td>
-                                    <td className="px-3 py-2 text-slate-600">{h.ancho_mm}×{h.alto_mm} mm</td>
-                                    <td className="px-3 py-2 text-slate-500">{h.nota || '—'}</td>
-                                    <td className="px-3 py-2 text-slate-500">{h.definido_por || '—'}</td>
+                                    <td className="px-3 py-2 font-semibold text-slate-900">{h.ambito === 'global' ? 'Global' : h.sistema}</td>
+                                    <td className="px-3 py-2 text-slate-800 whitespace-nowrap">{h.ancho_mm}×{h.alto_mm} mm</td>
+                                    <td className={`px-3 py-2 ${h.nota ? 'text-slate-800' : 'text-slate-500'}`}>{h.nota || '—'}</td>
+                                    <td className={`px-3 py-2 ${h.definido_por ? 'text-slate-800' : 'text-slate-500'}`}>{h.definido_por || '—'}</td>
                                     <td className="px-3 py-2 text-right">
                                         <BotonPeligro compacto icono={XCircle} onClick={() => anular(h)}>Anular</BotonPeligro>
                                     </td>
@@ -557,6 +572,7 @@ const PanelHolguras: React.FC<{ sistemas: EstadoSistemaCalibracion[] }> = ({ sis
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 )}
             </Tarjeta>
 
@@ -567,11 +583,11 @@ const PanelHolguras: React.FC<{ sistemas: EstadoSistemaCalibracion[] }> = ({ sis
             >
                 <form onSubmit={fijar} className="space-y-3">
                     <div className="flex gap-3">
-                        <label className="flex items-center gap-1.5 text-sm">
-                            <input type="radio" checked={ambito === 'global'} onChange={() => setAmbito('global')} /> Global
+                        <label className="flex items-center gap-1.5 text-sm text-slate-900 cursor-pointer">
+                            <input type="radio" className="accent-templex-600" checked={ambito === 'global'} onChange={() => setAmbito('global')} /> Global
                         </label>
-                        <label className="flex items-center gap-1.5 text-sm">
-                            <input type="radio" checked={ambito === 'sistema'} onChange={() => setAmbito('sistema')} /> Por sistema
+                        <label className="flex items-center gap-1.5 text-sm text-slate-900 cursor-pointer">
+                            <input type="radio" className="accent-templex-600" checked={ambito === 'sistema'} onChange={() => setAmbito('sistema')} /> Por sistema
                         </label>
                     </div>
                     {ambito === 'sistema' && (
@@ -611,13 +627,14 @@ const PanelHistorial: React.FC = () => {
             .finally(() => setCargando(false));
     }, []);
 
-    if (cargando) return <div className="p-6 text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
-    if (items.length === 0) return <div className="p-6 text-sm text-slate-400">Sin movimientos todavía.</div>;
+    if (cargando) return <div className="p-6 text-slate-500"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
+    if (items.length === 0) return <div className="p-6 text-sm text-slate-700">Sin movimientos todavía.</div>;
 
     return (
         <Tarjeta sinRelleno>
-            <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm text-slate-800">
+                <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-900">
                     <tr>
                         <th className="text-left px-3 py-2">Fecha</th>
                         <th className="text-left px-3 py-2">Acción</th>
@@ -626,14 +643,15 @@ const PanelHistorial: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                     {items.map((h) => (
-                        <tr key={h.id}>
-                            <td className="px-3 py-2 text-slate-500">{fmtFecha(h.fecha)}</td>
-                            <td className="px-3 py-2 font-semibold text-slate-700">{h.accion}</td>
-                            <td className="px-3 py-2 text-slate-500 font-mono text-xs">{JSON.stringify(h.payload)}</td>
+                        <tr key={h.id} className="align-top">
+                            <td className="px-3 py-2 text-slate-800 whitespace-nowrap">{fmtFecha(h.fecha)}</td>
+                            <td className="px-3 py-2 font-semibold text-slate-900 whitespace-nowrap">{h.accion}</td>
+                            <td className="px-3 py-2 text-slate-700 font-mono text-[12px] break-all">{JSON.stringify(h.payload)}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
+            </div>
         </Tarjeta>
     );
 };

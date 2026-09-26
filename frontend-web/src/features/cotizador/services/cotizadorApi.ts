@@ -7,7 +7,7 @@ import {
     EstadoSistemaCalibracion, FiltrosListado, HistorialCalibracion, HolguraCalibracion,
     MaterialCalibracion, ModuloMeta, MultiplicadorCategoria, Parametros, PiezaCalibracion,
     Plano, ProductoCatalogo, ProductoCatalogoGeneral, ResultadoCalculo, ResultadoRecalculoCategoria,
-    RespuestaPropuesta, SegmentoCliente, SugerenciaSMO, TipoObraSeleccion,
+    RespuestaPropuesta, SegmentoCliente, LineaManoObra,
 } from '../types';
 
 const BASE = `${API}/api/cotizador`;
@@ -181,23 +181,11 @@ export const apiDescargarPdfPropuesta = (cotizacionId: number, propuestaId: numb
         responseType: 'blob',
     });
 
-/** GET /propuestas/:pid/smo-sugerido — `{ monto, explicacion, tiposObra }`. El
- * monto es una SUGERENCIA: si el vendedor lo cambia, el cargo pasa a MANUAL.
- * `tiposObra` viene con las tarifas vigentes porque son editables desde
- * Configuración y el selector no debe tenerlas cacheadas. */
-export const apiSmoSugerido = (cotizacionId: number, propuestaId: number, tipoObra: TipoObraSeleccion) =>
-    axios.get<SugerenciaSMO>(`${BASE}/cotizaciones/${cotizacionId}/propuestas/${propuestaId}/smo-sugerido`, {
-        params: { tipoObra },
-    });
-
-/** POST /smo-sugerido — la misma sugerencia para una cotización que todavía no
- * se ha guardado: no hay ids a los que colgarse, así que el carrito viaja en el
- * cuerpo. Es POST pero no escribe nada. Se usa en Cotizar mientras el vendedor
- * arma el primer borrador; con la cotización ya guardada manda `apiSmoSugerido`. */
-export const apiSmoSugeridoBorrador = (
-    items: Array<{ moduloId?: string; input?: Record<string, unknown>; resultado?: Record<string, unknown> | null }>,
-    tipoObra: TipoObraSeleccion,
-) => axios.post<SugerenciaSMO>(`${BASE}/smo-sugerido`, { items, tipoObra });
+/** POST /mano-obra — líneas automáticas de mano de obra (ensamble e
+ * instalación) de un juego de ítems, guardados o no. No escribe nada. Solo
+ * viajan el módulo y el formulario de cada ítem: el despiece no hace falta. */
+export const apiManoObra = (items: Array<{ moduloId: string; input: Record<string, unknown> }>) =>
+    axios.post<{ lineas: LineaManoObra[] }>(`${BASE}/mano-obra`, { items });
 
 // ─── Calibración ─────────────────────────────────────────────────────────────
 
@@ -267,5 +255,7 @@ export const apiRecalcularCategoria = (categoria: string, dryRun = false) =>
 /** PUT /parametros — sólo parámetros de negocio; exige motivo. */
 export const apiEditarParametros = (datos: {
     aiu?: number; iva?: number; flete_fijo?: number; alquiler_andamio?: number; huacal?: number;
+    mo_ensamble_ventana_m2?: number; mo_instalacion_ventana_m2?: number;
+    mo_instalacion_cabina_und?: number; mo_instalacion_espejo_tablero_m2?: number;
     smo?: Partial<Parametros['smo']>; motivo: string; por?: string;
 }) => axios.put<Parametros>(`${BASE}/parametros`, datos);

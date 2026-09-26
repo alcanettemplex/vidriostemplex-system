@@ -8,6 +8,8 @@ export const ETIQUETA_CARGO: Record<TipoCargo, string> = {
     HUACAL: 'Huacal / embalaje',
     FLETE: 'Acarreo / flete',
     OTRO: 'Otro servicio',
+    ENSAMBLE: 'Ensamble',
+    INSTALACION: 'Instalación',
 };
 
 /** Misma etiqueta, versión corta: para `ComparadorPropuestas`, donde varios
@@ -19,6 +21,8 @@ export const ETIQUETA_CARGO_CORTA: Record<TipoCargo, string> = {
     HUACAL: 'Huacal',
     FLETE: 'Flete',
     OTRO: 'Otro',
+    ENSAMBLE: 'Ensamble',
+    INSTALACION: 'Instalación',
 };
 
 export const fmtCOP = (v: number | null | undefined) =>

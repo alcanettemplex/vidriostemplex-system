@@ -20,7 +20,9 @@ import TabGuardadas from './components/TabGuardadas';
 import TabCalibracion from './components/TabCalibracion';
 import TabConfiguracion from './components/TabConfiguracion';
 import BarraTrabajo, { TipoNuevaPropuesta } from './components/BarraTrabajo';
-import PanelCargosObra, { EstadoCargos, cargosADTO, cargosDesdeApi, cargosIniciales, resumenCargos } from './components/PanelCargosObra';
+import PanelCargosObra, { EstadoCargos, cargosADTO, cargosDesdeApi, cargosIniciales } from './components/PanelCargosObra';
+import TotalPropuestaEnVivo from './components/TotalPropuestaEnVivo';
+import { BorradorCotizar, calcularTotalesPrevistos, useManoObra } from './totalesPropuesta';
 import ModalClonarPropuesta from './components/modals/ModalClonarPropuesta';
 import ModalCambiosSinGuardar, { DecisionCambios } from './components/modals/ModalCambiosSinGuardar';
 
@@ -718,6 +720,27 @@ const CotizadorPage: React.FC = () => {
 
     const modulosDisponibles = useMemo(() => new Set(modulos.map(m => m.id)), [modulos]);
 
+    // ─── Mano de obra y total en vivo (2026-09-26) ──────────────────────────
+    // La mano de obra por producto la calcula el backend (`POST /mano-obra`); aquí
+    // se pide para dos juegos de ítems: el carrito (barra y Actual) y el carrito
+    // más el producto que está en pantalla en Cotizar (paso 3). El segundo solo
+    // se pide cuando hay un producto en pantalla.
+    const [borrador, setBorrador] = useState<BorradorCotizar | null>(null);
+    const itemsManoObra = useMemo(() => carrito.map(it => ({ moduloId: it.moduloId, input: it.input })), [carrito]);
+    const { lineas: manoObraCarrito, cargando: cargandoManoObraCarrito } = useManoObra(itemsManoObra);
+    const carritoSinEditado = useMemo(
+        () => (borrador?.reemplazaIdTemp ? carrito.filter(it => it.idTemp !== borrador.reemplazaIdTemp) : carrito),
+        [carrito, borrador]
+    );
+    const itemsManoObraCotizar = useMemo(
+        () => (borrador
+            ? [...carritoSinEditado.map(it => ({ moduloId: it.moduloId, input: it.input })), { moduloId: borrador.moduloId, input: borrador.input }]
+            : []),
+        [carritoSinEditado, borrador]
+    );
+    const { lineas: manoObraBorrador, cargando: cargandoManoObraBorrador } = useManoObra(itemsManoObraCotizar);
+    const manoObraCotizar = borrador ? manoObraBorrador : manoObraCarrito;
+
     // Cerrar la pestaña o recargar con cambios pendientes: el navegador pregunta.
     // No cubre los clics en el menú lateral del ERP — la app usa `BrowserRouter`,
     // y bloquear la navegación interna (`useBlocker`) exige un router de datos.
@@ -752,7 +775,7 @@ const CotizadorPage: React.FC = () => {
 
     if (cargandoEstado) {
         return (
-            <div className="p-10 flex items-center justify-center text-slate-400">
+            <div className="p-10 flex items-center justify-center text-slate-700">
                 <Loader2 className="w-6 h-6 animate-spin mr-2" /> Cargando cotizador…
             </div>
         );
@@ -762,25 +785,41 @@ const CotizadorPage: React.FC = () => {
         return (
             <div className="p-10 text-center">
                 <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-                <p className="text-slate-700 font-semibold">El cotizador no está disponible en este momento.</p>
-                <p className="text-slate-400 text-sm mt-1">
+                <p className="text-slate-900 font-semibold">El cotizador no está disponible en este momento.</p>
+                <p className="text-slate-700 text-sm mt-1">
                     La caché de precios y diseños no cargó al iniciar el servidor. Avisa a soporte técnico.
                 </p>
             </div>
         );
     }
 
-    // Sólo el precio de lista de los productos. Ni el descuento ni los cargos ni
-    // el IVA se suman aquí a propósito: esa cadena la resuelve el backend y su
-    // resultado es `propuestaActiva.totales`, que es lo que se muestra al lado.
-    const totalProductos = carrito.reduce((acc, it) => acc + (it.resultado.subtotalConAiu || 0), 0);
-    // Cargos aparte de productos en la barra superior: son las dos mitades de lo
-    // que se cobra y responden preguntas distintas ("¿cuánto vale el producto?"
-    // y "¿cuánto la obra?"). Verlas sumadas sin desglosar obligaba a abrir la
-    // pestaña Actual para saber por qué una cotización con el producto en cero
-    // ya tiene total. El IVA no entra aquí: esto es el precio antes de impuesto,
-    // que es como lo habla el vendedor.
-    const totalCargosObra = resumenCargos(cargos, 0).base;
+    // Totales en vivo (2026-09-26). La cuenta es la réplica del backend en
+    // `totalesPropuesta.ts`. Sin cambios pendientes, la barra muestra el total
+    // GUARDADO, que es exactamente el que quedó en la base.
+    const ivaPct = Number(parametros?.iva) || 0;
+    const legadoActiva = Boolean(propuestaActiva?.legadoCargosEnItems);
+    const totalesCarrito = calcularTotalesPrevistos({
+        items: carrito.map(it => it.resultado),
+        manoObra: manoObraCarrito,
+        cargos,
+        descuentoPct,
+        ivaPct,
+        legado: legadoActiva,
+    });
+    const totalesCotizar = calcularTotalesPrevistos({
+        items: borrador ? [...carritoSinEditado.map(it => it.resultado), borrador] : carrito.map(it => it.resultado),
+        manoObra: manoObraCotizar,
+        cargos,
+        descuentoPct,
+        ivaPct,
+        legado: legadoActiva,
+    });
+    const usarGuardado = !sucio && Boolean(propuestaActiva);
+    const notaTotalCotizar = borrador
+        ? (borrador.reemplazaIdTemp
+            ? 'Incluye los cambios del ítem en edición, aún sin guardar en la propuesta.'
+            : 'Incluye el producto en pantalla, aún sin agregar a la propuesta.')
+        : null;
 
     const controlPropuestas = {
         propuestas,
@@ -813,7 +852,7 @@ const CotizadorPage: React.FC = () => {
     const barraVisible = activeTab === 'cotizar' || activeTab === 'actual';
 
     return (
-        <div className="p-4 md:p-6 font-cotizador">
+        <div className="p-4 md:p-6">
             <div className="relative">
                 {/* Barra de trabajo: en Cotizar y Actual, que son las dos pestañas
                     donde se arma la cotización. Vive en el shell y no en cada Tab
@@ -840,9 +879,11 @@ const CotizadorPage: React.FC = () => {
                         motivoNoSegmento={motivoNoSegmento}
                         cifras={{
                             items: carrito.length,
-                            productos: totalProductos,
-                            cargos: totalCargosObra,
-                            totalGuardado: propuestaActiva ? propuestaActiva.totales.total : null,
+                            productos: totalesCarrito.productos,
+                            manoObra: totalesCarrito.manoObra,
+                            cargos: totalesCarrito.cargos,
+                            total: usarGuardado && propuestaActiva ? propuestaActiva.totales.total : totalesCarrito.total,
+                            sinGuardar: !usarGuardado && carrito.length > 0,
                         }}
                     />
                 )}
@@ -872,27 +913,34 @@ const CotizadorPage: React.FC = () => {
                             // el usuario): el mismo estado que se ve en Actual, para que
                             // el vendedor no tenga que cambiar de pestaña para ajustar la
                             // mano de obra mientras arma el producto.
+                            onBorrador={setBorrador}
                             panelCargos={
-                                <PanelCargosObra
-                                    valor={cargos}
-                                    onChange={cambiarCargos}
-                                    parametros={parametros}
-                                    cotizacionId={edicion?.id ?? null}
-                                    propuestaId={propuestaActivaId}
-                                    // Con la cotización aún sin guardar no hay propuesta
-                                    // a la que pedirle la sugerencia de mano de obra, así
-                                    // que va el carrito: el cálculo sigue siendo del
-                                    // backend, sólo cambia de dónde saca los ítems.
-                                    itemsBorrador={carrito.map(it => ({
-                                        moduloId: it.moduloId,
-                                        input: it.input,
-                                        resultado: it.resultado as unknown as Record<string, unknown>,
-                                    }))}
-                                    etiquetaPropuesta={propuestaActiva?.etiqueta ?? null}
-                                    legado={propuestaActiva?.legadoCargosEnItems}
-                                    onDuplicarLegado={duplicarPropuesta}
-                                    aprobada={Boolean(bloqueoEdicion)}
-                                />
+                                <>
+                                    <PanelCargosObra
+                                        // Plegable sólo aquí, al pie del flujo de Cotizar (paso 3);
+                                        // en Actual se monta completo, como siempre.
+                                        plegable
+                                        valor={cargos}
+                                        onChange={cambiarCargos}
+                                        parametros={parametros}
+                                        cotizacionId={edicion?.id ?? null}
+                                        manoObra={legadoActiva ? [] : manoObraCotizar}
+                                        cargandoManoObra={borrador ? cargandoManoObraBorrador : cargandoManoObraCarrito}
+                                        notaManoObra={notaTotalCotizar}
+                                        cantidadItems={carrito.length}
+                                        etiquetaPropuesta={propuestaActiva?.etiqueta ?? null}
+                                        legado={propuestaActiva?.legadoCargosEnItems}
+                                        onDuplicarLegado={duplicarPropuesta}
+                                        aprobada={Boolean(bloqueoEdicion)}
+                                    />
+                                    {/* Total en vivo: se mueve al marcar un cargo o cambiar el
+                                        producto, sin ir a Actual ni guardar (pedido del usuario). */}
+                                    <TotalPropuestaEnVivo
+                                        totales={totalesCotizar}
+                                        descuentoPct={descuentoPct}
+                                        nota={notaTotalCotizar}
+                                    />
+                                </>
                             }
                             destino={{
                                 etiqueta: propuestaActiva?.etiqueta ?? 'A',
@@ -919,6 +967,9 @@ const CotizadorPage: React.FC = () => {
                             onCambiarDescuento={(v) => { setDescuentoPct(v); marcarSucio(); }}
                             cargos={cargos}
                             onCambiarCargos={cambiarCargos}
+                            manoObra={legadoActiva ? [] : manoObraCarrito}
+                            cargandoManoObra={cargandoManoObraCarrito}
+                            totalesPrevistos={totalesCarrito}
                             propuestas={controlPropuestas}
                             hayCambiosSinGuardar={sucio}
                             onNuevaCotizacion={nuevaCotizacion}

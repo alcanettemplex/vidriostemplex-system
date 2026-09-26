@@ -4,7 +4,7 @@ import { Check, ChevronDown, LayoutGrid, Search, X } from '../../../components/u
 
 import { apiGetDisenos } from '../services/cotizadorApi';
 import { DisenoResumen } from '../types';
-import { ChipNivelCorte } from './ui';
+import { ChipNivelCorte, CONTROL_LABEL_CLASS } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Selector de diseño de catálogo. Solo lo usa el módulo "ventanas": si se elige
@@ -52,7 +52,9 @@ function nombreSistema(sistema: string): string {
 // sea la de cortar — el margen de corte de cada perfil se calibra aparte y sigue
 // sin medir. Quien decide si se puede emitir una orden es `aptitudOrden.ts` en
 // el backend, con ocho condiciones de las que ésta es una.
-const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
+// Rótulo del campo: el mismo token que el resto del formulario (negro
+// seminegrita, 2026-09-26) en vez de una copia gris propia.
+const labelClass = CONTROL_LABEL_CLASS;
 
 interface Props {
     modulo: string;
@@ -158,52 +160,54 @@ const SelectorDiseno: React.FC<Props> = ({ modulo, value, onChange, sistema }) =
                 aria-haspopup="listbox"
                 aria-expanded={abierto}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border bg-white text-left transition
-                    ${abierto ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-slate-300'}
+                    ${abierto ? 'border-templex-500 ring-2 ring-templex-200' : 'border-slate-300 hover:border-slate-400'}
                     ${exigeDiseno && !seleccionado ? 'border-amber-300 bg-amber-50/40' : ''}`}
             >
                 {seleccionado ? (
                     <>
-                        <span className="px-2 py-0.5 rounded-lg bg-indigo-600 text-white text-[12px] font-extrabold font-cotizador-head tracking-wide flex-shrink-0">
+                        <span className="px-2 py-0.5 rounded-lg bg-templex-600 text-white text-[12px] font-bold tracking-wide flex-shrink-0">
                             {seleccionado.diseno}
                         </span>
                         <span className="flex-1 min-w-0">
-                            <span className="block text-[13px] font-bold text-slate-700 truncate">
+                            <span className="block text-[13px] font-semibold text-slate-900 truncate">
                                 {seleccionado.etiqueta || seleccionado.diseno}
                             </span>
-                            <span className="block text-[11px] text-slate-400 truncate">
+                            <span className="block text-[11px] text-slate-700 truncate">
                                 {nombreSistema(seleccionado.sistema)}
                             </span>
                         </span>
                         <span
                             onClick={e => { e.stopPropagation(); elegir(undefined); }}
                             title="Quitar el diseño y volver a medidas libres"
-                            className="p-1 rounded-lg text-slate-300 hover:text-slate-600 hover:bg-slate-100 flex-shrink-0"
+                            className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 flex-shrink-0"
                         >
                             <X className="w-3.5 h-3.5" />
                         </span>
                     </>
                 ) : (
                     <>
-                        <LayoutGrid className="w-4 h-4 text-slate-300 flex-shrink-0" />
-                        <span className="flex-1 text-[13px] text-slate-400">
+                        <LayoutGrid className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                        {/* "Medidas libres" es una elección válida (se lee en negro);
+                            "Selecciona un diseño…" es un hueco por llenar (placeholder). */}
+                        <span className={`flex-1 text-[13px] ${exigeDiseno ? 'text-slate-500' : 'text-slate-800'}`}>
                             {exigeDiseno ? 'Selecciona un diseño…' : 'Medidas libres (sin diseño)'}
                         </span>
                     </>
                 )}
-                <ChevronDown className={`w-4 h-4 text-slate-400 flex-shrink-0 transition ${abierto ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-slate-600 flex-shrink-0 transition ${abierto ? 'rotate-180' : ''}`} />
             </button>
 
             {abierto && (
                 <div className="absolute z-30 mt-1.5 w-full bg-white border border-slate-200 rounded-xl shadow-xl shadow-slate-900/10 overflow-hidden">
                     <div className="p-2 border-b border-slate-100">
                         <div className="relative">
-                            <Search className="w-3.5 h-3.5 text-slate-300 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                             <input
                                 ref={inputBusquedaRef}
                                 value={busqueda}
                                 onChange={e => setBusqueda(e.target.value)}
                                 placeholder="Buscar por código o forma…"
-                                className="w-full pl-8 pr-2 py-1.5 text-[12.5px] rounded-lg bg-slate-50 border border-transparent focus:bg-white focus:border-indigo-200 focus:outline-none"
+                                className="w-full pl-8 pr-2 py-1.5 text-[12.5px] text-slate-900 placeholder:text-slate-500 rounded-lg bg-slate-50 border border-slate-200 focus:bg-white focus:border-templex-500 focus:ring-2 focus:ring-templex-200 focus:outline-none"
                             />
                         </div>
                     </div>
@@ -214,14 +218,14 @@ const SelectorDiseno: React.FC<Props> = ({ modulo, value, onChange, sistema }) =
                                 type="button"
                                 onClick={() => elegir(undefined)}
                                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-slate-50 transition
-                                    ${!value ? 'bg-indigo-50/60' : ''}`}
+                                    ${!value ? 'bg-templex-50' : ''}`}
                             >
                                 <span className="w-4 flex-shrink-0">
-                                    {!value && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                                    {!value && <Check className="w-3.5 h-3.5 text-templex-600" />}
                                 </span>
                                 <span className="flex-1">
-                                    <span className="block text-[13px] font-bold text-slate-600">Medidas libres</span>
-                                    <span className="block text-[11px] text-slate-400">
+                                    <span className="block text-[13px] font-semibold text-slate-900">Medidas libres</span>
+                                    <span className="block text-[11px] text-slate-700">
                                         Sin diseño: el motor estima el despiece con reglas generales
                                     </span>
                                 </span>
@@ -229,7 +233,7 @@ const SelectorDiseno: React.FC<Props> = ({ modulo, value, onChange, sistema }) =
                         )}
 
                         {grupos.length === 0 && (
-                            <p className="px-3 py-6 text-center text-[12.5px] text-slate-400">
+                            <p className="px-3 py-6 text-center text-[12.5px] text-slate-700">
                                 {visibles.length === 0
                                     ? 'No hay diseños para este sistema.'
                                     : `Ningún diseño coincide con “${busqueda}”.`}
@@ -239,10 +243,10 @@ const SelectorDiseno: React.FC<Props> = ({ modulo, value, onChange, sistema }) =
                         {grupos.map(([nombre, items]) => (
                             <div key={nombre}>
                                 <div className="sticky top-0 px-3 py-1.5 bg-slate-50/95 backdrop-blur border-y border-slate-100 flex items-center justify-between">
-                                    <span className="text-[10.5px] font-extrabold uppercase tracking-wide text-slate-500 font-cotizador-head">
+                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
                                         {nombreSistema(nombre)}
                                     </span>
-                                    <span className="text-[10.5px] font-bold text-slate-400">{items.length}</span>
+                                    <span className="text-[11px] text-slate-700 tabular-nums">{items.length}</span>
                                 </div>
                                 {items.map(d => {
                                     const activo = d.id === value;
@@ -253,24 +257,24 @@ const SelectorDiseno: React.FC<Props> = ({ modulo, value, onChange, sistema }) =
                                             role="option"
                                             aria-selected={activo}
                                             onClick={() => elegir(d.id)}
-                                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-indigo-50/50 transition
-                                                ${activo ? 'bg-indigo-50' : ''}`}
+                                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-templex-50/60 transition
+                                                ${activo ? 'bg-templex-50' : ''}`}
                                         >
                                             <span className="w-4 flex-shrink-0">
-                                                {activo && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                                                {activo && <Check className="w-3.5 h-3.5 text-templex-600" />}
                                             </span>
                                             <span
-                                                className={`px-2 py-0.5 rounded-lg text-[12px] font-extrabold font-cotizador-head tracking-wide flex-shrink-0 min-w-[3.25rem] text-center
-                                                    ${activo ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'}`}
+                                                className={`px-2 py-0.5 rounded-lg text-[12px] font-bold tracking-wide flex-shrink-0 min-w-[3.25rem] text-center
+                                                    ${activo ? 'bg-templex-600 text-white' : 'bg-slate-100 text-slate-800'}`}
                                             >
                                                 {d.diseno}
                                             </span>
                                             <span className="flex-1 min-w-0">
-                                                <span className="block text-[12.5px] font-semibold text-slate-700 truncate">
+                                                <span className="block text-[12.5px] font-semibold text-slate-900 truncate">
                                                     {d.etiqueta || '—'}
                                                 </span>
                                                 {d.paneles !== null && (
-                                                    <span className="block text-[11px] text-slate-400">
+                                                    <span className="block text-[11px] text-slate-700">
                                                         {d.paneles} {d.paneles === 1 ? 'panel' : 'paneles'} · {d.piezasPerfil} perfiles
                                                     </span>
                                                 )}
@@ -283,11 +287,11 @@ const SelectorDiseno: React.FC<Props> = ({ modulo, value, onChange, sistema }) =
                         ))}
                     </div>
 
-                    <p className="px-3 py-2 border-t border-slate-100 bg-slate-50/60 text-[10.5px] text-slate-400 leading-snug">
-                        <span className="font-bold text-slate-500">A · B · C</span> = cuánto puede variar la medida.
-                        <span className="font-bold text-emerald-600"> A</span> determinada,
-                        <span className="font-bold text-amber-600"> B</span> ±1 mm en las piezas que dividen,
-                        <span className="font-bold text-slate-500"> C</span> sin acotar.
+                    <p className="px-3 py-2 border-t border-slate-100 bg-slate-50/60 text-[11px] text-slate-700 leading-snug">
+                        <span className="font-semibold text-slate-900">A · B · C</span> = cuánto puede variar la medida.
+                        <span className="font-semibold text-emerald-700"> A</span> determinada,
+                        <span className="font-semibold text-amber-700"> B</span> ±1 mm en las piezas que dividen,
+                        <span className="font-semibold text-slate-900"> C</span> sin acotar.
                         Todos cotizan igual — la diferencia solo importa al cortar.
                     </p>
                 </div>

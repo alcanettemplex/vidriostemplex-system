@@ -19,6 +19,12 @@ import { Chip, Tarjeta } from './ui';
 // distintivos `provisional` / `revisarPrecio` que cada línea ya traía del
 // backend (motorCalculo.lineaCatalogo) y que hasta hoy se perdían: un precio
 // derivado de una fuente externa no puede leerse igual que uno del catálogo.
+//
+// SISTEMA VISUAL (2026-09-26, Fase 5): encabezados y rótulos en negro
+// seminegrita, celdas en negro normal, acento `templex`. La columna Descripción
+// tiene un ancho mínimo y las de código/categoría/unidad no se parten, así que
+// "5020 CABEZAL 144 MATE" ya no cae en tres líneas; en pantallas estrechas la
+// tabla se desplaza en horizontal en vez de aplastarse.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Acciones de personalización (2026-09-23). Sin ellas la tabla es de sólo
@@ -38,7 +44,7 @@ interface Props {
     acciones?: AccionesDespiece;
 }
 
-const btnLinea = 'p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-100/60 transition disabled:opacity-30 disabled:cursor-not-allowed';
+const btnLinea = 'p-1 rounded-md text-slate-600 hover:text-templex-700 hover:bg-templex-50 transition disabled:opacity-30 disabled:cursor-not-allowed';
 
 const filaTotalClase = 'flex items-center justify-between gap-3';
 
@@ -61,7 +67,9 @@ const comoTexto = (v: unknown): string | null => (typeof v === 'string' && v.tri
 const DistintivosLinea: React.FC<{ item: LineaBOM }> = ({ item }) => {
     const provisional = esVerdadero(item.provisional);
     const revisar = esVerdadero(item.revisarPrecio);
-    if (!provisional && !revisar) return null;
+    // Precio a cotizar (2026-09-26): el asesor escribió el costo del proveedor.
+    const costoManual = esVerdadero(item.precioACotizar) && typeof item.costoManual === 'number' ? item.costoManual : null;
+    if (!provisional && !revisar && costoManual === null) return null;
     const fuente = comoTexto(item.fuentePrecio);
     return (
         <span className="inline-flex flex-wrap items-center gap-1">
@@ -77,6 +85,11 @@ const DistintivosLinea: React.FC<{ item: LineaBOM }> = ({ item }) => {
                 <Chip tono="ambar" title="El precio parece un valor por defecto de la fuente: confírmalo antes de cotizar.">
                     <AlertTriangle className="w-3 h-3" />
                     Revisar precio
+                </Chip>
+            )}
+            {costoManual !== null && (
+                <Chip tono="ambar" title="Producto de precio a cotizar: el precio sale del costo del proveedor que escribió el asesor.">
+                    Costo manual {fmtCOP(costoManual)}
                 </Chip>
             )}
         </span>
@@ -110,7 +123,7 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
     return (
         <div className="space-y-3">
             {hayErrores && (
-                <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[12.5px] font-bold">
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[12.5px] font-semibold">
                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <span>Hay líneas en error: corrígelas antes de agregar este ítem a la cotización.</span>
                 </div>
@@ -124,7 +137,7 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                 accion={
                     <span className="inline-flex items-center gap-2">
                         {hayPersonalizacion && (
-                            <Chip tono="indigo" title="Este ítem tiene componentes cambiados, quitados o agregados respecto del estándar.">
+                            <Chip tono="marca" title="Este ítem tiene componentes cambiados, quitados o agregados respecto del estándar.">
                                 <Sparkles className="w-3 h-3" /> Personalizado
                             </Chip>
                         )}
@@ -133,7 +146,7 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                                 Sin orden de corte
                             </Chip>
                         )}
-                        <span className="text-[11px] text-slate-400 font-cotizador-head tabular-nums">
+                        <span className="text-[11.5px] text-slate-700 tabular-nums whitespace-nowrap">
                             {items.length} línea{items.length === 1 ? '' : 's'}
                         </span>
                     </span>
@@ -143,17 +156,15 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                     tarjeta, para que la banda gris del encabezado llegue a los
                     dos bordes en vez de flotar dentro del padding. */}
                 <div className="overflow-x-auto -mx-4">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-slate-500 border-y border-slate-200">
+                    <table className="w-full min-w-[520px] text-[13px]">
+                        <thead className="bg-slate-50 text-slate-900 border-y border-slate-200">
                             <tr>
-                                <th className="px-3 py-2 text-left text-[10.5px] font-extrabold uppercase tracking-wide">Código</th>
-                                <th className="px-3 py-2 text-left text-[10.5px] font-extrabold uppercase tracking-wide">Descripción</th>
-                                <th className="px-3 py-2 text-left text-[10.5px] font-extrabold uppercase tracking-wide">Cat.</th>
-                                <th className="px-3 py-2 text-left text-[10.5px] font-extrabold uppercase tracking-wide">Unidad</th>
-                                <th className="px-3 py-2 text-right text-[10.5px] font-extrabold uppercase tracking-wide">Cant.</th>
-                                <th className="px-3 py-2 text-right text-[10.5px] font-extrabold uppercase tracking-wide">P. Unitario</th>
-                                <th className="px-3 py-2 text-right text-[10.5px] font-extrabold uppercase tracking-wide">Valor Total</th>
-                                {acciones && <th className="px-2 py-2 w-16"><span className="sr-only">Acciones</span></th>}
+                                <th className="pl-4 pr-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap">Código</th>
+                                <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide min-w-[12rem]">Descripción</th>
+                                <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap">Cant.</th>
+                                <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap">P. Unitario</th>
+                                <th className={`py-2 text-right text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${acciones ? 'px-2' : 'pl-2 pr-4'}`}>Valor Total</th>
+                                {acciones && <th className="pl-1 pr-3 py-2 w-16"><span className="sr-only">Acciones</span></th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -161,11 +172,11 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                                 <tr
                                     key={i}
                                     className={item.error
-                                        ? 'bg-rose-50 text-rose-700'
-                                        : 'text-slate-700 hover:bg-slate-50 transition-colors'}
+                                        ? 'bg-rose-50 text-rose-800'
+                                        : 'text-slate-800 hover:bg-slate-50 transition-colors'}
                                 >
-                                    <td className="px-3 py-2 font-mono text-xs whitespace-nowrap align-top">{item.codigo}</td>
-                                    <td className="px-3 py-2 align-top">
+                                    <td className="pl-4 pr-2 py-2 font-mono text-[12px] whitespace-nowrap align-top">{item.codigo}</td>
+                                    <td className="px-2 py-2 align-top">
                                         <div className="flex items-start gap-1.5">
                                             <span
                                                 className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 mt-[7px] flex-shrink-0"
@@ -174,10 +185,18 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                                             {item.error && <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />}
                                             <span className="min-w-0">
                                                 <span className={item.error ? 'font-semibold' : ''}>{item.descripcion}</span>
+                                                {/* Categoría y unidad van como segunda línea y no en columnas
+                                                    propias (Fase 5): con ellas la tabla no cabía en la columna
+                                                    de resultado y el VALOR TOTAL quedaba fuera de la vista. */}
+                                                {(item.categoria || item.unidad) && (
+                                                    <span className={`block text-[11.5px] ${item.error ? '' : 'text-slate-700'}`}>
+                                                        {[item.categoria, item.unidad].filter(Boolean).join(' · ')}
+                                                    </span>
+                                                )}
                                                 <DistintivosLinea item={item} />
                                                 {item.personalizada === 'cambiada' && (
                                                     <span className="flex flex-wrap items-center gap-1 mt-0.5">
-                                                        <Chip tono="indigo" title={comoTexto(item.descripcionOriginal) ?? undefined}>
+                                                        <Chip tono="marca" title={comoTexto(item.descripcionOriginal) ?? undefined}>
                                                             Cambiado · antes {String(item.codigoOriginal)}
                                                         </Chip>
                                                         {acciones && (
@@ -185,7 +204,7 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                                                                 type="button"
                                                                 disabled={acciones.ocupado}
                                                                 onClick={() => acciones.onDeshacerCambio(String(item.codigoOriginal))}
-                                                                className="text-[11px] font-bold text-indigo-600 hover:underline disabled:opacity-40"
+                                                                className="text-[11px] font-semibold text-templex-700 hover:underline disabled:opacity-40"
                                                             >
                                                                 Deshacer
                                                             </button>
@@ -198,13 +217,11 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                                             </span>
                                         </div>
                                     </td>
-                                    <td className={`px-3 py-2 whitespace-nowrap align-top ${item.error ? '' : 'text-slate-500'}`}>{item.categoria}</td>
-                                    <td className={`px-3 py-2 whitespace-nowrap align-top ${item.error ? '' : 'text-slate-500'}`}>{item.unidad}</td>
-                                    <td className="px-3 py-2 text-right whitespace-nowrap align-top font-cotizador-head tabular-nums">{item.cantidad}</td>
-                                    <td className="px-3 py-2 text-right whitespace-nowrap align-top font-cotizador-head tabular-nums">{fmtCOP(item.precioUnitario)}</td>
-                                    <td className="px-3 py-2 text-right font-bold whitespace-nowrap align-top font-cotizador-head tabular-nums">{fmtCOP(item.valorTotal)}</td>
+                                    <td className="px-2 py-2 text-right whitespace-nowrap align-top tabular-nums">{item.cantidad}</td>
+                                    <td className="px-2 py-2 text-right whitespace-nowrap align-top tabular-nums">{fmtCOP(item.precioUnitario)}</td>
+                                    <td className={`py-2 text-right font-semibold whitespace-nowrap align-top tabular-nums ${item.error ? '' : 'text-slate-900'} ${acciones ? 'px-2' : 'pl-2 pr-4'}`}>{fmtCOP(item.valorTotal)}</td>
                                     {acciones && (
-                                        <td className="px-2 py-1.5 text-right whitespace-nowrap align-top">
+                                        <td className="pl-1 pr-3 py-1.5 text-right whitespace-nowrap align-top">
                                             {item.personalizada !== 'agregada' && (
                                                 <button
                                                     type="button"
@@ -219,7 +236,7 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                                             )}
                                             <button
                                                 type="button"
-                                                className={`${btnLinea} hover:text-rose-600 hover:bg-rose-100/60`}
+                                                className={`${btnLinea} hover:text-rose-700 hover:bg-rose-50`}
                                                 disabled={acciones.ocupado}
                                                 onClick={() => acciones.onQuitar(item)}
                                                 title="Quitar del despiece"
@@ -238,8 +255,8 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                 {acciones && (
                     <div className="-mx-4 -mb-4 mt-0 px-4 py-2.5 border-t border-slate-200 bg-slate-50/70 space-y-2">
                         {quitados.length > 0 && (
-                            <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-slate-500">
-                                <span className="font-bold">Quitados:</span>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-slate-800">
+                                <span className="font-semibold text-slate-900">Quitados:</span>
                                 {quitados.map(q => (
                                     <span key={q.codigo} className="inline-flex items-center gap-1 rounded-md bg-white border border-slate-200 px-2 py-0.5">
                                         <span className="line-through">{q.codigo}</span>
@@ -247,7 +264,7 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                                             type="button"
                                             disabled={acciones.ocupado}
                                             onClick={() => acciones.onRestaurar(q.codigo)}
-                                            className="inline-flex items-center gap-0.5 text-[11px] font-bold text-indigo-600 hover:underline disabled:opacity-40"
+                                            className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-templex-700 hover:underline disabled:opacity-40"
                                             title={`Volver a incluir ${q.descripcion}`}
                                         >
                                             <Undo2 className="w-3 h-3" /> Restaurar
@@ -260,7 +277,7 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                             type="button"
                             disabled={acciones.ocupado}
                             onClick={acciones.onAgregar}
-                            className="inline-flex items-center gap-1.5 text-[12px] font-bold text-indigo-600 hover:text-indigo-700 disabled:opacity-40"
+                            className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-templex-700 hover:text-templex-800 disabled:opacity-40"
                         >
                             {acciones.ocupado ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                             Agregar componente
@@ -273,20 +290,20 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
             <Tarjeta titulo="Resumen financiero" icono={Receipt}>
                 <div className="space-y-1.5 text-sm">
                     <div className={filaTotalClase}>
-                        <span className="text-slate-500">Subtotal por pieza</span>
-                        <span className="font-semibold text-slate-700 font-cotizador-head tabular-nums">{fmtCOP(subtotalPieza)}</span>
+                        <span className="text-slate-800">Subtotal por pieza</span>
+                        <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(subtotalPieza)}</span>
                     </div>
                     <div className={filaTotalClase}>
-                        <span className="text-slate-500">Cantidad de piezas</span>
-                        <span className="font-semibold text-slate-700 font-cotizador-head tabular-nums">{cantidadPiezas}</span>
+                        <span className="text-slate-800">Cantidad de piezas</span>
+                        <span className="font-semibold text-slate-900 tabular-nums">{cantidadPiezas}</span>
                     </div>
                     <div className={filaTotalClase}>
-                        <span className="text-slate-500">Subtotal</span>
-                        <span className="font-semibold text-slate-700 font-cotizador-head tabular-nums">{fmtCOP(subtotal)}</span>
+                        <span className="text-slate-800">Subtotal</span>
+                        <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(subtotal)}</span>
                     </div>
                     <div className={filaTotalClase}>
-                        <span className="text-slate-500">AIU aplicado ({fmtPct(pctAiu)})</span>
-                        <span className="font-semibold text-slate-700 font-cotizador-head tabular-nums">+ {fmtCOP(montoAiu)}</span>
+                        <span className="text-slate-800">AIU aplicado ({fmtPct(pctAiu)})</span>
+                        <span className="font-semibold text-slate-900 tabular-nums">+ {fmtCOP(montoAiu)}</span>
                     </div>
                     {/* El descuento por ítem salió del formulario el 2026-09-20: hay UN
                         solo descuento y vive en la propuesta. La línea sigue aquí para
@@ -294,13 +311,13 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                         un "- $0" en las nuevas: sería un renglón que no significa nada. */}
                     {descuento > 0 && (
                         <div className={filaTotalClase}>
-                            <span className="text-slate-500">Descuento ({fmtPct(descuentoPct)})</span>
-                            <span className="font-semibold text-rose-600 font-cotizador-head tabular-nums">- {fmtCOP(descuento)}</span>
+                            <span className="text-slate-800">Descuento ({fmtPct(descuentoPct)})</span>
+                            <span className="font-semibold text-rose-700 tabular-nums">- {fmtCOP(descuento)}</span>
                         </div>
                     )}
                     <div className={filaTotalClase}>
-                        <span className="text-slate-500">IVA ({fmtPct(ivaPct)})</span>
-                        <span className="font-semibold text-slate-700 font-cotizador-head tabular-nums">{fmtCOP(iva)}</span>
+                        <span className="text-slate-800">IVA ({fmtPct(ivaPct)})</span>
+                        <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(iva)}</span>
                     </div>
                 </div>
 
@@ -308,10 +325,10 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                     busca de un vistazo y no puede pesar lo mismo que las líneas
                     intermedias de la cadena. */}
                 <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-3 flex items-baseline justify-between gap-3">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 font-cotizador-head tabular-nums">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
                         Total del producto
                     </span>
-                    <span className="text-3xl font-black text-slate-900 font-cotizador-head tabular-nums leading-none">{fmtCOP(total)}</span>
+                    <span className="text-3xl font-extrabold text-slate-900 tabular-nums leading-none">{fmtCOP(total)}</span>
                 </div>
 
                 {/* Este total es el del PRODUCTO, a precio lleno. Ni la mano de obra
@@ -319,9 +336,9 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                     por propuesta, no una por pieza: cinco piezas cobraban cinco
                     fletes), y el descuento de la propuesta se aplica después sobre
                     la suma. Sin este rótulo el vendedor lo lee como el precio final. */}
-                <p className="text-[11px] text-slate-400 leading-snug pt-2">
-                    Precio del producto. La mano de obra, el flete y demás cargos de obra se cobran una vez por
-                    propuesta y se suman aparte; el descuento de la propuesta tampoco está aplicado aquí.
+                <p className="text-[11.5px] text-slate-700 leading-snug pt-2">
+                    Precio del producto, sin mano de obra ni cargos de obra: se suman en el paso 3, donde ves el
+                    total de la propuesta. El descuento de la propuesta tampoco está aplicado aquí.
                 </p>
             </Tarjeta>
 
@@ -332,14 +349,14 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                 más" es esconder un error de taller. */}
             {advertencias.length > 0 && (
                 <section className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
-                    <h3 className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-amber-700 font-cotizador-head tabular-nums">
+                    <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
                         <Lightbulb className="w-3.5 h-3.5 shrink-0" />
                         Recomendación técnica
-                        <span className="font-cotizador-head tabular-nums text-amber-600">({advertencias.length})</span>
+                        <span className="tabular-nums">({advertencias.length})</span>
                     </h3>
                     <ul className="mt-2 space-y-1.5">
                         {advertencias.map((a, i) => (
-                            <li key={i} className="flex items-start gap-2 text-xs text-amber-800 leading-snug">
+                            <li key={i} className="flex items-start gap-2 text-[12px] text-amber-900 leading-snug">
                                 <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                                 <span>{a}</span>
                             </li>

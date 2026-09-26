@@ -20,6 +20,9 @@ export type TipoCampo = 'string' | 'number' | 'boolean' | 'select' | 'lineas';
 export interface LineaLibre {
     codigo: string;
     cantidad: number | '';
+    /** Solo productos con `precioACotizar`: costo del proveedor que escribe el
+     * asesor; el backend le aplica el multiplicador del segmento. */
+    costo?: number | '';
 }
 
 // ─── Personalización de componentes (2026-09-23) ────────────────────────────
@@ -30,6 +33,8 @@ export interface LineaLibre {
 
 export interface ExtraComponente {
     codigo: string;
+    /** Solo productos con `precioACotizar`: costo del proveedor. */
+    costo?: number;
     /** Unidades del catálogo; no se usa en perfiles. */
     cantidad?: number;
     /** Sólo perfiles: medida de cada pieza (mm) × piezas, +5 % de desperdicio. */
@@ -38,7 +43,7 @@ export interface ExtraComponente {
 }
 
 export interface PersonalizacionItem {
-    cambios?: Array<{ de: string; a: string }>;
+    cambios?: Array<{ de: string; a: string; costo?: number }>;
     quitados?: string[];
     extras?: ExtraComponente[];
 }
@@ -83,6 +88,9 @@ export interface CampoMeta {
     etiqueta: string;
     requerido: boolean;
     grupo?: GrupoCampo;
+    /** Valor con el que arranca el campo en un ítem nuevo (p. ej. "Con
+     * instalación" marcado). Ausente = el vacío de su tipo. */
+    defecto?: unknown;
     // Sólo en campos tipo 'select': cada opción es un primitivo (se muestra tal
     // cual) o un {value,label} cuando el texto a mostrar difiere del valor real.
     opciones?: Array<string | number | OpcionCampo>;
@@ -171,6 +179,9 @@ export interface ProductoCatalogo {
     precio_pm: number;
     precio_pb: number;
     activo: boolean;
+    /** Se cotiza aparte con el proveedor (KVE001, vidrios sobre pedido): el
+     * asesor escribe el costo. Solo viene cuando es true. */
+    precioACotizar?: boolean;
 }
 
 // ─── Diseños (selector) ─────────────────────────────────────────────────────
@@ -305,11 +316,16 @@ export interface ItemCotizacion extends ItemCotizacionLigero {
 // vez: hasta ese día vivían dentro del BOM y `totalizar()` los multiplicaba por
 // `cantidadPiezas`, así que una ventana con 5 piezas cobraba 5 fletes.
 
-export type TipoCargo = 'SMO' | 'ANDAMIO' | 'HUACAL' | 'FLETE' | 'OTRO';
-export type UnidadCargo = 'DIA' | 'UND' | 'GLOBAL';
+/** ENSAMBLE / INSTALACION (2026-09-26): mano de obra por producto, líneas
+ * AUTOMÁTICAS que genera el backend desde los ítems. Llevan AIU, descuento e IVA,
+ * a diferencia del resto. SMO queda solo en propuestas guardadas antes. */
+export type TipoCargo = 'SMO' | 'ANDAMIO' | 'HUACAL' | 'FLETE' | 'OTRO' | 'ENSAMBLE' | 'INSTALACION';
+export type UnidadCargo = 'DIA' | 'UND' | 'GLOBAL' | 'M2';
 /** `SUGERIDO` = el monto lo puso el sistema; `MANUAL` = lo escribió el vendedor
- * encima del sugerido. El backend lo guarda tal como llega. */
-export type OrigenCargo = 'SUGERIDO' | 'MANUAL';
+ * encima del sugerido; `AUTOMATICO` = mano de obra calculada desde los ítems. */
+export type OrigenCargo = 'SUGERIDO' | 'MANUAL' | 'AUTOMATICO';
+
+export const TIPOS_MANO_OBRA: ReadonlySet<TipoCargo> = new Set<TipoCargo>(['ENSAMBLE', 'INSTALACION']);
 
 export interface CargoPropuesta {
     id: number;
@@ -342,6 +358,9 @@ export interface CargoEntrada {
 export interface TotalesPropuesta {
     /** Σ `subtotalConAiu` de los ítems, SIN descuento: el precio de lista. */
     productos: number;
+    /** Mano de obra por producto, ya con AIU (2026-09-26). Entra en la base del
+     * descuento y del IVA. Ausente en respuestas anteriores a ese día. */
+    manoObra?: number;
     descuento: number;
     /** Base de los cargos, sin IVA. Van fuera del AIU y fuera del descuento. */
     cargos: number;
@@ -389,33 +408,20 @@ export interface PropuestaEntrada {
     cargos?: CargoEntrada[];
 }
 
-// ─── Sugerencia de mano de obra ────────────────────────────────────────────
+// ─── Mano de obra por producto — POST /mano-obra ───────────────────────────
 
-export type TipoObraSeleccion = 'cabinas' | 'fachadas' | 'armadaVentanas' | 'persiana' | 'otro';
-
-export interface TipoObraListado {
-    id: TipoObraSeleccion;
-    etiqueta: string;
-    /** Tarifa vigente en parámetros; 0 para `otro`, que es monto libre. */
-    tarifa: number;
-}
-
-/** `GET /cotizaciones/:id/propuestas/:pid/smo-sugerido?tipoObra=…` */
-export interface SugerenciaSMO {
-    /** Total sugerido = `cantidad × tarifa`. */
-    monto: number;
-    /** "3 unidades × $60.000 (Armada de ventanas)". Se muestra BAJO el campo
-     * para que el vendedor sepa de dónde sale y pueda defenderlo ante el
-     * cliente. */
-    explicacion: string;
-    /** Valor POR UNIDAD del tipo de obra (2026-09-20: la mano de obra se cobra
-     * por unidad instalada, no por metro cuadrado). */
-    tarifa: number;
-    /** Unidades sugeridas: la suma de piezas de la propuesta. */
+/** Una línea automática de mano de obra, tal como la calcula el backend
+ * (`calcularManoObraProductos`). `valorUnitario` ya trae el AIU. */
+export interface LineaManoObra {
+    tipo: 'ENSAMBLE' | 'INSTALACION';
+    descripcion: string;
     cantidad: number;
-    /** Área total. Sólo informativa: ya no interviene en el cálculo del SMO. */
-    areaM2: number;
-    tiposObra: TipoObraListado[];
+    unidad: 'M2' | 'UND';
+    valorUnitario: number;
+    aplicaIva: boolean;
+    origen: 'AUTOMATICO';
+    /** "4,20 m² × $60.000 + AIU". */
+    explicacion?: string;
 }
 
 // ─── Comparador de propuestas — GET /cotizaciones/:id/comparar ─────────────
@@ -561,6 +567,11 @@ export interface Parametros {
     };
     alquiler_andamio: number;
     huacal: number;
+    /** Mano de obra por producto (2026-09-26), antes de AIU e IVA. */
+    mo_ensamble_ventana_m2: number;
+    mo_instalacion_ventana_m2: number;
+    mo_instalacion_cabina_und: number;
+    mo_instalacion_espejo_tablero_m2: number;
     asesores: string[];
     estados_cotizacion: string[];
 }

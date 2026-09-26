@@ -5493,3 +5493,122 @@ README del sistema visual. Dos cortes por límite de API; se reanudaron con su c
 - Deuda nueva en `TECH_DEBT.md` (2026-09-26): `fetch` en Informe Ejecutivo, código muerto, estado de
   ruta crudo, contraste de `--primary`, etc.
 - Probar con datos reales antes de desplegar. Sin commit ni push: el usuario decide.
+
+## 2026-09-26 — Rediseño visual, Fase 5: Cotizador
+
+**Pedido del usuario:** "analiza el módulo cotizador y sigamos trabajando en ello; visualmente tiene
+que ser agradable y entendible para el usuario final". Decidió: unificar con el ERP, pasos 1-2-3 en
+una página, alcance 5 pestañas + modales. Procede.
+
+### Diagnóstico (capturas en vivo con la cotización N.° 14, sin guardar nada)
+Cargos de obra aplastados en la columna izquierda, orden de pantalla al revés (cargos antes que el
+producto), texto técnico del backend visible al asesor, detalle guardado con ids internos, botón
+fijo que tapaba filas del despiece, dos fuentes y dos azules, 120 textos en `slate-300/400`, y un
+"rojo" en la columna Ítems de Guardadas que resultó ser desalineación de encabezados.
+El modal de detalle "de 4,6 s" era la carga completa de la página: la API responde en 0,6-0,9 s, no
+es deuda.
+
+### Hecho
+- Lead: kit `ui/index.tsx`, `tailwind.config.js`, `index.html` (sale Manrope; Space Grotesk queda
+  solo para el plano impreso), `CotizadorPage` pasa `plegable` al panel de cargos, despiece con
+  categoría/unidad en segunda línea.
+- 3 agentes en paralelo con dueño exclusivo: Cotizar (9 archivos + `descripcionesModulo.ts` nuevo),
+  Actual/Guardadas/barra/comparador/modales (10), Calibración/Configuración (2). Detalle en
+  `design/sistema-visual/README.md` › Fase 5.
+
+### Verificación
+- `tsc --noEmit` limpio; ESLint del módulo limpio; build de producción OK con las mismas 25
+  advertencias (ninguna del Cotizador).
+- Huella SHA-1 de `PrintableHojaTrabajo`, `DiagramaProducto`, `usePlano`: idéntica.
+- Capturas antes/después a 1440 y 390 px contra el backend local (solo lectura, sin guardar).
+- No verificado: impresión real de la Hoja de Trabajo (sus archivos no cambiaron) ni Calibración a
+  390 px en captura.
+
+### Incidente
+El equipo se colgó durante el build (dev server + build con heap de 3-6 GB y ~2,5 GB libres). Se
+retomó en sesión nueva; el build pasó con `GENERATE_SOURCEMAP=false` y heap de 2 GB. Desde
+PowerShell el script de build necesita `--script-shell` de bash (`CI=false ... && cp`).
+
+### Pendientes
+- Deuda en `TECH_DEBT.md` (2026-09-26, Fase 5).
+- Sin commit ni push: el usuario decide. Hay 6 commits locales anteriores sin pushear.
+
+---
+
+## 2026-09-26 (2) — Cotizador: costos de 4 kits, "precio a cotizar", Glasvit y perforaciones por unidad
+
+**Pedido del usuario:** cerrar los pendientes 2 y 3 de la hoja de ruta con sus datos. Costos
+Templex: KDE0303 $200.000, KDE0304 $175.000, SDR0301 $130.000, CM572A $120.000. KVE001 se cotiza
+aparte y el asesor escribe el **costo** del proveedor; la misma marca para los vidrios sobre pedido
+CL4MM03LM / CL4MM08SP. Glasvit KDG0306 viene completo. PERF01/02/03 son por unidad. Eliminar el
+precio de $175 de Templados y Laminados para PERF01. Procede.
+
+### Hecho
+- **BD** — script `2026-09-26_cotizador_precios_kits_y_perforaciones.ts` (ejecutado, reversible):
+  columna `cotizador.producto.precio_a_cotizar`, 4 costos con PA/PM/PB del multiplicador ACCESORIO
+  (+ `precio_historial`), marca en 3 productos, PERF → `UND`, y desvinculación de
+  `proveedor_producto` #222 con `desvincularEquivalencia` (baja lógica; `PERFORACION001` volvió a Por
+  Mapear). Hubo que correrlo con `ts-node --files`: sin eso no carga el tipo global de `req.user`
+  que usa `proveedor.controller` (falló en compilación, sin escribir nada).
+- **Backend** — `lineaCatalogo` acepta `costoManual`; multiplicadores en la caché (bucket
+  `precios`); advertencia única en `calcularItem`; costo en `lineas[]`, `extras[]` y `cambios[]`;
+  `guardarMultiplicador` recarga la caché; `KDG0306` en `KITS_CON_RODACHINAS`.
+- **Frontend** — casilla "Costo proveedor" y aviso ámbar en el ítem libre y en el modal de
+  componentes; insignia "Costo manual" en el despiece.
+
+### Verificación
+- `tsc --noEmit` backend y frontend limpios; ESLint de los archivos tocados limpio.
+- Pruebas: 10 suites, 113/113 (nueva `precioACotizar` 8/8; Glasvit en `piezaEntera`). Corridas una
+  por una con el backend dev arriba; `humo` dio 0/4 por conexión en la tanda y 4/4 sola.
+- Contra el backend dev (token local, solo lectura): catálogo trae `precioACotizar`, ítem libre con
+  KVE001 a costo $100.000 en PM = $144.071,20 con su advertencia, Glasvit sin ROD0401.
+- Los 4 códigos "CODIGO NO EXISTE" no los usa nada (buscados en todas las tablas del schema
+  `cotizador`): no se tocaron.
+- No verificado: la pantalla en el navegador (casilla de costo y modal), solo compilación y API.
+
+### Pendientes
+- Reiniciar el backend de producción al desplegar (la caché carga precios al arrancar).
+- PERF03 bajará de $5.900 a $5.200 (Templados y Laminados) con el próximo sync: es correcto.
+- Deuda nueva en `TECH_DEBT.md` (precio a cotizar solo por script).
+- Sin commit ni push: el usuario decide.
+
+---
+
+## 2026-09-26 (3) — Cotizador: mano de obra por producto, total en vivo y elevadores del tablero
+
+**Pedido del usuario:** (1) que al marcar mano de obra, andamio, huacal, etc. el total se mueva solo
+(eligió la opción A: total de la propuesta en vivo, sin meter los cargos en el producto); (2) reglas
+nuevas: ensamble de ventanas y proyectantes $60.000/m² siempre, + $25.000/m² con instalación;
+cabinas $120.000/und con instalación, el doble en L; espejos y tableros $85.000/m² con instalación;
+configurables, antes de AIU e IVA; (3) tablero +2 elevadores por cada lado de más de 1.500 mm.
+Respuestas del selector: AIU + descuento + IVA; casillas por ítem con el cobro visible en Cargos
+de obra; cabinas/espejos/tableros solo con instalación; líneas en cargos pero con AIU y descuento;
+el SMO actual se reemplaza; mínimo 1 m² por pieza. Aclaró que las 5 cotizaciones guardadas son
+pruebas. Procede.
+
+### Hecho
+- **BD:** script `2026-09-26_cotizador_mano_obra_por_producto.ts` (ejecutado): ENUM de cargos
+  + ENSAMBLE/INSTALACION, 4 tarifas en `cotizador.parametro`, `propuesta.total_mano_obra`.
+- **Backend:** `calcularManoObraProductos` y totales con mano de obra en `lib/cargos.ts` (salió
+  `sugerirSMO`/`tiposObra`/`tipoObraPredominante`); `recalcularPropuesta` regenera las líneas
+  automáticas; `POST /mano-obra` reemplaza los dos `smo-sugerido`; PDF con la mano de obra antes
+  del descuento; casillas "Con instalación"/"Cabina en L" en 6 módulos; `elevadoresTablero()`;
+  PUT de parámetros acepta las 4 tarifas.
+- **Frontend:** `totalesPropuesta.ts` (cuenta única + `useManoObra`), `TotalPropuestaEnVivo` en el
+  paso 3, barra con "Total" en vivo, panel de cargos sin SMO y con "Mano de obra de productos" de
+  solo lectura, Actual/Detalle/Comparador con la fila de mano de obra, Configuración con las 4 tarifas,
+  `defecto` en `meta.campos`.
+
+### Verificación
+- `tsc` backend y frontend limpios; ESLint del módulo limpio; build de producción OK.
+- Pruebas 10 suites, 116/116 (una por una, backend dev arriba).
+- Contra el backend dev: `POST /mano-obra` con ventana 1500×1200 ×2 con instalación, cabina en L y
+  tablero 1000×1000 → 3,6 m² ensamble, 3,6 m² instalación, 2 und cabina, 1 m² tablero. Recalculada
+  la cotización de prueba N.° 14 (PUT de sus mismos cargos): ensamble 3 m² = $187.500 y total
+  $1.100.408,32, igual al peso que la cuenta independiente. PDF 200.
+- No verificado: la pantalla en el navegador (bloque de total, casillas, Configuración).
+
+### Pendientes
+- Deuda en `TECH_DEBT.md` 2026-09-26 (2): restos del SMO; ítems viejos sin "Con instalación".
+- Reiniciar el backend de producción al desplegar.
+- Sin commit ni push: el usuario decide.

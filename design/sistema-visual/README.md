@@ -189,5 +189,34 @@ tipográfica de arriba como contrato. Solo presentación: ninguna lógica, texto
 | 4d | Instalaciones y Prospectos | Vistas de instalador/conductor revisadas a 390px |
 | 4e | Proveedores, Usuarios, Configuración | Tokens `--text-*` según rol |
 
-**Fuera de alcance a propósito:** Cotizador y Supervisión CRM (sistemas visuales propios), módulos
-huérfanos, pantalla de inicio de sesión, tema oscuro. Deuda restante: `TECH_DEBT.md` (2026-09-25/26).
+**Fuera de alcance a propósito:** Supervisión CRM (sistema visual propio), módulos huérfanos,
+pantalla de inicio de sesión, tema oscuro. El Cotizador se integró después, en la Fase 5.
+Deuda restante: `TECH_DEBT.md` (2026-09-25/26).
+
+## Fase 5: Cotizador (2026-09-26)
+
+Decisiones del usuario: **unificar con el ERP** (sin identidad propia), **pasos 1-2-3 en una sola
+página** y alcance **5 pestañas + modales**. Solo presentación: backend, BD, motor, API e imprimibles
+sin cambios (huella SHA-1 de `PrintableHojaTrabajo`, `DiagramaProducto` y `usePlano` idéntica).
+
+- **Fuentes:** Manrope sale de `index.html` y la familia `cotizador`/`cotizador-head` sale de
+  `tailwind.config.js`; la UI usa Geist. **Space Grotesk se queda** solo para las cotas del plano,
+  que también se imprimen en la Hoja de Trabajo: quitarla movería la métrica del papel.
+- **Kit (`components/ui/index.tsx`):** acento `indigo` → `templex`, rótulos en `slate-900`
+  seminegrita, el primario deshabilitado pasa a `slate-200`/`slate-600` (antes blanco al 40 % sobre
+  azul) y la cabecera de `Tarjeta` apila la acción debajo del texto en pantallas angostas.
+- **Colores A-E de propuesta (`propuestaColor.ts`) conservados:** son significado, no decoración.
+- **Cotizar en tres pasos:** 1 · producto (7 tarjetas compactas), 2 · formulario a la izquierda y
+  plano/ficha/despiece a la derecha, 3 · cargos de obra a lo ancho y **plegables** (`plegable` en
+  `PanelCargosObra`, preferencia en `localStorage` `cotizador.cargosObra.plegado`).
+- **Descripciones comerciales** en `features/cotizador/descripcionesModulo.ts`. La `descripcion`
+  del backend (texto técnico, p. ej. "use sistema 8025 con alasCorredizas=3") queda como
+  documentación interna y es el respaldo si un módulo nuevo no está en el mapa.
+- **Despiece:** categoría y unidad pasan a segunda línea bajo la descripción, para que la tabla
+  quepa en la columna y el valor total quede siempre visible. El botón fijo de guardar tiene fondo
+  sólido y ya no tapa filas.
+- **Detalle guardado:** nombre del módulo en vez del id, descripción con respaldo de medidas, ficha
+  de cliente en dos bandas ("Sin cliente asignado" cuando falta).
+- **Guardadas:** el "rojo" de la columna Ítems era el chip de estado desalineado bajo el encabezado;
+  se alinearon encabezados y celdas.
+- Ejecutada por 3 agentes (Cotizar · Actual/Guardadas/barra/modales · Calibración/Configuración).

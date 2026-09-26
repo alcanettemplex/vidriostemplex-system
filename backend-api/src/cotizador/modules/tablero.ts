@@ -37,10 +37,22 @@ import { getParametros, segmentosValidos } from "../lib/catalogo";
 import type { InputModulo } from "../tipos";
 import type { LineaBOM } from "../lib/motorCalculo";
 
-// Umbral de ancho documentado en tablero.md (celda K12/K13 del Excel original:
-// `=IF(E$9>=1.51,6,IF(E$9>0,4,0))`), parametrizado a centímetros según la
-// instrucción de negocio: anchoCm > 151 -> 6 perforaciones/elevadores; si no, 4.
-const UMBRAL_ANCHO_CM = 151;
+// Elevadores y perforaciones (regla del usuario, 2026-09-26): 4 de base, +2 si
+// el ANCHO pasa de 1.500 mm y +2 más si el ALTO pasa de 1.500 mm. Ejemplos del
+// usuario: 1000×1000 → 4, 1501×1000 → 6, 1501×1501 → 8. Cada elevador lleva su
+// perforación, así que las dos líneas van con la misma cantidad.
+// Reemplaza el umbral del Excel original (celda K12/K13, solo ancho, ≥ 1,51 m).
+const UMBRAL_LADO_CM = 150;
+const ELEVADORES_BASE = 4;
+const ELEVADORES_POR_LADO_GRANDE = 2;
+
+export function elevadoresTablero(anchoCm: number, altoCm: number): number {
+  return (
+    ELEVADORES_BASE +
+    (anchoCm > UMBRAL_LADO_CM ? ELEVADORES_POR_LADO_GRANDE : 0) +
+    (altoCm > UMBRAL_LADO_CM ? ELEVADORES_POR_LADO_GRANDE : 0)
+  );
+}
 
 // `lineaManual()` construía las dos líneas de BOM sin código de catálogo —SMO y
 // flete—. Ambas dejaron de ser líneas del ítem el 2026-09-20 y pasaron a ser
@@ -66,6 +78,9 @@ export const meta = {
       grupo: "vidrio",
     },
     { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
+    // Mano de obra por producto (2026-09-26): no toca el despiece; la lee
+    // `calcularManoObraProductos` (lib/cargos.ts) desde el input guardado.
+    { nombre: "conInstalacion", tipo: "boolean", etiqueta: "Con instalación", requerido: false, grupo: "comercial", defecto: true },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de piezas iguales", requerido: true, grupo: "comercial" },
     // `descuentoPct` salió del formulario el 2026-09-20: desde entonces hay UN
     // solo descuento y vive en la propuesta (`cotizador.propuesta.descuento_pct`).
@@ -114,8 +129,7 @@ export function calcular(input: InputModulo) {
   const parametros = getParametros();
   const area = areaM2(ancho, alto);
   const perimetro = perimetroM(ancho, alto);
-  const esPiezaGrande = ancho > UMBRAL_ANCHO_CM;
-  const cantidadAccesorios = esPiezaGrande ? 6 : 4;
+  const cantidadAccesorios = elevadoresTablero(ancho, alto);
 
   const codigoVidrio = espesor === 8 ? "CL8MM03SP" : "CL6MM03SP";
   const codigoBpb = espesor === 8 ? "BPB05" : "BPB04";
@@ -147,13 +161,8 @@ export function calcular(input: InputModulo) {
   // (`cotizador.propuesta_cargo`): se cobran una vez y quedan fuera del AIU y
   // del descuento.
   //
-  // LA REGLA PROPIA DE ESTE MÓDULO NO SE PERDIÓ: el piso de
-  // `smo.pisoTableroGrande` ($87.000) para piezas de más de 1,51 m de ancho
-  // —que el Excel no modela y que era exclusivo de Tablero— se trasladó a
-  // `lib/cargos.ts`, dentro de `sugerirSMO()`, que es donde hoy se decide cuánto
-  // vale la mano de obra. `esPiezaGrande` sigue vivo más arriba porque también
-  // gobierna cuántas perforaciones y elevadores lleva la pieza, que sí es una
-  // regla de materiales.
+  // La instalación se cobra por m² desde el 2026-09-26 (`calcularManoObraProductos`
+  // en lib/cargos.ts); el piso de "tablero grande" a $87.000 ya no existe.
 
   const resultado = totalizar(items, {
     cantidadPiezas: cantPiezas,

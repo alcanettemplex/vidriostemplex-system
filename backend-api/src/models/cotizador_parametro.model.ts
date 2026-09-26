@@ -29,6 +29,13 @@ CotizadorParametro.init({
   smo_persiana: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 110000 },         // SMO04
   alquiler_andamio: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 90000 },      // ALQU36
   huacal: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 80000 },                // HUAC06
+  // Mano de obra por producto (decisión del usuario, 2026-09-26). Montos ANTES
+  // de AIU e IVA: el motor les aplica AIU, descuento de la propuesta e IVA.
+  // Script 2026-09-26_cotizador_mano_obra_por_producto.ts.
+  mo_ensamble_ventana_m2: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 60000 },           // ventanas y proyectantes, siempre
+  mo_instalacion_ventana_m2: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 25000 },        // + si llevan instalación
+  mo_instalacion_cabina_und: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 120000 },       // por cabina; en L, el doble
+  mo_instalacion_espejo_tablero_m2: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 85000 }, // si llevan instalación
   clientes: { type: DataTypes.JSONB, allowNull: false }, // ["PA","PM","PB"]
   asesores: { type: DataTypes.JSONB, allowNull: false }, // lista fija de nombres, texto libre
   estados_cotizacion: { type: DataTypes.JSONB, allowNull: false },

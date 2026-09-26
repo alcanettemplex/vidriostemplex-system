@@ -289,7 +289,18 @@ export const darDeBajaPrecio = async (req: Request, res: Response) => {
 };
 
 /** Campos numéricos de primer nivel editables por PUT /parametros. */
-const CAMPOS_NUMERICOS_RAIZ = ['aiu', 'iva', 'flete_fijo', 'alquiler_andamio', 'huacal'] as const;
+const CAMPOS_NUMERICOS_RAIZ = [
+  'aiu',
+  'iva',
+  'flete_fijo',
+  'alquiler_andamio',
+  'huacal',
+  // Mano de obra por producto (2026-09-26).
+  'mo_ensamble_ventana_m2',
+  'mo_instalacion_ventana_m2',
+  'mo_instalacion_cabina_und',
+  'mo_instalacion_espejo_tablero_m2',
+] as const;
 
 /**
  * Las 6 tarifas de SMO y la columna que respalda a cada una.
@@ -341,6 +352,9 @@ export const editarParametros = async (req: Request, res: Response) => {
     if (b[campo] !== undefined && !Number.isFinite(Number(b[campo]))) {
       return res.status(400).json({ error: `El campo "${campo}" debe ser un número.` });
     }
+    if (campo.startsWith('mo_') && b[campo] !== undefined && Number(b[campo]) < 0) {
+      return res.status(400).json({ error: 'Las tarifas de mano de obra no pueden ser negativas.' });
+    }
   }
   // `aiu` es un DIVISOR (`subtotal / aiu`, motorCalculo.ts): un 0 da precio
   // infinito y un 0.04 —el valor que escribiría quien lo confunda con "4%"—
@@ -389,6 +403,10 @@ export const editarParametros = async (req: Request, res: Response) => {
       flete_fijo: p.flete_fijo,
       alquiler_andamio: p.alquiler_andamio,
       huacal: p.huacal,
+      mo_ensamble_ventana_m2: p.mo_ensamble_ventana_m2,
+      mo_instalacion_ventana_m2: p.mo_instalacion_ventana_m2,
+      mo_instalacion_cabina_und: p.mo_instalacion_cabina_und,
+      mo_instalacion_espejo_tablero_m2: p.mo_instalacion_espejo_tablero_m2,
       smo,
     };
   };

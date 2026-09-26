@@ -19,12 +19,13 @@
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!-- Tipografía exclusiva del módulo Cotizador (features/cotizador). La del resto
-         del ERP (Geist) viaja en el build: ver src/index.tsx. Plus Jakarta Sans se
-         cargaba aquí para Supervisión CRM, que ya no la usa (usa font-apple). -->
+    <!-- Space Grotesk: SÓLO para las cotas del plano del Cotizador (DiagramaProducto,
+         fontFamily en el SVG), que también sale impreso en la Hoja de Trabajo — cambiarla
+         movería la métrica del papel. La UI de todo el ERP, Cotizador incluido desde el
+         2026-09-26, usa Geist, que viaja en el build: ver src/index.tsx. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
     <!--
       Notice the use of %PUBLIC_URL% in the tags above.
       It will be replaced with the URL of the `public` folder during the build.

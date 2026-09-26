@@ -6,10 +6,10 @@ import {
     apiListarMultiplicadores, apiGuardarMultiplicador, apiRecalcularCategoria,
     apiGetParametros, apiEditarParametros,
 } from '../services/cotizadorApi';
-import { MultiplicadorCategoria, Parametros, ProductoCatalogo, ResultadoRecalculoCategoria } from '../types';
+import { MultiplicadorCategoria, ProductoCatalogo, ResultadoRecalculoCategoria } from '../types';
 import ModalCatalogoGeneral from './modals/ModalCatalogoGeneral';
-import { fmtCOP } from '../format';
-import { BotonPrimario, BotonSecundario, Campo, Input, Tarjeta } from './ui';
+import { fmtCOP, fmtFecha } from '../format';
+import { BotonPrimario, BotonSecundario, Campo, Chip, Input, Tarjeta } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pestaña "Configuración" del Cotizador — solo root/admin (gate heredado del
@@ -18,7 +18,8 @@ import { BotonPrimario, BotonSecundario, Campo, Input, Tarjeta } from './ui';
 //   1. Multiplicador costo→precio de venta por categoría. Sólo ACCESORIO estaba
 //      sembrado; sin fila, el sync automático de precios de proveedor se
 //      abstiene de tocar esa categoría (ver TECH_DEBT.md 2026-09-14).
-//   2. Parámetros de negocio (AIU, IVA, flete, andamio, huacal y las 6 tarifas
+//   2. Parámetros de negocio (AIU, IVA, flete, andamio, huacal y —desde el
+//      2026-09-26— las 4 tarifas de mano de obra por producto; antes, las 6 tarifas
 //      de mano de obra). El endpoint existía desde siempre; nunca hubo pantalla.
 //
 // Guardar un multiplicador NO mueve precios ya cargados — eso es el botón
@@ -57,16 +58,23 @@ const SeccionCatalogoGeneral: React.FC = () => {
             titulo="Productos del catálogo general"
             icono={PackageSearch}
             descripcion="Trae al Cotizador un producto que sólo existe en el catálogo del ERP. Queda vinculado: su precio sale del proveedor más barato × el multiplicador de su categoría, y se actualiza solo."
-            accion={<BotonPrimario compacto icono={PackageSearch} onClick={() => setAbierto(true)}>Traer del catálogo general</BotonPrimario>}
+            accion={
+                <BotonPrimario compacto icono={PackageSearch} className="shrink-0 whitespace-nowrap" onClick={() => setAbierto(true)}>
+                    Traer del catálogo general
+                </BotonPrimario>
+            }
         >
             {traidos.length === 0 ? (
-                <p className="text-[12.5px] text-slate-400">Nada traído en esta sesión.</p>
+                <p className="text-[12.5px] text-slate-700">Nada traído en esta sesión.</p>
             ) : (
-                <ul className="space-y-1 text-[12.5px]">
+                <ul className="space-y-1 text-[12.5px] text-slate-800">
                     {traidos.map(p => (
                         <li key={p.codigo} className="flex justify-between gap-3">
-                            <span><strong>{p.codigo}</strong> — {p.descripcion} <span className="text-slate-400">({p.categoria}, {p.unidad})</span></span>
-                            <span className="tabular-nums text-slate-600">PA {fmtCOP(p.precio_pa)}</span>
+                            <span>
+                                <strong className="font-semibold text-slate-900">{p.codigo}</strong> — {p.descripcion}{' '}
+                                <span className="text-slate-700">({p.categoria}, {p.unidad})</span>
+                            </span>
+                            <span className="tabular-nums whitespace-nowrap font-semibold text-slate-900">PA {fmtCOP(p.precio_pa)}</span>
                         </li>
                     ))}
                 </ul>
@@ -177,10 +185,13 @@ const SeccionMultiplicadores: React.FC = () => {
             sinRelleno
         >
             {cargando ? (
-                <div className="p-8 flex justify-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
+                <div className="p-8 flex justify-center text-slate-500"><Loader2 className="w-5 h-5 animate-spin" /></div>
             ) : (
-                <table className="w-full text-sm">
-                    <thead className="bg-white text-[11px] font-bold uppercase tracking-wide text-slate-500 border-b border-slate-100">
+                // Scroll horizontal propio: en pantallas angostas la tabla se desplaza
+                // dentro de la tarjeta en vez de empujar el ancho de la página.
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[960px] text-sm">
+                    <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-900 border-b border-slate-100">
                         <tr>
                             <th className="text-left px-4 py-2">Categoría</th>
                             <th className="text-left px-3 py-2">Productos</th>
@@ -188,29 +199,44 @@ const SeccionMultiplicadores: React.FC = () => {
                             <th className="text-left px-3 py-2">PM</th>
                             <th className="text-left px-3 py-2">PB</th>
                             <th className="text-left px-3 py-2">Motivo del cambio</th>
-                            <th></th>
+                            <th><span className="sr-only">Acciones</span></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {filas.map((f) => (
                             <tr key={f.categoria} className={f.configurado ? '' : 'bg-amber-50/40'}>
-                                <td className="px-4 py-2.5">
-                                    <div className="font-semibold text-slate-800">{f.categoria}</div>
+                                <td className="px-4 py-2.5 align-middle">
+                                    <div className="font-semibold text-slate-900">{f.categoria}</div>
                                     {!f.configurado && (
-                                        <div className="text-[11px] text-amber-700 flex items-center gap-1 mt-0.5">
+                                        <div className="text-[11px] font-semibold text-amber-800 flex items-center gap-1 mt-0.5 whitespace-nowrap">
                                             <AlertTriangle className="w-3 h-3" /> sin configurar
                                         </div>
                                     )}
-                                    {f.actualizadoPor && (
-                                        <div className="text-[11px] text-slate-400 mt-0.5">por {f.actualizadoPor}</div>
+                                    {/* Metadato de la última edición, en una sola línea. `actualizadoPor`
+                                        se muestra tal cual (un usuario o una etiqueta de script como
+                                        "migracion-2026-09-17"), sin interpretarlo; si no cabe se trunca
+                                        y el valor completo queda en el tooltip. */}
+                                    {(f.actualizadoEn || f.actualizadoPor) && (
+                                        <div
+                                            className="text-[11.5px] text-slate-700 mt-0.5 whitespace-nowrap truncate max-w-[260px]"
+                                            title={[f.actualizadoEn && `Actualizado ${fmtFecha(f.actualizadoEn)}`, f.actualizadoPor && `por ${f.actualizadoPor}`]
+                                                .filter(Boolean)
+                                                .join(' · ')}
+                                        >
+                                            {f.actualizadoEn && `Actualizado ${fmtFecha(f.actualizadoEn)}`}
+                                            {f.actualizadoEn && f.actualizadoPor && ' · '}
+                                            {f.actualizadoPor && `por ${f.actualizadoPor}`}
+                                        </div>
                                     )}
                                 </td>
-                                <td className="px-3 py-2.5 text-slate-600">
-                                    {f.productos}
-                                    <span className="text-slate-400"> ({f.vinculados} con proveedor)</span>
+                                <td className="px-3 py-2.5 align-middle whitespace-nowrap">
+                                    <div className="text-slate-800">
+                                        <span className="font-semibold text-slate-900">{f.productos}</span> productos
+                                    </div>
+                                    <div className="text-[11.5px] text-slate-700">{f.vinculados} con proveedor</div>
                                 </td>
                                 {(['pa', 'pm', 'pb'] as const).map((k) => (
-                                    <td key={k} className="px-3 py-2.5">
+                                    <td key={k} className="px-3 py-2.5 align-middle">
                                         <Input
                                             className="w-24"
                                             inputMode="decimal"
@@ -222,7 +248,7 @@ const SeccionMultiplicadores: React.FC = () => {
                                         />
                                     </td>
                                 ))}
-                                <td className="px-3 py-2.5">
+                                <td className="px-3 py-2.5 align-middle min-w-[180px]">
                                     <Input
                                         value={edicion[f.categoria]?.motivo ?? ''}
                                         placeholder="Por qué cambia"
@@ -231,13 +257,23 @@ const SeccionMultiplicadores: React.FC = () => {
                                         }
                                     />
                                 </td>
-                                <td className="px-3 py-2.5 whitespace-nowrap">
-                                    <div className="flex gap-1.5 justify-end">
-                                        <BotonPrimario compacto icono={Save} cargando={guardando === f.categoria} onClick={() => guardar(f.categoria)}>
+                                <td className="px-4 py-2.5 align-middle whitespace-nowrap">
+                                    {/* Anchos fijos: con el spinner de "cargando" o el estado
+                                        deshabilitado los dos botones no cambian de tamaño y las
+                                        columnas quedan alineadas fila a fila. */}
+                                    <div className="flex items-center gap-1.5 justify-end">
+                                        <BotonPrimario
+                                            compacto
+                                            className="w-[100px]"
+                                            icono={Save}
+                                            cargando={guardando === f.categoria}
+                                            onClick={() => guardar(f.categoria)}
+                                        >
                                             Guardar
                                         </BotonPrimario>
                                         <BotonSecundario
                                             compacto
+                                            className="w-[116px]"
                                             icono={Calculator}
                                             cargando={recalculando === f.categoria}
                                             disabled={!f.configurado}
@@ -252,12 +288,13 @@ const SeccionMultiplicadores: React.FC = () => {
                         ))}
                     </tbody>
                 </table>
+                </div>
             )}
 
             {previsualizacion && (
-                <div className="border-t border-indigo-200 bg-indigo-50/40 p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                        <div className="text-sm font-bold text-slate-800">
+                <div className="border-t border-templex-200 bg-templex-50/40 p-4 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="text-sm font-bold text-slate-900">
                             Previsualización — {previsualizacion.categoria}
                         </div>
                         <div className="flex gap-2">
@@ -272,21 +309,17 @@ const SeccionMultiplicadores: React.FC = () => {
                             </BotonPrimario>
                         </div>
                     </div>
-                    <p className="text-xs text-slate-600">{previsualizacion.resumen}</p>
+                    <p className="text-[12.5px] text-slate-800">{previsualizacion.resumen}</p>
 
-                    <div className="flex flex-wrap gap-2 text-[11px]">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold">
-                            {previsualizacion.porProveedor} con costo nuevo del proveedor
-                        </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">
-                            {previsualizacion.realineados} realineado(s) al multiplicador, costo intacto
-                        </span>
+                    <div className="flex flex-wrap gap-2">
+                        <Chip tono="marca">{previsualizacion.porProveedor} con costo nuevo del proveedor</Chip>
+                        <Chip tono="ambar">{previsualizacion.realineados} realineado(s) al multiplicador, costo intacto</Chip>
                     </div>
 
                     {previsualizacion.cambios.length > 0 && (
-                        <div className="max-h-72 overflow-y-auto border border-slate-200 rounded-lg bg-white">
-                            <table className="w-full text-xs">
-                                <thead className="bg-slate-50 text-slate-500 sticky top-0">
+                        <div className="max-h-72 overflow-auto border border-slate-200 rounded-lg bg-white">
+                            <table className="w-full min-w-[560px] text-[12.5px] text-slate-800">
+                                <thead className="bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-900 sticky top-0">
                                     <tr>
                                         <th className="text-left px-2 py-1.5">Código</th>
                                         <th className="text-left px-2 py-1.5">Origen</th>
@@ -297,14 +330,10 @@ const SeccionMultiplicadores: React.FC = () => {
                                 <tbody className="divide-y divide-slate-100">
                                     {previsualizacion.cambios.map((c) => (
                                         <tr key={c.codigo}>
-                                            <td className="px-2 py-1.5 font-semibold">{c.codigo}</td>
+                                            <td className="px-2 py-1.5 font-semibold text-slate-900">{c.codigo}</td>
                                             <td className="px-2 py-1.5">
-                                                <span
-                                                    className={`px-1.5 py-0.5 rounded font-semibold ${
-                                                        c.fase === 'proveedor'
-                                                            ? 'bg-indigo-50 text-indigo-700'
-                                                            : 'bg-amber-50 text-amber-700'
-                                                    }`}
+                                                <Chip
+                                                    tono={c.fase === 'proveedor' ? 'marca' : 'ambar'}
                                                     title={
                                                         c.fase === 'proveedor'
                                                             ? 'El costo se derivó del proveedor más barato'
@@ -312,14 +341,14 @@ const SeccionMultiplicadores: React.FC = () => {
                                                     }
                                                 >
                                                     {c.fase === 'proveedor' ? 'proveedor' : 'multiplicador'}
-                                                </span>
+                                                </Chip>
                                             </td>
-                                            <td className="px-2 py-1.5">
+                                            <td className="px-2 py-1.5 whitespace-nowrap">
                                                 {c.antes.costo_unitario === c.despues.costo_unitario
                                                     ? `${fmtCOP(c.antes.costo_unitario)} (sin cambio)`
                                                     : `${fmtCOP(c.antes.costo_unitario)} → ${fmtCOP(c.despues.costo_unitario)}`}
                                             </td>
-                                            <td className="px-2 py-1.5">{fmtCOP(c.antes.precio_pa)} → {fmtCOP(c.despues.precio_pa)}</td>
+                                            <td className="px-2 py-1.5 whitespace-nowrap">{fmtCOP(c.antes.precio_pa)} → {fmtCOP(c.despues.precio_pa)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -328,13 +357,13 @@ const SeccionMultiplicadores: React.FC = () => {
                     )}
 
                     {previsualizacion.omitidos.length > 0 && (
-                        <details className="text-xs text-slate-500">
-                            <summary className="cursor-pointer font-semibold">
+                        <details className="text-[12.5px] text-slate-800">
+                            <summary className="cursor-pointer font-semibold text-slate-900">
                                 {previsualizacion.omitidos.length} producto(s) omitido(s) — ver motivos
                             </summary>
                             <ul className="mt-1 space-y-0.5 max-h-40 overflow-y-auto">
                                 {previsualizacion.omitidos.map((o, i) => (
-                                    <li key={`${o.codigo}-${i}`}><span className="font-mono">{o.codigo}</span>: {o.motivo}</li>
+                                    <li key={`${o.codigo}-${i}`}><span className="font-mono font-semibold text-slate-900">{o.codigo}</span>: {o.motivo}</li>
                                 ))}
                             </ul>
                         </details>
@@ -365,13 +394,19 @@ const CAMPOS_RAIZ: Array<{
     { clave: 'huacal', label: 'Huacal' },
 ];
 
-const CAMPOS_SMO: Array<{ clave: keyof Parametros['smo']; label: string }> = [
-    { clave: 'tarifaMinima', label: 'Tarifa mínima' },
-    { clave: 'pisoTableroGrande', label: 'Piso tablero grande' },
-    { clave: 'cabinas', label: 'Cabinas' },
-    { clave: 'fachadas', label: 'Fachadas' },
-    { clave: 'armadaVentanas', label: 'Armada de ventanas' },
-    { clave: 'persiana', label: 'Persiana' },
+/** Mano de obra por producto (2026-09-26). Montos ANTES de AIU e IVA: el
+ * sistema les aplica AIU, el descuento de la propuesta e IVA. Reemplazan a las
+ * tarifas SMO por tipo de obra, que siguen en la BD solo para las propuestas
+ * guardadas antes de ese día y ya no se muestran aquí. */
+const CAMPOS_MANO_OBRA: Array<{
+    clave: 'mo_ensamble_ventana_m2' | 'mo_instalacion_ventana_m2' | 'mo_instalacion_cabina_und' | 'mo_instalacion_espejo_tablero_m2';
+    label: string;
+    ayuda: string;
+}> = [
+    { clave: 'mo_ensamble_ventana_m2', label: 'Ensamble ventanas y proyectantes', ayuda: 'por m², siempre' },
+    { clave: 'mo_instalacion_ventana_m2', label: 'Instalación ventanas y proyectantes', ayuda: 'por m², si llevan instalación' },
+    { clave: 'mo_instalacion_cabina_und', label: 'Instalación cabinas', ayuda: 'por unidad; en L, el doble' },
+    { clave: 'mo_instalacion_espejo_tablero_m2', label: 'Instalación espejos y tableros', ayuda: 'por m², si llevan instalación' },
 ];
 
 const SeccionParametros: React.FC = () => {
@@ -386,7 +421,7 @@ const SeccionParametros: React.FC = () => {
             const { data } = await apiGetParametros();
             const plano: Record<string, string> = {};
             for (const c of CAMPOS_RAIZ) plano[c.clave] = String(data[c.clave] ?? '');
-            for (const c of CAMPOS_SMO) plano[`smo.${c.clave}`] = String(data.smo?.[c.clave] ?? '');
+            for (const c of CAMPOS_MANO_OBRA) plano[c.clave] = String(data[c.clave] ?? '');
             setValores(plano);
         } catch (e: any) {
             toast.error(e?.response?.data?.error || 'No se pudieron cargar los parámetros.');
@@ -420,16 +455,14 @@ const SeccionParametros: React.FC = () => {
             }
             datos[c.clave] = n;
         }
-        const smo: Record<string, number> = {};
-        for (const c of CAMPOS_SMO) {
-            const n = Number(valores[`smo.${c.clave}`]);
+        for (const c of CAMPOS_MANO_OBRA) {
+            const n = Number(valores[c.clave]);
             if (!Number.isFinite(n) || n < 0) {
                 toast.error(`La tarifa "${c.label}" debe ser un número mayor o igual a 0.`);
                 return;
             }
-            smo[c.clave] = n;
+            datos[c.clave] = n;
         }
-        datos.smo = smo;
 
         setGuardando(true);
         try {
@@ -446,7 +479,7 @@ const SeccionParametros: React.FC = () => {
 
     if (cargando) {
         return (
-            <Tarjeta className="p-8 flex justify-center text-slate-400">
+            <Tarjeta className="p-8 flex justify-center text-slate-500">
                 <Loader2 className="w-5 h-5 animate-spin" />
             </Tarjeta>
         );
@@ -459,7 +492,7 @@ const SeccionParametros: React.FC = () => {
             descripcion="Afectan el cálculo de toda cotización nueva. Las cotizaciones ya guardadas conservan los valores con los que se calcularon."
         >
             <form onSubmit={guardar} className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-x-3 gap-y-4">
                     {CAMPOS_RAIZ.map((c) => (
                         <Campo key={c.clave} etiqueta={c.label} ayuda={c.ayuda}>
                             <Input
@@ -472,27 +505,31 @@ const SeccionParametros: React.FC = () => {
                 </div>
 
                 <div>
-                    <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-                        Mano de obra (SMO) — una tarifa por tipo de obra
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-900 mb-1">
+                        Mano de obra por producto — antes de AIU e IVA
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                        {CAMPOS_SMO.map((c) => (
-                            <Campo key={c.clave} etiqueta={c.label}>
+                    <p className="text-[12px] text-slate-800 mb-2 leading-snug">
+                        Se calcula sola desde los productos de la propuesta, con mínimo 1 m² por pieza. Lleva AIU, el
+                        descuento de la propuesta e IVA, igual que un producto.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {CAMPOS_MANO_OBRA.map((c) => (
+                            <Campo key={c.clave} etiqueta={c.label} ayuda={c.ayuda}>
                                 <Input
                                     inputMode="decimal"
-                                    value={valores[`smo.${c.clave}`] ?? ''}
-                                    onChange={(e) => setValores((s) => ({ ...s, [`smo.${c.clave}`]: e.target.value }))}
+                                    value={valores[c.clave] ?? ''}
+                                    onChange={(e) => setValores((s) => ({ ...s, [c.clave]: e.target.value }))}
                                 />
                             </Campo>
                         ))}
                     </div>
                 </div>
 
-                <div className="flex items-end gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3">
                     <Campo etiqueta="Motivo del cambio" className="flex-1">
                         <Input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Queda en el historial" />
                     </Campo>
-                    <BotonPrimario type="submit" icono={Save} cargando={guardando}>
+                    <BotonPrimario type="submit" icono={Save} cargando={guardando} className="whitespace-nowrap">
                         Guardar parámetros
                     </BotonPrimario>
                 </div>

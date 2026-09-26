@@ -128,7 +128,7 @@ const ModalClonarPropuesta: React.FC<Props> = ({ cotizacionId, propuesta, segmen
             }
         >
             <div className="p-6 space-y-4">
-                <div className="flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2.5 text-[12.5px] text-indigo-800">
+                <div className="flex items-start gap-2 rounded-xl border border-templex-200 bg-templex-50 px-3 py-2.5 text-[12.5px] text-templex-900">
                     <Info className="w-4 h-4 mt-0.5 shrink-0" />
                     <p>
                         Se crea una propuesta nueva con los mismos ítems, recalculados con el cambio que elijas.
@@ -157,7 +157,7 @@ const ModalClonarPropuesta: React.FC<Props> = ({ cotizacionId, propuesta, segmen
                 </div>
 
                 <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-                    <span className="text-sm font-bold text-slate-700 block">Qué cambiar en todos los ítems</span>
+                    <span className="text-sm font-semibold text-slate-900 block">Qué cambiar en todos los ítems</span>
 
                     <Campo etiqueta="Tipo de vidrio">
                         <Select
@@ -173,12 +173,12 @@ const ModalClonarPropuesta: React.FC<Props> = ({ cotizacionId, propuesta, segmen
                             ))}
                         </Select>
                         {vidrioElegido && !vidrioSinPrecio && (
-                            <p className="mt-1 text-[11px] text-slate-500">
-                                Precio en catálogo: <span className="font-cotizador-head font-bold">{fmtCOP(precioDe(vidrioElegido, segmentoCliente))}</span> por {vidrioElegido.unidad.toLowerCase()}.
+                            <p className="mt-1 text-[12px] text-slate-700">
+                                Precio en catálogo: <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(precioDe(vidrioElegido, segmentoCliente))}</span> por {vidrioElegido.unidad.toLowerCase()}.
                             </p>
                         )}
                         {vidrioSinPrecio && (
-                            <p className="mt-1 flex items-start gap-1.5 text-[11.5px] text-amber-700 font-semibold">
+                            <p className="mt-1 flex items-start gap-1.5 text-[12px] text-amber-800 font-semibold">
                                 <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                                 Este vidrio está en $0 en el catálogo: la propuesta se creará, pero sus ítems saldrán
                                 con líneas en error y no se podrán cobrar hasta que Compras le cargue el precio.
@@ -206,12 +206,12 @@ const ModalClonarPropuesta: React.FC<Props> = ({ cotizacionId, propuesta, segmen
                     </div>
 
                     {!hayCambios && (
-                        <p className="text-[11.5px] text-slate-400">
+                        <p className="text-[12px] text-slate-700">
                             Sin ningún cambio marcado, la propuesta nueva es una copia exacta: los ítems se copian
                             con su precio actual, sin volver a pasarlos por el motor.
                         </p>
                     )}
-                    <p className="text-[11px] text-slate-400 leading-snug">
+                    <p className="text-[12px] text-slate-700 leading-snug">
                         Un ítem cuyo producto no ofrezca la opción (las cabinas y los espejos sacan el vidrio del
                         espesor, no de un código) se copia tal como estaba y se avisa al terminar.
                     </p>

@@ -19,6 +19,7 @@ import * as tablero from "./tablero";
 import * as espejo from "./espejo";
 import * as itemLibre from "./itemLibre";
 import { aplicarPersonalizacion } from "../lib/personalizacion";
+import { advertenciasPrecioACotizar } from "../lib/motorCalculo";
 import type { InputModulo } from "../tipos";
 
 // El orden de este objeto es el orden en que el frontend pinta las tarjetas de
@@ -55,5 +56,15 @@ export function calcularItem(moduloId: string, input: InputModulo) {
   const modulo = getModulo(moduloId);
   if (!modulo) throw new Error(`El producto "${moduloId}" no existe en el cotizador.`);
   const { personalizacion, ...paraMotor } = input ?? {};
-  return aplicarPersonalizacion(modulo.calcular(paraMotor), personalizacion, String(paraMotor.segmentoCliente ?? 'PA'));
+  const resultado = aplicarPersonalizacion(
+    modulo.calcular(paraMotor),
+    personalizacion,
+    String(paraMotor.segmentoCliente ?? 'PA')
+  );
+  // Aquí y no en cada módulo: un producto con precio a cotizar puede entrar por
+  // el ítem libre, por un componente agregado o por un cambio de componente.
+  const avisos = Array.isArray(resultado?.items) ? advertenciasPrecioACotizar(resultado.items) : [];
+  if (avisos.length === 0) return resultado;
+  const previas: string[] = Array.isArray(resultado.advertencias) ? resultado.advertencias : [];
+  return { ...resultado, advertencias: [...previas, ...avisos.filter((a) => !previas.includes(a))] };
 }

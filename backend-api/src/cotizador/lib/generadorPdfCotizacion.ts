@@ -35,6 +35,7 @@
 import pdfMake from "pdfmake";
 import helvetica from "pdfmake/standard-fonts/Helvetica";
 import { getModulo } from "../modules/registry";
+import { esCargoManoObra } from "./cargos";
 
 pdfMake.setFonts(helvetica);
 // pdfkit resuelve las 14 fuentes estándar por el mismo camino que un archivo
@@ -93,7 +94,7 @@ export interface PropuestaPdf {
   nombre?: string | null;
   nota?: string | null;
   descuentoPct: number;
-  totales: { productos: number; descuento: number; cargos: number; iva: number; total: number };
+  totales: { productos: number; manoObra?: number; descuento: number; cargos: number; iva: number; total: number };
   items?: ItemPdf[];
   cargos?: CargoPdf[];
 }
@@ -126,6 +127,8 @@ const NOMBRE_CARGO: Record<string, string> = {
   HUACAL: "Huacal",
   FLETE: "Flete",
   OTRO: "Otro",
+  ENSAMBLE: "Ensamble",
+  INSTALACION: "Instalación",
 };
 
 function filaCargo(c: CargoPdf) {
@@ -189,7 +192,13 @@ export async function generarPdfCotizacion({
     { text: moneda(it.subtotalConAiu), style: "tablaCelda", alignment: "right" },
   ]);
 
+  // Mano de obra por producto (ENSAMBLE / INSTALACION, 2026-09-26) va ANTES del
+  // descuento porque entra en su base; el resto de cargos, después. Así cada
+  // renglón aparece en el orden en que se suma y la hoja cuadra.
+  const manoObra = cargos.filter((c) => esCargoManoObra(c.tipo));
+  const otrosCargos = cargos.filter((c) => !esCargoManoObra(c.tipo));
   const filasTotales: unknown[][] = [filaTotal("Subtotal productos", propuesta.totales.productos)];
+  for (const c of manoObra) filasTotales.push(filaCargo(c));
   if (propuesta.totales.descuento > 0) {
     filasTotales.push(
       filaTotal(`Descuento (${(propuesta.descuentoPct * 100).toLocaleString("es-CO")}%)`, propuesta.totales.descuento, {
@@ -197,7 +206,7 @@ export async function generarPdfCotizacion({
       })
     );
   }
-  for (const c of cargos) filasTotales.push(filaCargo(c));
+  for (const c of otrosCargos) filasTotales.push(filaCargo(c));
   filasTotales.push(filaTotal("IVA", propuesta.totales.iva));
   filasTotales.push(filaTotal("TOTAL A PAGAR", propuesta.totales.total, { destacado: true }));
 

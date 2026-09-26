@@ -26,12 +26,10 @@ import { sequelize } from "../../models";
 import * as cache from "../../cotizador/cache";
 
 import {
-  sugerirSMO,
+  calcularManoObraProductos,
   sugerirCargosIniciales,
   calcularTotalesPropuesta,
   totalDeCargo,
-  tiposObra,
-  tipoObraPredominante,
 } from "../../cotizador/lib/cargos";
 import type { ItemParaCargos, CargoParaTotales } from "../../cotizador/lib/cargos";
 import { getParametros } from "../../cotizador/lib/catalogo";
@@ -39,6 +37,7 @@ import { round2 } from "../../cotizador/lib/motorCalculo";
 import type { LineaBOM } from "../../cotizador/lib/motorCalculo";
 import { listarModulos, getModulo } from "../../cotizador/modules/registry";
 import { calcular as calcularVentanas } from "../../cotizador/modules/ventanas";
+import { elevadoresTablero } from "../../cotizador/modules/tablero";
 import type { InputModulo } from "../../cotizador/tipos";
 
 // Los motores leen el catálogo, los diseños y los parámetros de la caché en
@@ -410,142 +409,111 @@ test("una propuesta legada (`legadoCargosEnItems: true`) suma los ítems e ignor
 });
 
 // ---------------------------------------------------------------------------
-// 6. Sugerencia de mano de obra
+// 6. Mano de obra por producto (2026-09-26)
 // ---------------------------------------------------------------------------
 
-test("`sugerirSMO` cobra POR UNIDAD, no por metro cuadrado", () => {
-  const tarifa = Number(getParametros().smo.armadaVentanas);
-  assert.equal(tarifa, 60000, "centinela: SMO03 'solo armada de ventanas' del Excel matriz");
+/** Línea de mano de obra de un tipo y descripción, o undefined. */
+function lineaMO(lineas: ReturnType<typeof calcularManoObraProductos>, descripcion: string) {
+  return lineas.find((l) => l.descripcion === descripcion);
+}
 
-  // REGLA CAMBIADA EL 2026-09-20 (decisión del usuario). Antes esto era
-  // `max(area × tarifa, tarifa)` y era un error de cobro: las tarifas del Excel
-  // matriz son por UNIDAD instalada. Una ventana de 7,5 m² sugería $450.000 de
-  // mano de obra donde correspondían $60.000. Esta prueba es la que impide que
-  // el área vuelva a colarse en el cálculo.
-  const unaPieza = sugerirSMO({
-    items: [{ moduloId: "ventanas", resultado: { areaM2: 7.5, cantidadPiezas: 1 } }],
-    tipoObra: "armadaVentanas",
-  });
-  assert.equal(unaPieza.cantidad, 1);
-  assert.equal(unaPieza.tarifa, tarifa);
-  assert.equal(unaPieza.monto, tarifa, "7,5 m² en UNA pieza es una sola instalación");
-  assert.match(unaPieza.explicacion, /1 unidad × /, "la explicación habla de unidades, no de m²");
-  assert.doesNotMatch(unaPieza.explicacion, /m²/, "el área ya no interviene en la sugerencia");
-
-  // Las unidades salen de las piezas de la propuesta, que es lo que se instala.
-  const tresPiezas = sugerirSMO({
-    items: [{ moduloId: "ventanas", resultado: { areaM2: 22.5, cantidadPiezas: 3 } }],
-    tipoObra: "armadaVentanas",
-  });
-  assert.equal(tresPiezas.cantidad, 3);
-  assert.equal(tresPiezas.monto, round2(3 * tarifa), "3 instalaciones, tres veces la tarifa");
-  assert.match(tresPiezas.explicacion, /3 unidades × /);
-
-  // Y suma las piezas de TODOS los ítems, no sólo del primero.
-  const dosItems = sugerirSMO({
-    items: [
-      { moduloId: "ventanas", resultado: { cantidadPiezas: 2 } },
-      { moduloId: "ventanas", resultado: { cantidadPiezas: 4 } },
-    ],
-    tipoObra: "armadaVentanas",
-  });
-  assert.equal(dosItems.cantidad, 6);
-
-  // Un ítem sin el dato cuenta como una pieza: la lectura prudente.
-  const sinDato = sugerirSMO({ items: [{ moduloId: "ventanas", resultado: {} }], tipoObra: "armadaVentanas" });
-  assert.equal(sinDato.cantidad, 1);
-});
-
-test("`sugerirSMO` cobra el tablero grande a su propia tarifa por unidad", () => {
+test("las cuatro tarifas salen de parámetros y centinelas de los valores dados por el usuario", () => {
   const p = getParametros();
-  const tarifaGrande = Number(p.smo.pisoTableroGrande);
-  const tarifaFachadas = Number(p.smo.fachadas);
-  assert.equal(tarifaGrande, 87000, "centinela: tarifa propia de Tablero, regla que el Excel matriz no modela");
-  assert.ok(
-    tarifaFachadas < tarifaGrande,
-    "la prueba supone que la tarifa de fachadas queda por debajo; si dejó de ser así, revisar el caso"
-  );
-
-  // Un tablero de 1,80 m (> 1,51 m) se instala a $87.000 la unidad en vez de a
-  // los $85.000 de fachadas: instalar el grande cuesta más. La regla vivía
-  // dentro del `items.push()` de SMO del módulo y se habría perdido en silencio
-  // al sacarla de allí; desde el 2026-09-20 es una TARIFA, no un piso del total.
-  const grande = sugerirSMO({
-    items: [{ moduloId: "tablero", input: { anchoCm: 180, altoCm: 100 }, resultado: { cantidadPiezas: 2 } }],
-    tipoObra: "fachadas",
-  });
-  assert.equal(grande.tarifa, tarifaGrande);
-  assert.equal(grande.monto, round2(2 * tarifaGrande), "dos tableros grandes, dos veces su tarifa");
-  assert.match(grande.explicacion, /1,51 m/, "la explicación debe nombrar el umbral que subió la tarifa");
-
-  // Por debajo del umbral manda la tarifa de fachadas.
-  const chico = sugerirSMO({
-    items: [{ moduloId: "tablero", input: { anchoCm: 120, altoCm: 100 }, resultado: { cantidadPiezas: 1 } }],
-    tipoObra: "fachadas",
-  });
-  assert.equal(chico.tarifa, tarifaFachadas, "1,20 m no es 'pieza grande'");
-  assert.equal(chico.monto, tarifaFachadas);
+  assert.equal(p.mo_ensamble_ventana_m2, 60000);
+  assert.equal(p.mo_instalacion_ventana_m2, 25000);
+  assert.equal(p.mo_instalacion_cabina_und, 120000);
+  assert.equal(p.mo_instalacion_espejo_tablero_m2, 85000);
 });
 
-test("el tipo de obra `otro` no sugiere monto: es libre, y un número inventado se acepta sin pensarlo", () => {
-  const s = sugerirSMO({ items: [{ moduloId: "ventanas", resultado: { areaM2: 10 } }], tipoObra: "otro" });
-  assert.equal(s.monto, 0);
-  assert.equal(s.explicacion, "");
-  assert.equal(s.areaM2, 10, "el área se sigue informando aunque no haya sugerencia");
-
-  // Lo mismo para un tipo de obra ausente o desconocido: no se adivina.
-  assert.equal(sugerirSMO({ items: [], tipoObra: null }).monto, 0);
-  assert.equal(sugerirSMO({ items: [], tipoObra: "loQueSea" }).monto, 0);
-});
-
-test("`tiposObra()` lee las tarifas de parámetros, nunca de una constante propia", () => {
+test("ventanas: ensamble SIEMPRE por m², instalación solo si la marcan; mínimo 1 m² por pieza", () => {
   const p = getParametros();
-  const lista = tiposObra();
-  assert.equal(lista.length, 5, "las 4 tarifas del Excel matriz más la opción 'otro'");
+  const aiu = Number(p.aiu);
+  // 1500×1200 = 1,8 m² × 2 piezas = 3,6 m²; 400×400 = 0,16 → cobra 1 m² × 3 piezas = 3 m².
+  const lineas = calcularManoObraProductos([
+    { moduloId: "ventanas", input: { anchoCm: 150, altoCm: 120, cantidadPiezas: 2, conInstalacion: true } },
+    { moduloId: "ventanas", input: { anchoCm: 40, altoCm: 40, cantidadPiezas: 3, conInstalacion: false } },
+  ]);
+  const ensamble = lineaMO(lineas, "Ensamble ventanas y proyectantes")!;
+  assert.equal(ensamble.tipo, "ENSAMBLE");
+  assert.equal(ensamble.cantidad, 6.6, "3,6 m² + 3 m² (la pequeña cobra el mínimo)");
+  assert.equal(ensamble.unidad, "M2");
+  assert.equal(ensamble.valorUnitario, round2(60000 / aiu), "el AIU va en el valor unitario");
+  assert.equal(ensamble.origen, "AUTOMATICO");
 
-  const porId = Object.fromEntries(lista.map((t) => [t.id, t.tarifa]));
-  assert.equal(porId.cabinas, p.smo.cabinas);
-  assert.equal(porId.fachadas, p.smo.fachadas);
-  assert.equal(porId.armadaVentanas, p.smo.armadaVentanas);
-  assert.equal(porId.persiana, p.smo.persiana);
-  assert.equal(porId.otro, 0, "'otro' es monto libre: no tiene tarifa");
+  const instalacion = lineaMO(lineas, "Instalación ventanas y proyectantes")!;
+  assert.equal(instalacion.cantidad, 3.6, "solo la que lleva instalación");
+  assert.equal(instalacion.valorUnitario, round2(25000 / aiu));
+  assert.match(instalacion.explicacion ?? "", /3,60 m² × \$25\.000 \+ AIU/);
 });
 
-test("`tipoObraPredominante` elige por el módulo que más ítems aporta", () => {
-  assert.equal(
-    tipoObraPredominante([{ moduloId: "tablero" }, { moduloId: "tablero" }, { moduloId: "ventanas" }]),
-    "fachadas"
+test("proyectantes sin diseño se miden por naves; con diseño por ancho × alto total", () => {
+  const porNaves = calcularManoObraProductos([
+    { moduloId: "proyectantes", input: { numeroNaves: 3, anchoNaveCm: 60, altoNaveCm: 80, cantidadPiezas: 1 } },
+  ]);
+  assert.equal(lineaMO(porNaves, "Ensamble ventanas y proyectantes")!.cantidad, 1.44, "3 × 0,6 × 0,8");
+  const porDiseno = calcularManoObraProductos([
+    { moduloId: "proyectantes", input: { disenoId: "x", anchoCm: 200, altoCm: 100, cantidadPiezas: 1 } },
+  ]);
+  assert.equal(lineaMO(porDiseno, "Ensamble ventanas y proyectantes")!.cantidad, 2);
+});
+
+test("cabinas: $120.000 por unidad con instalación, y la cabina en L cuenta doble", () => {
+  const lineas = calcularManoObraProductos([
+    { moduloId: "cabinas-corredizas", input: { anchoCm: 150, altoCm: 190, cantidadPiezas: 2, conInstalacion: true } },
+    { moduloId: "cabinas-batientes", input: { anchoCm: 90, altoCm: 190, conInstalacion: true, enL: true } },
+    { moduloId: "cabinas-batientes", input: { anchoCm: 90, altoCm: 190, conInstalacion: false, enL: true } },
+  ]);
+  const cabinas = lineaMO(lineas, "Instalación cabinas")!;
+  assert.equal(cabinas.cantidad, 4, "2 rectas + 1 en L (cuenta 2); la que no se instala no suma");
+  assert.equal(cabinas.unidad, "UND");
+  assert.match(cabinas.explicacion ?? "", /1 en L/);
+  assert.equal(lineaMO(lineas, "Ensamble ventanas y proyectantes"), undefined, "las cabinas no llevan ensamble");
+});
+
+test("espejos y tableros: $85.000 por m² solo con instalación, con el mínimo de 1 m²", () => {
+  const lineas = calcularManoObraProductos([
+    { moduloId: "tablero", input: { anchoCm: 200, altoCm: 100, cantidadPiezas: 1, conInstalacion: true } },
+    { moduloId: "espejo", input: { anchoCm: 50, altoCm: 60, cantidadPiezas: 2, conInstalacion: true } },
+    { moduloId: "espejo", input: { anchoCm: 300, altoCm: 300, cantidadPiezas: 1, conInstalacion: false } },
+  ]);
+  assert.equal(lineaMO(lineas, "Instalación espejos y tableros")!.cantidad, 4, "2 m² + 2 piezas × 1 m² mínimo");
+});
+
+test("sin nada que cobrar no se emite ninguna línea (una línea en $0 no le dice nada al cliente)", () => {
+  assert.deepEqual(calcularManoObraProductos([]), []);
+  assert.deepEqual(
+    calcularManoObraProductos([
+      { moduloId: "espejo", input: { anchoCm: 100, altoCm: 100, conInstalacion: false } },
+      { moduloId: "item-libre", input: { lineas: [] } },
+    ]),
+    []
   );
-  assert.equal(tipoObraPredominante([{ moduloId: "cabinas-batientes" }]), "cabinas");
-  // Sin ítems reconocibles se cae al tipo más común del negocio en vez de
-  // fallar: la sugerencia es editable y bloquear al vendedor por esto sería peor.
-  assert.equal(tipoObraPredominante([]), "armadaVentanas");
-  assert.equal(tipoObraPredominante([{ moduloId: "inventado" }]), "armadaVentanas");
 });
 
-test("`sugerirCargosIniciales` propone SMO y flete; andamio y huacal arrancan AUSENTES, no en cero", () => {
-  const cargos = sugerirCargosIniciales({
-    items: [{ moduloId: "ventanas", resultado: { areaM2: 4 } }],
-  });
+test("la mano de obra lleva AIU, descuento e IVA; los demás cargos siguen fuera del AIU y del descuento", () => {
+  const iva = 0.19;
+  const items = [producto(1000000)];
+  const cargos: CargoParaTotales[] = [
+    { tipo: "ENSAMBLE", cantidad: 2, valorUnitario: 62500 }, // 125.000
+    { tipo: "FLETE", cantidad: 1, valorUnitario: 40000 },
+  ];
+  const t = calcularTotalesPropuesta({ items, cargos, descuentoPct: 0.1, ivaPct: iva });
+  assert.equal(t.totalManoObra, 125000);
+  assert.equal(t.totalDescuento, 112500, "10% de (productos + mano de obra), no del flete");
+  assert.equal(t.baseGravable, 1012500);
+  assert.equal(t.totalCargos, 40000, "el flete no se mezcla con la mano de obra");
+  assert.equal(t.totalTotal, round2(1012500 * 1.19 + 40000 * 1.19));
+});
 
+test("`sugerirCargosIniciales` propone solo el flete: la mano de obra la calcula el sistema desde los ítems", () => {
+  const cargos = sugerirCargosIniciales();
   assert.deepEqual(
     cargos.map((c) => c.tipo),
-    ["SMO", "FLETE"],
-    "una línea de andamio en $0 en la cotización impresa le dice al cliente que el andamio es gratis, " +
-      "cuando lo que pasa es que nadie lo ha cotizado (misma invariante 'AUSENTE ≠ CERO' de la calibración)"
+    ["FLETE"],
+    "andamio y huacal arrancan AUSENTES, no en cero (invariante 'AUSENTE ≠ CERO')"
   );
-
-  const p = getParametros();
-  const smo = cargos[0];
-  assert.equal(smo.valorUnitario, Number(p.smo.armadaVentanas), "el valor unitario es la TARIFA, no el total");
-  assert.equal(smo.unidad, "UND", "la mano de obra se cobra por unidad instalada");
-  assert.equal(round2(smo.cantidad * smo.valorUnitario), round2(smo.cantidad * Number(p.smo.armadaVentanas)));
-  assert.equal(smo.origen, "SUGERIDO", "si el vendedor lo edita pasa a MANUAL; recién creado es SUGERIDO");
-  assert.equal(smo.tipoObra, "armadaVentanas");
-  assert.ok(smo.explicacion, "la pantalla muestra la explicación bajo el campo");
-
-  const flete = cargos[1];
-  assert.equal(flete.valorUnitario, round2(Number(p.flete_fijo)), "el flete sale de parámetros, y es editable");
+  const flete = cargos[0];
+  assert.equal(flete.valorUnitario, round2(Number(getParametros().flete_fijo)));
   assert.equal(flete.cantidad, 1, "un flete se paga UNA vez por propuesta: ese fue todo el bug");
   assert.equal(flete.unidad, "GLOBAL");
 });
@@ -596,4 +564,23 @@ test("la propuesta legada no valida el descuento porque ni siquiera lo mira", ()
   });
   assert.equal(t.totalTotal, 1190000);
   assert.equal(t.totalDescuento, 0);
+});
+
+// ---------------------------------------------------------------------------
+// 8. Elevadores del tablero (regla del usuario, 2026-09-26)
+// ---------------------------------------------------------------------------
+
+test("tablero: 4 elevadores, +2 si el ancho pasa de 1.500 mm y +2 si el alto pasa de 1.500 mm", () => {
+  assert.equal(elevadoresTablero(100, 100), 4, "1000×1000");
+  assert.equal(elevadoresTablero(150, 150), 4, "1500×1500 no pasa el umbral");
+  assert.equal(elevadoresTablero(150.1, 100), 6, "1501×1000");
+  assert.equal(elevadoresTablero(100, 150.1), 6, "1000×1501");
+  assert.equal(elevadoresTablero(150.1, 150.1), 8, "1501×1501");
+
+  // Y el BOM del módulo lo respeta en elevadores y perforaciones.
+  const r = getModulo("tablero")!.calcular({
+    anchoCm: 150.1, altoCm: 150.1, espesorMm: 8, segmentoCliente: "PA", cantidadPiezas: 1,
+  } as InputModulo) as { items: LineaBOM[] };
+  assert.equal(r.items.find((l) => l.codigo === "ELE1101")?.cantidad, 8);
+  assert.equal(r.items.find((l) => l.codigo === "PERF01")?.cantidad, 8);
 });

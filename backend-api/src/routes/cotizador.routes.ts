@@ -29,8 +29,7 @@ import {
   eliminarPropuesta,
   guardarCargosPropuesta,
   compararPropuestas,
-  smoSugerido,
-  smoSugeridoBorrador,
+  manoObraBorrador,
   descargarPdfPropuesta,
 } from '../controllers/cotizador_cotizaciones.controller';
 import {
@@ -90,10 +89,10 @@ router.get('/modulos', getModulos);
 
 router.post('/cotizar/:moduloId', cotizarItem);
 
-// Mano de obra sugerida para una cotización que todavía no existe (el carrito
-// viaja en el cuerpo). Fuera de `/cotizaciones/:id` a propósito: en un borrador
-// no hay ni cotización ni propuesta de la que colgar. No escribe nada.
-router.post('/smo-sugerido', smoSugeridoBorrador);
+// Mano de obra por producto (ensamble e instalación) de un juego de ítems,
+// guardados o no: los ítems viajan en el cuerpo. Fuera de `/cotizaciones/:id` a
+// propósito: en un borrador no hay ni cotización ni propuesta. No escribe nada.
+router.post('/mano-obra', manoObraBorrador);
 
 router.get('/plano', previsualizarPlano);
 
@@ -120,13 +119,12 @@ router.get('/cotizaciones/:id/items/:itemId/despiece', despieceDeItem);
 router.patch('/cotizaciones/:id/segmento', cambiarSegmento);
 
 // Propuestas (A/B/C…) de una cotización — 2026-09-20. Las rutas con un segmento
-// literal al final (`/clonar`, `/elegir`, `/cargos`, `/smo-sugerido`) van antes
+// literal al final (`/clonar`, `/elegir`, `/cargos`) van antes
 // de las que terminan en ':pid', por el mismo motivo que el bloque de precios:
 // si no, "clonar" se leería como el id de una propuesta.
 router.post('/cotizaciones/:id/propuestas/:pid/clonar', clonarPropuesta);
 router.patch('/cotizaciones/:id/propuestas/:pid/elegir', elegirPropuesta);
 router.put('/cotizaciones/:id/propuestas/:pid/cargos', guardarCargosPropuesta);
-router.get('/cotizaciones/:id/propuestas/:pid/smo-sugerido', smoSugerido);
 router.get('/cotizaciones/:id/propuestas/:pid/pdf', descargarPdfPropuesta);
 router.patch('/cotizaciones/:id/propuestas/:pid', actualizarPropuesta);
 router.delete('/cotizaciones/:id/propuestas/:pid', eliminarPropuesta);

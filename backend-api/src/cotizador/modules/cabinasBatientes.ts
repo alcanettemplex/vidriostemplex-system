@@ -87,6 +87,10 @@ export const meta = {
       requerido: false,
       grupo: "vidrio",
     },
+    // Mano de obra por producto (2026-09-26): no toca el despiece; la lee
+    // `calcularManoObraProductos` (lib/cargos.ts) desde el input guardado.
+    { nombre: "conInstalacion", tipo: "boolean", etiqueta: "Con instalación", requerido: false, grupo: "comercial", defecto: true },
+    { nombre: "enL", tipo: "boolean", etiqueta: "Cabina en L (la instalación cuenta doble)", requerido: false, grupo: "comercial" },
   ],
 };
 

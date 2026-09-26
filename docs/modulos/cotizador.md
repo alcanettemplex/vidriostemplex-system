@@ -268,8 +268,11 @@ cotización alimenta qué SAP, no hay desde dónde invocarlo.
 
 ## Pruebas
 
-`npm --prefix backend-api run test:cotizador` — **9 suites, 104 pruebas** desde el 2026-09-25
-(+ `piezaEntera`, 9; 104/104 ese día con el backend abajo). Lo que sigue es el detalle del
+`npm --prefix backend-api run test:cotizador` — **10 suites, 116 pruebas** desde el 2026-09-26 (2)
+(`cargos` pasó de 18 a 21: salieron las 6 del SMO por tipo de obra y entraron 9 de mano de obra por
+producto, totales con AIU y elevadores del tablero). Antes, **10 suites, 113 pruebas** el 2026-09-26
+(+ `precioACotizar`, 8, y Glasvit en `piezaEntera`, que pasa a 10; 113/113 ese día, suite por suite
+con el backend dev arriba). Antes: 9 suites, 104 pruebas (2026-09-25). Lo que sigue es el detalle del
 2026-09-23, 8 suites, **95 pruebas**. En verde (95/95,
 verificado el 2026-09-23 **suite por suite**: 11 `codigoDiseno` · 16 `plano` · 4 `humo` ·
 7 `accesorios` · 18 `cargos` · 10 `generadorSapPerfileria` · 19 `itemLibre` · 10
@@ -335,7 +338,13 @@ señal verde.
 2. Todo a Postgres con caché en memoria al arrancar — necesaria, no es solo egress: los motores son
    síncronos y Sequelize es async.
 3. **Sin Redux** para el estado del módulo.
-4. Identidad visual propia dentro del lenguaje del ERP: Space Grotesk / Manrope.
+4. ~~Identidad visual propia dentro del lenguaje del ERP: Space Grotesk / Manrope.~~ **Revertida el
+   2026-09-26** (Fase 5 del sistema visual, decisión del usuario): el módulo usa Geist y el azul
+   `templex` como el resto del ERP. Space Grotesk queda solo para las cotas del plano
+   (`DiagramaProducto`), que también se imprimen. Detalle en `design/sistema-visual/README.md`.
+   Las frases que ve el asesor por módulo viven en `frontend-web/src/features/cotizador/descripcionesModulo.ts`;
+   al agregar un módulo en `registry.ts`, agregar también su frase (si falta, se muestra la
+   `descripcion` técnica del backend).
 5. Prefijo `cotizador` en todo — choque real con `/api/cotizaciones`, `features/cotizaciones/` y
    `cotizacionesSlice`, que son el COTModal de la ODP, otra cosa.
 6. Sin identidad de usuario: `asesor` / `registrado_por` son texto libre, sin FK a `usuarios`.
@@ -370,9 +379,8 @@ a mano, el asesor marca `APROBADA` en el sistema). Botón "Descargar PDF" en
   `backend-api/src/types/pdfmake.d.ts`. ⚠️ Esa declaración ambiental no llega sola al programa de
   `ts-node` si nadie más la importa (a diferencia de `tsc`, que usa el `include` del tsconfig
   entero) — de ahí el `/// <reference path=... />` en `generadorPdfCotizacion.ts`.
-- **Fuente:** Helvetica (las 14 estándar de pdfkit, sin archivos que embeber). La identidad visual
-  del Cotizador en pantalla usa Space Grotesk/Manrope, pero traerlas al PDF exige generar un
-  `vfs_fonts` propio — no entró en esta v1.
+- **Fuente:** Helvetica (las 14 estándar de pdfkit, sin archivos que embeber). La pantalla usa Geist
+  desde el 2026-09-26; traerla al PDF exige generar un `vfs_fonts` propio — no entró en esta v1.
 - **`setLocalAccessPolicy`**: pdfkit resuelve las 14 fuentes estándar por el mismo camino que un
   archivo local (`PDFDocument.provideFont` → `validateLocalFile`), así que negar la política entera
   bloquea también `Helvetica-Bold`. Sólo se permiten los 4 nombres que declara
@@ -912,7 +920,7 @@ no movió el precio de ningún diseño que ya se cotizaba.
 - **Rodachinas:** `KITS_CON_RODACHINAS` en `cabinasCorredizas.ts` (hoy `{KIK0301}`). Si el kit
   está en el despiece (Torino) o es el del sistema libre "tubo rectangular", no se suman las 4
   `ROD0401`. ⚠️ Esto **bajó** el precio del cálculo libre con tubo rectangular, que las cobraba.
-  Glasvit (`KDG0306`) tiene la misma contradicción sin confirmar — `TECH_DEBT.md` 2026-09-25 (2).
+  Glasvit (`KDG0306`) también viene completo (usuario, 2026-09-26): está en el Set desde ese día.
 - **Caché y tipo `Producto`:** `largoPiezaMm` se emite sólo cuando tiene valor, igual que los
   metadatos de los provisionales — un producto normal sigue con sus 9 claves.
 - **Sincronización con Proveedores:** no se tocó. Un `UNIDAD` ya entra como costo por pieza, que es
@@ -928,23 +936,52 @@ diseños sin líneas en error (163 cotizables).
 
 ---
 
-## Productos en $0 (2026-09-23)
+## Productos en $0 (2026-09-23 · cerrado 2026-09-26)
 
-| Código | Qué es | Decisión del usuario |
+| Código | Qué es | Estado |
 |---|---|---|
-| `CL4MM03LM` | Vidrio claro 2+2 laminado | **Producto sobre pedido**: el precio se pide al proveedor por cotización. Cuando llegue, cargarlo en Proveedores (precio manual sobre `catalogo_producto_id` 423) y el sync lo propaga solo |
-| `CL4MM08SP` | Vidrio claro 4 mm templado STV | Igual — sobre pedido, `catalogo_producto_id` 425 |
-| `KDE0303` | Kit deslizante 6 mm en L | **Identificar con el usuario a qué sistema pertenecen y su código Templex** |
-| `KDE0304` | Kit deslizante 6 mm tres cuerpos | ídem |
-| `KVE001` | Kit ventanería especial | ídem |
-| `SDR0301` | Set de rodamiento AN 208 | ídem |
-| `CM572A` | Cerradura a muro 5724 | ídem |
-| `1BPB07`, `1BPB10`, `1PERF01`, `1BOQN02` | "CODIGO NO EXISTE" — prefijo `1` de código de compra | Basura de la siembra; decidir baja |
+| `KDE0303` | Kit deslizante 6 mm en L | ✅ Costo Templex **$200.000** (usuario, 2026-09-26) |
+| `KDE0304` | Kit deslizante 6 mm tres cuerpos | ✅ **$175.000** |
+| `SDR0301` | Set de rodamiento AN 208 | ✅ **$130.000** |
+| `CM572A` | Cerradura a muro 5724 | ✅ **$120.000** |
+| `KVE001` | Kit ventanería especial | ✅ **Precio a cotizar** — ver abajo |
+| `CL4MM03LM` | Vidrio claro 2+2 laminado | ✅ **Precio a cotizar** (sobre pedido) |
+| `CL4MM08SP` | Vidrio claro 4 mm templado STV | ✅ **Precio a cotizar** (sobre pedido) |
+| `1BPB07`, `1BPB10`, `1PERF01`, `1BOQN02` | "CODIGO NO EXISTE" — prefijo `1` de código de compra | Sin tocar: verificado el 2026-09-26 que **ningún diseño, mapeo, override ni cotización los usa** (sólo existen en su propia fila). Decisión del usuario: si nada los usa, no afectan |
 
-Los 5 kits **no bloquean ningún diseño hoy**: ninguno está en `diseno_perfil` ni en
-`mapeo_accesorio`, y ningún módulo los referencia en código. Sólo cobrarían $0 si un asesor los elige
-a mano en un ítem libre o en la personalización. Todos están vinculados a `catalogo_productos`, así
-que cargando su precio en Proveedores se costean solos.
+Los 4 costos se cargaron con PA/PM/PB = costo × multiplicador de ACCESORIO (script
+`2026-09-26_cotizador_precios_kits_y_perforaciones.ts`). Ninguno tiene proveedor con precio: cuando
+se mapee una factura en Proveedores, el sync los reemplaza solo.
+
+### Precio a cotizar (2026-09-26)
+
+`cotizador.producto.precio_a_cotizar` (BOOLEAN NOT NULL DEFAULT false) marca un producto que **no
+tiene precio de catálogo**: se cotiza aparte con el proveedor. Hoy: `KVE001`, `CL4MM03LM`,
+`CL4MM08SP`. Se enciende por script (no hay control en Configuración todavía).
+
+- **El asesor escribe el COSTO del proveedor**, no el precio de venta (decisión del usuario). El
+  motor calcula `precio = round2(costo × multiplicador[categoría][segmento])`, la misma regla que fija
+  PA/PM/PB del catálogo. Los multiplicadores viajan en la caché desde este cambio (bucket `precios`,
+  `getMultiplicador()` en `lib/catalogo.ts`), y `guardarMultiplicador` recarga la caché al guardar.
+- **Dónde se escribe:** en la línea del ítem libre (`lineas[i].costo`), en un componente agregado
+  (`personalizacion.extras[i].costo`) y en un cambio de componente (`personalizacion.cambios[i].costo`).
+  Viaja dentro de `input`, así que se guarda con la cotización y sobrevive a recalcular.
+- **Sin costo:** si el catálogo tiene precio de referencia (> 0) se usa y se avisa; si no, la línea
+  queda en **error** ("se cotiza aparte: pide el precio al proveedor…") y bloquea el ítem, como un $0.
+- **Con costo:** la línea lleva `precioACotizar: true` y `costoManual`; `calcularItem` (registry)
+  agrega una advertencia por código, y `ResultadoCalculo` muestra la insignia "Costo manual".
+- `costo` se **ignora** en productos sin la marca: su precio es el del catálogo y no se pisa a mano.
+- Un producto normal no lleva la clave `precioACotizar` (solo se emite cuando es true).
+
+### Perforaciones por unidad (2026-09-26)
+
+`PERF01/02/03` pasaron de `X METRO` a `UND` (el proveedor factura por UNIDAD; "05-20"/"21-50" son mm de
+diámetro). No movió ningún precio: Cabinas Corredizas ya las contaba por unidad y Tablero forzaba
+`unidadOverride: "UND"`. La equivalencia de **Templados y Laminados a $175** para PERF01
+(`proveedor_producto` #222, factura FE-FA140924) se **desvinculó** por orden del usuario: el código
+`PERFORACION001` volvió a "Por Mapear" con su histórico intacto. ⚠️ `PERF03` sigue con costo $5.900
+(Vitelsa) aunque Templados y Laminados lo da a $5.200: el próximo sync lo bajará a $5.200, que es
+correcto.
 
 ---
 
@@ -964,11 +1001,8 @@ Decisión del usuario (2026-09-23): los pendientes se trabajan uno por uno en el
 Claude. El orden va de lo que desbloquea cotizar hoy a lo que conecta con el ERP.
 
 1. ~~**Los 18 diseños no cotizables**~~ — **cerrado el 2026-09-25**, 163/163.
-2. **Los 5 kits/accesorios en $0** — identificar sistema y código Templex con el usuario; de paso,
-   decidir la baja de las 4 filas "CODIGO NO EXISTE".
-3. **Vidrios sobre pedido** (`CL4MM03LM`, `CL4MM08SP`) — cargar el precio del proveedor cuando
-   llegue. Evaluar además marcar productos "sobre pedido" para que el motor avise "precio a
-   cotizar con el proveedor" en vez de cobrar $0.
+2. ~~**Los 5 kits/accesorios en $0**~~ — **cerrado el 2026-09-26** (4 con costo, `KVE001` a cotizar).
+3. ~~**Vidrios sobre pedido**~~ — **cerrado el 2026-09-26** con la marca "precio a cotizar".
 4. **El PDF no menciona la personalización** — una ventana con miniboreal sale como "Ventanas". Es
    lo que ve el cliente.
 5. **Red de pruebas** — las 3 suites faltantes (`aptitudOrden`, `hojaTrabajo`, `pdf`) y regenerar el
@@ -989,6 +1023,60 @@ Fuera de la fila:
 - **Mapear los 330 productos con costo sembrado** — lo hace el usuario en Proveedores, sin código.
 - `npm run lint` del backend está roto de antes (ESLint 10 con `.eslintrc.json`), ver `TECH_DEBT.md`
   2026-09-22. La verificación efectiva hoy es `npm run build` + `test:cotizador`.
+
+---
+
+## Mano de obra por producto y total en vivo (2026-09-26)
+
+Reglas del usuario, 2026-09-26. **Reemplazan** la mano de obra "SMO por tipo de obra" del
+2026-09-20 (una línea por propuesta, piezas × tarifa del tipo predominante).
+
+| Producto | Qué se cobra | Tarifa (parámetro) |
+|---|---|---|
+| Ventanas y proyectantes | **Ensamble, siempre**, por m² | $60.000 (`mo_ensamble_ventana_m2`) |
+| Ventanas y proyectantes | **+ Instalación** si el ítem la lleva, por m² | $25.000 (`mo_instalacion_ventana_m2`) |
+| Cabinas corredizas y batientes | Instalación si la lleva, por unidad; **en L cuenta doble** | $120.000 (`mo_instalacion_cabina_und`) |
+| Espejos y tableros | Instalación si la lleva, por m² | $85.000 (`mo_instalacion_espejo_tablero_m2`) |
+
+- **Montos antes de AIU e IVA**, editables en Configuración → Parámetros. Las líneas llevan
+  **AIU, descuento de la propuesta e IVA**, como un producto (decisión del usuario).
+- **m² por pieza con mínimo de 1 m²** (decisión del usuario): `max(ancho × alto, 1) × piezas`. Se
+  lee de las MEDIDAS del `input`, nunca de `resultado.areaM2` (no significa lo mismo en todos los
+  módulos). Proyectante sin diseño: naves × ancho de nave × alto de nave.
+- **Casillas por ítem** en el formulario: "Con instalación" (6 módulos, **marcada por defecto** vía
+  el campo nuevo `defecto` de `meta.campos`) y "Cabina en L" (las dos cabinas). No tocan el despiece.
+- **Dónde vive:** `calcularManoObraProductos()` en `lib/cargos.ts` — único sitio. Genera líneas
+  `ENSAMBLE` / `INSTALACION` (`origen = AUTOMATICO`, una por grupo, ninguna en cero) con
+  `valor_unitario = round2(tarifa / aiu)`: el AIU va en el valor unitario, así el renglón que ve el
+  cliente ya lo trae y el PDF cuadra.
+- **Persistencia:** `recalcularPropuesta` (store) las regenera desde los ítems en cada recálculo y
+  solo reescribe si cambió algo (`sincronizarManoObra`; las filas están auditadas). `insertarCargos`
+  descarta cualquier ENSAMBLE/INSTALACION que llegue de afuera y `guardarCargos` ya no las borra.
+  Nueva columna `propuesta.total_mano_obra`; la cabecera guarda `total_subtotal = productos + mano de obra`.
+- **Previsualización:** `POST /api/cotizador/mano-obra` (ítems = módulo + input, no escribe)
+  reemplazó a los dos endpoints `smo-sugerido`. El frontend lo pide con `useManoObra`
+  (`totalesPropuesta.ts`) y NO replica la regla.
+- **Total en vivo** (pedido del usuario, opción A): `calcularTotalesPrevistos()` en
+  `frontend-web/src/features/cotizador/totalesPropuesta.ts` es la réplica única del contrato de
+  totales (antes copiada en `TabActual`). La usan la barra superior ("Total", con "sin guardar"
+  mientras hay cambios), la pestaña Actual y el bloque "Total de la propuesta con cargos de obra" del
+  paso 3 de Cotizar, que incluye el producto en pantalla aunque no se haya agregado (si se edita un
+  ítem, lo reemplaza en vez de sumarlo; uno con errores no cuenta).
+- **PDF:** las líneas de mano de obra van ANTES del descuento (entran en su base); el resto de
+  cargos, después.
+- **SMO legado:** el tipo `SMO` sigue siendo válido en BD. Una propuesta guardada con SMO lo muestra
+  en el panel como servicio adicional "Mano de obra anterior", para no perder el dato. Las tarifas
+  `smo_*` siguen en `cotizador.parametro` pero ya no se muestran ni se usan.
+- Script: `2026-09-26_cotizador_mano_obra_por_producto.ts` (ejecutado; `--revertir`). Verificado de
+  punta a punta con la cotización de prueba N.° 14: 2 ventanas 1500×1000 → ensamble 3 m² × $62.500 =
+  $187.500, total $1.100.408,32 igual al calculado aparte al peso.
+
+### Elevadores del tablero (2026-09-26)
+
+`elevadoresTablero()` en `modules/tablero.ts`: **4 + 2 si el ancho pasa de 1.500 mm + 2 si el alto
+pasa de 1.500 mm** (1000×1000 → 4, 1501×1000 → 6, 1501×1501 → 8). Las perforaciones `PERF01` llevan la
+misma cantidad. Reemplaza el umbral del Excel (solo ancho, ≥ 1,51 m). Con esto desapareció la tarifa
+"tablero grande" de $87.000 de la mano de obra.
 
 ---
 
@@ -1018,8 +1106,9 @@ Un cargo es de la obra, no de la pieza. Verificado tras el cambio: el mismo íte
 
 ```
 total_productos = Σ item.resultado.subtotalConAiu       (ya trae AIU)
-total_descuento = round2(total_productos × descuento_pct)
-baseGravable    = total_productos − total_descuento
+total_mano_obra = Σ total de ENSAMBLE/INSTALACION        (ya trae AIU — 2026-09-26)
+total_descuento = round2((total_productos + total_mano_obra) × descuento_pct)
+baseGravable    = total_productos + total_mano_obra − total_descuento
 ivaProductos    = round2(baseGravable × ivaPct)
 
 cargo.total     = round2(cantidad × valor_unitario)

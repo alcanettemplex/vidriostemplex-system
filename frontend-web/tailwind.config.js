@@ -83,10 +83,10 @@ module.exports = {
                 sans: ['var(--font-sans)'],
                 mono: ['var(--font-mono)'],
                 apple: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
-                // Exclusivas del módulo Cotizador (features/cotizador) — no tocar el
-                // font-sans por defecto del resto del ERP.
-                cotizador: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-                'cotizador-head': ['"Space Grotesk"', 'Manrope', 'sans-serif'],
+                // El Cotizador tuvo familias propias (Manrope / Space Grotesk) hasta el
+                // 2026-09-26: la Fase 5 del sistema visual lo llevó a Geist como el resto
+                // del ERP. Space Grotesk sigue cargada en index.html sólo para las cotas
+                // del plano (DiagramaProducto), que también se imprime.
             },
             // Geist en 900 satura los títulos (el ERP usa font-black en ~todos los
             // encabezados). 800 conserva la jerarquía sin que la pantalla "grite".

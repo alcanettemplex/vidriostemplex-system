@@ -120,6 +120,8 @@ export const meta = {
 interface LineaEntrada {
   codigo?: unknown;
   cantidad?: unknown;
+  /** Solo productos con precio a cotizar: costo del proveedor que escribe el asesor. */
+  costo?: unknown;
 }
 
 export function calcular(input: InputModulo) {
@@ -179,7 +181,7 @@ export function calcular(input: InputModulo) {
     // Sin `unidadOverride`: la unidad que vale es la que el catálogo declara para
     // ese código, y es la misma que el formulario usó para rotular la cantidad.
     // Forzarla aquí sería poder contradecir la etiqueta que vio el vendedor.
-    return lineaCatalogo(codigo, cantidad, segmentoCliente);
+    return lineaCatalogo(codigo, cantidad, segmentoCliente, { costoManual: linea?.costo });
   });
 
   for (const [codigo, veces] of vistos) {

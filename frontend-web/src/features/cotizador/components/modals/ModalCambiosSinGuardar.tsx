@@ -64,19 +64,19 @@ const ModalCambiosSinGuardar: React.FC<Props> = ({ accion, donde, puedeGuardar, 
             }
         >
             <div className="px-6 py-5 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <div className="text-[13px] text-slate-600 leading-relaxed space-y-2">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-[13px] text-slate-800 leading-relaxed space-y-2">
                     <p>
-                        Antes de <span className="font-bold text-slate-800">{accion}</span>, decide qué hacer con lo
+                        Antes de <span className="font-semibold text-slate-900">{accion}</span>, decide qué hacer con lo
                         que cambiaste en {donde} (ítems, descuento o cargos de obra).
                     </p>
                     {puedeGuardar ? (
-                        <p className="text-slate-500">
-                            <span className="font-semibold">Guardar y continuar</span> lo deja grabado y sigue.
-                            <span className="font-semibold"> Descartar</span> lo pierde y no se puede deshacer.
+                        <p className="text-slate-700">
+                            <span className="font-semibold text-slate-900">Guardar y continuar</span> lo deja grabado y sigue.
+                            <span className="font-semibold text-slate-900"> Descartar</span> lo pierde y no se puede deshacer.
                         </p>
                     ) : (
-                        <p className="text-amber-700">
+                        <p className="text-amber-800 font-semibold">
                             No se puede guardar una propuesta sin ítems: agrega uno o descarta los cambios.
                         </p>
                     )}

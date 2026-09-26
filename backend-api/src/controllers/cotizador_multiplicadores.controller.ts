@@ -185,6 +185,9 @@ export const guardarMultiplicador = async (req: Request, res: Response) => {
         nota: nota.slice(0, 2000),
       });
     }
+    // La caché lleva los multiplicadores desde el 2026-09-26: el costo manual de
+    // los productos con precio a cotizar los usa, y debe ver el valor nuevo ya.
+    await recargarPrecios();
 
     res.json({
       categoria,

@@ -10,7 +10,7 @@ import { z } from 'zod';
 import * as store from '../cotizador/store/cotizacionStore';
 import { ErrorCotizador } from '../cotizador/store/cotizacionStore';
 import { evaluarAptitudOrden } from '../cotizador/lib/aptitudOrden';
-import { sugerirSMO, tiposObra } from '../cotizador/lib/cargos';
+import { calcularManoObraProductos } from '../cotizador/lib/cargos';
 import * as empresaStore from '../cotizador/store/empresaStore';
 import { generarPdfCotizacion } from '../cotizador/lib/generadorPdfCotizacion';
 import type { CotizacionPdf, PropuestaPdf } from '../cotizador/lib/generadorPdfCotizacion';
@@ -439,62 +439,32 @@ export const compararPropuestas = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET /cotizaciones/:id/propuestas/:pid/smo-sugerido?tipoObra=armadaVentanas
- *
- * `{ monto, explicacion }` para el campo de mano de obra. El monto es una
- * SUGERENCIA: el vendedor puede cambiarlo, y al hacerlo el cargo pasa a
- * `origen: 'MANUAL'`. La explicación es el texto que la pantalla muestra debajo
- * del campo ("2,4 m² × $60.000") para que el vendedor sepa de dónde sale y pueda
- * defenderlo delante del cliente.
- *
- * Devuelve también `tiposObra` con las tarifas vigentes: son editables desde
- * Configuración y el selector no debe tenerlas cacheadas.
- */
-/** Body de la sugerencia para una cotización que TODAVÍA NO EXISTE. Reutiliza
- * `itemSchema`: son los mismos ítems del carrito, tal cual los devolvió el
- * motor, sólo que aún no están guardados en ninguna parte. */
-const smoBorradorSchema = z
+/** Ítems para calcular la mano de obra: solo el módulo y el formulario. El
+ * `resultado` (el despiece, KB por ítem) no hace falta y no se manda. */
+const manoObraSchema = z
   .object({
-    items: z.array(itemSchema).max(100).optional(),
-    tipoObra: z.string().max(30).optional(),
+    items: z
+      .array(z.object({ moduloId: z.string().max(40), input: z.record(z.string(), z.unknown()) }).strict())
+      .max(100),
   })
   .strict();
 
 /**
- * POST /smo-sugerido — la misma sugerencia, pero para un BORRADOR.
+ * POST /mano-obra — las líneas AUTOMÁTICAS de mano de obra (ensamble e
+ * instalación por producto, 2026-09-26) para un juego de ítems, guardados o no.
  *
- * El otro endpoint cuelga de `/cotizaciones/:id/propuestas/:pid`, y mientras el
- * vendedor arma la primera cotización esos dos ids no existen todavía: el panel
- * de cargos se quedaba sin sugerencia justo en la pantalla donde más se usa
- * (Cotizar). La alternativa era replicar la fórmula en el cliente, que rompería
- * el "un solo sitio donde se calcula el SMO" y perdería el piso del tablero
- * grande, que depende de `input.anchoCm`.
- *
- * Es POST y no GET porque los ítems del carrito viajan en el cuerpo: son los
- * blobs completos del motor y no caben en una query string. No escribe nada.
+ * Existe para que la pantalla muestre el total en vivo mientras el vendedor
+ * arma la propuesta sin copiar la regla en el cliente: el cálculo vive solo en
+ * `calcularManoObraProductos`. Al guardar, `recalcularPropuesta` usa esa misma
+ * función. Es POST porque los ítems viajan en el cuerpo. No escribe nada.
  */
-export const smoSugeridoBorrador = async (req: Request, res: Response) => {
+export const manoObraBorrador = async (req: Request, res: Response) => {
   try {
-    const datos = smoBorradorSchema.parse(req.body ?? {});
-    const items = (datos.items ?? []) as Parameters<typeof sugerirSMO>[0]['items'];
-    res.json({ ...sugerirSMO({ items, tipoObra: datos.tipoObra }), tiposObra: tiposObra() });
+    const datos = manoObraSchema.parse(req.body ?? {});
+    res.json({ lineas: calcularManoObraProductos(datos.items) });
   } catch (e) {
     if (responderZod(res, e)) return;
-    fallo(res, 'smoSugeridoBorrador', e, 'No se pudo calcular la mano de obra sugerida.');
-  }
-};
-
-export const smoSugerido = async (req: Request, res: Response) => {
-  const ids = idsRuta(req, res);
-  if (!ids) return;
-  try {
-    const items = await store.itemsDePropuesta(ids.id, ids.pid);
-    if (items === null) return res.status(404).json({ error: 'Esa propuesta no existe en esta cotización.' });
-    const tipoObra = typeof req.query.tipoObra === 'string' ? req.query.tipoObra : undefined;
-    res.json({ ...sugerirSMO({ items, tipoObra }), tiposObra: tiposObra() });
-  } catch (e) {
-    fallo(res, 'smoSugerido', e, 'No se pudo calcular la mano de obra sugerida.');
+    fallo(res, 'manoObraBorrador', e, 'No se pudo calcular la mano de obra de los productos.');
   }
 };
 

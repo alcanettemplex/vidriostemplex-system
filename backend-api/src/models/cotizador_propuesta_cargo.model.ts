@@ -39,12 +39,16 @@ CotizadorPropuestaCargo.init({
   // sigue siendo Postgres, que rechaza cualquier valor fuera del ENUM. El
   // `isIn` de aquí solo adelanta el error con un mensaje legible.
   tipo: {
-    type: DataTypes.STRING(10),
+    type: DataTypes.STRING(12),
     allowNull: false,
     validate: {
       isIn: {
-        args: [['SMO', 'ANDAMIO', 'HUACAL', 'FLETE', 'OTRO']],
-        msg: 'El tipo de cargo debe ser SMO, ANDAMIO, HUACAL, FLETE u OTRO.',
+        // ENSAMBLE / INSTALACION (2026-09-26): mano de obra por producto, líneas
+        // AUTOMÁTICAS que genera `recalcularPropuesta` desde los ítems. Llevan
+        // AIU, descuento e IVA, a diferencia del resto. SMO queda para las
+        // propuestas guardadas antes de ese día.
+        args: [['SMO', 'ANDAMIO', 'HUACAL', 'FLETE', 'OTRO', 'ENSAMBLE', 'INSTALACION']],
+        msg: 'El tipo de cargo debe ser SMO, ANDAMIO, HUACAL, FLETE, OTRO, ENSAMBLE o INSTALACION.',
       },
     },
   },

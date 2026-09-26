@@ -15,23 +15,25 @@ import { EstadoCotizacion } from '../../types';
 // de estas piezas necesitara saber algo del dominio, el sitio correcto es el
 // componente que la usa, no esto.
 //
-// Convenciones que imponen (ver la guía del rediseño):
-//   · tarjetas blancas con `border-slate-200` y `rounded-xl`, sin sombra;
-//   · títulos de sección en mayúsculas pequeñas con icono de 14px;
-//   · TODO número o importe va en `font-cotizador-head` (Space Grotesk) con
-//     `tabular-nums`: dígitos de ancho fijo, que es lo que alinea de verdad una
-//     columna de pesos. Se prefirió eso a cargar una tipografía monoespaciada
-//     aparte — mismo efecto en las cifras, 0 KB de red.
+// Convenciones que imponen — desde el 2026-09-26 (Fase 5 del sistema visual,
+// `design/sistema-visual/README.md`) son las del resto del ERP:
+//   · tarjetas blancas con `border-slate-200`, `rounded-xl` y `shadow-card`;
+//   · títulos de sección en mayúsculas pequeñas con icono de 14px, en NEGRO
+//     seminegrita: la jerarquía la da el peso, no el gris (regla del usuario);
+//   · acento de marca `templex-*` (antes índigo) y fuente Geist, que ya trae
+//     `tabular-nums` global: las columnas de pesos se alinean sin fuente propia.
+//     Las familias Manrope / Space Grotesk del módulo se retiraron; Space
+//     Grotesk sólo sobrevive en las cotas del plano (DiagramaProducto).
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Tono = 'indigo' | 'esmeralda' | 'ambar' | 'rosa' | 'neutro';
+type Tono = 'marca' | 'esmeralda' | 'ambar' | 'rosa' | 'neutro';
 
 const TONO_CHIP: Record<Tono, string> = {
-    indigo: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
-    esmeralda: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+    marca: 'bg-templex-50 text-templex-800 ring-templex-200',
+    esmeralda: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
     ambar: 'bg-amber-50 text-amber-800 ring-amber-200',
-    rosa: 'bg-rose-50 text-rose-700 ring-rose-200',
-    neutro: 'bg-slate-100 text-slate-600 ring-slate-200',
+    rosa: 'bg-rose-50 text-rose-800 ring-rose-200',
+    neutro: 'bg-slate-100 text-slate-800 ring-slate-200',
 };
 
 /** Píldora pequeña para estados y metadatos (nivel de corte, "Legada",
@@ -45,7 +47,7 @@ export const Chip: React.FC<{
 }> = ({ tono = 'neutro', children, title, className = '' }) => (
     <span
         title={title}
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ring-1 text-[10.5px] font-extrabold font-cotizador-head tabular-nums whitespace-nowrap ${TONO_CHIP[tono]} ${className}`}
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ring-1 text-[11px] font-semibold whitespace-nowrap ${TONO_CHIP[tono]} ${className}`}
     >
         {children}
     </span>
@@ -60,9 +62,9 @@ export const Etiqueta: React.FC<{
     className?: string;
 }> = ({ icono: Icono, children, className = '' }) => (
     <h3
-        className={`flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-slate-500 font-cotizador-head ${className}`}
+        className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-900 ${className}`}
     >
-        {Icono && <Icono className="w-3.5 h-3.5 text-indigo-500 shrink-0" />}
+        {Icono && <Icono className="w-3.5 h-3.5 text-templex-600 shrink-0" />}
         {children}
     </h3>
 );
@@ -98,13 +100,16 @@ export const Tarjeta: React.FC<{
     className = '', cuerpoClassName = '', children,
 }) => (
     <section
-        className={`${plano ? '' : 'bg-white border border-slate-200 rounded-xl'} ${sinRelleno ? 'overflow-hidden' : ''} ${className}`}
+        className={`${plano ? '' : 'bg-white border border-slate-200 rounded-xl shadow-card'} ${sinRelleno ? 'overflow-hidden' : ''} ${className}`}
     >
         {(titulo || accion) && (
-            <header className={`flex items-start justify-between gap-2 px-4 pt-3.5 ${sinRelleno ? 'pb-3.5 border-b border-slate-100' : 'pb-2'}`}>
-                <div className="min-w-0">
+            <header className={`flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pt-3.5 ${sinRelleno ? 'pb-3.5 border-b border-slate-100' : 'pb-2'}`}>
+                {/* `basis-64 grow`: el texto se queda con el ancho disponible y, cuando
+                    no llegan 256px al lado de la acción (celular), la acción baja a la
+                    línea siguiente en vez de estrujar la descripción en una columna. */}
+                <div className="min-w-0 basis-64 grow">
                     {titulo ? <Etiqueta icono={icono}>{titulo}</Etiqueta> : <span />}
-                    {descripcion && <p className="text-[11.5px] text-slate-400 mt-1 leading-snug">{descripcion}</p>}
+                    {descripcion && <p className="text-[12px] text-slate-700 mt-1 leading-snug">{descripcion}</p>}
                 </div>
                 {accion}
             </header>
@@ -126,11 +131,11 @@ export const FilaDato: React.FC<{
     const vacio = valor === null || valor === undefined || valor === '';
     return (
         <div className="flex items-baseline justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0">
-            <dt className="text-[12px] text-slate-500 shrink-0">{etiqueta}</dt>
+            <dt className="text-[12.5px] text-slate-700 shrink-0">{etiqueta}</dt>
             <dd
                 className={`text-[12.5px] font-semibold text-right ${
-                    vacio ? 'text-slate-300' : 'text-slate-800'
-                } ${numerico ? 'font-cotizador-head tabular-nums' : ''}`}
+                    vacio ? 'text-slate-400' : 'text-slate-900'
+                } ${numerico ? 'tabular-nums' : ''}`}
             >
                 {vacio ? '—' : valor}
             </dd>
@@ -200,9 +205,9 @@ export const EstadoVacio: React.FC<{
     className?: string;
 }> = ({ icono: Icono, titulo, detalle, className = '' }) => (
     <div className={`flex flex-col items-center justify-center text-center py-10 px-6 ${className}`}>
-        {Icono && <Icono className="w-8 h-8 text-slate-300 mb-2.5" />}
-        <p className="text-[13px] font-bold text-slate-600">{titulo}</p>
-        {detalle && <p className="text-[12px] text-slate-400 mt-1 max-w-xs leading-snug">{detalle}</p>}
+        {Icono && <Icono className="w-8 h-8 text-slate-400 mb-2.5" />}
+        <p className="text-[13.5px] font-semibold text-slate-900">{titulo}</p>
+        {detalle && <p className="text-[12.5px] text-slate-700 mt-1 max-w-sm leading-snug">{detalle}</p>}
     </div>
 );
 
@@ -218,7 +223,7 @@ interface PropsBoton extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 interface PropsBotonPrimario extends PropsBoton {
-    /** Reemplaza el índigo por otro color de fondo (el de la propuesta en
+    /** Reemplaza el azul de marca por otro color de fondo (el de la propuesta en
      * "Agregar a Propuesta B"). Reemplaza, no se suma: dos clases `bg-*` en el
      * mismo elemento las resuelve el orden del CSS, no el del atributo, y el
      * resultado sería impredecible. Vive sólo aquí para que los otros botones no
@@ -227,9 +232,16 @@ interface PropsBotonPrimario extends PropsBoton {
 }
 
 const BASE_BOTON =
-    'inline-flex items-center justify-center rounded-lg font-bold transition ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 ' +
-    'disabled:opacity-40 disabled:cursor-not-allowed';
+    'inline-flex items-center justify-center rounded-lg font-semibold transition ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-templex-400 ' +
+    'disabled:cursor-not-allowed';
+
+// Deshabilitado LEGIBLE (Fase 5): con `opacity-40` el texto blanco quedaba al
+// 40 % sobre el azul y no se leía qué botón era. Un gris sólido dice "no
+// disponible" sin borrar el rótulo. Las variantes `disabled:` de Tailwind se
+// emiten después de las base, así que ganan también sobre `claseColor`.
+const DESHABILITADO_PRIMARIO = 'disabled:bg-slate-200 disabled:text-slate-600 disabled:shadow-none';
+const DESHABILITADO_CONTORNO = 'disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200';
 
 const TAMANO_BOTON: Record<'normal' | 'compacto', string> = {
     normal: 'gap-2 px-4 py-2.5 text-sm',
@@ -246,7 +258,7 @@ export const BotonPrimario: React.FC<PropsBotonPrimario> = ({
     icono: Icono,
     ancho = false,
     compacto = false,
-    claseColor = 'bg-indigo-600 text-white hover:bg-indigo-700',
+    claseColor = 'bg-templex-600 text-white hover:bg-templex-700',
     disabled,
     children,
     className = '',
@@ -255,7 +267,7 @@ export const BotonPrimario: React.FC<PropsBotonPrimario> = ({
     <button
         {...resto}
         disabled={disabled || cargando}
-        className={`${BASE_BOTON} ${TAMANO_BOTON[compacto ? 'compacto' : 'normal']} ${claseColor} shadow-sm ${ancho ? 'w-full' : ''} ${className}`}
+        className={`${BASE_BOTON} ${TAMANO_BOTON[compacto ? 'compacto' : 'normal']} ${claseColor} shadow-sm ${DESHABILITADO_PRIMARIO} ${ancho ? 'w-full' : ''} ${className}`}
     >
         {cargando ? <Loader2 className={`${iconoBoton(compacto)} animate-spin`} /> : Icono && <Icono className={iconoBoton(compacto)} />}
         {children}
@@ -275,7 +287,7 @@ export const BotonSecundario: React.FC<PropsBoton> = ({
     <button
         {...resto}
         disabled={disabled || cargando}
-        className={`${BASE_BOTON} ${TAMANO_BOTON[compacto ? 'compacto' : 'normal']} bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 ${ancho ? 'w-full' : ''} ${className}`}
+        className={`${BASE_BOTON} ${TAMANO_BOTON[compacto ? 'compacto' : 'normal']} bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 hover:border-slate-400 ${DESHABILITADO_CONTORNO} ${ancho ? 'w-full' : ''} ${className}`}
     >
         {cargando ? <Loader2 className={`${iconoBoton(compacto)} animate-spin`} /> : Icono && <Icono className={iconoBoton(compacto)} />}
         {children}
@@ -298,7 +310,7 @@ export const BotonPeligro: React.FC<PropsBoton> = ({
     <button
         {...resto}
         disabled={disabled || cargando}
-        className={`${BASE_BOTON} ${TAMANO_BOTON[compacto ? 'compacto' : 'normal']} bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 ${ancho ? 'w-full' : ''} ${className}`}
+        className={`${BASE_BOTON} ${TAMANO_BOTON[compacto ? 'compacto' : 'normal']} bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 ${DESHABILITADO_CONTORNO} ${ancho ? 'w-full' : ''} ${className}`}
     >
         {cargando ? <Loader2 className={`${iconoBoton(compacto)} animate-spin`} /> : Icono && <Icono className={iconoBoton(compacto)} />}
         {children}
@@ -314,12 +326,12 @@ export const BotonPeligro: React.FC<PropsBoton> = ({
 // propia cadena de clases para los casos con sufijo de unidad (mm/%) — sólo
 // pasa a importar los tokens de aquí en vez de repetirlos.
 
-export const CONTROL_LABEL_CLASS = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
+export const CONTROL_LABEL_CLASS = 'block text-[11px] font-semibold uppercase tracking-wide text-slate-900 mb-1';
 
 const CONTROL_BASE =
-    'w-full h-10 px-3 text-sm rounded-lg bg-white text-slate-800 border transition ' +
+    'w-full h-10 px-3 text-sm rounded-lg bg-white text-slate-900 placeholder:text-slate-400 border transition ' +
     'focus:outline-none focus:ring-2';
-export const CONTROL_NORMAL = 'border-slate-300 hover:border-slate-400 focus:border-indigo-500 focus:ring-indigo-200';
+export const CONTROL_NORMAL = 'border-slate-300 hover:border-slate-400 focus:border-templex-500 focus:ring-templex-200';
 export const CONTROL_ERROR = 'border-rose-400 bg-rose-50/40 focus:border-rose-500 focus:ring-rose-200';
 
 /** Cadena de clases del control (input/select). `extra` va al final para que
@@ -354,7 +366,7 @@ export const Campo: React.FC<{
             {etiqueta}{requerido && <span className="text-rose-500"> *</span>}
         </label>
         {children}
-        {ayuda && <p className="text-[11px] text-slate-400 mt-0.5">{ayuda}</p>}
+        {ayuda && <p className="text-[11.5px] text-slate-700 mt-0.5">{ayuda}</p>}
     </div>
 );
 
@@ -378,15 +390,15 @@ export const ModalShell: React.FC<{
     children: React.ReactNode;
 }> = ({ titulo, subtitulo, accionesHeader, anchoMaximo = 'max-w-2xl', onClose, pie, children }) => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-        <div className={`bg-white rounded-2xl shadow-2xl w-full ${anchoMaximo} max-h-[90vh] overflow-y-auto border border-slate-200 font-cotizador`}>
+        <div className={`bg-white rounded-2xl shadow-2xl w-full ${anchoMaximo} max-h-[90vh] overflow-y-auto border border-slate-200`}>
             <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
                 <div className="min-w-0">
-                    <h2 className="text-lg font-bold text-slate-800 font-cotizador-head truncate">{titulo}</h2>
-                    {subtitulo && <p className="text-xs text-slate-500 font-medium truncate">{subtitulo}</p>}
+                    <h2 className="text-lg font-bold text-slate-900 truncate">{titulo}</h2>
+                    {subtitulo && <p className="text-[12.5px] text-slate-700 truncate">{subtitulo}</p>}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                     {accionesHeader}
-                    <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                    <button onClick={onClose} aria-label="Cerrar" className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition">
                         <X className="w-5 h-5" />
                     </button>
                 </div>

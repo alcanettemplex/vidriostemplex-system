@@ -124,7 +124,7 @@ const ModalCatalogoGeneral: React.FC<Props> = ({ busquedaInicial = '', onClose, 
                 {!elegido && (
                     <>
                         <div className="relative">
-                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                             <Input
                                 autoFocus
                                 className="pl-9"
@@ -134,12 +134,12 @@ const ModalCatalogoGeneral: React.FC<Props> = ({ busquedaInicial = '', onClose, 
                             />
                         </div>
                         {buscando && (
-                            <p className="text-[12px] text-slate-400 flex items-center gap-1.5">
+                            <p className="text-[12px] text-slate-700 flex items-center gap-1.5">
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando…
                             </p>
                         )}
                         {!buscando && q.trim().length >= 2 && resultados.length === 0 && (
-                            <p className="text-[12.5px] text-slate-500">
+                            <p className="text-[12.5px] text-slate-800">
                                 Sin coincidencias fuera del Cotizador. Si el producto ya está en el Cotizador, búscalo
                                 directamente en el componente.
                             </p>
@@ -150,22 +150,22 @@ const ModalCatalogoGeneral: React.FC<Props> = ({ busquedaInicial = '', onClose, 
                                     <button
                                         type="button"
                                         onClick={() => elegir(p)}
-                                        className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 flex items-start justify-between gap-3"
+                                        className="w-full text-left px-4 py-2.5 hover:bg-templex-50 flex items-start justify-between gap-3"
                                     >
                                         <span className="min-w-0">
-                                            <span className="block text-[12.5px] font-bold text-slate-800">{p.codigo}</span>
-                                            <span className="block text-[12px] text-slate-500">{p.nombre}</span>
+                                            <span className="block text-[12.5px] font-semibold text-slate-900">{p.codigo}</span>
+                                            <span className="block text-[12px] text-slate-800">{p.nombre}</span>
                                         </span>
-                                        <span className="text-right shrink-0 text-[11.5px]">
+                                        <span className="text-right shrink-0 text-[12px]">
                                             {p.proveedor ? (
                                                 <>
-                                                    <span className="block font-bold text-slate-700 tabular-nums">
+                                                    <span className="block font-semibold text-slate-900 tabular-nums">
                                                         {fmtCOP(p.proveedor.precio)} / {p.proveedor.unidadCompra}
                                                     </span>
-                                                    <span className="block text-slate-400">{p.proveedor.nombre}</span>
+                                                    <span className="block text-slate-700">{p.proveedor.nombre}</span>
                                                 </>
                                             ) : (
-                                                <span className="text-amber-600 font-semibold">Sin precio de proveedor</span>
+                                                <span className="text-amber-800 font-semibold">Sin precio de proveedor</span>
                                             )}
                                         </span>
                                     </button>
@@ -178,10 +178,10 @@ const ModalCatalogoGeneral: React.FC<Props> = ({ busquedaInicial = '', onClose, 
                 {elegido && (
                     <div className="space-y-4">
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                            <p className="text-[13px] font-bold text-slate-800">{elegido.codigo} — {elegido.nombre}</p>
-                            <p className="text-[12px] text-slate-500 mt-0.5">
+                            <p className="text-[13px] font-bold text-slate-900">{elegido.codigo} — {elegido.nombre}</p>
+                            <p className="text-[12px] text-slate-800 mt-0.5">
                                 {elegido.proveedor
-                                    ? <>Costo de compra: <strong>{fmtCOP(elegido.proveedor.precio)}</strong> por {elegido.proveedor.unidadCompra} · {elegido.proveedor.nombre}</>
+                                    ? <>Costo de compra: <strong className="font-semibold text-slate-900 tabular-nums">{fmtCOP(elegido.proveedor.precio)}</strong> por {elegido.proveedor.unidadCompra} · {elegido.proveedor.nombre}</>
                                     : 'Ningún proveedor activo tiene precio para este producto: escribe el costo abajo. Cuando Proveedores registre uno, lo reemplazará solo.'}
                             </p>
                         </div>
@@ -213,21 +213,21 @@ const ModalCatalogoGeneral: React.FC<Props> = ({ busquedaInicial = '', onClose, 
                                         const m = Number(mult[`multiplicador${s}` as const]) || 0;
                                         return (
                                             <div key={s} className="rounded-xl border border-slate-200 px-3 py-2 text-center">
-                                                <p className="text-[10.5px] font-bold uppercase text-slate-400">Precio {s.toUpperCase()}</p>
-                                                <p className="text-[15px] font-bold text-slate-800 tabular-nums">{fmtCOP(costo * m)}</p>
-                                                <p className="text-[10.5px] text-slate-400">× {m.toLocaleString('es-CO')}</p>
+                                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">Precio {s.toUpperCase()}</p>
+                                                <p className="text-[15px] font-bold text-slate-900 tabular-nums">{fmtCOP(costo * m)}</p>
+                                                <p className="text-[11px] text-slate-700 tabular-nums">× {m.toLocaleString('es-CO')}</p>
                                             </div>
                                         );
                                     })}
                                 </div>
                             ) : !mult ? (
-                                <p className="text-[12px] text-amber-700 flex items-center gap-1.5">
+                                <p className="text-[12px] text-amber-800 font-semibold flex items-center gap-1.5">
                                     <AlertTriangle className="w-3.5 h-3.5" />
                                     La categoría elegida no tiene multiplicador configurado.
                                 </p>
                             ) : null
                         )}
-                        <p className="text-[11px] text-slate-400">
+                        <p className="text-[12px] text-slate-700">
                             Vista previa: precio = costo × multiplicador de la categoría. El definitivo lo calcula el servidor
                             con la misma regla que usa Proveedores.
                         </p>

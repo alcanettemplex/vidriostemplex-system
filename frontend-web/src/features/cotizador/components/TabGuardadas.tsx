@@ -13,8 +13,13 @@ import { Campo, ChipEstadoCotizacion, Input, Select, Tarjeta } from './ui';
 // ─────────────────────────────────────────────────────────────────────────────
 // Pestaña "Guardadas" del Cotizador — listado con filtros server-side de
 // `apiListarCotizaciones`, misma línea visual que ExploradorODPPanel (slate/
-// indigo, tabla con th clickeable, sin Redux: este listado solo importa
+// templex, tabla con th clickeable, sin Redux: este listado solo importa
 // mientras la pestaña está montada).
+//
+// Fase 5 del sistema visual (2026-09-26): los encabezados de ESTADO e ÍTEMS
+// quedaban alineados a la izquierda sobre celdas centradas, así que el chip
+// rosa de "Perdido" se leía debajo de "ÍTEMS" como si la cifra fuera roja. Cada
+// encabezado lleva ahora la misma alineación que su celda.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ESTADOS: { v: EstadoCotizacion; l: string }[] = [
@@ -64,7 +69,7 @@ const totalDeFila = (c: CotizacionLigera): TotalDeFila => {
     if (hayElegida || props.length <= 1) {
         return {
             valorOrden: c.totales.total,
-            nodo: <span className="font-cotizador-head font-semibold">{fmtCOP(c.totales.total)}</span>,
+            nodo: <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(c.totales.total)}</span>,
         };
     }
 
@@ -75,10 +80,10 @@ const totalDeFila = (c: CotizacionLigera): TotalDeFila => {
         valorOrden: max,
         nodo: (
             <span title={`${props.length} propuestas sin decidir: ${totales.map(t => fmtCOP(t)).join(' · ')}`}>
-                <span className="font-cotizador-head font-semibold text-slate-600">
+                <span className="font-semibold text-slate-900 tabular-nums">
                     {min === max ? fmtCOPCorto(max) : `${fmtCOPCorto(min)} – ${fmtCOPCorto(max)}`}
                 </span>
-                <span className="block text-[10.5px] font-bold text-amber-700">sin decidir</span>
+                <span className="block text-[11px] font-semibold text-amber-800">sin decidir</span>
             </span>
         ),
     };
@@ -155,16 +160,16 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
     };
 
     const IconoOrden: React.FC<{ campo: OrdenCampo }> = ({ campo }) => {
-        if (ordenCampo !== campo) return <ChevronsUpDown className="w-3.5 h-3.5 ml-1 text-slate-300 inline" />;
+        if (ordenCampo !== campo) return <ChevronsUpDown className="w-3.5 h-3.5 ml-1 text-slate-500 inline" />;
         return ordenDir === 'ASC'
-            ? <ChevronUp className="w-3.5 h-3.5 ml-1 text-indigo-500 inline" />
-            : <ChevronDown className="w-3.5 h-3.5 ml-1 text-indigo-500 inline" />;
+            ? <ChevronUp className="w-3.5 h-3.5 ml-1 text-templex-600 inline" />
+            : <ChevronDown className="w-3.5 h-3.5 ml-1 text-templex-600 inline" />;
     };
 
     const th = (campo: OrdenCampo, texto: string, extra = '') => (
         <th
             onClick={() => ordenar(campo)}
-            className={`px-4 py-3 text-[11px] font-bold uppercase tracking-wide cursor-pointer select-none hover:bg-slate-100 transition whitespace-nowrap ${extra}`}
+            className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 cursor-pointer select-none hover:bg-slate-100 transition whitespace-nowrap ${extra || 'text-left'}`}
         >
             {texto}<IconoOrden campo={campo} />
         </th>
@@ -216,7 +221,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
     return (
         <div className="p-4 space-y-4">
             {cotizaciones.length > 0 && (
-                <p className="text-[12.5px] text-slate-500 font-semibold mb-1">
+                <p className="text-[12.5px] text-slate-900 font-semibold mb-1">
                     {cotizaciones.length} cotizacion{cotizaciones.length === 1 ? '' : 'es'} guardada{cotizaciones.length === 1 ? '' : 's'}
                 </p>
             )}
@@ -236,7 +241,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                 </Campo>
                 <Campo etiqueta="Buscar">
                     <div className="relative">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                         <Input className="pl-9" placeholder="Obra, contacto…" value={q} onChange={e => setQ(e.target.value)} />
                     </div>
                 </Campo>
@@ -246,63 +251,63 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
             <Tarjeta sinRelleno>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                        <thead className="bg-slate-50 text-slate-900 border-b border-slate-200">
                             <tr>
                                 {th('numero', 'N.°')}
-                                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-left">Cliente</th>
-                                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-left">Asesor</th>
-                                {th('estado', 'Estado')}
-                                {th('items', 'Ítems')}
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 text-left">Cliente</th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 text-left">Asesor</th>
+                                {th('estado', 'Estado', 'text-center')}
+                                {th('items', 'Ítems', 'text-center')}
                                 {th('total', 'Total', 'text-right')}
                                 {th('fecha', 'Fecha')}
-                                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-right">Acciones</th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
-                                <tr><td colSpan={8} className="py-16 text-center text-slate-400">
+                                <tr><td colSpan={8} className="py-16 text-center text-slate-700">
                                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                                     Cargando cotizaciones…
                                 </td></tr>
                             ) : filas.length === 0 ? (
                                 <tr><td colSpan={8} className="py-16 text-center">
-                                    <Inbox className="w-9 h-9 text-slate-300 mx-auto mb-2" />
-                                    <p className="text-slate-600 font-semibold">Ninguna cotización guardada coincide con estos filtros</p>
+                                    <Inbox className="w-9 h-9 text-slate-400 mx-auto mb-2" />
+                                    <p className="text-slate-900 font-semibold">Ninguna cotización guardada coincide con estos filtros</p>
                                 </td></tr>
                             ) : filas.map(c => (
                                 <tr
                                     key={c.id}
                                     onClick={() => { setDetalleId(c.id); setDetalleVista('normal'); }}
-                                    className="hover:bg-violet-50/60 cursor-pointer transition"
+                                    className="hover:bg-templex-50/60 cursor-pointer transition"
                                 >
-                                    <td className="px-4 py-3 font-cotizador-head font-bold text-slate-800 whitespace-nowrap">
+                                    <td className="px-4 py-3 font-bold text-slate-900 tabular-nums whitespace-nowrap">
                                         {c.numero}
                                         {(c.propuestas?.length ?? 0) > 1 && (
                                             <span
-                                                className="ml-1.5 px-1.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-[11px] font-bold text-indigo-700 align-middle"
+                                                className="ml-1.5 px-1.5 py-0.5 rounded-full bg-templex-50 ring-1 ring-templex-200 text-[11px] font-semibold text-templex-800 align-middle"
                                                 title={`${c.propuestas!.length} propuestas: ${c.propuestas!.map(p => p.etiqueta).join(' · ')}`}
                                             >
                                                 {c.propuestas!.length} props.
                                             </span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-3 text-slate-700 max-w-[220px]">
+                                    <td className="px-4 py-3 text-slate-800 max-w-[220px]">
                                         <div className="truncate" title={c.cliente?.nombre || ''}>{c.cliente?.nombre || '—'}</div>
-                                        {c.cliente?.obra && <div className="text-[11px] text-slate-400 truncate">{c.cliente.obra}</div>}
+                                        {c.cliente?.obra && <div className="text-[11.5px] text-slate-700 truncate">{c.cliente.obra}</div>}
                                     </td>
-                                    <td className="px-4 py-3 text-slate-500 max-w-[160px] truncate">{c.asesor || '—'}</td>
+                                    <td className={`px-4 py-3 max-w-[160px] truncate ${c.asesor ? 'text-slate-800' : 'text-slate-500'}`}>{c.asesor || '—'}</td>
                                     <td className="px-4 py-3 text-center">
                                         <ChipEstadoCotizacion estado={c.estado} />
                                     </td>
-                                    <td className="px-4 py-3 text-center text-slate-600">{itemsDeLaElegida(c)}</td>
-                                    <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap">{totalDeFila(c).nodo}</td>
-                                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtFecha(c.creadaEn)}</td>
+                                    <td className="px-4 py-3 text-center text-slate-800 tabular-nums">{itemsDeLaElegida(c)}</td>
+                                    <td className="px-4 py-3 text-right text-slate-800 whitespace-nowrap">{totalDeFila(c).nodo}</td>
+                                    <td className="px-4 py-3 text-slate-800 tabular-nums whitespace-nowrap">{fmtFecha(c.creadaEn)}</td>
                                     <td className="px-4 py-3 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                                         <button
                                             onClick={() => reabrir(c.id)}
                                             disabled={reabriendoId === c.id}
                                             title="Reabrir para editar"
-                                            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition disabled:opacity-40 mr-1"
+                                            className="p-1.5 rounded-lg text-templex-700 hover:bg-templex-50 transition disabled:opacity-40 mr-1"
                                         >
                                             {reabriendoId === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit3 className="w-4 h-4" />}
                                         </button>
@@ -310,7 +315,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                                             onClick={() => eliminar(c)}
                                             disabled={eliminandoId === c.id}
                                             title="Eliminar"
-                                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition disabled:opacity-40"
+                                            className="p-1.5 rounded-lg text-rose-700 hover:bg-rose-50 transition disabled:opacity-40"
                                         >
                                             {eliminandoId === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                         </button>

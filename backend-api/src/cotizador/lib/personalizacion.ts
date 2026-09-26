@@ -37,9 +37,13 @@ const MAX_POR_TIPO = 40;
 export interface CambioComponente {
   de: string;
   a: string;
+  /** Solo si `a` es de precio a cotizar: costo del proveedor que escribe el asesor. */
+  costo?: number;
 }
 export interface ExtraComponente {
   codigo: string;
+  /** Solo productos con precio a cotizar: costo del proveedor que escribe el asesor. */
+  costo?: number;
   /** Unidades del catálogo (m², metros o unidades). No se usa en perfiles. */
   cantidad?: number;
   /** Sólo perfiles: medida de corte de cada pieza, en milímetros. */
@@ -88,7 +92,7 @@ const esPerfileria = (categoria: string | null | undefined) => String(categoria 
 export function aplicarPersonalizacion(resultado: any, personalizacion: unknown, segmentoCliente: string): any {
   if (!tienePersonalizacion(personalizacion) || !Array.isArray(resultado?.items)) return resultado;
 
-  const cambios = (personalizacion.cambios ?? []).map((c) => ({ de: norm(c?.de), a: norm(c?.a) }));
+  const cambios = (personalizacion.cambios ?? []).map((c) => ({ de: norm(c?.de), a: norm(c?.a), costo: c?.costo }));
   const quitados = [...new Set((personalizacion.quitados ?? []).map(norm))].filter(Boolean);
   const extras = personalizacion.extras ?? [];
   if (cambios.length > MAX_POR_TIPO || quitados.length > MAX_POR_TIPO || extras.length > MAX_POR_TIPO) {
@@ -136,7 +140,7 @@ export function aplicarPersonalizacion(resultado: any, personalizacion: unknown,
   }
 
   // ─── Cambios ─────────────────────────────────────────────────────────────
-  for (const { de, a } of cambios) {
+  for (const { de, a, costo } of cambios) {
     if (de === a) continue;
     const lineas = items.filter((l) => l.codigo === de);
     if (lineas.length === 0) {
@@ -158,7 +162,7 @@ export function aplicarPersonalizacion(resultado: any, personalizacion: unknown,
     }
     items = items.map((l) => {
       if (l.codigo !== de) return l;
-      const linea = lineaCatalogo(a, Number(l.cantidad) || 0, segmentoCliente, { unidadOverride: l.unidad });
+      const linea = lineaCatalogo(a, Number(l.cantidad) || 0, segmentoCliente, { unidadOverride: l.unidad, costoManual: costo });
       return { ...linea, personalizada: 'cambiada', codigoOriginal: de, descripcionOriginal: l.descripcion };
     });
     resumen.cambios.push({ de, a, descripcionDe: lineas[0].descripcion, descripcionA: nuevo.descripcion });
@@ -194,7 +198,7 @@ export function aplicarPersonalizacion(resultado: any, personalizacion: unknown,
         );
       }
       const metros = ((medidaMm * piezas) / 1000) * (1 + DESPERDICIO_PERFIL_EXTRA_PCT / 100);
-      items.push({ ...lineaCatalogo(codigo, metros, segmentoCliente), personalizada: 'agregada' });
+      items.push({ ...lineaCatalogo(codigo, metros, segmentoCliente, { costoManual: extra.costo }), personalizada: 'agregada' });
       resumen.extras.push({
         codigo, descripcion: producto.descripcion, cantidad: round2(metros), unidad: producto.unidad, medidaMm, piezas,
       });
@@ -219,7 +223,7 @@ export function aplicarPersonalizacion(resultado: any, personalizacion: unknown,
     }
     // Un código inexistente no se rechaza aquí: `lineaCatalogo` lo devuelve como
     // línea en ERROR, que bloquea el ítem con el mismo mensaje que el resto.
-    items.push({ ...lineaCatalogo(codigo, cantidad, segmentoCliente), personalizada: 'agregada' });
+    items.push({ ...lineaCatalogo(codigo, cantidad, segmentoCliente, { costoManual: extra.costo }), personalizada: 'agregada' });
     resumen.extras.push({
       codigo, descripcion: producto?.descripcion ?? codigo, cantidad, unidad: producto?.unidad ?? '',
     });

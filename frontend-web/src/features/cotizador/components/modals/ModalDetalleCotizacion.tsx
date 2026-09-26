@@ -11,7 +11,7 @@ import { abrirVentanaImpresion } from '../../../../utils/printWindow';
 import DiagramaProducto from '../DiagramaProducto';
 import ComparadorPropuestas from '../ComparadorPropuestas';
 import PrintableHojaTrabajo from '../PrintableHojaTrabajo';
-import { BotonPrimario, BotonSecundario, ChipEstadoCotizacion, FilaDato, ModalShell } from '../ui';
+import { BotonPrimario, BotonSecundario, Chip, ChipEstadoCotizacion, ModalShell } from '../ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modal de detalle de una cotización guardada — tres vistas:
@@ -49,6 +49,39 @@ interface Props {
 }
 
 type Vista = 'normal' | 'tecnico' | 'comparar';
+
+/** Rótulo largo del segmento, el mismo que usa la ficha Comercial de `TabActual`. */
+const NOMBRE_SEGMENTO: Record<string, string> = {
+    PA: 'PA — Persona / obra pequeña',
+    PM: 'PM — Constructor mediano',
+    PB: 'PB — Gran obra',
+};
+
+/** Resumen de medidas cuando el ítem no trae `descripcionItem`. Mismo criterio
+ * que `descripcionRespaldo` de `TabActual`: el motor guarda cm, la pantalla
+ * muestra mm. Sin medidas no se inventa nada: la celda queda con guion. */
+const resumenMedidas = (input: Record<string, unknown> | undefined): string | null => {
+    const anchoCm = input?.anchoCm ?? input?.anchoNaveCm;
+    const altoCm = input?.altoCm ?? input?.altoNaveCm;
+    if (anchoCm == null && altoCm == null) return null;
+    const mm = (v: unknown) => (v != null && Number.isFinite(Number(v)) ? Number(v) * 10 : '?');
+    return `${mm(anchoCm)}×${mm(altoCm)} mm`;
+};
+
+/** Celda de la ficha de cabecera: rótulo arriba, valor abajo. Reemplaza a las
+ * dos columnas de `FilaDato` (Fase 5, 2026-09-26): con el cliente vacío la
+ * columna izquierda quedaba con un solo guion y todo el peso a la derecha. */
+const Dato: React.FC<{ etiqueta: string; children: React.ReactNode; className?: string }> = ({ etiqueta, children, className = '' }) => {
+    const vacio = children === null || children === undefined || children === '';
+    return (
+        <div className={`min-w-0 ${className}`}>
+            <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">{etiqueta}</dt>
+            <dd className={`text-[13px] mt-0.5 break-words ${vacio ? 'text-slate-500' : 'text-slate-800'}`}>
+                {vacio ? '—' : children}
+            </dd>
+        </div>
+    );
+};
 
 const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, onReabrir }) => {
     const [cot, setCot] = useState<Cotizacion | null>(null);
@@ -169,6 +202,11 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
 
     const aptitudDe = (itemId: number) => aptitud?.porItem.find(p => p.itemId === itemId) || null;
 
+    /** Nombre legible del módulo ("Ventanas" en vez de "ventanas"). Sale de la
+     * meta que el modal ya pide para la Hoja de Trabajo; un módulo retirado
+     * cae a su id. */
+    const nombreModulo = (moduloId: string) => modulos.find(m => m.id === moduloId)?.nombre || moduloId;
+
     const propuestas: Propuesta[] = cot?.propuestas ?? [];
     const activa = propuestas.find(p => p.id === (cot?.propuestaActivaId ?? propuestaId)) ?? null;
     const elegida = propuestas.find(p => p.elegida) ?? null;
@@ -219,7 +257,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
         if (propuestas.length === 0) return null;
         return (
             <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 mr-1">Propuesta</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-900 mr-1">Propuesta</span>
                 {propuestas.map(p => {
                     const esActiva = p.id === (cot?.propuestaActivaId ?? propuestaId);
                     return (
@@ -227,22 +265,20 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                             key={p.id}
                             onClick={() => { if (!esActiva) cargar(p.id); }}
                             title={p.nombre || `Propuesta ${p.etiqueta}`}
-                            className={`px-2.5 py-1 rounded-lg border text-[11.5px] font-bold transition ${esActiva
-                                ? 'bg-indigo-600 text-white border-indigo-600'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                            className={`px-2.5 py-1 rounded-lg border text-[12px] font-semibold transition ${esActiva
+                                ? 'bg-templex-600 text-white border-templex-600'
+                                : 'bg-white text-slate-900 border-slate-300 hover:bg-slate-50'}`}
                         >
                             {p.etiqueta}
                             {p.elegida && <CheckCircle2 className={`w-3 h-3 inline ml-1 ${esActiva ? 'text-white' : 'text-emerald-600'}`} />}
-                            <span className={`ml-1.5 font-cotizador-head ${esActiva ? 'text-violet-100' : 'text-slate-400'}`}>
+                            <span className={`ml-1.5 font-normal tabular-nums ${esActiva ? 'text-templex-50' : 'text-slate-700'}`}>
                                 {fmtCOP(p.totales.total)}
                             </span>
                         </button>
                     );
                 })}
                 {!elegida && (
-                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[10.5px] font-bold">
-                        Ninguna elegida
-                    </span>
+                    <Chip tono="ambar">Ninguna elegida</Chip>
                 )}
             </div>
         );
@@ -250,17 +286,17 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
 
     return (
         <ModalShell
-            titulo={<>Cotización {cot ? <span className="font-cotizador-head">{`N.° ${cot.numero}`}</span> : ''}</>}
-            subtitulo={cot ? (cot.cliente?.nombre || 'Sin cliente') : undefined}
+            titulo={<>Cotización {cot ? <span className="tabular-nums">{`N.° ${cot.numero}`}</span> : ''}</>}
+            subtitulo={cot ? (cot.cliente?.nombre || 'Sin cliente asignado') : undefined}
             anchoMaximo="max-w-4xl"
             onClose={onClose}
             accionesHeader={
-                <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-bold">
+                <div className="flex rounded-lg border border-slate-300 overflow-hidden text-[12px] font-semibold">
                     {([['normal', 'Normal'], ['tecnico', 'Técnica'], ['comparar', 'Comparar']] as const).map(([v, texto]) => (
                         <button
                             key={v}
                             onClick={() => setVista(v)}
-                            className={`px-3 py-1.5 transition ${vista === v ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                            className={`px-3 py-1.5 transition ${vista === v ? 'bg-templex-600 text-white' : 'bg-white text-slate-800 hover:bg-slate-50'}`}
                         >
                             {texto}
                         </button>
@@ -269,7 +305,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
             }
         >
             {cargando ? (
-                    <div className="py-20 flex items-center justify-center text-slate-400">
+                    <div className="py-20 flex items-center justify-center text-slate-700">
                         <Loader2 className="w-6 h-6 animate-spin mr-2" /> Cargando cotización…
                     </div>
                 ) : !cot ? null : vista === 'comparar' ? (
@@ -279,23 +315,34 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                 ) : vista === 'normal' ? (
                     <div className="p-6 space-y-5">
                         {/* ── Cabecera ─────────────────────────────────────── */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 bg-slate-50 border border-slate-200 rounded-xl px-4">
-                            <div>
-                                <FilaDato etiqueta="Cliente" valor={cot.cliente?.nombre} />
-                                {cot.cliente?.obra && <FilaDato etiqueta="Obra" valor={cot.cliente.obra} />}
-                                {cot.cliente?.direccion && <FilaDato etiqueta="Dirección" valor={cot.cliente.direccion} />}
-                                {cot.cliente?.telefono && <FilaDato etiqueta="Teléfono" valor={cot.cliente.telefono} />}
-                                {cot.cliente?.contacto && <FilaDato etiqueta="Contacto" valor={cot.cliente.contacto} />}
+                        {/* Ficha en dos bandas: quién (cliente y sus datos de
+                            contacto, sólo los que existen) y el trato comercial,
+                            en una grilla de celdas del mismo peso. */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                                {cot.cliente?.nombre
+                                    ? <p className="text-[15px] font-bold text-slate-900 break-words">{cot.cliente.nombre}</p>
+                                    : <p className="text-[14px] text-slate-700">Sin cliente asignado</p>}
+                                <ChipEstadoCotizacion estado={cot.estado} />
                             </div>
-                            <div>
-                                <FilaDato etiqueta="Asesor" valor={cot.asesor} />
-                                <FilaDato etiqueta="Segmento" valor={cot.segmentoCliente} />
-                                <FilaDato etiqueta="Estado" valor={<ChipEstadoCotizacion estado={cot.estado} />} />
+                            {(cot.cliente?.obra || cot.cliente?.direccion || cot.cliente?.telefono || cot.cliente?.contacto) && (
+                                <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-2">
+                                    {cot.cliente?.obra && <Dato etiqueta="Obra">{cot.cliente.obra}</Dato>}
+                                    {cot.cliente?.direccion && <Dato etiqueta="Dirección">{cot.cliente.direccion}</Dato>}
+                                    {cot.cliente?.telefono && <Dato etiqueta="Teléfono">{cot.cliente.telefono}</Dato>}
+                                    {cot.cliente?.contacto && <Dato etiqueta="Contacto">{cot.cliente.contacto}</Dato>}
+                                </dl>
+                            )}
+                            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 pt-3 border-t border-slate-200">
+                                <Dato etiqueta="Asesor">{cot.asesor}</Dato>
+                                <Dato etiqueta="Segmento">{cot.segmentoCliente ? (NOMBRE_SEGMENTO[cot.segmentoCliente] ?? cot.segmentoCliente) : null}</Dato>
                                 {/* El descuento vivo es el de la PROPUESTA; el de la
                                     cabecera quedó legado y siempre vale 0. */}
-                                <FilaDato etiqueta="Descuento de la propuesta" valor={fmtPct(activa?.descuentoPct ?? 0)} />
-                                <FilaDato etiqueta="Fecha" valor={fmtFecha(cot.creadaEn)} />
-                            </div>
+                                <Dato etiqueta={activa ? `Descuento · ${activa.etiqueta}` : 'Descuento'}>
+                                    <span className="tabular-nums">{fmtPct(activa?.descuentoPct ?? 0)}</span>
+                                </Dato>
+                                <Dato etiqueta="Fecha">{fmtFecha(cot.creadaEn)}</Dato>
+                            </dl>
                         </div>
 
                         {/* ── Propuestas ───────────────────────────────────── */}
@@ -303,13 +350,13 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                             <div className="space-y-2">
                                 <Chips />
                                 {activa && (activa.nombre || activa.nota) && (
-                                    <p className="text-[12.5px] text-slate-500">
-                                        {activa.nombre && <span className="font-bold text-slate-700">{activa.nombre}. </span>}
+                                    <p className="text-[12.5px] text-slate-800">
+                                        {activa.nombre && <span className="font-semibold text-slate-900">{activa.nombre}. </span>}
                                         {activa.nota}
                                     </p>
                                 )}
                                 {activa?.legadoCargosEnItems && (
-                                    <p className="flex items-start gap-1.5 text-[12px] text-amber-700 font-semibold">
+                                    <p className="flex items-start gap-1.5 text-[12px] text-amber-800 font-semibold">
                                         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                                         Propuesta anterior al cambio de cargos: su mano de obra y su flete están dentro
                                         del precio de cada ítem, no como cargos aparte.
@@ -321,23 +368,23 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                         {/* ── Ítems ────────────────────────────────────────── */}
                         <div className="border border-slate-200 rounded-xl overflow-hidden">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                                <thead className="bg-slate-50 text-slate-900 border-b border-slate-200 text-[11px] uppercase tracking-wide">
                                     <tr>
-                                        <th className="px-3 py-2 text-left font-medium">Módulo</th>
-                                        <th className="px-3 py-2 text-left font-medium">Descripción</th>
-                                        <th className="px-3 py-2 text-center font-medium">Piezas</th>
-                                        <th className="px-3 py-2 text-right font-medium">Subtotal+AIU</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Módulo</th>
+                                        <th className="px-3 py-2 text-left font-semibold">Descripción</th>
+                                        <th className="px-3 py-2 text-center font-semibold">Piezas</th>
+                                        <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Subtotal + AIU</th>
                                         {/* Estos dos vienen del blob del ítem, calculados
                                             ANTES del descuento de la propuesta. Sin el
                                             rótulo, sumarlos a mano no cuadra con el total. */}
-                                        <th className="px-3 py-2 text-right font-medium">IVA <span className="font-normal text-[10.5px] text-slate-400">(precio lleno)</span></th>
-                                        <th className="px-3 py-2 text-right font-medium">Total <span className="font-normal text-[10.5px] text-slate-400">(precio lleno)</span></th>
-                                        {aptitud && <th className="px-3 py-2 text-center font-medium">Corte</th>}
+                                        <th className="px-3 py-2 text-right font-semibold">IVA <span className="block font-normal normal-case tracking-normal text-slate-700">a precio lleno</span></th>
+                                        <th className="px-3 py-2 text-right font-semibold">Total <span className="block font-normal normal-case tracking-normal text-slate-700">a precio lleno</span></th>
+                                        {aptitud && <th className="px-3 py-2 text-center font-semibold">Corte</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {cot.items.length === 0 && (
-                                        <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                                        <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-700">
                                             Esta propuesta no tiene ítems.
                                         </td></tr>
                                     )}
@@ -346,22 +393,20 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                                         return (
                                             <React.Fragment key={it.id}>
                                                 <tr>
-                                                    <td className="px-3 py-2 text-slate-500">{it.moduloId}</td>
-                                                    <td className="px-3 py-2 text-slate-700">{it.descripcionItem || '—'}</td>
-                                                    <td className="px-3 py-2 text-center text-slate-600">{it.cantidadPiezas}</td>
-                                                    <td className="px-3 py-2 text-right font-cotizador-head font-semibold text-slate-700">{fmtCOP(it.subtotalConAiu)}</td>
-                                                    <td className="px-3 py-2 text-right font-cotizador-head font-semibold text-slate-500">{fmtCOP(it.iva)}</td>
-                                                    <td className="px-3 py-2 text-right font-cotizador-head font-semibold text-slate-600">{fmtCOP(it.total)}</td>
+                                                    <td className="px-3 py-2 font-semibold text-slate-900">{nombreModulo(it.moduloId)}</td>
+                                                    <td className={`px-3 py-2 ${(it.descripcionItem || resumenMedidas(it.input)) ? 'text-slate-800' : 'text-slate-500'}`}>
+                                                        {it.descripcionItem || resumenMedidas(it.input) || '—'}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-center text-slate-800 tabular-nums">{it.cantidadPiezas}</td>
+                                                    <td className="px-3 py-2 text-right font-semibold text-slate-900 tabular-nums whitespace-nowrap">{fmtCOP(it.subtotalConAiu)}</td>
+                                                    <td className="px-3 py-2 text-right text-slate-700 tabular-nums whitespace-nowrap">{fmtCOP(it.iva)}</td>
+                                                    <td className="px-3 py-2 text-right text-slate-800 tabular-nums whitespace-nowrap">{fmtCOP(it.total)}</td>
                                                     {aptitud && (
                                                         <td className="px-3 py-2 text-center">
                                                             {apt?.imprimible ? (
-                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
-                                                                    <CheckCircle2 className="w-3 h-3" /> Imprimible
-                                                                </span>
+                                                                <Chip tono="esmeralda"><CheckCircle2 className="w-3 h-3" /> Imprimible</Chip>
                                                             ) : (
-                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 text-[11px] font-bold">
-                                                                    <XCircle className="w-3 h-3" /> No imprimible
-                                                                </span>
+                                                                <Chip tono="rosa"><XCircle className="w-3 h-3" /> No imprimible</Chip>
                                                             )}
                                                         </td>
                                                     )}
@@ -369,7 +414,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                                                 {aptitud && apt && !apt.imprimible && apt.motivos.length > 0 && (
                                                     <tr>
                                                         <td colSpan={7} className="px-3 pb-2 pt-0">
-                                                            <ul className="text-[11px] text-rose-600 list-disc list-inside pl-2">
+                                                            <ul className="text-[12px] text-rose-800 list-disc list-inside pl-2">
                                                                 {apt.motivos.map((m, i) => <li key={i}>{m.texto}</li>)}
                                                             </ul>
                                                         </td>
@@ -386,9 +431,9 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                         {cargos.length > 0 && (
                             <div className="border border-slate-200 rounded-xl overflow-hidden">
                                 <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex items-center gap-2">
-                                    <HardHat className="w-4 h-4 text-indigo-600" />
-                                    <span className="text-[12.5px] font-bold text-slate-700">Cargos de obra</span>
-                                    <span className="text-[11px] text-slate-400">
+                                    <HardHat className="w-4 h-4 text-templex-600" />
+                                    <span className="text-[12.5px] font-semibold text-slate-900">Cargos de obra</span>
+                                    <span className="text-[12px] text-slate-700">
                                         Se cobran una vez por propuesta · fuera del AIU y del descuento
                                     </span>
                                 </div>
@@ -396,22 +441,22 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                                     <tbody className="divide-y divide-slate-100">
                                         {cargos.map(c => (
                                             <tr key={c.id}>
-                                                <td className="px-3 py-2 text-slate-700">
+                                                <td className="px-3 py-2 text-slate-900">
                                                     {ETIQUETA_CARGO[c.tipo] || c.tipo}
                                                     {c.descripcion && c.descripcion !== ETIQUETA_CARGO[c.tipo] && (
-                                                        <span className="text-slate-400"> · {c.descripcion}</span>
+                                                        <span className="text-slate-700"> · {c.descripcion}</span>
                                                     )}
                                                     {c.origen === 'SUGERIDO' && (
-                                                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-[11px] font-bold text-indigo-700">Sugerido</span>
+                                                        <Chip tono="marca" className="ml-1.5">Sugerido</Chip>
                                                     )}
                                                     {!c.aplicaIva && (
-                                                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-500">Sin IVA</span>
+                                                        <Chip tono="neutro" className="ml-1.5">Sin IVA</Chip>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-2 text-right text-slate-500 whitespace-nowrap">
+                                                <td className="px-3 py-2 text-right text-slate-700 tabular-nums whitespace-nowrap">
                                                     {c.unidad !== 'GLOBAL' && `${c.cantidad} ${c.unidad === 'DIA' ? 'día(s)' : 'und'} × ${fmtCOP(c.valorUnitario)}`}
                                                 </td>
-                                                <td className="px-3 py-2 text-right font-cotizador-head font-semibold text-slate-700 whitespace-nowrap">{fmtCOP(c.total)}</td>
+                                                <td className="px-3 py-2 text-right font-semibold text-slate-900 tabular-nums whitespace-nowrap">{fmtCOP(c.total)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -448,34 +493,37 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                             <div className="w-full max-w-xs space-y-1 text-sm">
                                 {totales ? (
                                     <>
-                                        <div className="flex justify-between"><span className="text-slate-400">Productos (con AIU)</span><span className="font-cotizador-head font-semibold text-slate-700">{fmtCOP(totales.productos)}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-800">Productos (con AIU)</span><span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(totales.productos)}</span></div>
+                                        {(totales.manoObra ?? 0) > 0 && (
+                                            <div className="flex justify-between"><span className="text-slate-800">Mano de obra (con AIU)</span><span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(totales.manoObra)}</span></div>
+                                        )}
                                         {totales.descuento > 0 && (
-                                            <div className="flex justify-between"><span className="text-slate-400">Descuento</span><span className="font-cotizador-head font-semibold text-rose-600">−{fmtCOP(totales.descuento)}</span></div>
+                                            <div className="flex justify-between"><span className="text-slate-800">Descuento</span><span className="font-semibold text-rose-700 tabular-nums">−{fmtCOP(totales.descuento)}</span></div>
                                         )}
                                         {totales.cargos > 0 && (
-                                            <div className="flex justify-between"><span className="text-slate-400">Cargos de obra</span><span className="font-cotizador-head font-semibold text-slate-700">{fmtCOP(totales.cargos)}</span></div>
+                                            <div className="flex justify-between"><span className="text-slate-800">Cargos de obra</span><span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(totales.cargos)}</span></div>
                                         )}
-                                        <div className="flex justify-between"><span className="text-slate-400">IVA</span><span className="font-cotizador-head font-semibold text-slate-700">{fmtCOP(totales.iva)}</span></div>
-                                        <div className="flex justify-between text-base font-bold border-t border-slate-200 pt-1">
+                                        <div className="flex justify-between"><span className="text-slate-800">IVA</span><span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(totales.iva)}</span></div>
+                                        <div className="flex justify-between text-base font-bold text-slate-900 border-t border-slate-200 pt-1">
                                             <span>Total{activa ? ` · ${activa.etiqueta}` : ''}</span>
-                                            <span className="font-cotizador-head">{fmtCOP(totales.total)}</span>
+                                            <span className="tabular-nums text-templex-700">{fmtCOP(totales.total)}</span>
                                         </div>
                                     </>
                                 ) : (
                                     <>
-                                        <div className="flex justify-between"><span className="text-slate-400">Subtotal</span><span className="font-cotizador-head font-semibold text-slate-700">{fmtCOP(cot.totales.subtotal)}</span></div>
-                                        <div className="flex justify-between"><span className="text-slate-400">IVA</span><span className="font-cotizador-head font-semibold text-slate-700">{fmtCOP(cot.totales.iva)}</span></div>
-                                        <div className="flex justify-between text-base font-bold border-t border-slate-200 pt-1"><span>Total</span><span className="font-cotizador-head">{fmtCOP(cot.totales.total)}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-800">Subtotal</span><span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(cot.totales.subtotal)}</span></div>
+                                        <div className="flex justify-between"><span className="text-slate-800">IVA</span><span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(cot.totales.iva)}</span></div>
+                                        <div className="flex justify-between text-base font-bold text-slate-900 border-t border-slate-200 pt-1"><span>Total</span><span className="tabular-nums text-templex-700">{fmtCOP(cot.totales.total)}</span></div>
                                     </>
                                 )}
                                 {!viendoLaElegida && (
-                                    <p className="text-[11px] text-amber-700 font-semibold pt-1">
+                                    <p className="text-[12px] text-amber-800 font-semibold pt-1">
                                         Estos son los totales de la propuesta {activa?.etiqueta}. La que se le cobra al
                                         cliente es la {elegida?.etiqueta} ({fmtCOP(elegida?.totales.total ?? 0)}).
                                     </p>
                                 )}
                                 {!elegida && propuestas.length > 1 && (
-                                    <p className="text-[11px] text-amber-700 font-semibold pt-1">
+                                    <p className="text-[12px] text-amber-800 font-semibold pt-1">
                                         Ninguna propuesta está elegida: la cotización todavía no tiene un total
                                         definitivo ni puede aprobarse.
                                     </p>
@@ -522,7 +570,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                             <div className="space-y-1">
                                 <Chips />
                                 {!viendoLaElegida && (
-                                    <p className="flex items-start gap-1.5 text-[12px] text-amber-700 font-semibold">
+                                    <p className="flex items-start gap-1.5 text-[12px] text-amber-800 font-semibold">
                                         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                                         Estos son los planos de la propuesta {activa?.etiqueta}, que no es la elegida:
                                         no son los que van al taller.
@@ -531,20 +579,20 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                             </div>
                         )}
                         {cargandoPlanos && (
-                            <div className="flex items-center gap-2 text-slate-400 text-sm">
+                            <div className="flex items-center gap-2 text-slate-700 text-sm">
                                 <Loader2 className="w-4 h-4 animate-spin" /> Cargando planos…
                             </div>
                         )}
                         {cot.items.map((it: ItemCotizacion) => (
                             <div key={it.id} className="border border-slate-200 rounded-2xl p-4">
                                 <div className="mb-3">
-                                    <h3 className="text-sm font-bold text-slate-800">{it.descripcionItem || it.moduloId}</h3>
-                                    <p className="text-[11px] text-slate-400">{it.moduloId} · {it.cantidadPiezas} pieza(s)</p>
+                                    <h3 className="text-sm font-bold text-slate-900">{it.descripcionItem || nombreModulo(it.moduloId)}</h3>
+                                    <p className="text-[12px] text-slate-700">{nombreModulo(it.moduloId)}{resumenMedidas(it.input) ? ` · ${resumenMedidas(it.input)}` : ''} · {it.cantidadPiezas} pieza(s)</p>
                                 </div>
                                 {it.disenoId ? (
                                     <DiagramaProducto plano={planos[it.id] ?? null} cargando={cargandoPlanos && !(it.id in planos)} />
                                 ) : (
-                                    <p className="text-sm text-slate-500 italic">Este ítem no tiene plano (cotizado por medidas libres).</p>
+                                    <p className="text-sm text-slate-700 italic">Este ítem no tiene plano (cotizado por medidas libres).</p>
                                 )}
                             </div>
                         ))}

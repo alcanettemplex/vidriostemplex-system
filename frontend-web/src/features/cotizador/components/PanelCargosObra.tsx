@@ -1,9 +1,9 @@
 import React from 'react';
-import { toast } from 'react-toastify';
-import { HardHat, Plus, Trash2, Truck, Package2, Layers, Wand2, AlertTriangle, Lock } from '../../../components/ui/icons';
+import {
+    HardHat, Plus, Trash2, Truck, Package2, Layers, Wand2, AlertTriangle, Lock, ChevronDown, Loader2,
+} from '../../../components/ui/icons';
 
-import { apiSmoSugerido, apiSmoSugeridoBorrador } from '../services/cotizadorApi';
-import { CargoEntrada, CargoPropuesta, OrigenCargo, Parametros, TipoObraSeleccion } from '../types';
+import { CargoEntrada, CargoPropuesta, LineaManoObra, OrigenCargo, Parametros, TIPOS_MANO_OBRA } from '../types';
 import { fmtCOP } from '../format';
 import { Chip, BotonSecundario } from './ui';
 
@@ -32,32 +32,27 @@ import { Chip, BotonSecundario } from './ui';
 // FORMA (2026-09-20): los cargos se leen como una TABLA de cuatro columnas
 // —concepto · cantidad × valor unitario · total— y no como cinco tarjetas
 // apiladas. El vendedor compara importes verticalmente, y para eso los dígitos
-// tienen que caer en la misma columna: de ahí `tabular-nums` junto a
-// `font-cotizador-head` en toda celda de dinero. Nada de esto toca el cálculo.
+// tienen que caer en la misma columna: de ahí `tabular-nums` en toda celda de
+// dinero. Nada de esto toca el cálculo.
+//
+// SISTEMA VISUAL (2026-09-26, Fase 5): acento `templex` en vez de índigo, texto
+// en negro según su rol, sin fuente propia (Geist ya alinea las cifras). Las
+// columnas numéricas ganaron anchos mínimos reales —la de cantidad no cabía su
+// rótulo "Und." más el campo y el icono se montaba encima— y la rejilla se
+// activa desde `md` en vez de `sm`: por debajo, cada fila se apila.
+//
+// PLEGABLE (2026-09-26): en Cotizar el panel es el paso 3 del flujo, a lo
+// ancho, y se pinta plegable (`plegable`). Plegado muestra una línea resumen
+// —conceptos activos, subtotal, IVA— y señala si algún valor sigue siendo el
+// SUGERIDO por el sistema, para que no quede escondido. En Actual nadie pasa
+// `plegable` y el panel se ve completo, como siempre.
+//
+// MANO DE OBRA POR PRODUCTO (2026-09-26): el selector "Mano de obra por tipo de
+// obra" (SMO) salió. Ensamble e instalación se calculan solos en el backend
+// desde los productos (m² de ventanas/proyectantes/espejos/tableros, unidades de
+// cabinas; ver `calcularManoObraProductos`) y aquí se pintan de SOLO LECTURA,
+// arriba de la tabla. A diferencia del resto de cargos llevan AIU y descuento.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Etiquetas de los tipos de obra. Réplica deliberada de `ETIQUETA_TIPO_OBRA`
- * de `backend-api/src/cotizador/lib/cargos.ts`: es lo que el backend guarda en
- * `cargo.descripcion` de la línea SMO, así que es también la llave con la que
- * se reconstruye el selector al reabrir una propuesta. Los MONTOS no se copian
- * —salen de `parametros.smo`, editables desde Configuración—; sólo los textos.
- * Si allá cambia una etiqueta, hay que cambiarla aquí o el selector volverá a
- * abrirse en blanco (no rompe nada: el monto guardado se respeta). */
-export const ETIQUETA_TIPO_OBRA: Record<TipoObraSeleccion, string> = {
-    cabinas: 'Cabinas',
-    fachadas: 'Fachadas',
-    armadaVentanas: 'Armada de ventanas',
-    persiana: 'Persiana',
-    otro: 'Otro (monto libre)',
-};
-
-const ORDEN_TIPOS_OBRA: TipoObraSeleccion[] = ['cabinas', 'fachadas', 'armadaVentanas', 'persiana', 'otro'];
-
-/** Tarifa vigente de un tipo de obra. `otro` es monto libre y no tiene. */
-const tarifaDe = (parametros: Parametros | null, tipoObra: TipoObraSeleccion | ''): number => {
-    if (!parametros || !tipoObra || tipoObra === 'otro') return 0;
-    return Number(parametros.smo?.[tipoObra]) || 0;
-};
 
 // ─── Estado del formulario ──────────────────────────────────────────────────
 // El panel NO trabaja con la lista de cargos tal cual la guarda el backend:
@@ -75,20 +70,6 @@ export interface LineaOtroCargo {
 }
 
 export interface EstadoCargos {
-    smo: {
-        activo: boolean;
-        tipoObra: TipoObraSeleccion | '';
-        /** Unidades instaladas. La mano de obra se cobra POR UNIDAD, no por m²
-         * (corregido el 2026-09-20): el sistema sugiere la suma de piezas de la
-         * propuesta y el vendedor la ajusta. */
-        unidades: number;
-        /** Valor por unidad, no el total. El total es `unidades × valor`. */
-        valor: number;
-        origen: OrigenCargo;
-        /** Texto que el backend devolvió bajo el campo: "2,4 m² × $60.000". */
-        explicacion: string;
-        aplicaIva: boolean;
-    };
     andamio: { activo: boolean; dias: number; valorUnitario: number; aplicaIva: boolean };
     huacal: { activo: boolean; unidades: number; valorUnitario: number; aplicaIva: boolean };
     flete: { activo: boolean; valor: number; origen: OrigenCargo; aplicaIva: boolean };
@@ -107,25 +88,17 @@ const nuevaKey = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
  * para que encenderlos sea un clic.
  */
 export const cargosIniciales = (parametros: Parametros | null): EstadoCargos => ({
-    smo: { activo: true, tipoObra: '', unidades: 1, valor: 0, origen: 'SUGERIDO', explicacion: '', aplicaIva: true },
     andamio: { activo: false, dias: 1, valorUnitario: Number(parametros?.alquiler_andamio) || 0, aplicaIva: true },
     huacal: { activo: false, unidades: 1, valorUnitario: Number(parametros?.huacal) || 0, aplicaIva: true },
     flete: { activo: true, valor: Number(parametros?.flete_fijo) || 0, origen: 'SUGERIDO', aplicaIva: true },
     otros: [],
 });
 
-/** Invierte `ETIQUETA_TIPO_OBRA` para repoblar el selector al reabrir. */
-const tipoObraDeEtiqueta = (descripcion: string | null): TipoObraSeleccion | '' => {
-    const encontrado = ORDEN_TIPOS_OBRA.find((id) => ETIQUETA_TIPO_OBRA[id] === (descripcion || ''));
-    return encontrado ?? '';
-};
-
 /** Traduce las filas que devuelve el backend al formulario. Lo que no venga
  * queda apagado con su tarifa de parámetros lista, igual que en una propuesta
  * nueva: una propuesta sin línea de andamio no cotizó andamio. */
 export const cargosDesdeApi = (cargos: CargoPropuesta[] | undefined, parametros: Parametros | null): EstadoCargos => {
     const estado = cargosIniciales(parametros);
-    estado.smo.activo = false;
     estado.flete.activo = false;
     if (!cargos?.length) return estado;
 
@@ -134,22 +107,21 @@ export const cargosDesdeApi = (cargos: CargoPropuesta[] | undefined, parametros:
         const valorUnitario = Number(c.valorUnitario) || 0;
         const aplicaIva = c.aplicaIva !== false;
         switch (c.tipo) {
+            case 'ENSAMBLE':
+            case 'INSTALACION':
+                // Mano de obra por producto: la calcula el backend desde los
+                // ítems y el panel la recibe aparte. No es parte del formulario.
+                break;
             case 'SMO':
-                estado.smo = {
-                    activo: true,
-                    tipoObra: tipoObraDeEtiqueta(c.descripcion),
-                    // Una fila anterior al 2026-09-20 trae cantidad 1 y el total
-                    // metido en el valor unitario: se lee igual y sigue cuadrando,
-                    // sólo que sin desglose.
-                    unidades: cantidad || 1,
-                    valor: valorUnitario,
-                    origen: c.origen === 'SUGERIDO' ? 'SUGERIDO' : 'MANUAL',
-                    // La explicación no se persiste (es un texto derivado del área
-                    // y de la tarifa del momento): se recupera al volver a pedir
-                    // la sugerencia, no al cargar.
-                    explicacion: '',
+                // Mano de obra de una propuesta guardada antes del 2026-09-26. Se
+                // conserva como servicio adicional (un monto global) para no
+                // perder el dato; el vendedor decide si la quita.
+                estado.otros.push({
+                    key: nuevaKey(),
+                    descripcion: `Mano de obra anterior${c.descripcion ? ` (${c.descripcion})` : ''}`,
+                    valor: Math.round((cantidad || 1) * valorUnitario * 100) / 100,
                     aplicaIva,
-                };
+                });
                 break;
             case 'ANDAMIO':
                 estado.andamio = { activo: true, dias: cantidad || 1, valorUnitario, aplicaIva };
@@ -181,17 +153,6 @@ export const cargosDesdeApi = (cargos: CargoPropuesta[] | undefined, parametros:
  * apagada no manda una fila en cero: no manda nada. */
 export const cargosADTO = (e: EstadoCargos): CargoEntrada[] => {
     const filas: CargoEntrada[] = [];
-    if (e.smo.activo) {
-        filas.push({
-            tipo: 'SMO',
-            descripcion: e.smo.tipoObra ? ETIQUETA_TIPO_OBRA[e.smo.tipoObra] : 'Mano de obra',
-            cantidad: Math.max(0, Number(e.smo.unidades) || 0),
-            unidad: 'UND',
-            valorUnitario: Math.max(0, Number(e.smo.valor) || 0),
-            aplicaIva: e.smo.aplicaIva,
-            origen: e.smo.origen,
-        });
-    }
     if (e.andamio.activo) {
         filas.push({
             tipo: 'ANDAMIO',
@@ -248,7 +209,7 @@ export const resumenCargos = (e: EstadoCargos, ivaPct: number) => {
     const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
     let base = 0;
     let iva = 0;
-    for (const f of cargosADTO(e)) {
+    for (const f of cargosADTO(e).filter((c) => !TIPOS_MANO_OBRA.has(c.tipo))) {
         const total = round2((f.cantidad ?? 1) * (f.valorUnitario ?? 0));
         base = round2(base + total);
         if (f.aplicaIva !== false) iva = round2(iva + round2(total * ivaPct));
@@ -262,14 +223,16 @@ interface Props {
     valor: EstadoCargos;
     onChange: (v: EstadoCargos) => void;
     parametros: Parametros | null;
-    /** Contexto de la propuesta ya guardada, si la hay. */
+    /** Hay cotización guardada (solo cambia el texto de ayuda del pie). */
     cotizacionId?: number | null;
-    propuestaId?: number | null;
-    /** Ítems del carrito todavía sin guardar. Con ellos la sugerencia de mano de
-     * obra funciona también en un borrador: el cálculo sigue viviendo en el
-     * backend (`POST /smo-sugerido`), que es el único sitio donde se hace, sólo
-     * que el carrito viaja en el cuerpo en vez de leerse de la propuesta. */
-    itemsBorrador?: Array<{ moduloId?: string; input?: Record<string, unknown>; resultado?: Record<string, unknown> | null }>;
+    /** Mano de obra por producto que calculó el backend para estos ítems
+     * (`useManoObra`). Se pinta de solo lectura. */
+    manoObra: LineaManoObra[];
+    cargandoManoObra?: boolean;
+    /** Aclaración bajo la mano de obra, p. ej. que incluye el producto en pantalla. */
+    notaManoObra?: string | null;
+    /** Cuántos ítems tiene la propuesta: decide si el panel arranca abierto. */
+    cantidadItems?: number;
     etiquetaPropuesta?: string | null;
     /** Propuesta anterior al cambio: sus cargos están dentro de los ítems. */
     legado?: boolean;
@@ -277,16 +240,41 @@ interface Props {
     /** Propuesta elegida de una cotización APROBADA: el backend rechaza cambiar
      * sus cargos (puede haber material cortado), así que se pinta de lectura. */
     aprobada?: boolean;
+    /** Pintarlo plegable, con una línea resumen cuando está cerrado (paso 3 de
+     * Cotizar). Por defecto `false`: en Actual se ve completo, como siempre. */
+    plegable?: boolean;
 }
 
-const inputClass = 'w-full min-w-0 h-7 px-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:bg-slate-50 disabled:text-slate-400';
-const numClass = `${inputClass} text-right font-cotizador-head tabular-nums`;
+const inputClass = 'w-full min-w-0 h-8 px-2 text-sm text-slate-900 border border-slate-300 rounded-lg bg-white placeholder:text-slate-400 hover:border-slate-400 focus:outline-none focus:border-templex-500 focus:ring-2 focus:ring-templex-200 disabled:bg-slate-50 disabled:text-slate-500';
+const numClass = `${inputClass} text-right tabular-nums`;
 
-/** Toda celda de dinero lleva estas clases: Space Grotesk para la cifra y
- * `tabular-nums` para que los dígitos ocupen lo mismo. Sin lo segundo, "$
- * 180.000" y "$ 90.000" no caen alineados y la columna deja de leerse de un
- * vistazo, que es la única razón de ser de esta tabla. */
-const IMPORTE = 'font-cotizador-head tabular-nums';
+/** Toda celda de dinero lleva `tabular-nums` para que los dígitos ocupen lo
+ * mismo (Geist ya lo trae global; se deja explícito porque es la razón de ser
+ * de la tabla). Sin eso, "$ 180.000" y "$ 90.000" no caen alineados y la
+ * columna deja de leerse de un vistazo. */
+const IMPORTE = 'tabular-nums';
+
+/** Preferencia del vendedor: panel plegado o abierto en Cotizar. Sólo una
+ * comodidad por navegador — si el almacenamiento falla, manda el criterio por
+ * defecto. */
+const CLAVE_PLEGADO = 'cotizador.cargosObra.plegado';
+
+const leerPreferenciaPlegado = (): boolean | null => {
+    try {
+        const v = window.localStorage.getItem(CLAVE_PLEGADO);
+        return v === '1' ? true : v === '0' ? false : null;
+    } catch {
+        return null;
+    }
+};
+
+const guardarPreferenciaPlegado = (plegado: boolean) => {
+    try {
+        window.localStorage.setItem(CLAVE_PLEGADO, plegado ? '1' : '0');
+    } catch {
+        /* sin almacenamiento: la preferencia dura lo que la pantalla */
+    }
+};
 
 /** Rejilla de la tabla: concepto · cantidad · valor unitario · IVA · total.
  *
@@ -294,7 +282,7 @@ const IMPORTE = 'font-cotizador-head tabular-nums';
  * ancho en Cotizar y en Actual, pero si alguna vez cae en una columna estrecha
  * las celdas encogen en vez de empujar la página hacia un scroll horizontal.
  *
- * Por debajo de `sm` no hay rejilla: cada fila se apila con `flex-wrap`, y por
+ * Por debajo de `md` no hay rejilla: cada fila se apila con `flex-wrap`, y por
  * eso todo input lleva su propio `aria-label` — apilada, la fila pierde de
  * vista la cabecera de columna que la explicaba. */
 // La columna de concepto tenía `minmax(0,1fr)`: se estiraba a llenar TODO el
@@ -304,8 +292,14 @@ const IMPORTE = 'font-cotizador-head tabular-nums';
 // usuario, 2026-09-22). Con un tope de 18rem el checkbox+texto quedan pegados
 // a las columnas de plata — el resto del ancho lo libera el panel entero, no
 // esta columna sola (ver `max-w-4xl` en el `<section>` de abajo).
-const COLUMNAS = 'sm:grid-cols-[minmax(0,18rem)_minmax(4.5rem,7rem)_minmax(5rem,8.5rem)_2.5rem_minmax(5rem,7.5rem)] sm:gap-x-3';
-const REJILLA = `flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:grid sm:items-center sm:gap-y-0 ${COLUMNAS}`;
+//
+// 2026-09-26: los mínimos de las columnas numéricas eran menores que lo que
+// contienen (la de cantidad lleva el rótulo "Und." + un campo de 64 px en
+// 4,5rem), y en la columna estrecha de antes el contenido se desbordaba sobre
+// la vecina. Ahora cada mínimo cabe su contenido, el concepto tiene un piso de
+// 11rem para que "Mano de obra" no se parta, y la rejilla arranca en `md`.
+const COLUMNAS = 'md:grid-cols-[minmax(11rem,18rem)_minmax(8rem,9rem)_minmax(8.5rem,10rem)_2.75rem_minmax(7rem,8.5rem)] md:gap-x-4';
+const REJILLA = `flex flex-wrap items-center gap-x-3 gap-y-1.5 md:grid md:items-center md:gap-y-0 ${COLUMNAS}`;
 
 /** Los campos numéricos se muestran vacíos cuando valen 0: un "0" escrito en un
  * campo de dinero se confunde con un importe decidido. El placeholder recuerda
@@ -341,20 +335,23 @@ const FilaCargo: React.FC<{
     /** Controles propios de la fila (selector de obra, Sugerir, explicación). */
     pie?: React.ReactNode;
 }> = ({ icono, titulo, activo, onToggle, deshabilitado, total, aplicaIva, onAplicaIva, cantidad, unitario, pie }) => (
-    <div className={`px-3 py-1 border-b border-slate-100 transition-colors ${activo ? 'bg-white' : 'bg-slate-50/60'}`}>
+    <div className={`px-3 py-1.5 border-b border-slate-100 transition-colors ${activo ? 'bg-white' : 'bg-slate-50/60'}`}>
         <div className={REJILLA}>
             {/* Concepto */}
-            <label className="flex items-center gap-2 min-h-[28px] min-w-[150px] flex-1 sm:min-w-0 cursor-pointer select-none">
+            <label className="flex items-center gap-2 min-h-[32px] min-w-[150px] flex-1 md:min-w-0 cursor-pointer select-none">
                 <input
                     type="checkbox"
                     checked={activo}
                     disabled={deshabilitado}
                     aria-label={`Incluir ${titulo}`}
                     onChange={(e) => onToggle(e.target.checked)}
-                    className="w-[18px] h-[18px] shrink-0 accent-indigo-600"
+                    className="w-[18px] h-[18px] shrink-0 accent-templex-600"
                 />
-                <span className={`flex items-center gap-1.5 text-[12.5px] font-bold ${activo ? 'text-slate-700' : 'text-slate-400'}`}>
-                    {icono} {titulo}
+                {/* Apagado sigue legible (slate-700): es una opción que el
+                    vendedor puede encender, no texto deshabilitado. */}
+                <span className={`flex items-center gap-1.5 min-w-0 text-[13px] font-semibold ${activo ? 'text-slate-900' : 'text-slate-700'}`}>
+                    <span className={`shrink-0 ${activo ? 'text-templex-600' : 'text-slate-500'}`}>{icono}</span>
+                    <span className="whitespace-nowrap">{titulo}</span>
                 </span>
             </label>
 
@@ -362,7 +359,7 @@ const FilaCargo: React.FC<{
             <div className="flex items-center justify-end gap-1.5 min-w-0">
                 {activo && cantidad && (
                     <>
-                        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 shrink-0">
+                        <span className="text-[11px] font-semibold text-slate-700 shrink-0">
                             {cantidad.rotulo}
                         </span>
                         <input
@@ -372,7 +369,7 @@ const FilaCargo: React.FC<{
                             step={1}
                             placeholder="1"
                             aria-label={cantidad.ariaLabel}
-                            className={`${numClass} max-w-[64px]`}
+                            className={`${numClass} w-16 shrink-0`}
                             value={num(cantidad.valor)}
                             disabled={deshabilitado}
                             onChange={(e) => cantidad.onChange(Number(e.target.value) || 0)}
@@ -385,7 +382,7 @@ const FilaCargo: React.FC<{
             <div className="flex items-center justify-end gap-1 min-w-0">
                 {activo && (
                     <>
-                        {cantidad && <span className="text-[12px] text-slate-400 shrink-0">×</span>}
+                        {cantidad && <span className="text-[12px] text-slate-600 shrink-0" aria-hidden="true">×</span>}
                         <input
                             type="number"
                             min={0}
@@ -414,176 +411,164 @@ const FilaCargo: React.FC<{
                             disabled={deshabilitado}
                             aria-label={`Aplicar IVA a ${titulo}`}
                             onChange={(e) => onAplicaIva(e.target.checked)}
-                            className="w-4 h-4 accent-indigo-600"
+                            className="w-4 h-4 accent-templex-600"
                         />
-                        <span className="text-[11px] font-bold text-slate-400 sm:hidden">IVA</span>
+                        <span className="text-[11px] font-semibold text-slate-800 md:hidden">IVA</span>
                     </label>
                 )}
             </div>
 
             {/* Total de la línea */}
-            <div className="ml-auto sm:ml-0 text-right">
-                <span className={`text-sm font-black ${IMPORTE} ${activo ? 'text-slate-800' : 'text-slate-300'}`}>
+            <div className="ml-auto md:ml-0 text-right whitespace-nowrap">
+                <span className={`text-sm ${IMPORTE} ${activo ? 'font-bold text-slate-900' : 'text-slate-400'}`}>
                     {activo ? fmtCOP(total) : '—'}
                 </span>
             </div>
         </div>
 
-        {activo && pie && <div className="mt-1 sm:pl-[26px]">{pie}</div>}
+        {activo && pie && <div className="mt-1 md:pl-[26px]">{pie}</div>}
     </div>
 );
 
 const PanelCargosObra: React.FC<Props> = ({
-    valor, onChange, parametros, cotizacionId, propuestaId, itemsBorrador, etiquetaPropuesta, legado, onDuplicarLegado,
-    aprobada,
+    valor, onChange, parametros, cotizacionId, manoObra, cargandoManoObra, notaManoObra, cantidadItems = 0,
+    etiquetaPropuesta, legado, onDuplicarLegado, aprobada, plegable = false,
 }) => {
-    const [sugiriendo, setSugiriendo] = React.useState(false);
     const ivaPct = Number(parametros?.iva) || 0;
+    const totalManoObra = manoObra.reduce((acc, l) => acc + Math.round(l.cantidad * l.valorUnitario * 100) / 100, 0);
     const bloqueado = Boolean(legado || aprobada);
     const resumen = resumenCargos(valor, ivaPct);
 
+    /** Cargos cuyo monto sigue siendo el que puso el sistema. No es un error
+     * —es un valor válido—, pero el vendedor debe verlo antes de enviar la
+     * cotización: por eso el resumen plegado lo señala. */
+    const sugeridos: string[] = [];
+    if (valor.flete.activo && valor.flete.origen === 'SUGERIDO') sugeridos.push('flete');
+
+    // Estado inicial del plegado: la preferencia que el vendedor dejó la última
+    // vez; si no hay, ABIERTO cuando la propuesta aún no tiene ítems o hay
+    // valores sugeridos por revisar, y plegado en el resto de casos. Sin
+    // `plegable` (Actual) está siempre abierto.
+    const [abierto, setAbierto] = React.useState<boolean>(() => {
+        if (!plegable) return true;
+        const plegadoGuardado = leerPreferenciaPlegado();
+        if (plegadoGuardado !== null) return !plegadoGuardado;
+        return cantidadItems === 0 || sugeridos.length > 0;
+    });
+    const mostrarCuerpo = !plegable || abierto;
+    const alternarPlegado = () => {
+        const nuevo = !abierto;
+        setAbierto(nuevo);
+        guardarPreferenciaPlegado(!nuevo);
+    };
+    const idCuerpo = React.useId();
+
     const set = (cambios: Partial<EstadoCargos>) => onChange({ ...valor, ...cambios });
 
-    /** ¿Hay de dónde sacar una sugerencia? O la propuesta ya existe en el
-     * servidor, o hay ítems en el carrito que mandarle en el cuerpo. */
-    const hayContextoSugerencia = Boolean((cotizacionId && propuestaId) || (itemsBorrador?.length ?? 0) > 0);
-
-    /** Pide la sugerencia al backend —único sitio donde se calcula— y la aplica.
-     * El cargo vuelve a `SUGERIDO` porque el monto lo puso el sistema.
-     *
-     * Dos caminos, un solo cálculo: con la propuesta guardada, el backend lee
-     * sus ítems; en un borrador se los mandamos. Replicar aquí la fórmula
-     * perdería el piso del tablero grande, que depende de `input.anchoCm`. */
-    const pedirSugerencia = async (tipoObra: TipoObraSeleccion) => {
-        if (!hayContextoSugerencia) return;
-        setSugiriendo(true);
-        try {
-            const { data } = cotizacionId && propuestaId
-                ? (await apiSmoSugerido(cotizacionId, propuestaId, tipoObra))
-                : (await apiSmoSugeridoBorrador(itemsBorrador ?? [], tipoObra));
-            set({
-                smo: {
-                    ...valor.smo,
-                    tipoObra,
-                    // `tarifa` es el valor POR UNIDAD y `cantidad` las unidades
-                    // sugeridas; el total lo hace la multiplicación, no el backend.
-                    unidades: Number(data.cantidad) > 0 ? Number(data.cantidad) : valor.smo.unidades,
-                    valor: Number(data.tarifa) || 0,
-                    origen: 'SUGERIDO',
-                    explicacion: data.explicacion,
-                },
-            });
-        } catch (e: any) {
-            toast.error(e?.response?.data?.error || 'No se pudo calcular la mano de obra sugerida.');
-            set({ smo: { ...valor.smo, tipoObra, explicacion: '' } });
-        } finally {
-            setSugiriendo(false);
-        }
-    };
-
-    const cambiarTipoObra = (tipoObra: TipoObraSeleccion | '') => {
-        // "Otro" es monto totalmente libre: el backend no sugiere nada para él y
-        // rellenar un número inventado llevaría al vendedor a aceptarlo sin
-        // pensarlo.
-        if (!tipoObra || tipoObra === 'otro') {
-            set({ smo: { ...valor.smo, tipoObra, origen: 'MANUAL', explicacion: '' } });
-            return;
-        }
-        if (hayContextoSugerencia) {
-            pedirSugerencia(tipoObra);
-            return;
-        }
-        // Carrito vacío: todavía no hay piezas que contar, así que se muestra la
-        // tarifa vigente como referencia. En cuanto entre el primer ítem, el
-        // selector ya sugiere unidades × tarifa como en una propuesta guardada; y
-        // si el vendedor nunca toca el panel, al guardar es el propio backend
-        // quien pone la mano de obra y el flete.
-        const tarifa = tarifaDe(parametros, tipoObra);
-        set({
-            smo: {
-                ...valor.smo,
-                tipoObra,
-                origen: 'MANUAL',
-                explicacion: tarifa
-                    ? `Tarifa vigente ${fmtCOP(tarifa)} por unidad instalada. Las unidades se sugieren en cuanto agregues el primer ítem.`
-                    : '',
-            },
-        });
-    };
-
-    const totalSmo = (Number(valor.smo.unidades) || 0) * (Number(valor.smo.valor) || 0);
     const totalAndamio = (Number(valor.andamio.dias) || 0) * (Number(valor.andamio.valorUnitario) || 0);
     const totalHuacal = (Number(valor.huacal.unidades) || 0) * (Number(valor.huacal.valorUnitario) || 0);
 
-    /** Segunda línea de la fila de mano de obra: tipo de obra, botón Sugerir,
-     * distintivo de origen y la explicación que devolvió el backend ("3
-     * unidades × $60.000"). Va debajo y no en la celda de concepto porque son
-     * tres controles: metidos en la columna la estrecharían y la tabla dejaría
-     * de alinear, que es justo lo que se buscaba. */
-    const pieManoDeObra = (
+    // Conceptos encendidos, para la línea resumen del panel plegado.
+    const otrosConValor = valor.otros.filter((o) => o.descripcion.trim() || o.valor).length;
+    const conceptosActivos: string[] = [
+        ...manoObra.map((l) => l.descripcion),
+        valor.andamio.activo ? 'Andamio' : null,
+        valor.huacal.activo ? 'Huacal' : null,
+        valor.flete.activo ? 'Flete' : null,
+        otrosConValor ? `${otrosConValor} servicio${otrosConValor === 1 ? '' : 's'} adicional${otrosConValor === 1 ? '' : 'es'}` : null,
+    ].filter((c): c is string => c !== null);
+    const textoSugeridos = sugeridos.length
+        ? `${sugeridos.join(' y ').replace(/^./, (l) => l.toUpperCase())} con valor sugerido por el sistema: ${sugeridos.length === 1 ? 'revísalo' : 'revísalos'}`
+        : null;
+
+    const titulo = (
         <>
-            <div className="flex flex-wrap items-center gap-2">
-                <select
-                    className={`${inputClass} max-w-[240px]`}
-                    aria-label="Tipo de obra de la mano de obra"
-                    value={valor.smo.tipoObra}
-                    disabled={bloqueado || sugiriendo}
-                    onChange={(e) => cambiarTipoObra(e.target.value as TipoObraSeleccion | '')}
-                >
-                    <option value="">Tipo de obra…</option>
-                    {ORDEN_TIPOS_OBRA.map((id) => {
-                        const tarifa = tarifaDe(parametros, id);
-                        return (
-                            <option key={id} value={id}>
-                                {ETIQUETA_TIPO_OBRA[id]}{tarifa ? ` — ${fmtCOP(tarifa)} c/u` : ''}
-                            </option>
-                        );
-                    })}
-                </select>
-                {hayContextoSugerencia && valor.smo.tipoObra && valor.smo.tipoObra !== 'otro' && (
-                    <BotonSecundario
-                        type="button"
-                        onClick={() => pedirSugerencia(valor.smo.tipoObra as TipoObraSeleccion)}
-                        disabled={bloqueado}
-                        cargando={sugiriendo}
-                        icono={Wand2}
-                        title="Volver a proponer unidades y tarifa"
-                        className="shrink-0"
-                    >
-                        Sugerir
-                    </BotonSecundario>
-                )}
-                <Chip tono={valor.smo.origen === 'SUGERIDO' ? 'indigo' : 'neutro'}>
-                    {valor.smo.origen === 'SUGERIDO' ? 'Sugerido' : 'Manual'}
-                </Chip>
-            </div>
-            {valor.smo.explicacion && (
-                <p className="mt-1 text-[11px] text-slate-500 leading-snug">{valor.smo.explicacion}</p>
-            )}
+            <HardHat className="w-4 h-4 text-templex-600 shrink-0" />
+            <span className="text-sm font-bold text-slate-900">Cargos de obra</span>
         </>
     );
 
     return (
-        <section className="h-full border border-slate-200 rounded-xl overflow-hidden bg-white max-w-4xl">
-            <header className="bg-gradient-to-b from-indigo-50 to-violet-50 border-b border-indigo-100 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2">
+        <section className={`border border-slate-200 rounded-xl overflow-hidden bg-white shadow-card ${plegable ? '' : 'h-full max-w-4xl'}`}>
+            <header className={`bg-slate-50 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 ${mostrarCuerpo ? 'border-b border-slate-200' : ''}`}>
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                    <HardHat className="w-4 h-4 text-indigo-600 shrink-0" />
-                    <h3 className="text-sm font-bold text-slate-800 font-cotizador-head">Cargos de obra</h3>
-                    <span className="px-2 py-0.5 rounded-full bg-white border border-indigo-200 text-[10.5px] font-bold text-indigo-700 whitespace-nowrap">
-                        Se cobra una vez por propuesta
-                    </span>
+                    {plegable ? (
+                        // Patrón acordeón: el título ES el botón, dentro del h3.
+                        <h3>
+                            <button
+                                type="button"
+                                onClick={alternarPlegado}
+                                aria-expanded={abierto}
+                                aria-controls={idCuerpo}
+                                className="flex items-center gap-2 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400"
+                            >
+                                <ChevronDown className={`w-4 h-4 text-slate-600 shrink-0 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+                                {titulo}
+                            </button>
+                        </h3>
+                    ) : (
+                        <h3 className="flex items-center gap-2">{titulo}</h3>
+                    )}
+                    <Chip tono="marca">Se cobra una vez por propuesta</Chip>
                     {etiquetaPropuesta && (
-                        <span className="text-[11.5px] text-indigo-700 font-bold whitespace-nowrap">
+                        <span className="text-[12px] text-slate-900 font-semibold whitespace-nowrap">
                             Propuesta {etiquetaPropuesta}
                         </span>
                     )}
                 </div>
-                <div className="text-[11.5px] text-indigo-700 whitespace-nowrap">
-                    Base <span className={`${IMPORTE} font-bold text-indigo-950`}>{fmtCOP(resumen.base)}</span>
-                    {' · '}IVA <span className={`${IMPORTE} font-bold text-indigo-950`}>{fmtCOP(resumen.iva)}</span>
+                <div className="flex items-center gap-3 text-[12px] text-slate-800 whitespace-nowrap">
+                    <span>
+                        Mano de obra <span className={`${IMPORTE} font-bold text-slate-900`}>{fmtCOP(totalManoObra)}</span>
+                        {' · '}Cargos <span className={`${IMPORTE} font-bold text-slate-900`}>{fmtCOP(resumen.base)}</span>
+                    </span>
+                    {plegable && (
+                        <button
+                            type="button"
+                            onClick={alternarPlegado}
+                            aria-expanded={abierto}
+                            aria-controls={idCuerpo}
+                            className="text-[12px] font-semibold text-templex-700 hover:text-templex-800 hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400 rounded"
+                        >
+                            {abierto ? 'Ocultar detalle' : 'Ver y editar'}
+                        </button>
+                    )}
                 </div>
             </header>
 
+            {/* Resumen del panel plegado: qué se está cobrando y, si algún monto
+                sigue siendo el sugerido, un aviso que no se puede pasar por
+                alto (ámbar, con icono y texto — el color no va solo). */}
+            {plegable && !abierto && (
+                <div className="px-3.5 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-slate-800">
+                    <span className="min-w-0">
+                        {conceptosActivos.length > 0 ? conceptosActivos.join(' · ') : 'Ningún cargo incluido todavía.'}
+                    </span>
+                    {textoSugeridos && !bloqueado && (
+                        <button
+                            type="button"
+                            onClick={alternarPlegado}
+                            className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                            title="Abrir los cargos para revisarlos"
+                        >
+                            <Chip tono="ambar" className="whitespace-normal text-left">
+                                <Wand2 className="w-3 h-3 shrink-0" /> {textoSugeridos}
+                            </Chip>
+                        </button>
+                    )}
+                    {legado && (
+                        <Chip tono="ambar">
+                            <AlertTriangle className="w-3 h-3" /> Propuesta anterior al cambio de cargos
+                        </Chip>
+                    )}
+                    {aprobada && !legado && (
+                        <Chip tono="esmeralda">
+                            <Lock className="w-3 h-3" /> Sólo lectura: cotización aprobada
+                        </Chip>
+                    )}
+                </div>
+            )}
+
+            <div id={idCuerpo} hidden={!mostrarCuerpo}>
             {aprobada && !legado && (
                 <div className="m-3 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-800">
                     <Lock className="w-4 h-4 mt-0.5 shrink-0" />
@@ -603,7 +588,7 @@ const PanelCargosObra: React.FC<Props> = ({
                         la forma nueva.
                     </p>
                     {onDuplicarLegado && (
-                        <button onClick={onDuplicarLegado} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition">
+                        <button onClick={onDuplicarLegado} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition">
                             Duplicar propuesta
                         </button>
                     )}
@@ -613,7 +598,7 @@ const PanelCargosObra: React.FC<Props> = ({
             <div className={bloqueado ? 'opacity-50 pointer-events-none' : ''}>
                 {/* Cabecera de columnas. Oculta en móvil, donde la fila se apila y
                     cada campo se explica con su propio aria-label / rótulo. */}
-                <div className={`hidden sm:grid ${COLUMNAS} px-3 py-1 bg-slate-50 border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wide text-slate-400`}>
+                <div className={`hidden md:grid ${COLUMNAS} px-3 py-1.5 bg-white border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wide text-slate-900`}>
                     <span>Concepto</span>
                     <span className="text-right">Cantidad</span>
                     <span className="text-right">Valor unit.</span>
@@ -621,34 +606,55 @@ const PanelCargosObra: React.FC<Props> = ({
                     <span className="text-right">Total</span>
                 </div>
 
-                {/* ── Mano de obra ─────────────────────────────────────────────
-                    Dos campos desde el 2026-09-20 (unidades × valor unitario): se
-                    cobra por unidad instalada, no por m². */}
-                <FilaCargo
-                    icono={<HardHat className="w-3.5 h-3.5" />}
-                    titulo="Mano de obra"
-                    activo={valor.smo.activo}
-                    onToggle={(v) => set({ smo: { ...valor.smo, activo: v } })}
-                    deshabilitado={bloqueado}
-                    total={totalSmo}
-                    aplicaIva={valor.smo.aplicaIva}
-                    onAplicaIva={(v) => set({ smo: { ...valor.smo, aplicaIva: v } })}
-                    cantidad={{
-                        valor: valor.smo.unidades,
-                        rotulo: 'Und.',
-                        ariaLabel: 'Unidades de mano de obra',
-                        // Si el vendedor cambia cualquiera de los dos, el cargo deja
-                        // de ser el que sugirió el sistema: pasa a MANUAL y se queda
-                        // como esté.
-                        onChange: (n) => set({ smo: { ...valor.smo, unidades: n, origen: 'MANUAL' } }),
-                    }}
-                    unitario={{
-                        valor: valor.smo.valor,
-                        ariaLabel: 'Valor por unidad de mano de obra',
-                        onChange: (n) => set({ smo: { ...valor.smo, valor: n, origen: 'MANUAL' } }),
-                    }}
-                    pie={pieManoDeObra}
-                />
+                {/* ── Mano de obra de productos (2026-09-26) ───────────────────
+                    Solo lectura: la calcula el backend desde los productos. Va
+                    primero porque entra en la cuenta ANTES del descuento. */}
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-slate-50/70 border-b border-slate-100">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-900 flex items-center gap-1.5">
+                        Mano de obra de productos
+                        {cargandoManoObra && <Loader2 className="w-3 h-3 animate-spin text-slate-600" />}
+                    </span>
+                    <Chip tono="marca">Automática · lleva AIU y descuento</Chip>
+                </div>
+                {manoObra.length === 0 ? (
+                    <p className="px-3 py-1.5 text-[12px] text-slate-700 border-b border-slate-100">
+                        Sin mano de obra: se calcula sola al agregar ventanas o proyectantes (ensamble), y cabinas,
+                        espejos o tableros con "Con instalación" marcado.
+                    </p>
+                ) : (
+                    manoObra.map((l) => (
+                        <div key={`${l.tipo}-${l.descripcion}`} className="px-3 py-1.5 border-b border-slate-100 bg-white">
+                            <div className={REJILLA}>
+                                <span className="flex items-center gap-2 min-h-[32px] min-w-[150px] flex-1 md:min-w-0 text-[13px] font-semibold text-slate-900">
+                                    <HardHat className="w-3.5 h-3.5 shrink-0 text-templex-600 ml-[26px]" />
+                                    <span className="whitespace-nowrap">{l.descripcion}</span>
+                                </span>
+                                <span className={`text-right text-[12.5px] text-slate-900 ${IMPORTE}`}>
+                                    {l.cantidad.toLocaleString('es-CO', { maximumFractionDigits: 2 })} {l.unidad === 'M2' ? 'm²' : 'und'}
+                                </span>
+                                <span className={`text-right text-[12.5px] text-slate-900 ${IMPORTE}`}>
+                                    × {fmtCOP(l.valorUnitario)}
+                                </span>
+                                <span className="text-center text-[11px] font-semibold text-slate-800">{l.aplicaIva ? 'Sí' : 'No'}</span>
+                                <span className={`ml-auto md:ml-0 text-right whitespace-nowrap text-sm font-bold text-slate-900 ${IMPORTE}`}>
+                                    {fmtCOP(Math.round(l.cantidad * l.valorUnitario * 100) / 100)}
+                                </span>
+                            </div>
+                            {l.explicacion && (
+                                <p className="mt-0.5 md:pl-[26px] text-[11.5px] text-slate-700 leading-snug">{l.explicacion}</p>
+                            )}
+                        </div>
+                    ))
+                )}
+                {notaManoObra && manoObra.length > 0 && (
+                    <p className="px-3 py-1 text-[11.5px] text-slate-700 border-b border-slate-100">{notaManoObra}</p>
+                )}
+
+                <div className="px-3 py-1.5 bg-slate-50/70 border-b border-slate-100">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
+                        Cargos de la obra · sin AIU ni descuento
+                    </span>
+                </div>
 
                 {/* ── Andamio ──────────────────────────────────────────────── */}
                 <FilaCargo
@@ -717,7 +723,7 @@ const PanelCargosObra: React.FC<Props> = ({
                         onChange: (n) => set({ flete: { ...valor.flete, valor: n, origen: 'MANUAL' } }),
                     }}
                     pie={
-                        <Chip tono={valor.flete.origen === 'SUGERIDO' ? 'indigo' : 'neutro'}>
+                        <Chip tono={valor.flete.origen === 'SUGERIDO' ? 'marca' : 'neutro'}>
                             {valor.flete.origen === 'SUGERIDO' ? 'Sugerido' : 'Manual'}
                         </Chip>
                     }
@@ -727,8 +733,8 @@ const PanelCargosObra: React.FC<Props> = ({
                     Única sección que sigue siendo una LISTA: líneas que se añaden
                     y se quitan, con su descripción libre. Se pintan con la misma
                     rejilla para que su importe caiga en la columna de totales. */}
-                <div className="flex items-center justify-between gap-2 px-3 py-1 bg-slate-50/70 border-b border-slate-100">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400">
+                <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-50/70 border-b border-slate-100">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
                         Otros servicios
                     </span>
                     <BotonSecundario
@@ -743,15 +749,15 @@ const PanelCargosObra: React.FC<Props> = ({
                 </div>
 
                 {valor.otros.length === 0 ? (
-                    <p className="px-3 py-1.5 text-[11.5px] text-slate-400 border-b border-slate-100">
+                    <p className="px-3 py-1.5 text-[12px] text-slate-700 border-b border-slate-100">
                         Sin servicios adicionales.
                     </p>
                 ) : (
                     valor.otros.map((o, i) => (
-                        <div key={o.key} className="px-3 py-1 border-b border-slate-100">
+                        <div key={o.key} className="px-3 py-1.5 border-b border-slate-100">
                             <div className={REJILLA}>
                                 {/* Concepto: descripción libre + quitar la línea */}
-                                <div className="flex items-center gap-1.5 min-w-[150px] flex-1 sm:min-w-0">
+                                <div className="flex items-center gap-1.5 min-w-[150px] flex-1 md:min-w-0">
                                     <input
                                         className={inputClass}
                                         placeholder="Descripción del servicio"
@@ -771,14 +777,14 @@ const PanelCargosObra: React.FC<Props> = ({
                                         onClick={() => set({ otros: valor.otros.filter((x) => x.key !== o.key) })}
                                         title="Quitar esta línea"
                                         aria-label={`Quitar el servicio adicional ${i + 1}`}
-                                        className="shrink-0 p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition disabled:opacity-40"
+                                        className="shrink-0 p-2 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition disabled:opacity-40"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
 
                                 {/* Sin cantidad: los servicios sueltos son globales. */}
-                                <div className="hidden sm:block" />
+                                <div className="hidden md:block" />
 
                                 <div className="flex items-center justify-end min-w-0">
                                     <input
@@ -810,14 +816,14 @@ const PanelCargosObra: React.FC<Props> = ({
                                                 otros[i] = { ...o, aplicaIva: e.target.checked };
                                                 set({ otros });
                                             }}
-                                            className="w-4 h-4 accent-indigo-600"
+                                            className="w-4 h-4 accent-templex-600"
                                         />
-                                        <span className="text-[11px] font-bold text-slate-400 sm:hidden">IVA</span>
+                                        <span className="text-[11px] font-semibold text-slate-800 md:hidden">IVA</span>
                                     </label>
                                 </div>
 
-                                <div className="ml-auto sm:ml-0 text-right">
-                                    <span className={`text-sm font-black text-slate-800 ${IMPORTE}`}>
+                                <div className="ml-auto md:ml-0 text-right whitespace-nowrap">
+                                    <span className={`text-sm font-bold text-slate-900 ${IMPORTE}`}>
                                         {fmtCOP(Number(o.valor) || 0)}
                                     </span>
                                 </div>
@@ -831,20 +837,21 @@ const PanelCargosObra: React.FC<Props> = ({
                     lo sigue calculando el backend. La línea punteada lo separa de
                     los cargos para que no se lea como una fila más. */}
                 <div className={`px-3 py-2 border-t border-dashed border-slate-300 bg-slate-50/40 justify-between ${REJILLA}`}>
-                    <span className="text-[11.5px] font-extrabold uppercase tracking-wide text-slate-500 sm:col-span-4 sm:text-right">
+                    <span className="text-[11.5px] font-semibold uppercase tracking-wide text-slate-900 md:col-span-4 md:text-right">
                         Subtotal cargos
                     </span>
-                    <span className={`text-[15px] font-black text-slate-900 text-right ${IMPORTE}`}>
+                    <span className={`text-[15px] font-bold text-slate-900 text-right whitespace-nowrap ${IMPORTE}`}>
                         {fmtCOP(resumen.base)}
                     </span>
                 </div>
 
                 {!cotizacionId && (
-                    <p className="px-3 py-1.5 text-[11px] text-slate-400 leading-snug">
-                        Los cargos se guardan junto con la cotización. Si no tocas este panel, al guardarla el sistema
-                        añade la mano de obra y el flete sugeridos según los ítems.
+                    <p className="px-3 py-2 text-[11.5px] text-slate-700 leading-snug">
+                        Los cargos se guardan junto con la cotización. La mano de obra se calcula sola desde los
+                        productos; si no tocas este panel, al guardarla el sistema añade el flete sugerido.
                     </p>
                 )}
+            </div>
             </div>
         </section>
     );

@@ -20,6 +20,9 @@ import ModalCatalogoGeneral from './ModalCatalogoGeneral';
 //     medida (mm) × piezas y el backend le suma el 5 % de desperdicio; el resto,
 //     en la unidad del catálogo.
 //
+// Un producto de precio a cotizar (KVE001, vidrios sobre pedido) pide además el
+// COSTO que dio el proveedor, en los dos modos: sin él no se puede confirmar.
+//
 // Si el producto no está en el catálogo del Cotizador, el enlace de abajo abre
 // "Traer del catálogo general" sin salir de aquí, y al volver queda elegido.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,7 +30,7 @@ import ModalCatalogoGeneral from './ModalCatalogoGeneral';
 const MAX_SUGERENCIAS = 12;
 
 export type AccionComponente =
-    | { tipo: 'cambio'; de: string; a: string }
+    | { tipo: 'cambio'; de: string; a: string; costo?: number }
     | { tipo: 'extra'; extra: ExtraComponente };
 
 interface Props {
@@ -50,6 +53,7 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
     const [cantidad, setCantidad] = useState('');
     const [medidaMm, setMedidaMm] = useState('');
     const [piezas, setPiezas] = useState('1');
+    const [costo, setCosto] = useState('');
     const [traerGeneral, setTraerGeneral] = useState(false);
 
     const cargarCatalogo = () =>
@@ -75,11 +79,18 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
     );
 
     const perfil = esPerfilLineal(elegido);
+    const aCotizar = Boolean(elegido?.precioACotizar);
 
     const confirmar = () => {
         if (!elegido) return;
+        const costoProveedor = Number(costo);
+        if (aCotizar && !(costoProveedor > 0)) {
+            toast.error(`Escribe el costo que te dio el proveedor para ${elegido.codigo}.`);
+            return;
+        }
+        const conCosto = aCotizar ? { costo: costoProveedor } : {};
         if (modo === 'cambiar' && linea) {
-            onConfirmar({ tipo: 'cambio', de: String(linea.codigoOriginal ?? linea.codigo), a: elegido.codigo });
+            onConfirmar({ tipo: 'cambio', de: String(linea.codigoOriginal ?? linea.codigo), a: elegido.codigo, ...conCosto });
             return;
         }
         if (perfil) {
@@ -89,7 +100,7 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
                 toast.error('Escribe la medida de cada pieza en milímetros y cuántas piezas.');
                 return;
             }
-            onConfirmar({ tipo: 'extra', extra: { codigo: elegido.codigo, medidaMm: mm, piezas: pz } });
+            onConfirmar({ tipo: 'extra', extra: { codigo: elegido.codigo, medidaMm: mm, piezas: pz, ...conCosto } });
             return;
         }
         const cant = Number(cantidad);
@@ -97,7 +108,7 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
             toast.error('Escribe una cantidad mayor a 0.');
             return;
         }
-        onConfirmar({ tipo: 'extra', extra: { codigo: elegido.codigo, cantidad: cant } });
+        onConfirmar({ tipo: 'extra', extra: { codigo: elegido.codigo, cantidad: cant, ...conCosto } });
     };
 
     const metrosPerfil = perfil && Number(medidaMm) > 0 && Number(piezas) > 0
@@ -113,7 +124,7 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
                     setTraerGeneral(false);
                     setCatalogo(c => [...c, p]);
                     const encaja = filtro(p);
-                    if (encaja) setElegido(p);
+                    if (encaja) { setElegido(p); setCosto(''); }
                     else toast.warn(`${p.codigo} se cobra en otra unidad que la línea que estás cambiando: no se puede usar aquí.`);
                 }}
             />
@@ -141,21 +152,21 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
         >
             <div className="p-6 space-y-4">
                 <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                     <Input
                         autoFocus
                         className="pl-9"
                         placeholder={cargando ? 'Cargando catálogo…' : 'Código o descripción…'}
                         disabled={cargando}
                         value={busqueda}
-                        onChange={e => { setBusqueda(e.target.value); setElegido(null); }}
+                        onChange={e => { setBusqueda(e.target.value); setElegido(null); setCosto(''); }}
                     />
                 </div>
 
                 {busqueda.trim().length >= MIN_BUSQUEDA && !elegido && (
                     <ul className="max-h-72 overflow-auto divide-y divide-slate-100 rounded-xl border border-slate-200">
                         {sugerencias.length === 0 && (
-                            <li className="px-4 py-3 text-[12.5px] text-slate-400">
+                            <li className="px-4 py-3 text-[12.5px] text-slate-700">
                                 Sin coincidencias{modo === 'cambiar' ? ' que se cobren en la misma unidad' : ''}.
                             </li>
                         )}
@@ -163,16 +174,16 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
                             <li key={p.codigo}>
                                 <button
                                     type="button"
-                                    onClick={() => setElegido(p)}
-                                    className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 flex items-start justify-between gap-3"
+                                    onClick={() => { setElegido(p); setCosto(''); }}
+                                    className="w-full text-left px-4 py-2.5 hover:bg-templex-50 flex items-start justify-between gap-3"
                                 >
                                     <span className="min-w-0">
-                                        <span className="block text-[12.5px] font-bold text-slate-800">{p.codigo}</span>
-                                        <span className="block text-[12px] text-slate-500">{p.descripcion}</span>
+                                        <span className="block text-[12.5px] font-semibold text-slate-900">{p.codigo}</span>
+                                        <span className="block text-[12px] text-slate-800">{p.descripcion}</span>
                                     </span>
-                                    <span className="text-right shrink-0 text-[11.5px] text-slate-500 tabular-nums">
-                                        {fmtCOP(precioDe(p, segmento))} / {rotuloCantidad(p.unidad)}
-                                        <span className="block text-slate-400">{p.categoria}</span>
+                                    <span className="text-right shrink-0 text-[12px] text-slate-900 font-semibold tabular-nums">
+                                        {p.precioACotizar ? 'Precio a cotizar' : `${fmtCOP(precioDe(p, segmento))} / ${rotuloCantidad(p.unidad)}`}
+                                        <span className="block font-normal text-slate-700">{p.categoria}</span>
                                     </span>
                                 </button>
                             </li>
@@ -181,11 +192,26 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
                 )}
 
                 {elegido && (
-                    <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-3">
-                        <p className="text-[13px] font-bold text-slate-800">{elegido.codigo} — {elegido.descripcion}</p>
-                        <p className="text-[12px] text-slate-500 mt-0.5 tabular-nums">
-                            {fmtCOP(precioDe(elegido, segmento))} por {rotuloCantidad(elegido.unidad)} · precio {segmento} · {elegido.categoria}
+                    <div className="rounded-xl border border-templex-200 bg-templex-50 px-4 py-3">
+                        <p className="text-[13px] font-bold text-slate-900">{elegido.codigo} — {elegido.descripcion}</p>
+                        <p className="text-[12px] text-slate-800 mt-0.5 tabular-nums">
+                            {aCotizar
+                                ? `Precio a cotizar con el proveedor · ${elegido.categoria}`
+                                : `${fmtCOP(precioDe(elegido, segmento))} por ${rotuloCantidad(elegido.unidad)} · precio ${segmento} · ${elegido.categoria}`}
                         </p>
+                    </div>
+                )}
+
+                {elegido && aCotizar && (
+                    <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 space-y-2">
+                        <p className="text-[12px] text-amber-900">
+                            <strong className="font-semibold">Este producto se cotiza aparte.</strong> Pide el precio al
+                            proveedor y escribe su costo por {rotuloCantidad(elegido.unidad)}: el precio de venta se
+                            calcula con el margen del tipo de cliente ({segmento}).
+                        </p>
+                        <Campo etiqueta={`Costo del proveedor por ${rotuloCantidad(elegido.unidad)}`} requerido>
+                            <Input type="number" min={0} step="any" value={costo} onChange={e => setCosto(e.target.value)} />
+                        </Campo>
                     </div>
                 )}
 
@@ -198,9 +224,9 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
                             <Campo etiqueta="Piezas" requerido>
                                 <Input type="number" min={1} step={1} value={piezas} onChange={e => setPiezas(e.target.value)} />
                             </Campo>
-                            <p className="col-span-2 text-[11.5px] text-slate-500">
+                            <p className="col-span-2 text-[12px] text-slate-700">
                                 {metrosPerfil !== null
-                                    ? <>Se cobran <strong>{metrosPerfil.toFixed(2)} m</strong> (incluye 5 % de desperdicio, como los perfiles del diseño).</>
+                                    ? <>Se cobran <strong className="font-semibold text-slate-900">{metrosPerfil.toFixed(2)} m</strong> (incluye 5 % de desperdicio, como los perfiles del diseño).</>
                                     : 'Se cobra en metros, con el 5 % de desperdicio.'}{' '}
                                 Tocar la perfilería deja el ítem fuera de la orden de corte y de la SAP automática.
                             </p>
@@ -213,7 +239,7 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
                 )}
 
                 {elegido && modo === 'cambiar' && String(elegido.categoria).toUpperCase() === 'PERFILERIA' && (
-                    <p className="text-[11.5px] text-amber-700">
+                    <p className="text-[12px] text-amber-800 font-semibold">
                         Cambiar un perfil deja el ítem fuera de la orden de corte y de la SAP automática.
                     </p>
                 )}
@@ -221,7 +247,7 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
                 <button
                     type="button"
                     onClick={() => setTraerGeneral(true)}
-                    className="inline-flex items-center gap-1.5 text-[12px] font-bold text-indigo-600 hover:text-indigo-700"
+                    className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-templex-700 hover:text-templex-800 hover:underline"
                 >
                     <PackageSearch className="w-3.5 h-3.5" />
                     ¿No aparece? Tráelo del catálogo general

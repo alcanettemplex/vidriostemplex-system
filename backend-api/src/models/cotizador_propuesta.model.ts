@@ -52,6 +52,9 @@ CotizadorPropuesta.init({
   total_productos: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
   total_descuento: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
   total_cargos: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
+  // Σ líneas ENSAMBLE/INSTALACION (ya con AIU). Va dentro de la base del
+  // descuento y del IVA, junto a los productos — NO en total_cargos (2026-09-26).
+  total_mano_obra: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
   total_iva: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
   total_total: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
   creada_en: { type: DataTypes.DATE, allowNull: false },

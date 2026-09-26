@@ -22,53 +22,24 @@
 //      alquila ni sobre el flete que se paga a un tercero.
 //   2. Los cargos SÍ llevan IVA, salvo que la línea diga `aplica_iva = false`
 //      (el caso real es el proveedor de andamios que factura sin IVA).
+//
+// LA EXCEPCIÓN: MANO DE OBRA POR PRODUCTO (2026-09-26, decisión del usuario)
+// Ensamble e instalación dejaron de ser un cargo "SMO" por tipo de obra y pasaron
+// a calcularse POR PRODUCTO (ver `calcularManoObraProductos`). Se ven en el
+// panel de cargos, pero se cobran como un producto más: llevan AIU, descuento de
+// la propuesta e IVA. Por eso son tipos propios (ENSAMBLE / INSTALACION), los
+// genera el sistema y la cadena de totales los separa del resto.
 import { getParametros } from './catalogo';
-import { round2, tarifaSMO } from './motorCalculo';
-import type { TipoObra } from './motorCalculo';
+import { round2 } from './motorCalculo';
 
-export type TipoCargo = 'SMO' | 'ANDAMIO' | 'HUACAL' | 'FLETE' | 'OTRO';
+export type TipoCargo = 'SMO' | 'ANDAMIO' | 'HUACAL' | 'FLETE' | 'OTRO' | 'ENSAMBLE' | 'INSTALACION';
 
-/** Tipo de obra tal como lo elige el vendedor: los cuatro que tarifa el Excel
- * matriz más `otro`, que es monto totalmente libre y por eso no tiene tarifa. */
-export type TipoObraSeleccion = TipoObra | 'otro';
+/** Cargos de mano de obra por producto: automáticos y con AIU + descuento. */
+export const TIPOS_MANO_OBRA: ReadonlySet<string> = new Set(['ENSAMBLE', 'INSTALACION']);
 
-export const TIPO_OBRA_LIBRE = 'otro';
-
-/** Etiquetas legibles. Los MONTOS no viven aquí: salen de `getParametros().smo`,
- * que es editable desde la pestaña Configuración. Hardcodearlos aquí habría
- * creado una segunda tarifa que se desincroniza con la de la BD en cuanto
- * alguien la edite — exactamente el problema que ya tuvo el módulo con los
- * umbrales de `configuracion_global`. */
-const ETIQUETA_TIPO_OBRA: Record<TipoObraSeleccion, string> = {
-  cabinas: 'Cabinas',
-  fachadas: 'Fachadas',
-  armadaVentanas: 'Armada de ventanas',
-  persiana: 'Persiana',
-  otro: 'Otro (monto libre)',
-};
-
-/** Qué tarifa de obra le corresponde a cada módulo de producto. Es el mismo
- * criterio que tenían escrito a mano los seis módulos antes de que se les
- * quitara la línea SMO: una cabina se instala como cabina, un espejo y un
- * tablero van a fachada, y ventanas y proyectantes son ventanería. */
-const TIPO_OBRA_POR_MODULO: Record<string, TipoObra> = {
-  ventanas: 'armadaVentanas',
-  proyectantes: 'armadaVentanas',
-  'cabinas-corredizas': 'cabinas',
-  'cabinas-batientes': 'cabinas',
-  tablero: 'fachadas',
-  espejo: 'fachadas',
-};
-
-/** Ancho a partir del cual un tablero es "pieza grande" y se le aplica el piso
- * de `smo.pisoTableroGrande`. Réplica deliberada de `UMBRAL_ANCHO_CM` de
- * `modules/tablero.ts` (celda K12/K13 del Excel original, 1,51 m): allá sigue
- * gobernando cuántas perforaciones y elevadores lleva la pieza, que es una
- * regla de materiales y no de mano de obra. Si el umbral cambia, hay que
- * moverlo en los dos sitios — están enlazados por este comentario a propósito,
- * porque unificarlos obligaría a que el módulo de producto importara el de
- * cargos o al revés, y son capas distintas. */
-const UMBRAL_TABLERO_GRANDE_CM = 151;
+export function esCargoManoObra(tipo: unknown): boolean {
+  return typeof tipo === 'string' && TIPOS_MANO_OBRA.has(tipo);
+}
 
 /** Un ítem de la propuesta, visto desde aquí: sólo interesan el módulo que lo
  * calculó, el input con el que se cotizó y el resultado del motor.
@@ -100,8 +71,11 @@ export interface CargoParaTotales {
 export interface TotalesPropuesta {
   /** Σ `subtotalConAiu` de los ítems. SIN descuento: es el precio de lista. */
   totalProductos: number;
+  /** Σ líneas ENSAMBLE / INSTALACION, ya con AIU (2026-09-26). Entra junto a
+   * los productos en la base del descuento y del IVA. */
+  totalManoObra: number;
   totalDescuento: number;
-  /** `totalProductos − totalDescuento`: la base sobre la que corre el IVA. */
+  /** `totalProductos + totalManoObra − totalDescuento`: la base del IVA. */
   baseGravable: number;
   ivaProductos: number;
   /** Base de los cargos, sin IVA. */
@@ -112,107 +86,6 @@ export interface TotalesPropuesta {
   totalTotal: number;
 }
 
-export interface SugerenciaSMO {
-  /** Total sugerido = `cantidad × valorUnitario`. */
-  monto: number;
-  /** Texto que la pantalla muestra bajo el campo: "3 unidades × $60.000
-   * (Armada de ventanas)". Vacío cuando no hay sugerencia posible. */
-  explicacion: string;
-  /** Tarifa POR UNIDAD del tipo de obra. 0 en `otro`. */
-  tarifa: number;
-  /** Unidades sugeridas: la suma de piezas de la propuesta. Editable en la
-   * pantalla — es una sugerencia, no una imposición. */
-  cantidad: number;
-  /** Área total, sólo informativa. Ya NO interviene en el cálculo del SMO. */
-  areaM2: number;
-}
-
-// ---------------------------------------------------------------------------
-// Tipos de obra para el selector
-// ---------------------------------------------------------------------------
-
-export interface TipoObraListado {
-  id: TipoObraSeleccion;
-  etiqueta: string;
-  /** Tarifa vigente en `cotizador.parametro`. 0 para `otro`. */
-  tarifa: number;
-}
-
-/**
- * Tipos de obra para el selector de SMO, con su tarifa vigente.
- *
- * Es función y no constante a propósito: las tarifas se editan desde la pestaña
- * Configuración y una constante congelaría el valor del arranque del proceso.
- */
-export function tiposObra(): TipoObraListado[] {
-  const p = getParametros();
-  const orden: TipoObraSeleccion[] = ['cabinas', 'fachadas', 'armadaVentanas', 'persiana', TIPO_OBRA_LIBRE];
-  return orden.map((id) => ({
-    id,
-    etiqueta: ETIQUETA_TIPO_OBRA[id],
-    tarifa: id === TIPO_OBRA_LIBRE ? 0 : tarifaSMO(p, id as TipoObra),
-  }));
-}
-
-export function etiquetaTipoObra(tipoObra: string | null | undefined): string {
-  if (!tipoObra) return '';
-  return ETIQUETA_TIPO_OBRA[tipoObra as TipoObraSeleccion] ?? tipoObra;
-}
-
-export function esTipoObraValido(valor: unknown): valor is TipoObraSeleccion {
-  return typeof valor === 'string' && valor in ETIQUETA_TIPO_OBRA;
-}
-
-// ---------------------------------------------------------------------------
-// Sugerencia de mano de obra
-// ---------------------------------------------------------------------------
-
-/** Suma del área de los ítems de la propuesta.
- *
- * ⚠️ `resultado.areaM2` NO significa lo mismo en todos los módulos: ventanas,
- * proyectantes y el camino por diseño lo devuelven ya multiplicado por
- * `cantidadPiezas`, mientras que tablero y espejo devuelven el área de UNA
- * pieza. Se suma tal cual porque así lo fija el diseño de 2026-09-20 y porque
- * el monto resultante es editable por el vendedor —una sugerencia, no un
- * precio—, pero está anotado aquí para que nadie lo tome por una medida exacta
- * de metros cuadrados instalados. */
-function areaTotalDe(items: ItemParaCargos[]): number {
-  const suma = items.reduce((acc, it) => {
-    const a = Number(it?.resultado?.areaM2);
-    return acc + (Number.isFinite(a) && a > 0 ? a : 0);
-  }, 0);
-  return round2(suma);
-}
-
-/** ¿Hay en la propuesta algún tablero de más de 1,51 m de ancho?
- *
- * El piso de $87.000 es una regla propia de Tablero que el Excel no modela y
- * que vivía dentro de `modules/tablero.ts`. Al sacar el SMO del BOM se habría
- * perdido en silencio: se trae aquí como parte de la sugerencia, que es el sitio
- * donde hoy se decide cuánto cuesta la mano de obra. */
-/**
- * Piezas totales de la propuesta: lo que se instala, que es lo que se cobra.
- *
- * `cantidadPiezas` sale del resultado del motor (y del input como respaldo, por
- * si el blob es de una versión que no lo traía). Un ítem sin el dato cuenta
- * como una pieza: es la lectura prudente, y el campo es editable.
- */
-function piezasTotalesDe(items: ItemParaCargos[]): number {
-  const suma = items.reduce((acc, it) => {
-    const n = Number(it?.resultado?.cantidadPiezas ?? it?.input?.cantidadPiezas);
-    return acc + (Number.isFinite(n) && n > 0 ? Math.floor(n) : 1);
-  }, 0);
-  return suma > 0 ? suma : 1;
-}
-
-function hayTableroGrande(items: ItemParaCargos[]): boolean {
-  return items.some((it) => {
-    if (it?.moduloId !== 'tablero') return false;
-    const ancho = Number(it?.input?.anchoCm);
-    return Number.isFinite(ancho) && ancho > UMBRAL_TABLERO_GRANDE_CM;
-  });
-}
-
 /** Formatea un monto en pesos para la explicación. `Intl` con `es-CO` produce
  * "$ 60.000"; se quita el espacio para que se lea igual que en el resto del
  * módulo, donde el frontend usa `fmtCOP`. */
@@ -220,97 +93,164 @@ function pesos(n: number): string {
   return `$${Math.round(n).toLocaleString('es-CO')}`;
 }
 
-// Aquí vivía `m2()`, que formateaba el área para la explicación del SMO. Se fue
-// con el cálculo por metro cuadrado el 2026-09-20: la mano de obra se cobra por
-// unidad y la explicación ya no menciona área.
+function m2Texto(n: number): string {
+  return `${n.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m²`;
+}
+
+// ---------------------------------------------------------------------------
+// Mano de obra por producto (2026-09-26)
+// ---------------------------------------------------------------------------
+
+/** Metros cuadrados mínimos que se cobran por PIEZA (decisión del usuario): una
+ * ventana de 400×400 mm se cobra como 1 m². */
+export const M2_MINIMO_POR_PIEZA = 1;
+
+const MODULOS_VENTANERIA = new Set(['ventanas', 'proyectantes']);
+const MODULOS_CABINA = new Set(['cabinas-corredizas', 'cabinas-batientes']);
+const MODULOS_ESPEJO_TABLERO = new Set(['espejo', 'tablero']);
+
+const positivo = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+function piezasDe(it: ItemParaCargos): number {
+  const n = Number(it?.input?.cantidadPiezas ?? it?.resultado?.cantidadPiezas);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
+}
 
 /**
- * Mano de obra sugerida para una propuesta: **tarifa POR UNIDAD × unidades**.
+ * Área de UNA pieza en m², leída de las MEDIDAS del formulario (centímetros).
  *
- * ⚠️ CAMBIO DE REGLA (2026-09-20, decisión del usuario). Hasta hoy esto
- * calculaba `max(areaTotalM2 × tarifa, tarifa)`, heredado de los seis módulos,
- * y era un error de cobro: las tarifas del Excel matriz ($120.000 cabinas,
- * $85.000 fachadas, $60.000 armada de ventanas, $110.000 persiana) **no son por
- * metro cuadrado, son por unidad instalada**. Una ventana de 7,5 m² sugería
- * $450.000 de mano de obra donde correspondían $60.000.
- *
- * Ahora la sugerencia son dos números editables por separado, igual que el
- * andamio (días) y el huacal (unidades): las **unidades** —la suma de piezas de
- * la propuesta, que es lo que de verdad se instala— y el **valor unitario**. El
- * vendedor cambia cualquiera de los dos; el momento en que toca uno, el cargo
- * pasa a MANUAL y el sistema deja de proponer.
- *
- * El área deja de intervenir. Se sigue devolviendo en `areaM2` como dato
- * informativo, y con ella se va el problema de que `resultado.areaM2` no
- * signifique lo mismo en todos los módulos (ver `areaTotalDe`): el SMO ya no
- * depende de ese campo.
- *
- * Tablero grande conserva su trato aparte, pero como TARIFA y no como piso del
- * total: un tablero de más de 1,51 m se sugiere a `smo.pisoTableroGrande`
- * ($87.000) por unidad en vez de a la tarifa de fachadas ($85.000). Es la misma
- * intención de siempre —el grande cuesta más de instalar— expresada en la
- * unidad correcta.
- *
- * `otro` no tiene sugerencia: es monto libre, y devolver un número inventado
- * ahí llevaría al vendedor a aceptarlo sin pensarlo.
+ * No se usa `resultado.areaM2`: no significa lo mismo en todos los módulos
+ * (ventanas y proyectantes lo devuelven multiplicado por las piezas, tablero y
+ * espejo el de una sola). Un proyectante sin diseño se mide por naves: número de
+ * naves × ancho × alto de nave; con diseño trae el ancho y alto totales.
  */
-export function sugerirSMO({
-  items = [],
-  tipoObra,
-}: {
-  items?: ItemParaCargos[];
-  tipoObra?: string | null;
-}): SugerenciaSMO {
-  const area = areaTotalDe(items);
-  const cantidad = piezasTotalesDe(items);
-
-  if (!tipoObra || tipoObra === TIPO_OBRA_LIBRE || !esTipoObraValido(tipoObra)) {
-    return { monto: 0, explicacion: '', tarifa: 0, cantidad, areaM2: area };
+export function areaPiezaM2(it: ItemParaCargos): number {
+  const i = it?.input ?? {};
+  if (it?.moduloId === 'proyectantes' && !(positivo(i.anchoCm) && positivo(i.altoCm))) {
+    const naves = Math.max(1, Math.floor(positivo(i.numeroNaves) || 1));
+    return (naves * positivo(i.anchoNaveCm) * positivo(i.altoNaveCm)) / 10000;
   }
-
-  const parametros = getParametros();
-  let tarifa = tarifaSMO(parametros, tipoObra as TipoObra);
-  let nota = ETIQUETA_TIPO_OBRA[tipoObra];
-
-  if (hayTableroGrande(items)) {
-    const tarifaGrande = Number(parametros.smo?.pisoTableroGrande) || 87000;
-    if (tarifaGrande > tarifa) {
-      tarifa = tarifaGrande;
-      nota = 'tablero de más de 1,51 m';
-    }
-  }
-
-  const unidades = cantidad === 1 ? '1 unidad' : `${cantidad} unidades`;
-  return {
-    monto: round2(cantidad * tarifa),
-    explicacion: `${unidades} × ${pesos(tarifa)} (${nota})`,
-    tarifa,
-    cantidad,
-    areaM2: area,
-  };
+  return (positivo(i.anchoCm) * positivo(i.altoCm)) / 10000;
 }
 
-/** Tipo de obra del módulo que más ítems aporta a la propuesta. En empate gana
- * el primero, que es el orden en que el vendedor los fue agregando. */
-export function tipoObraPredominante(items: ItemParaCargos[] = []): TipoObra {
-  const conteo = new Map<string, number>();
+/** m² que se cobran de un ítem: max(área de una pieza, mínimo) × piezas. */
+export function m2CobrablesDe(it: ItemParaCargos): number {
+  return Math.max(areaPiezaM2(it), M2_MINIMO_POR_PIEZA) * piezasDe(it);
+}
+
+/** El formulario guarda las casillas como booleano; se acepta también 'true'
+ * por si un ítem viene de un JSON reescrito a mano. */
+const marcado = (v: unknown): boolean => v === true || v === 'true';
+
+export function conInstalacion(it: ItemParaCargos): boolean {
+  return marcado(it?.input?.conInstalacion);
+}
+
+/**
+ * Líneas AUTOMÁTICAS de mano de obra de una propuesta, a partir de sus ítems
+ * (decisión del usuario, 2026-09-26). Tarifas en `cotizador.parametro`, antes de
+ * AIU e IVA:
+ *
+ *   Ensamble ventanas y proyectantes     Σ m² de TODAS            × mo_ensamble_ventana_m2
+ *   Instalación ventanas y proyectantes  Σ m² de las con instal.  × mo_instalacion_ventana_m2
+ *   Instalación cabinas                  Σ piezas con instal.     × mo_instalacion_cabina_und
+ *                                        (una cabina en L cuenta DOS)
+ *   Instalación espejos y tableros       Σ m² de los con instal.  × mo_instalacion_espejo_tablero_m2
+ *
+ * m² por pieza con mínimo de 1 m². El AIU se aplica al VALOR UNITARIO
+ * (`tarifa / aiu`, igual que `subtotalConAiu` de un producto), así la línea que
+ * ve el cliente ya lo trae y el total cuadra renglón a renglón. Descuento e IVA
+ * los aplica `calcularTotalesPropuesta`.
+ *
+ * ⚠️ Cambio de regla: el 2026-09-20 la mano de obra se había fijado POR UNIDAD
+ * (tarifa del tipo de obra × piezas). El 2026-09-26 el usuario la redefinió por
+ * producto y por m² en ventanería, espejos y tableros.
+ *
+ * Una línea en cero no se emite: "Instalación cabinas: 0" no le dice nada al cliente.
+ */
+export function calcularManoObraProductos(items: ItemParaCargos[] = []): CargoSugerido[] {
+  const p = getParametros();
+  const aiu = Number(p.aiu) > 0 ? Number(p.aiu) : 1;
+
+  let m2Ventaneria = 0;
+  let m2VentaneriaInstalada = 0;
+  let unidadesCabina = 0;
+  let cabinasEnL = 0;
+  let m2EspejoTablero = 0;
+
   for (const it of items) {
-    const id = typeof it?.moduloId === 'string' ? it.moduloId : '';
-    if (!TIPO_OBRA_POR_MODULO[id]) continue;
-    conteo.set(id, (conteo.get(id) ?? 0) + 1);
-  }
-  let ganador = '';
-  let max = 0;
-  for (const [id, n] of conteo) {
-    if (n > max) {
-      max = n;
-      ganador = id;
+    const modulo = String(it?.moduloId ?? '');
+    const instalar = conInstalacion(it);
+    if (MODULOS_VENTANERIA.has(modulo)) {
+      const m2 = m2CobrablesDe(it);
+      m2Ventaneria += m2;
+      if (instalar) m2VentaneriaInstalada += m2;
+    } else if (MODULOS_CABINA.has(modulo) && instalar) {
+      const piezas = piezasDe(it);
+      const enL = marcado(it?.input?.enL);
+      unidadesCabina += piezas * (enL ? 2 : 1);
+      if (enL) cabinasEnL += piezas;
+    } else if (MODULOS_ESPEJO_TABLERO.has(modulo) && instalar) {
+      m2EspejoTablero += m2CobrablesDe(it);
     }
   }
-  return TIPO_OBRA_POR_MODULO[ganador] ?? 'armadaVentanas';
+
+  const lineas: CargoSugerido[] = [];
+  const agregar = (
+    tipo: 'ENSAMBLE' | 'INSTALACION',
+    descripcion: string,
+    cantidad: number,
+    unidad: 'M2' | 'UND',
+    tarifa: number,
+    detalle: string
+  ) => {
+    const cant = round2(cantidad);
+    const t = Number(tarifa) || 0;
+    if (cant <= 0 || t <= 0) return;
+    lineas.push({
+      tipo,
+      descripcion,
+      cantidad: cant,
+      unidad,
+      valorUnitario: round2(t / aiu),
+      aplicaIva: true,
+      origen: 'AUTOMATICO',
+      explicacion: `${detalle} × ${pesos(t)} + AIU`,
+    });
+  };
+
+  agregar('ENSAMBLE', 'Ensamble ventanas y proyectantes', m2Ventaneria, 'M2', p.mo_ensamble_ventana_m2, m2Texto(round2(m2Ventaneria)));
+  agregar(
+    'INSTALACION',
+    'Instalación ventanas y proyectantes',
+    m2VentaneriaInstalada,
+    'M2',
+    p.mo_instalacion_ventana_m2,
+    m2Texto(round2(m2VentaneriaInstalada))
+  );
+  agregar(
+    'INSTALACION',
+    'Instalación cabinas',
+    unidadesCabina,
+    'UND',
+    p.mo_instalacion_cabina_und,
+    `${unidadesCabina} und` + (cabinasEnL ? ` (${cabinasEnL} en L, cuentan doble)` : '')
+  );
+  agregar(
+    'INSTALACION',
+    'Instalación espejos y tableros',
+    m2EspejoTablero,
+    'M2',
+    p.mo_instalacion_espejo_tablero_m2,
+    m2Texto(round2(m2EspejoTablero))
+  );
+  return lineas;
 }
 
-/** Un cargo recién sugerido, en la forma que espera el store para persistirlo. */
+/** Un cargo recién sugerido o calculado, en la forma que espera el store para persistirlo. */
 export interface CargoSugerido {
   tipo: TipoCargo;
   descripcion: string | null;
@@ -318,44 +258,24 @@ export interface CargoSugerido {
   unidad: string;
   valorUnitario: number;
   aplicaIva: boolean;
-  origen: 'SUGERIDO' | 'MANUAL';
-  /** Sólo para SMO: qué tipo de obra se asumió, para que la pantalla preseleccione
-   * el selector y pueda volver a pedir la sugerencia si el vendedor lo cambia. */
-  tipoObra?: TipoObraSeleccion;
+  origen: 'SUGERIDO' | 'MANUAL' | 'AUTOMATICO';
+  /** Texto para la pantalla: "4,20 m² × $60.000 + AIU". No se persiste. */
   explicacion?: string;
 }
 
 /**
- * Juego de cargos por defecto de una propuesta recién creada: mano de obra
- * según el módulo predominante, y flete con la tarifa fija de parámetros.
+ * Juego de cargos por defecto de una propuesta recién creada: el flete con la
+ * tarifa fija de parámetros. La mano de obra ya no se sugiere aquí: la calcula
+ * `recalcularPropuesta` desde los ítems (2026-09-26).
  *
  * Andamio, huacal y "otros" arrancan AUSENTES, no en cero. Es la misma
  * invariante que defiende la calibración del módulo ("AUSENTE ≠ CERO"): una
  * línea de andamio en $0 en la cotización impresa le dice al cliente que el
  * andamio es gratis, cuando lo que pasa es que nadie lo ha cotizado.
  */
-export function sugerirCargosIniciales({ items = [] }: { items?: ItemParaCargos[] }): CargoSugerido[] {
+export function sugerirCargosIniciales(): CargoSugerido[] {
   const parametros = getParametros();
-  const tipoObra = tipoObraPredominante(items);
-  const smo = sugerirSMO({ items, tipoObra });
-
-  const cargos: CargoSugerido[] = [
-    {
-      tipo: 'SMO',
-      descripcion: ETIQUETA_TIPO_OBRA[tipoObra],
-      // Unidades y valor unitario por separado (2026-09-20). Antes iba
-      // `cantidad: 1` con el total metido en `valorUnitario`, que desperdiciaba
-      // las dos columnas que la tabla ya tenía y hacía ilegible la línea en la
-      // cotización impresa: "1 × $450.000" no dice qué se está cobrando, y
-      // "5 × $60.000" sí.
-      cantidad: smo.cantidad,
-      unidad: 'UND',
-      valorUnitario: smo.tarifa,
-      aplicaIva: true,
-      origen: 'SUGERIDO',
-      tipoObra,
-      explicacion: smo.explicacion,
-    },
+  return [
     {
       tipo: 'FLETE',
       descripcion: 'Acarreo / Flete',
@@ -366,7 +286,6 @@ export function sugerirCargosIniciales({ items = [] }: { items?: ItemParaCargos[
       origen: 'SUGERIDO',
     },
   ];
-  return cargos;
 }
 
 // ---------------------------------------------------------------------------
@@ -397,15 +316,16 @@ export function totalDeCargo(c: CargoParaTotales): number {
 
 /**
  * La cadena de totales de una propuesta. Contrato numérico cerrado con el
- * usuario el 2026-09-20:
+ * usuario el 2026-09-20, ampliado el 2026-09-26 con la mano de obra:
  *
  *   total_productos = Σ item.resultado.subtotalConAiu       (ya trae AIU)
- *   total_descuento = round2(total_productos × descuento_pct)
- *   baseGravable    = total_productos − total_descuento
+ *   total_mano_obra = Σ cargo.total de ENSAMBLE/INSTALACION  (ya trae AIU)
+ *   total_descuento = round2((total_productos + total_mano_obra) × descuento_pct)
+ *   baseGravable    = total_productos + total_mano_obra − total_descuento
  *   ivaProductos    = round2(baseGravable × ivaPct)
  *
  *   cargo.total     = round2(cargo.cantidad × cargo.valor_unitario)
- *   total_cargos    = Σ cargo.total                          (fuera del AIU y del descuento)
+ *   total_cargos    = Σ cargo.total del RESTO                (fuera del AIU y del descuento)
  *   ivaCargos       = Σ (cargo.aplica_iva ? round2(cargo.total × ivaPct) : 0)
  *
  *   total_iva       = ivaProductos + ivaCargos
@@ -447,6 +367,7 @@ export function calcularTotalesPropuesta({
     const total = round2(items.reduce((acc, it) => acc + num(it?.resultado?.total), 0));
     return {
       totalProductos,
+      totalManoObra: 0,
       totalDescuento: 0,
       baseGravable: totalProductos,
       ivaProductos: iva,
@@ -473,13 +394,18 @@ export function calcularTotalesPropuesta({
     );
   }
 
-  const totalDescuento = round2(totalProductos * pct);
-  const baseGravable = round2(totalProductos - totalDescuento);
+  const manoObra = cargos.filter((c) => esCargoManoObra(c.tipo));
+  const resto = cargos.filter((c) => !esCargoManoObra(c.tipo));
+  const totalManoObra = round2(manoObra.reduce((acc, c) => acc + totalDeCargo(c), 0));
+
+  const baseAntesDescuento = round2(totalProductos + totalManoObra);
+  const totalDescuento = round2(baseAntesDescuento * pct);
+  const baseGravable = round2(baseAntesDescuento - totalDescuento);
   const ivaProductos = round2(baseGravable * iva);
 
   let totalCargos = 0;
   let ivaCargos = 0;
-  for (const c of cargos) {
+  for (const c of resto) {
     const t = totalDeCargo(c);
     totalCargos = round2(totalCargos + t);
     if (aplicaIvaDe(c)) ivaCargos = round2(ivaCargos + round2(t * iva));
@@ -487,6 +413,7 @@ export function calcularTotalesPropuesta({
 
   return {
     totalProductos,
+    totalManoObra,
     totalDescuento,
     baseGravable,
     ivaProductos,

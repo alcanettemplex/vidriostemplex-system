@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
     Trash2, Inbox, AlertTriangle, Save, Package, Copy, Layers,
     CheckCircle2, Scale, FilePlus2, User, Briefcase, Receipt, Pencil, Lock,
@@ -6,12 +6,15 @@ import {
 
 import { fmtCOP, fmtPct } from '../format';
 import {
-    ClienteCotizacion, EstadoCotizacion, ItemCarrito, Parametros, Propuesta, SegmentoCliente,
+    ClienteCotizacion, EstadoCotizacion, ItemCarrito, LineaManoObra, Parametros, Propuesta, SegmentoCliente,
 } from '../types';
 import { CabeceraCotizacion } from '../CotizadorPage';
 import PanelCargosObra, { EstadoCargos, resumenCargos } from './PanelCargosObra';
+import { TotalesPrevistos } from '../totalesPropuesta';
 import ComparadorPropuestas from './ComparadorPropuestas';
-import { BotonPrimario, BotonSecundario, Chip, EstadoVacio, Tarjeta } from './ui';
+import {
+    BotonPrimario, BotonSecundario, Chip, CONTROL_LABEL_CLASS, EstadoVacio, Tarjeta, claseControl,
+} from './ui';
 import { colorPropuesta } from '../propuestaColor';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,6 +76,11 @@ interface Props {
     onCambiarDescuento: (v: number) => void;
     cargos: EstadoCargos;
     onCambiarCargos: (v: EstadoCargos) => void;
+    /** Mano de obra por producto del carrito, calculada por el backend. */
+    manoObra: LineaManoObra[];
+    cargandoManoObra?: boolean;
+    /** Total previsto del carrito (`calcularTotalesPrevistos`, en CotizadorPage). */
+    totalesPrevistos: TotalesPrevistos;
     propuestas: ControlPropuestas;
     hayCambiosSinGuardar: boolean;
     onNuevaCotizacion: () => void;
@@ -102,11 +110,15 @@ const ESTADO_LABELS: Record<EstadoCotizacion, string> = {
     PERDIDO: 'Perdido',
 };
 
-const inputClass = 'w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200';
-const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
-const btnChip = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[11.5px] font-bold text-slate-600 hover:bg-slate-50 transition disabled:opacity-40 disabled:cursor-not-allowed';
-const thClass = 'px-3 py-2 text-[10.5px] font-extrabold uppercase tracking-wide whitespace-nowrap';
-const btnFila = 'p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-100/60 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400';
+// Fase 5 del sistema visual (2026-09-26): los controles salen del kit del
+// módulo (`ui/index.tsx`) en vez de declararse aquí con su propio índigo. El
+// estado deshabilitado se agrega porque el descuento se bloquea en propuestas
+// legadas y aprobadas, y debe verse bloqueado sin volverse ilegible.
+const inputClass = claseControl(false, 'disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed');
+const labelClass = CONTROL_LABEL_CLASS;
+const btnChip = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-[12px] font-semibold text-slate-800 hover:bg-slate-50 hover:border-slate-400 transition disabled:opacity-40 disabled:cursor-not-allowed';
+const thClass = 'px-3 py-2 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap text-slate-900';
+const btnFila = 'p-1.5 rounded-lg text-slate-600 hover:text-templex-700 hover:bg-templex-50 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-600';
 
 /**
  * Texto de respaldo cuando el ítem no trae `descripcionItem`.
@@ -125,8 +137,6 @@ const descripcionRespaldo = (item: ItemCarrito): string => {
     return item.moduloNombre;
 };
 
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-
 /** Renglón de la cadena de totales: rótulo con su aclaración debajo e importe a
  * la derecha. Existe para que los cuatro parciales se lean como una cadena
  * (productos → descuento → cargos → IVA) y no como cuatro tarjetas sueltas que
@@ -139,12 +149,12 @@ const FilaTotal: React.FC<{
 }> = ({ etiqueta, detalle, valor, tono = 'normal' }) => (
     <div className="flex items-baseline justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0">
         <div className="min-w-0">
-            <div className="text-[12.5px] font-semibold text-slate-600">{etiqueta}</div>
-            <div className="text-[10.5px] text-slate-400 leading-tight">{detalle}</div>
+            <div className="text-[12.5px] font-semibold text-slate-900">{etiqueta}</div>
+            <div className="text-[11px] text-slate-700 leading-tight">{detalle}</div>
         </div>
         <div
-            className={`text-[15px] font-bold font-cotizador-head tabular-nums whitespace-nowrap ${
-                tono === 'rebaja' ? 'text-rose-600' : tono === 'apagado' ? 'text-slate-400' : 'text-slate-800'
+            className={`text-[15px] tabular-nums whitespace-nowrap ${
+                tono === 'rebaja' ? 'font-bold text-rose-700' : tono === 'apagado' ? 'font-normal text-slate-700' : 'font-bold text-slate-900'
             }`}
         >
             {valor}
@@ -155,7 +165,7 @@ const FilaTotal: React.FC<{
 const TabActual: React.FC<Props> = ({
     carrito, cabecera, onCambiarCabecera, onQuitarItem, onGuardar, guardando,
     numeroEnEdicion, asesoresSugeridos, estadosDisponibles, parametros,
-    descuentoPct, onCambiarDescuento, cargos, onCambiarCargos, propuestas,
+    descuentoPct, onCambiarDescuento, cargos, onCambiarCargos, manoObra, cargandoManoObra, totalesPrevistos, propuestas,
     hayCambiosSinGuardar, onNuevaCotizacion, onEditarItem, onDuplicarItem,
     bloqueoEdicion, modulosDisponibles,
 }) => {
@@ -170,47 +180,9 @@ const TabActual: React.FC<Props> = ({
     const legado = Boolean(activa?.legadoCargosEnItems);
     const ivaPct = Number(parametros?.iva) || 0;
 
-    /**
-     * Previsualización de los totales de la propuesta.
-     *
-     * Réplica deliberada de `calcularTotalesPropuesta()` de
-     * `backend-api/src/cotizador/lib/cargos.ts`, y del único sitio donde el
-     * frontend puede permitírselo: mientras hay ítems sin guardar no existe
-     * ninguna propuesta en el servidor a la que pedirle el número, y mostrar el
-     * total viejo mientras el vendedor agrega productos sería mentirle. En
-     * cuanto se guarda, lo que manda es `activa.totales` —que es lo que se
-     * pinta— y este cálculo deja de usarse.
-     *
-     * Si allá cambia el orden de AIU/descuento/IVA, hay que cambiarlo aquí.
-     */
-    const totalesPrevistos = useMemo(() => {
-        const productos = round2(carrito.reduce((acc, it) => acc + (Number(it.resultado.subtotalConAiu) || 0), 0));
-
-        // Propuesta legada: su mano de obra y su flete están DENTRO del precio de
-        // cada ítem, así que se comporta como antes — suma pura, sin descuento y
-        // sin cargos. Sumarle ambas cosas cobraría dos veces lo mismo.
-        if (legado) {
-            return {
-                productos,
-                descuento: 0,
-                cargos: 0,
-                iva: round2(carrito.reduce((acc, it) => acc + (Number(it.resultado.iva) || 0), 0)),
-                total: round2(carrito.reduce((acc, it) => acc + (Number(it.resultado.total) || 0), 0)),
-            };
-        }
-
-        const descuento = round2(productos * (Number(descuentoPct) || 0));
-        const baseGravable = round2(productos - descuento);
-        const ivaProductos = round2(baseGravable * ivaPct);
-        const c = resumenCargos(cargos, ivaPct);
-        return {
-            productos,
-            descuento,
-            cargos: c.base,
-            iva: round2(ivaProductos + c.iva),
-            total: round2(baseGravable + ivaProductos + c.base + c.iva),
-        };
-    }, [carrito, descuentoPct, cargos, ivaPct, legado]);
+    // La previsualización de los totales llega hecha desde CotizadorPage
+    // (`totalesPrevistos`): la cuenta vive en `totalesPropuesta.ts`, la misma que
+    // usan la barra superior y el paso 3 de Cotizar (antes estaba copiada aquí).
 
     // Guardado = lo que devolvió el backend. Previsto = lo que se está armando.
     // Se muestra el guardado en cuanto no hay nada pendiente, para que el número
@@ -218,6 +190,7 @@ const TabActual: React.FC<Props> = ({
     const totales = !hayCambiosSinGuardar && activa
         ? {
             productos: activa.totales.productos,
+            manoObra: activa.totales.manoObra ?? 0,
             descuento: activa.totales.descuento,
             cargos: activa.totales.cargos,
             iva: activa.totales.iva,
@@ -263,9 +236,9 @@ const TabActual: React.FC<Props> = ({
                                 )
                                 : undefined}
                         >
-                            <p className="text-[11.5px] text-slate-400 leading-snug -mt-1 mb-2.5">
+                            <p className="text-[12px] text-slate-700 leading-snug -mt-1 mb-2.5">
                                 El total de la cotización es el de la elegida, y de ella sale la orden de corte.
-                                Para ofrecerle otra opción al cliente, usa <span className="font-bold text-slate-500">Nueva propuesta</span> en
+                                Para ofrecerle otra opción al cliente, usa <span className="font-semibold text-slate-900">Nueva propuesta</span> en
                                 la barra de arriba.
                             </p>
 
@@ -276,19 +249,19 @@ const TabActual: React.FC<Props> = ({
                                         <div
                                             key={p.id}
                                             className={`rounded-xl border px-3 py-2 min-w-[190px] transition ${esActiva
-                                                ? 'border-indigo-300 bg-indigo-50/70 ring-1 ring-indigo-200'
+                                                ? 'border-templex-300 bg-templex-50/70 ring-1 ring-templex-200'
                                                 : 'border-slate-200 bg-white hover:bg-slate-50'}`}
                                         >
                                             <button
                                                 onClick={() => propuestas.onActivar(p.id)}
                                                 disabled={propuestas.ocupado}
                                                 title={esActiva ? 'Es la propuesta que estás editando' : `Abrir la propuesta ${p.etiqueta}`}
-                                                className="text-left w-full disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-lg"
+                                                className="text-left w-full disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400 rounded-lg"
                                             >
                                                 <div className="flex flex-wrap items-center gap-1.5">
                                                     {/* Mismo color que su pestaña en la barra de trabajo. */}
                                                     <span className={`w-2 h-2 rounded-full ${colorPropuesta(p.etiqueta).punto}`} />
-                                                    <span className="font-cotizador-head tabular-nums font-black text-slate-800">{p.etiqueta}</span>
+                                                    <span className="tabular-nums font-bold text-slate-900">{p.etiqueta}</span>
                                                     {p.elegida && (
                                                         <Chip tono="esmeralda" title="Es la propuesta que se cobra y la que sale a corte">
                                                             <CheckCircle2 className="w-3 h-3" /> Elegida
@@ -300,15 +273,15 @@ const TabActual: React.FC<Props> = ({
                                                         </Chip>
                                                     )}
                                                 </div>
-                                                {p.nombre && <div className="text-[11.5px] text-slate-600 truncate">{p.nombre}</div>}
-                                                <div className="text-[13px] text-slate-700 font-cotizador-head tabular-nums font-bold">{fmtCOP(p.totales.total)}</div>
+                                                {p.nombre && <div className="text-[12px] text-slate-700 truncate">{p.nombre}</div>}
+                                                <div className="text-[13px] text-slate-900 tabular-nums font-bold">{fmtCOP(p.totales.total)}</div>
                                             </button>
                                             <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-slate-100">
                                                 {!p.elegida && (
                                                     <button
                                                         onClick={() => propuestas.onElegir(p.id)}
                                                         disabled={propuestas.ocupado}
-                                                        className="text-[11px] font-bold text-indigo-600 hover:underline disabled:opacity-40"
+                                                        className="text-[12px] font-semibold text-templex-700 hover:underline disabled:opacity-40"
                                                     >
                                                         Elegir
                                                     </button>
@@ -319,7 +292,7 @@ const TabActual: React.FC<Props> = ({
                                                     title={propuestas.propuestas.length <= 1
                                                         ? 'No se puede borrar la única propuesta de la cotización.'
                                                         : 'Borrar esta propuesta'}
-                                                    className="ml-auto text-[11px] font-bold text-slate-400 hover:text-rose-600 disabled:opacity-40 disabled:hover:text-slate-400"
+                                                    className="ml-auto text-[12px] font-semibold text-slate-700 hover:text-rose-700 disabled:opacity-40 disabled:hover:text-slate-700"
                                                 >
                                                     Borrar
                                                 </button>
@@ -409,10 +382,10 @@ const TabActual: React.FC<Props> = ({
                                         controles para el mismo dato era una forma más
                                         de no saber cuál mandaba. */}
                                     <span className={labelClass}>Tipo de cliente</span>
-                                    <div className="px-3 py-2 text-sm rounded-lg bg-slate-50 border border-slate-200 text-slate-700 font-semibold">
+                                    <div className="h-10 flex items-center px-3 text-sm rounded-lg bg-slate-50 border border-slate-200 text-slate-900 font-semibold">
                                         {NOMBRE_SEGMENTO[cabecera.segmentoCliente] ?? cabecera.segmentoCliente}
                                     </div>
-                                    <p className="text-[10.5px] text-slate-400 mt-0.5">Se cambia arriba, en la barra.</p>
+                                    <p className="text-[11px] text-slate-700 mt-0.5">Se cambia arriba, en la barra.</p>
                                 </div>
                                 <div>
                                     <label className={labelClass} htmlFor="cot-asesor">Asesor</label>
@@ -471,7 +444,7 @@ const TabActual: React.FC<Props> = ({
                                 </div>
                             </div>
                             {legado && (
-                                <p className="mt-2 text-[11px] text-amber-700 leading-snug">
+                                <p className="mt-2 text-[12px] text-amber-800 leading-snug">
                                     Propuesta legada: sus cargos de obra están dentro del precio de los ítems, así que no
                                     admite descuento de propuesta.
                                 </p>
@@ -485,14 +458,9 @@ const TabActual: React.FC<Props> = ({
                         onChange={onCambiarCargos}
                         parametros={parametros}
                         cotizacionId={propuestas.cotizacionId}
-                        propuestaId={propuestas.activaId}
-                        // Mismo motivo que en Cotizar: sin cotización guardada, la
-                        // sugerencia de mano de obra sale de los ítems del carrito.
-                        itemsBorrador={carrito.map(it => ({
-                            moduloId: it.moduloId,
-                            input: it.input,
-                            resultado: it.resultado as unknown as Record<string, unknown>,
-                        }))}
+                        manoObra={manoObra}
+                        cargandoManoObra={cargandoManoObra}
+                        cantidadItems={carrito.length}
                         etiquetaPropuesta={activa?.etiqueta ?? null}
                         legado={legado}
                         onDuplicarLegado={propuestas.onDuplicar}
@@ -514,7 +482,7 @@ const TabActual: React.FC<Props> = ({
                             icono={Package}
                             cuerpoClassName="pt-0"
                             accion={
-                                <span className="text-[11px] text-slate-400 font-cotizador-head tabular-nums">
+                                <span className="text-[12px] text-slate-800 tabular-nums">
                                     {carrito.length} ítem{carrito.length === 1 ? '' : 's'}
                                 </span>
                             }
@@ -524,7 +492,7 @@ const TabActual: React.FC<Props> = ({
                                 la tarjeta en vez de flotar dentro del padding. */}
                             <div className="overflow-x-auto -mx-4">
                                 <table className="w-full text-sm">
-                                    <thead className="bg-slate-50 text-slate-500 border-y border-slate-200">
+                                    <thead className="bg-slate-50 text-slate-900 border-y border-slate-200">
                                         <tr>
                                             <th className={`${thClass} text-left`}>Producto</th>
                                             <th className={`${thClass} text-left`}>Detalle</th>
@@ -538,11 +506,11 @@ const TabActual: React.FC<Props> = ({
                                                 fila como antes del rediseño. */}
                                             <th className={`${thClass} text-right`}>
                                                 IVA
-                                                <span className="block font-bold normal-case tracking-normal text-slate-400">a precio lleno</span>
+                                                <span className="block font-normal normal-case tracking-normal text-slate-700">a precio lleno</span>
                                             </th>
                                             <th className={`${thClass} text-right`}>
                                                 Total
-                                                <span className="block font-bold normal-case tracking-normal text-slate-400">a precio lleno</span>
+                                                <span className="block font-normal normal-case tracking-normal text-slate-700">a precio lleno</span>
                                             </th>
                                             <th className={`${thClass} w-28`}>
                                                 <span className="sr-only">Acciones</span>
@@ -561,20 +529,20 @@ const TabActual: React.FC<Props> = ({
                                             <tr
                                                 key={item.idTemp}
                                                 className={item.resultado.hayErrores
-                                                    ? 'bg-rose-50 text-rose-700'
-                                                    : 'text-slate-700 hover:bg-slate-50 transition-colors'}
+                                                    ? 'bg-rose-50 text-rose-800'
+                                                    : 'text-slate-800 hover:bg-slate-50 transition-colors'}
                                             >
                                                 <td className="px-3 py-2 align-top">
-                                                    <span className="flex items-start gap-1.5 font-bold text-[12.5px]">
+                                                    <span className="flex items-start gap-1.5 font-semibold text-[12.5px]">
                                                         {item.resultado.hayErrores && (
                                                             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                                         )}
-                                                        <span className={item.resultado.hayErrores ? '' : 'text-slate-800'}>
+                                                        <span className={item.resultado.hayErrores ? '' : 'text-slate-900'}>
                                                             {item.moduloNombre}
                                                         </span>
                                                     </span>
                                                 </td>
-                                                <td className={`px-3 py-2 align-top text-[12.5px] ${item.resultado.hayErrores ? '' : 'text-slate-500'}`}>
+                                                <td className={`px-3 py-2 align-top text-[12.5px] ${item.resultado.hayErrores ? '' : 'text-slate-800'}`}>
                                                     {item.descripcionItem || descripcionRespaldo(item)}
                                                     {item.resultado.personalizacion && (
                                                         item.resultado.personalizacion.cambios.length +
@@ -583,7 +551,7 @@ const TabActual: React.FC<Props> = ({
                                                     ) > 0 && (
                                                         <span className="ml-1.5 align-middle">
                                                             <Chip
-                                                                tono={item.resultado.perfileriaPersonalizada ? 'ambar' : 'indigo'}
+                                                                tono={item.resultado.perfileriaPersonalizada ? 'ambar' : 'marca'}
                                                                 title={item.resultado.perfileriaPersonalizada
                                                                     ? 'Tiene componentes personalizados, incluida perfilería: no sale en orden de corte.'
                                                                     : 'Tiene componentes cambiados, quitados o agregados respecto del estándar.'}
@@ -593,16 +561,16 @@ const TabActual: React.FC<Props> = ({
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-2 text-right align-top whitespace-nowrap font-cotizador-head tabular-nums">
+                                                <td className="px-3 py-2 text-right align-top whitespace-nowrap tabular-nums">
                                                     {item.resultado.cantidadPiezas}
                                                 </td>
-                                                <td className="px-3 py-2 text-right align-top whitespace-nowrap font-bold font-cotizador-head tabular-nums">
+                                                <td className="px-3 py-2 text-right align-top whitespace-nowrap font-semibold tabular-nums">
                                                     {fmtCOP(item.resultado.subtotalConAiu)}
                                                 </td>
-                                                <td className={`px-3 py-2 text-right align-top whitespace-nowrap font-cotizador-head tabular-nums ${item.resultado.hayErrores ? '' : 'text-slate-500'}`}>
+                                                <td className={`px-3 py-2 text-right align-top whitespace-nowrap tabular-nums ${item.resultado.hayErrores ? '' : 'text-slate-700'}`}>
                                                     {fmtCOP(item.resultado.iva)}
                                                 </td>
-                                                <td className={`px-3 py-2 text-right align-top whitespace-nowrap font-cotizador-head tabular-nums ${item.resultado.hayErrores ? '' : 'text-slate-500'}`}>
+                                                <td className={`px-3 py-2 text-right align-top whitespace-nowrap tabular-nums ${item.resultado.hayErrores ? '' : 'text-slate-700'}`}>
                                                     {fmtCOP(item.resultado.total)}
                                                 </td>
                                                 <td className="px-3 py-2 text-right align-top whitespace-nowrap">
@@ -628,7 +596,7 @@ const TabActual: React.FC<Props> = ({
                                                         onClick={() => onQuitarItem(item.idTemp)}
                                                         disabled={Boolean(bloqueoEdicion)}
                                                         title={bloqueoEdicion ?? 'Quitar ítem'}
-                                                        className={`${btnFila} hover:text-rose-600 hover:bg-rose-100/60 focus-visible:ring-rose-300`}
+                                                        className={`${btnFila} hover:text-rose-700 hover:bg-rose-50 focus-visible:ring-rose-300`}
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                         <span className="sr-only">Quitar {item.moduloNombre}</span>
@@ -642,7 +610,7 @@ const TabActual: React.FC<Props> = ({
                             </div>
 
                             {descuentoPct > 0 && !legado && (
-                                <p className="text-[11px] text-slate-400 leading-snug pt-2.5">
+                                <p className="text-[12px] text-slate-700 leading-snug pt-2.5">
                                     El IVA y el total de cada ítem están a precio lleno: el descuento de {fmtPct(descuentoPct)} de
                                     la propuesta se aplica sobre el subtotal, no ítem por ítem. Los totales de abajo ya lo
                                     incluyen.
@@ -672,8 +640,13 @@ const TabActual: React.FC<Props> = ({
                                     valor={fmtCOP(totales.productos)}
                                 />
                                 <FilaTotal
+                                    etiqueta="Mano de obra"
+                                    detalle="Ensamble e instalación, con AIU"
+                                    valor={fmtCOP(totales.manoObra)}
+                                />
+                                <FilaTotal
                                     etiqueta="Descuento"
-                                    detalle={`${fmtPct(descuentoPct)} sobre productos`}
+                                    detalle={`${fmtPct(descuentoPct)} sobre productos y mano de obra`}
                                     valor={totales.descuento > 0 ? `− ${fmtCOP(totales.descuento)}` : fmtCOP(0)}
                                     tono={totales.descuento > 0 ? 'rebaja' : 'apagado'}
                                 />
@@ -684,7 +657,7 @@ const TabActual: React.FC<Props> = ({
                                 />
                                 <FilaTotal
                                     etiqueta="IVA"
-                                    detalle="Productos + cargos"
+                                    detalle="Productos, mano de obra y cargos"
                                     valor={fmtCOP(totales.iva)}
                                 />
                             </div>
@@ -692,14 +665,14 @@ const TabActual: React.FC<Props> = ({
                             {/* El TOTAL no puede pesar lo mismo que los parciales: es el
                                 número que el vendedor busca de un vistazo y el que acaba
                                 en el papel que ve el cliente. */}
-                            <div className="lg:col-span-2 rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-700 border border-indigo-700 px-4 py-3.5 flex flex-col justify-center">
-                                <span className="text-[11px] font-extrabold uppercase tracking-wide text-indigo-100 font-cotizador-head tabular-nums">
+                            <div className="lg:col-span-2 rounded-xl bg-gradient-to-br from-templex-600 to-templex-800 border border-templex-700 px-4 py-3.5 flex flex-col justify-center">
+                                <span className="text-[11px] font-semibold uppercase tracking-wide text-templex-50">
                                     Total de la propuesta
                                 </span>
-                                <span className="text-3xl font-black text-white font-cotizador-head tabular-nums leading-none mt-1.5 break-words">
+                                <span className="text-3xl font-extrabold text-white tabular-nums leading-none mt-1.5 break-words">
                                     {fmtCOP(totales.total)}
                                 </span>
-                                <span className="text-[10.5px] text-indigo-100 mt-1.5 leading-snug">
+                                <span className="text-[11px] text-templex-50 mt-1.5 leading-snug">
                                     {resumenCargos(cargos, ivaPct).total > 0 && !legado
                                         ? 'Incluye cargos con su IVA'
                                         : 'Propuesta completa'}
@@ -716,7 +689,7 @@ const TabActual: React.FC<Props> = ({
                             icono={Save}
                             disabled={carrito.length === 0}
                             title={carrito.length === 0 ? 'Agrega al menos un ítem a esta propuesta antes de guardar.' : ''}
-                            className="flex-1 min-w-[240px] py-3 shadow-lg shadow-indigo-600/25"
+                            className="flex-1 min-w-[240px] py-3 shadow-lg shadow-templex-600/25"
                         >
                             {/* Mismo verbo que el botón de la barra de trabajo: dos
                                 nombres para la misma acción hacían dudar si eran

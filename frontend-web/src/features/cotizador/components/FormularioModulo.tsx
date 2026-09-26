@@ -43,6 +43,7 @@ const GRUPO_CONFIG: Record<GrupoCampo, {
 const MENSAJE_REQUERIDO = 'Este dato es obligatorio para calcular.';
 
 function valorInicial(campo: ModuloMeta['campos'][number]): unknown {
+    if (campo.defecto !== undefined) return campo.defecto;
     if (campo.nombre === 'cantidadPiezas') return 1;
     if (campo.nombre === 'descuentoPct') return 0;
     if (campo.tipo === 'boolean') return false;
@@ -240,7 +241,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
                 const accion = grupo === 'cliente' && chipsCliente.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5 justify-end">
                         {chipsCliente.map(chip => (
-                            <Chip key={chip} tono="indigo">{chip}</Chip>
+                            <Chip key={chip} tono="marca">{chip}</Chip>
                         ))}
                     </div>
                 ) : grupo === 'medidas' && areaCalculada !== null ? (
@@ -264,7 +265,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
                                         segmento={segmento}
                                     />
                                     {campo.nombre === 'sistema' && campo.tipo === 'select' && (campo.opciones?.length ?? 0) > 1 && (
-                                        <p className="text-[10.5px] text-slate-400 mt-1">Ver catálogo para disponibilidad por color.</p>
+                                        <p className="text-[11px] text-slate-700 mt-1">Ver catálogo para disponibilidad por color.</p>
                                     )}
                                 </div>
                             ))}

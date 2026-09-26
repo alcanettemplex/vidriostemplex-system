@@ -121,6 +121,9 @@ export const meta = {
       requerido: false,
       grupo: "vidrio",
     },
+    // Mano de obra por producto (2026-09-26): no toca el despiece; la lee
+    // `calcularManoObraProductos` (lib/cargos.ts) desde el input guardado.
+    { nombre: "conInstalacion", tipo: "boolean", etiqueta: "Con instalación", requerido: false, grupo: "comercial", defecto: true },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false, grupo: "comercial" },
     // `descuentoPct` salió del formulario el 2026-09-20: desde entonces hay UN
     // solo descuento y vive en la propuesta (`cotizador.propuesta.descuento_pct`).

@@ -19,6 +19,12 @@ import { Chip, ChipEstadoCotizacion } from './ui';
 //
 // Como el resto de componentes del módulo, no llama al backend ni decide
 // reglas: notifica hacia arriba y el dueño del estado es `CotizadorPage`.
+//
+// Fase 5 del sistema visual (2026-09-26): acento `templex-*` en vez de índigo
+// (los colores POR PROPUESTA de `propuestaColor.ts` se conservan: son
+// significado), rótulos en negro, y las cifras envuelven en vez de desbordar a
+// 390px. El botón Guardar deshabilitado deja de ser un azul al 40%: pasa a gris
+// con texto legible, para que se lea como "no disponible" y no como "borroso".
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type TipoNuevaPropuesta = 'vacia' | 'copia' | 'variante';
@@ -56,7 +62,9 @@ interface Props {
     /** null = se puede cambiar; si no, por qué no (aprobada, legada). */
     motivoNoSegmento: string | null;
 
-    cifras: { items: number; productos: number; cargos: number; totalGuardado: number | null };
+    /** `total` es el guardado si no hay cambios pendientes, y el previsto (en
+     * vivo) si los hay — `sinGuardar` lo avisa (2026-09-26). */
+    cifras: { items: number; productos: number; manoObra: number; cargos: number; total: number; sinGuardar: boolean };
 }
 
 /** Dato de la barra: rótulo pequeño arriba, cifra debajo. Se leen como una fila
@@ -66,10 +74,10 @@ const DatoContexto: React.FC<{ etiqueta: string; valor: React.ReactNode; destaca
     etiqueta, valor, destacado = false,
 }) => (
     <div className="text-right">
-        <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400">{etiqueta}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-900 whitespace-nowrap">{etiqueta}</div>
         <div
-            className={`font-cotizador-head tabular-nums font-bold leading-tight whitespace-nowrap ${
-                destacado ? 'text-[15px] text-indigo-700' : 'text-[13px] text-slate-800'
+            className={`tabular-nums leading-tight whitespace-nowrap ${
+                destacado ? 'text-[15px] font-extrabold text-templex-700' : 'text-[13px] font-semibold text-slate-900'
             }`}
         >
             {valor}
@@ -171,27 +179,27 @@ const BarraTrabajo: React.FC<Props> = ({
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${guardada ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                        <span className="text-[14px] font-bold text-slate-800 font-cotizador-head tabular-nums">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${guardada ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                        <span className="text-[14px] font-bold text-slate-900 tabular-nums">
                             {guardada ? `Cotización N.° ${numero}` : 'Cotización nueva'}
                         </span>
                         {guardada && <ChipEstadoCotizacion estado={estado} />}
                     </div>
-                    <div className="text-[12px] text-slate-500 truncate mt-0.5">{cliente || 'Cliente sin asignar'}</div>
+                    <div className={`text-[12px] truncate mt-0.5 ${cliente ? 'text-slate-800' : 'text-slate-700'}`}>{cliente || 'Cliente sin asignar'}</div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
                     {/* Tipo de cliente: control segmentado, no un <select>. Son tres
                         opciones que se ven todas a la vez y se cambian de un clic. */}
-                    <div className="flex items-center gap-2">
-                        <span id="barra-segmento" className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span id="barra-segmento" className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
                             Tipo de cliente
                         </span>
                         <div
                             role="radiogroup"
                             aria-labelledby="barra-segmento"
                             title={motivoNoSegmento ?? 'Al cambiarlo se recalculan los precios de todos los ítems de todas las propuestas.'}
-                            className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5"
+                            className="inline-flex rounded-lg border border-slate-300 bg-slate-100 p-0.5"
                         >
                             {SEGMENTOS.map(s => {
                                 const activo = s.v === segmento;
@@ -204,9 +212,9 @@ const BarraTrabajo: React.FC<Props> = ({
                                         title={motivoNoSegmento ?? s.titulo}
                                         disabled={Boolean(motivoNoSegmento) || cambiandoSegmento}
                                         onClick={() => onCambiarSegmento(s.v)}
-                                        className={`min-w-[42px] px-2.5 py-1 rounded-md text-[12.5px] font-extrabold font-cotizador-head transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:cursor-not-allowed ${activo
-                                            ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200'
-                                            : 'text-slate-500 hover:text-slate-800 disabled:hover:text-slate-500'} ${!activo && motivoNoSegmento ? 'opacity-50' : ''}`}
+                                        className={`min-w-[42px] px-2.5 py-1 rounded-md text-[12.5px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400 disabled:cursor-not-allowed ${activo
+                                            ? 'bg-white text-templex-700 font-bold shadow-sm ring-1 ring-slate-300'
+                                            : 'text-slate-700 hover:text-slate-900 disabled:hover:text-slate-700'} ${!activo && motivoNoSegmento ? 'opacity-60' : ''}`}
                                     >
                                         {s.v}
                                     </button>
@@ -214,7 +222,7 @@ const BarraTrabajo: React.FC<Props> = ({
                             })}
                         </div>
                         {cambiandoSegmento && (
-                            <span className="inline-flex items-center gap-1 text-[11.5px] text-indigo-600 font-semibold">
+                            <span className="inline-flex items-center gap-1 text-[12px] text-templex-700 font-semibold">
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" /> Recalculando…
                             </span>
                         )}
@@ -223,13 +231,13 @@ const BarraTrabajo: React.FC<Props> = ({
                     {/* Guardar: siempre a la vista, con su estado. Deja de ser una
                         acción escondida al final de la pestaña Actual. */}
                     {guardando ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-bold text-slate-500">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-slate-800">
                             <Loader2 className="w-4 h-4 animate-spin" /> Guardando…
                         </span>
                     ) : sucio || !guardada ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             {sucio && (
-                                <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-700">
+                                <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-800">
                                     <span className="w-2 h-2 rounded-full bg-amber-500" /> Cambios sin guardar
                                 </span>
                             )}
@@ -238,15 +246,15 @@ const BarraTrabajo: React.FC<Props> = ({
                                 onClick={onGuardar}
                                 disabled={Boolean(motivoNoGuardar)}
                                 title={motivoNoGuardar ?? 'Guardar (Ctrl+S)'}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[12.5px] font-bold hover:bg-indigo-700 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-templex-600 text-white text-[12.5px] font-semibold hover:bg-templex-700 shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-templex-400 disabled:bg-slate-200 disabled:text-slate-600 disabled:shadow-none disabled:cursor-not-allowed"
                             >
                                 <Save className="w-4 h-4" />
                                 {guardada ? 'Guardar' : 'Guardar cotización'}
-                                <kbd className="hidden md:inline ml-1 px-1 rounded bg-indigo-500/60 text-[11px] font-semibold">Ctrl+S</kbd>
+                                <kbd className="hidden md:inline ml-1 px-1 rounded bg-white/20 text-[11px] font-semibold">Ctrl+S</kbd>
                             </button>
                         </div>
                     ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-bold text-emerald-700">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-semibold text-emerald-800">
                             <CheckCircle2 className="w-4 h-4" /> Guardado
                         </span>
                     )}
@@ -256,7 +264,7 @@ const BarraTrabajo: React.FC<Props> = ({
             {/* ── Fila 2: propuestas · cifras ───────────────────────────────── */}
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 pt-3 border-t border-slate-100">
                 <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                    <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mr-1">Propuestas</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-900 mr-1">Propuestas</span>
 
                     {!guardada ? (
                         // Sin guardar todavía no existe ninguna propuesta en el
@@ -265,7 +273,7 @@ const BarraTrabajo: React.FC<Props> = ({
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12.5px] font-bold ${colorPropuesta('A').pestanaActiva}`}
                             title="Lo que armes se guardará como Propuesta A"
                         >
-                            A <span className="font-semibold opacity-80">· sin guardar</span>
+                            A <span className="font-medium">· sin guardar</span>
                         </span>
                     ) : (
                         propuestas.map(p => {
@@ -274,7 +282,7 @@ const BarraTrabajo: React.FC<Props> = ({
                             if (esActiva && renombrando) {
                                 return (
                                     <span key={p.id} className={`inline-flex items-center gap-1 pl-3 pr-1 py-1 rounded-lg border ${color.pestanaActiva}`}>
-                                        <span className="text-[12.5px] font-black font-cotizador-head">{p.etiqueta}</span>
+                                        <span className="text-[12.5px] font-bold">{p.etiqueta}</span>
                                         <input
                                             autoFocus
                                             value={nombreBorrador}
@@ -288,7 +296,7 @@ const BarraTrabajo: React.FC<Props> = ({
                                             }}
                                             onBlur={confirmarNombre}
                                             disabled={guardandoNombre}
-                                            className="w-52 px-2 py-0.5 rounded-md text-[12.5px] font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-white/70"
+                                            className="w-44 sm:w-52 px-2 py-0.5 rounded-md text-[12.5px] font-normal text-slate-900 placeholder:text-slate-500 bg-white focus:outline-none focus:ring-2 focus:ring-white/70"
                                         />
                                         {guardandoNombre && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                                     </span>
@@ -305,13 +313,13 @@ const BarraTrabajo: React.FC<Props> = ({
                                         title={esActiva
                                             ? 'Es la propuesta que estás editando. Doble clic para cambiarle el nombre.'
                                             : `Cambiar a la propuesta ${p.etiqueta}${p.nombre ? ` (${p.nombre})` : ''}`}
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 border text-[12.5px] font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 disabled:cursor-wait ${esActiva
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 border text-[12.5px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-templex-400 disabled:cursor-wait ${esActiva
                                             ? `${color.pestanaActiva} rounded-l-lg`
-                                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg'}`}
+                                            : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50 rounded-lg'}`}
                                     >
                                         {!esActiva && <span className={`w-2 h-2 rounded-full ${color.punto}`} />}
-                                        <span className="font-black font-cotizador-head">{p.etiqueta}</span>
-                                        {p.nombre && <span className="font-semibold max-w-[160px] truncate">· {p.nombre}</span>}
+                                        <span className="font-bold">{p.etiqueta}</span>
+                                        {p.nombre && <span className="font-medium max-w-[160px] truncate">· {p.nombre}</span>}
                                         {p.elegida && (
                                             <Check className="w-3.5 h-3.5" aria-label="elegida" />
                                         )}
@@ -322,7 +330,7 @@ const BarraTrabajo: React.FC<Props> = ({
                                             onClick={empezarRenombrar}
                                             disabled={ocupado}
                                             title="Cambiar el nombre de esta propuesta"
-                                            className={`inline-flex items-center px-2 border border-l-0 rounded-r-lg transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${color.pestanaActiva}`}
+                                            className={`inline-flex items-center px-2 border border-l-0 rounded-r-lg transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400 ${color.pestanaActiva}`}
                                         >
                                             <Pencil className="w-3.5 h-3.5" />
                                             <span className="sr-only">Renombrar la propuesta {p.etiqueta}</span>
@@ -341,18 +349,18 @@ const BarraTrabajo: React.FC<Props> = ({
                             aria-haspopup="menu"
                             aria-expanded={menuAbierto}
                             title={motivoNoNueva ?? 'Crear otra propuesta para el mismo cliente'}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300 text-[12.5px] font-bold text-slate-600 hover:border-indigo-400 hover:text-indigo-700 hover:bg-indigo-50/50 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-slate-400 text-[12.5px] font-semibold text-slate-800 hover:border-templex-400 hover:text-templex-700 hover:bg-templex-50/50 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {ocupado ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                             Nueva propuesta
                             <ChevronDown className="w-3.5 h-3.5" />
                         </button>
                         {menuAbierto && (
-                            <div role="menu" className="absolute left-0 top-full mt-1 z-30 w-80 rounded-xl border border-slate-200 bg-white shadow-xl p-1.5">
+                            <div role="menu" className="absolute left-0 top-full mt-1 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white shadow-xl p-1.5">
                                 {!guardada && (
-                                    <p className="px-2.5 pt-1.5 pb-2 text-[11.5px] text-slate-500 leading-snug border-b border-slate-100 mb-1">
+                                    <p className="px-2.5 pt-1.5 pb-2 text-[12px] text-slate-800 leading-snug border-b border-slate-100 mb-1">
                                         Primero se guarda la cotización (toma el número siguiente) y la que armaste queda
-                                        como <span className="font-bold">Propuesta A</span>.
+                                        como <span className="font-semibold text-slate-900">Propuesta A</span>.
                                     </p>
                                 )}
                                 {opcionesNueva.map(o => (
@@ -363,12 +371,12 @@ const BarraTrabajo: React.FC<Props> = ({
                                         onClick={() => elegirNueva(o.tipo)}
                                         className="w-full flex items-start gap-2.5 text-left px-2.5 py-2 rounded-lg hover:bg-slate-50 focus:outline-none focus-visible:bg-slate-50"
                                     >
-                                        <o.icono className="w-4 h-4 mt-0.5 text-indigo-500 shrink-0" />
+                                        <o.icono className="w-4 h-4 mt-0.5 text-templex-600 shrink-0" />
                                         <span>
-                                            <span className="block text-[12.5px] font-bold text-slate-800">
+                                            <span className="block text-[12.5px] font-semibold text-slate-900">
                                                 {!guardada ? `Guardar y crear: ${o.titulo.toLowerCase()}` : o.titulo}
                                             </span>
-                                            <span className="block text-[11.5px] text-slate-500 leading-snug">{o.detalle}</span>
+                                            <span className="block text-[12px] text-slate-700 leading-snug">{o.detalle}</span>
                                         </span>
                                     </button>
                                 ))}
@@ -383,13 +391,16 @@ const BarraTrabajo: React.FC<Props> = ({
                     )}
                 </div>
 
-                <div className="flex items-center gap-5">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                     <DatoContexto etiqueta="Ítems" valor={cifras.items} />
                     <DatoContexto etiqueta="Productos" valor={fmtCOP(cifras.productos)} />
+                    <DatoContexto etiqueta="Mano de obra" valor={fmtCOP(cifras.manoObra)} />
                     <DatoContexto etiqueta="Cargos de obra" valor={fmtCOP(cifras.cargos)} />
-                    {cifras.totalGuardado !== null && (
-                        <DatoContexto etiqueta="Total guardado" valor={fmtCOP(cifras.totalGuardado)} destacado />
-                    )}
+                    <DatoContexto
+                        etiqueta={cifras.sinGuardar ? 'Total · sin guardar' : 'Total'}
+                        valor={fmtCOP(cifras.total)}
+                        destacado
+                    />
                 </div>
             </div>
         </div>

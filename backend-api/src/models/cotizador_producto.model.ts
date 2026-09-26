@@ -35,6 +35,11 @@ CotizadorProducto.init({
   // valor, motorDespiece cobra ceil(medida / largo) piezas por corte, sin
   // desperdicio. NULL = se cobra por metro, como el resto (2026-09-25).
   largo_pieza_mm: { type: DataTypes.DOUBLE },
+  // El producto no tiene precio de catálogo: se cotiza aparte con el proveedor
+  // y el asesor escribe el COSTO en la línea; el motor le aplica el
+  // multiplicador del segmento. Hoy KVE001 y los vidrios sobre pedido
+  // CL4MM03LM / CL4MM08SP (2026-09-26).
+  precio_a_cotizar: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 }, {
   sequelize,
   modelName: 'CotizadorProducto',

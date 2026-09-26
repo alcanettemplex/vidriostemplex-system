@@ -45,10 +45,13 @@ import {
   CotizadorPropuestaCargo,
 } from '../../models';
 import {
+  calcularManoObraProductos,
   calcularTotalesPropuesta,
+  esCargoManoObra,
   sugerirCargosIniciales,
   totalDeCargo,
   type CargoParaTotales,
+  type ItemParaCargos,
   type TipoCargo,
 } from '../lib/cargos';
 import { calcularItem, getModulo } from '../modules/registry';
@@ -313,6 +316,7 @@ function aPropuesta(fila: Fila, cargos: Fila[] | null, items: Fila[] | null) {
     legadoCargosEnItems: fila.legado_cargos_en_items,
     totales: {
       productos: fila.total_productos,
+      manoObra: fila.total_mano_obra ?? 0,
       descuento: fila.total_descuento,
       cargos: fila.total_cargos,
       iva: fila.total_iva,
@@ -600,6 +604,7 @@ export async function comparar(id: number) {
         cantidadItems: (itemsPorProp.get(p.id) ?? []).length,
         totales: {
           productos: p.total_productos,
+          manoObra: p.total_mano_obra ?? 0,
           descuento: p.total_descuento,
           cargos: p.total_cargos,
           iva: p.total_iva,
@@ -663,7 +668,7 @@ function filaCargo(c: CargoEntrada, orden: number) {
     unidad: c.unidad ?? 'GLOBAL',
     valor_unitario: Number.isFinite(valorUnitario) ? valorUnitario : 0,
     aplica_iva: c.aplicaIva === undefined ? true : Boolean(c.aplicaIva),
-    origen: c.origen === 'SUGERIDO' ? 'SUGERIDO' : 'MANUAL',
+    origen: c.origen === 'SUGERIDO' || c.origen === 'AUTOMATICO' ? c.origen : 'MANUAL',
   };
   return { ...normalizado, total: totalDeCargo(normalizado) };
 }
@@ -672,9 +677,50 @@ function filaCargo(c: CargoEntrada, orden: number) {
  * los hooks de auditoría son de instancia y una alta en bloque no los dispara,
  * así que el precio de la mano de obra entraría sin dejar rastro. */
 async function insertarCargos(propuestaId: number, cargos: CargoEntrada[], t: Transaction) {
-  for (const [i, c] of cargos.entries()) {
+  // La mano de obra por producto (ENSAMBLE / INSTALACION) NUNCA entra desde
+  // afuera: la genera `recalcularPropuesta` desde los ítems. Si el cliente o una
+  // copia de propuesta la trae, se descarta aquí y se regenera allá.
+  const manuales = cargos.filter((c) => !esCargoManoObra(c.tipo));
+  for (const [i, c] of manuales.entries()) {
     await CotizadorPropuestaCargo.create(
       { propuesta_id: propuestaId, ...filaCargo(c, i) } as Fila,
+      { transaction: t }
+    );
+  }
+}
+
+/** Clave de comparación de una línea de mano de obra: si no cambió nada, no se
+ * reescribe (cada fila está auditada y reescribirla ensuciaría el log). */
+function claveManoObra(c: { tipo: unknown; descripcion: unknown; cantidad: unknown; valor_unitario?: unknown; valorUnitario?: unknown }) {
+  return [c.tipo, c.descripcion, Number(c.cantidad), Number(c.valor_unitario ?? c.valorUnitario)].join('|');
+}
+
+/**
+ * Deja las líneas automáticas de mano de obra (ENSAMBLE / INSTALACION) de una
+ * propuesta alineadas con sus ítems (2026-09-26). Solo toca la BD si cambió
+ * algo. Van después de los cargos manuales (orden 100+) para que el panel y el
+ * PDF las muestren juntas.
+ */
+async function sincronizarManoObra(propuestaId: number, items: Fila[], t: Transaction) {
+  const nuevas = calcularManoObraProductos(
+    items.map((f): ItemParaCargos => ({ moduloId: f.modulo_id, input: f.input ?? {} }))
+  );
+  const existentes = (await CotizadorPropuestaCargo.findAll({
+    where: { propuesta_id: propuestaId, tipo: ['ENSAMBLE', 'INSTALACION'] },
+    order: [['orden', 'ASC']],
+    transaction: t,
+  })) as unknown as Fila[];
+
+  const iguales =
+    existentes.length === nuevas.length &&
+    existentes.every((e, i) => claveManoObra(e.get({ plain: true })) === claveManoObra(nuevas[i]));
+  if (iguales) return;
+
+  // Uno a uno y no con un `destroy` en bloque: los hooks de auditoría son de instancia.
+  for (const e of existentes) await e.destroy({ transaction: t });
+  for (const [i, c] of nuevas.entries()) {
+    await CotizadorPropuestaCargo.create(
+      { propuesta_id: propuestaId, ...filaCargo(c as CargoEntrada, 100 + i) } as Fila,
       { transaction: t }
     );
   }
@@ -690,21 +736,26 @@ async function insertarCargos(propuestaId: number, cargos: CargoEntrada[], t: Tr
 async function recalcularPropuesta(propuestaId: number, t: Transaction) {
   const propuesta = (await CotizadorPropuesta.findByPk(propuestaId, { transaction: t })) as Fila | null;
   if (!propuesta) return null;
+  const legado = Boolean(propuesta.legado_cargos_en_items);
 
-  const [items, cargos] = await Promise.all([
-    CotizadorCotizacionItem.findAll({
-      where: { propuesta_id: propuestaId },
-      attributes: COLUMNAS_ITEM_TOTALES,
-      raw: true,
-      transaction: t,
-    }) as unknown as Promise<Fila[]>,
-    CotizadorPropuestaCargo.findAll({
-      where: { propuesta_id: propuestaId },
-      attributes: ['cantidad', 'valor_unitario', 'total', 'aplica_iva'],
-      raw: true,
-      transaction: t,
-    }) as unknown as Promise<Fila[]>,
-  ]);
+  // `input` y `modulo_id` se leen para la mano de obra por producto: el input
+  // es el formulario (medidas, piezas, casillas), unos cientos de bytes. El
+  // JSONB pesado, `resultado`, sigue sin leerse.
+  const items = (await CotizadorCotizacionItem.findAll({
+    where: { propuesta_id: propuestaId },
+    attributes: [...COLUMNAS_ITEM_TOTALES, 'modulo_id', 'input'],
+    raw: true,
+    transaction: t,
+  })) as unknown as Fila[];
+
+  if (!legado) await sincronizarManoObra(propuestaId, items, t);
+
+  const cargos = (await CotizadorPropuestaCargo.findAll({
+    where: { propuesta_id: propuestaId },
+    attributes: ['tipo', 'cantidad', 'valor_unitario', 'total', 'aplica_iva'],
+    raw: true,
+    transaction: t,
+  })) as unknown as Fila[];
 
   const totales = calcularTotalesPropuesta({
     items: filasATotalizables(items),
@@ -716,6 +767,7 @@ async function recalcularPropuesta(propuestaId: number, t: Transaction) {
   await propuesta.update(
     {
       total_productos: totales.totalProductos,
+      total_mano_obra: totales.totalManoObra,
       total_descuento: totales.totalDescuento,
       total_cargos: totales.totalCargos,
       total_iva: totales.totalIva,
@@ -748,7 +800,9 @@ async function sincronizarCabecera(cotizacionId: number, t: Transaction) {
 
   await cot.update(
     {
-      total_subtotal: elegida ? Number(elegida.total_productos ?? 0) : 0,
+      // Productos + mano de obra (2026-09-26): los dos llevan AIU y descuento,
+      // y son lo que el listado muestra como "subtotal" antes de cargos e IVA.
+      total_subtotal: elegida ? Number(elegida.total_productos ?? 0) + Number(elegida.total_mano_obra ?? 0) : 0,
       total_iva: elegida ? Number(elegida.total_iva ?? 0) : 0,
       total_total: elegida ? Number(elegida.total_total ?? 0) : 0,
       actualizada_en: new Date(),
@@ -881,12 +935,11 @@ async function crearPropuestaInterna(
     );
   }
 
-  // AUSENTE ≠ VACÍO: si no llegan cargos se sugiere el juego por defecto (mano
-  // de obra + flete), que es lo que el vendedor obtenía antes automáticamente
-  // porque ambos venían dentro del BOM. Un arreglo vacío explícito significa
-  // "esta propuesta no lleva cargos" y se respeta. Una propuesta sin ítems no
-  // recibe sugerencia: sugerir sobre cero metros cuadrados sería inventar.
-  const cargos = entrada.cargos ?? (items.length ? sugerirCargosIniciales({ items }) : []);
+  // AUSENTE ≠ VACÍO: si no llegan cargos se sugiere el juego por defecto (el
+  // flete). Un arreglo vacío explícito significa "esta propuesta no lleva
+  // cargos" y se respeta. Una propuesta sin ítems no recibe sugerencia. La mano
+  // de obra no se sugiere: la genera `recalcularPropuesta` desde los ítems.
+  const cargos = entrada.cargos ?? (items.length ? sugerirCargosIniciales() : []);
   await insertarCargos(propuesta.id, cargos as CargoEntrada[], t);
 
   await recalcularPropuesta(propuesta.id, t);
@@ -1631,11 +1684,15 @@ export async function guardarCargos(cotizacionId: number, propuestaId: number, c
       );
     }
 
+    // Solo los cargos manuales: la mano de obra automática la mantiene
+    // `recalcularPropuesta`, y borrarla aquí la reescribiría en cada guardado.
     const existentes = (await CotizadorPropuestaCargo.findAll({
       where: { propuesta_id: propuestaId },
       transaction: t,
-    })) as unknown as Array<{ destroy: (o: Fila) => Promise<unknown> }>;
-    for (const c of existentes) await c.destroy({ transaction: t });
+    })) as unknown as Array<{ tipo: string; get: (k: string) => unknown; destroy: (o: Fila) => Promise<unknown> }>;
+    for (const c of existentes) {
+      if (!esCargoManoObra(c.get('tipo'))) await c.destroy({ transaction: t });
+    }
     await insertarCargos(propuestaId, cargos, t);
 
     await recalcularPropuesta(propuestaId, t);
@@ -1648,19 +1705,3 @@ export async function guardarCargos(cotizacionId: number, propuestaId: number, c
   }
 }
 
-/** Los ítems de una propuesta, con sus blobs. Lo usa el endpoint de SMO
- * sugerido, que necesita el área de cada ítem y el módulo que lo calculó. */
-export async function itemsDePropuesta(cotizacionId: number, propuestaId: number) {
-  const propuesta = (await CotizadorPropuesta.findByPk(propuestaId, { raw: true })) as unknown as Fila | null;
-  if (!propuesta || Number(propuesta.cotizacion_id) !== Number(cotizacionId)) return null;
-  const filas = (await CotizadorCotizacionItem.findAll({
-    where: { propuesta_id: propuestaId },
-    order: [['orden', 'ASC']],
-    raw: true,
-  })) as unknown as Fila[];
-  return filas.map((f) => ({
-    moduloId: f.modulo_id,
-    input: f.input ?? {},
-    resultado: f.resultado ?? {},
-  }));
-}

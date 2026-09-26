@@ -28,12 +28,9 @@ const VIDRIO_M2 = "CL6MM03SP";      // X M2    — vidrio templado 6 mm
 const PERFIL_ML = "CAB0102";        // X METRO — 5020 cabezal 144 mate
 const ACCESORIO_UND = "BES0302";    // UND     — barra estabilizadora (eje 7/16)
 
-// ⚠️ NO usar PERF01/ELE1101 como ejemplo de "UND": en el catálogo del ERP están
-// como `X METRO` (`PERFORACION HASTA 20MM`), aunque la tabla ACABADOS del Excel
-// los listaba como UNID. Por eso `tablero.ts` los pide con
-// `unidadOverride: "UND"` — ese módulo sabe que está contando piezas, no metros.
-// El ítem libre NO hace override (ver el comentario en `calcular`), así que un
-// código así cobraría su cantidad como metros lineales.
+// PERF01/02/03 estuvieron como `X METRO` hasta el 2026-09-26, cuando pasaron a
+// `UND` (precio por perforación, como factura el proveedor). ELE1101 no se
+// revisó: antes de usar un código como ejemplo de "UND", mirar su unidad real.
 
 function base(extra: Record<string, unknown> = {}) {
   return {

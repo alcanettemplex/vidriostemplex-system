@@ -161,6 +161,15 @@ test("el kit KIK0301 trae las rodachinas: no se suman ROD0401, por diseño ni po
   assert.equal(lineasDe(primavera, "ROD0401")[0]?.cantidad, 4);
 });
 
+test("el kit Glasvit KDG0306 también viene completo: no se suman ROD0401 (2026-09-26)", () => {
+  const glasvit = calcularItem("cabinas-corredizas", {
+    anchoCm: 130, altoCm: 190, espesorVidrioMm: 8, segmentoCliente: "PA", cantidadPiezas: 1, tipoSistema: "glasvit",
+  } as never) as { items: Linea[]; hayErrores: boolean };
+  assert.equal(glasvit.hayErrores, false);
+  assert.equal(lineasDe(glasvit, "KDG0306")[0]?.cantidad, 1);
+  assert.equal(lineasDe(glasvit, "ROD0401").length, 0);
+});
+
 test("la SAP pide tubos, no barras de 6 m", () => {
   // Dos ítems: 2.000 mm (2 tubos) y 1.500 mm (1 tubo) = 3 tubos. Por metros
   // habría pedido ceil(3,5 × 1,05 / 6) = 1 "barra" de un perfil que no existe en 6 m.

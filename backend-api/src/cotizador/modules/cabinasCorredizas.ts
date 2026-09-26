@@ -69,6 +69,10 @@ export const meta = {
       requerido: false,
       grupo: "vidrio",
     },
+    // Mano de obra por producto (2026-09-26): no toca el despiece; la lee
+    // `calcularManoObraProductos` (lib/cargos.ts) desde el input guardado.
+    { nombre: "conInstalacion", tipo: "boolean", etiqueta: "Con instalación", requerido: false, grupo: "comercial", defecto: true },
+    { nombre: "enL", tipo: "boolean", etiqueta: "Cabina en L (la instalación cuenta doble)", requerido: false, grupo: "comercial" },
   ],
 };
 
@@ -92,9 +96,9 @@ const BOTON_POR_TIPO = {
 // además las 4 ROD0401 las cobraba dos veces (confirmado por el usuario,
 // 2026-09-25). Rige en los dos caminos: por diseño (Torino, cuyo tubular es
 // KIK0301) y por medidas libres con sistema "tubo_rectangular".
-// ⚠️ KDG0306 (Glasvit) dice lo mismo en su comentario de abajo y sí se le suman:
-// sin confirmar, ver TECH_DEBT.md 2026-09-25 (2).
-const KITS_CON_RODACHINAS = new Set(["KIK0301"]);
+// KDG0306 (kit Glasvit) también viene completo (confirmado por el usuario,
+// 2026-09-26): hasta ese día se le sumaban las 4 ROD0401.
+const KITS_CON_RODACHINAS = new Set(["KIK0301", "KDG0306"]);
 
 // --- Espesor "original" documentado en el Excel para cada sistema ------------------
 // (usado solo para decidir si hay que avisar que la combinación es una extrapolación).

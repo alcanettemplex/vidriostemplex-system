@@ -16,7 +16,7 @@
 // "cotizar 2 tableros idénticos") se aplica UNA sola vez sobre el subtotal de una
 // pieza, nunca dentro de cada línea del BOM Y otra vez al final.
 
-import { getPrecio, getProducto } from './catalogo';
+import { getMultiplicador, getPrecio, getProducto } from './catalogo';
 import type { Parametros } from '../tipos';
 
 /**
@@ -90,12 +90,22 @@ export interface Totales {
  * en 0 o no numérico — hay 12 así en el catálogo, cuatro de ellos con la
  * descripción literal "CODIGO NO EXISTE"). Antes eso costaba $0 en silencio; ahora
  * getPrecio devuelve null en ese caso y se bloquea igual que el código ausente.
+ *
+ * PRECIO A COTIZAR (2026-09-26): un producto con `precioACotizar` no tiene precio
+ * de catálogo confiable — se cotiza aparte con el proveedor (hoy KVE001 y los
+ * vidrios sobre pedido). El asesor escribe el COSTO del proveedor en la línea
+ * (`costoManual`) y el precio de venta sale de ese costo × el multiplicador de la
+ * categoría para el segmento, la misma regla que fija PA/PM/PB del catálogo.
+ * Sin costo escrito: si el catálogo tiene un precio de referencia se usa y se
+ * avisa; si no, la línea queda en error y bloquea el ítem como un $0.
+ * `costoManual` se ignora en los productos sin la marca: su precio es el del
+ * catálogo y no se pisa a mano.
  */
 export function lineaCatalogo(
   codigo: string,
   cantidad: number,
   segmentoCliente: string,
-  { unidadOverride }: { unidadOverride?: string } = {}
+  { unidadOverride, costoManual }: { unidadOverride?: string; costoManual?: unknown } = {}
 ): LineaBOM {
   const producto = getProducto(codigo);
   if (!producto) {
@@ -110,6 +120,58 @@ export function lineaCatalogo(
       error: true,
     };
   }
+  if (producto.precioACotizar) {
+    const costo = Number(costoManual);
+    if (costoManual != null && costoManual !== '' && Number.isFinite(costo) && costo > 0) {
+      const multiplicador = getMultiplicador(producto.categoria);
+      const factor = multiplicador?.[String(segmentoCliente).toLowerCase() as 'pa' | 'pm' | 'pb'];
+      if (!factor) {
+        return {
+          codigo: producto.codigo,
+          descripcion:
+            `No se puede convertir el costo de ${producto.codigo} en precio de venta: la categoría ` +
+            `${producto.categoria} no tiene multiplicador para el segmento ${segmentoCliente}. Configúralo en Configuración.`,
+          categoria: 'ERROR',
+          unidad: unidadOverride ?? producto.unidad,
+          cantidad,
+          precioUnitario: 0,
+          valorTotal: 0,
+          error: true,
+          precioACotizar: true,
+        };
+      }
+      const cantidadManual = Math.round(cantidad * 10000) / 10000;
+      const precioManual = round2(costo * factor);
+      return {
+        codigo: producto.codigo,
+        descripcion: producto.descripcion,
+        categoria: producto.categoria,
+        unidad: unidadOverride ?? producto.unidad,
+        cantidad: cantidadManual,
+        precioUnitario: precioManual,
+        valorTotal: Math.round(precioManual * cantidadManual * 100) / 100,
+        error: false,
+        precioACotizar: true,
+        costoManual: costo,
+      };
+    }
+    if (getPrecio(codigo, segmentoCliente) === null) {
+      return {
+        codigo: producto.codigo,
+        descripcion:
+          `${producto.codigo} (${producto.descripcion}) se cotiza aparte: pide el precio al proveedor ` +
+          'y escribe su costo en la línea.',
+        categoria: 'ERROR',
+        unidad: unidadOverride ?? producto.unidad,
+        cantidad,
+        precioUnitario: 0,
+        valorTotal: 0,
+        error: true,
+        precioACotizar: true,
+      };
+    }
+  }
+
   const precioUnitario = getPrecio(codigo, segmentoCliente);
   if (precioUnitario === null) {
     return {
@@ -143,7 +205,30 @@ export function lineaCatalogo(
           revisarPrecio: Boolean(producto.sospechosoValorPorDefecto),
         }
       : {}),
+    // Llegó aquí sin costo escrito pero con precio de referencia en el catálogo.
+    ...(producto.precioACotizar ? { precioACotizar: true } : {}),
   };
+}
+
+/**
+ * Avisos de las líneas con precio a cotizar que SÍ se calcularon (las que no
+ * tienen precio ya bloquean el ítem con su propia descripción de error). Uno por
+ * código, aunque aparezca en varias líneas.
+ */
+export function advertenciasPrecioACotizar(items: LineaBOM[]): string[] {
+  const avisos = new Map<string, string>();
+  for (const l of items) {
+    if (!l.precioACotizar || l.error || avisos.has(l.codigo)) continue;
+    avisos.set(
+      l.codigo,
+      typeof l.costoManual === 'number'
+        ? `El precio de ${l.codigo} sale del costo que escribió el asesor ($${l.costoManual.toLocaleString('es-CO')}), ` +
+            'cotizado con el proveedor: no viene del catálogo.'
+        : `${l.codigo} se cotiza con el proveedor: se usó el precio de referencia del catálogo. ` +
+            'Confírmalo y escribe el costo real en la línea.'
+    );
+  }
+  return [...avisos.values()];
 }
 
 /**

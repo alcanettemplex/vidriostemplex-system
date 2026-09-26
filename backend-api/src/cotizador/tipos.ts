@@ -40,6 +40,9 @@ export interface Producto {
    * entera. Ausente = se cobra por metro. Como los campos de arriba, solo se
    * emite cuando tiene valor. */
   largoPiezaMm?: number;
+  /** Se cotiza aparte con el proveedor: el asesor escribe el costo en la
+   * línea (ver `lineaCatalogo`). Solo se emite cuando es true. */
+  precioACotizar?: boolean;
   ultimoCambio?: { fecha: string; por: string | null; motivo: string | null };
 }
 
@@ -71,6 +74,12 @@ export interface Parametros {
   alquiler_andamio: number;
   /** HUAC06 — huacal de transporte. */
   huacal: number;
+  /** Mano de obra por producto (2026-09-26), montos ANTES de AIU e IVA — ver
+   * `calcularManoObraProductos` en lib/cargos.ts. */
+  mo_ensamble_ventana_m2: number;
+  mo_instalacion_ventana_m2: number;
+  mo_instalacion_cabina_und: number;
+  mo_instalacion_espejo_tablero_m2: number;
   asesores: string[];
   estados_cotizacion: string[];
 }
@@ -314,6 +323,16 @@ export interface DatosCotizador {
   sistemas: Sistemas;
   mapeoAccesorios: MapeoAccesorios;
   geometriaOverrides: GeometriaOverrides;
+  /** Multiplicadores de venta por categoría (`cotizador.multiplicador_categoria`).
+   * Viajan con el bucket `precios`: los usa el costo manual de los productos
+   * con precio a cotizar. */
+  multiplicadores: Map<string, Multiplicador>;
+}
+
+export interface Multiplicador {
+  pa: number;
+  pm: number;
+  pb: number;
 }
 
 export type Bucket = 'precios' | 'disenos' | 'calibracion' | 'accesorios' | 'geometria';

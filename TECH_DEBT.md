@@ -4,7 +4,38 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-26 (2) — Cotizador: restos del SMO por tipo de obra
+
+**Severidad:** Baja · **Estimación:** ~30 min
+
+La mano de obra pasó a calcularse por producto (`calcularManoObraProductos`). Quedaron sin uso: las 6
+columnas `smo_*` de `cotizador.parametro` (y su validación en `editarParametros`, el objeto `smo` de
+`Parametros` en backend y frontend), `tarifaSMO()`/`TipoObra` en `motorCalculo.ts` (solo los importa
+el tipo de `cotizarPorDiseno.ts`) y el valor `SMO` del ENUM de cargos. Se conservaron porque la BD
+tiene una propuesta de prueba con una línea SMO; como todas son pruebas, se pueden borrar cuando el
+usuario lo confirme (script que quite las columnas y la línea, y limpieza del código).
+
+Además: los ítems guardados antes del 2026-09-26 no traen `conInstalacion`, así que al recalcularse
+solo cobran el ensamble de ventanas; hay que abrirlos y marcar la casilla si llevan instalación.
+
+---
+
+## 2026-09-26 — Cotizador: "precio a cotizar" solo se enciende por script
+
+**Severidad:** Baja · **Estimación:** ~45 min
+
+`cotizador.producto.precio_a_cotizar` (hoy `KVE001`, `CL4MM03LM`, `CL4MM08SP`) no tiene control en
+Configuración ni en el alta desde el catálogo general: marcar otro producto requiere un `UPDATE` a
+mano o un script, igual que `largo_pieza_mm`. Agregar un interruptor en la ficha de precios de
+Configuración (controlador `cotizador_precios.controller.ts` + `TabConfiguracion.tsx`), con su fila
+en `precio_historial`. Ver `docs/modulos/cotizador.md` → "Precio a cotizar".
+
+---
+
 ## 2026-09-25 (2) — Cotizador: ¿el kit Glasvit (`KDG0306`) también trae las rodachinas?
+
+> ✅ **Resuelto 2026-09-26.** El usuario confirmó que el kit viene completo: `KDG0306` entró a
+> `KITS_CON_RODACHINAS` y tiene prueba en `piezaEntera.test.ts`.
 
 **Severidad:** Media (posible cobro de más) · **Estimación:** 10 min una vez confirmado
 
@@ -1392,3 +1423,18 @@ Nuevos, detectados por los agentes y **no corregidos** (fuera de "solo presentac
    uso. Moverlo a la fuente — baja, 10 min.
 10. **`TarjetaKPI` vive en `components/dashboard/`**; si otras pantallas la adoptan, subirla a
     `components/ui/`.
+
+## 2026-09-26 — Rediseño visual, Fase 5 (Cotizador): lo que quedó señalado
+
+1. **Doble fuente de verdad de la descripción del módulo:** la frase comercial vive en el frontend
+   (`descripcionesModulo.ts`) y la técnica en `modules/*.ts` del backend. Un módulo nuevo sin frase
+   muestra el texto técnico al asesor. Evaluar mover la frase comercial al registro del backend
+   (campo `descripcionComercial`) — baja, ~30 min.
+2. **"Pausado manualmente" en Calibración lleva el emoji ⏸**, fuera del registro de iconos — baja, 5 min.
+3. **Space Grotesk se sigue cargando desde Google Fonts** solo para las cotas del plano. Si la red
+   del cliente bloquea el CDN, el plano cae a la fuente de respaldo (pasa lo mismo al imprimir).
+   Evaluar `@fontsource` como con Geist — baja, 20 min, verificar métrica de la Hoja de Trabajo.
+4. **`npm run build` del frontend al límite de memoria** (máquina de 11,8 GB, ~2,5 GB libres con el
+   dev server levantado): con el heap por defecto falla y con 6 GB el equipo se colgó. Funciona con
+   `GENERATE_SOURCEMAP=false NODE_OPTIONS=--max-old-space-size=2048`. El bundle principal pesa
+   1,15 MB gzip: code splitting por ruta (`React.lazy`) lo aliviaría — media, ~2 h.

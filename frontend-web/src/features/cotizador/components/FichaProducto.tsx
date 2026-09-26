@@ -102,7 +102,7 @@ const FichaProducto: React.FC<Props> = ({ input, resultado, modulo }) => {
             <span className="inline-flex items-center gap-1.5">
                 <span>{textoDiseno}</span>
                 {disenoRef?.nivelCorte && (
-                    <Chip tono="indigo" title="Nivel de corte del diseño">{`Nivel ${disenoRef.nivelCorte}`}</Chip>
+                    <Chip tono="marca" title="Nivel de corte del diseño">{`Nivel ${disenoRef.nivelCorte}`}</Chip>
                 )}
             </span>
         )

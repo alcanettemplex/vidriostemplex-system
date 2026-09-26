@@ -14,7 +14,8 @@
 // (motorCalculo, motorDespiece, los 6 módulos de producto) se entera del
 // cambio". Ese día es hoy, y esa línea es la de abajo.
 import * as proveedor from './precios/proveedorSequelize';
-import type { ListadoProductos, Parametros, Producto } from '../tipos';
+import { getMultiplicador as multiplicadorEnCache } from '../cache';
+import type { ListadoProductos, Multiplicador, Parametros, Producto } from '../tipos';
 
 /** Devuelve el producto completo del catálogo, o null si el código no existe.
  * A diferencia del Excel original (que dejaba pasar precio $0 con la descripción
@@ -31,6 +32,12 @@ export function getProducto(codigo: string): Producto | null {
  * función lineaCatalogo). */
 export function getPrecio(codigo: string, segmentoCliente: string): number | null {
   return proveedor.getPrecio(codigo, segmentoCliente);
+}
+
+/** Multiplicador de venta de una categoría (PA/PM/PB sobre el costo), o null si
+ * la categoría no tiene uno configurado. */
+export function getMultiplicador(categoria: string): Multiplicador | null {
+  return multiplicadorEnCache(categoria);
 }
 
 /** Arreglo completo (sin paginar) de productos del catálogo resuelto (catálogo
