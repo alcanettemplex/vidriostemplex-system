@@ -72,6 +72,8 @@ export function colorPropuesta(etiqueta: string | null | undefined): ColorPropue
 /** "Propuesta B · Templado + tablero" — el rótulo con que se nombra en toda la
  * pantalla, para que la barra, la franja, el botón y los avisos digan lo mismo. */
 export function rotuloPropuesta(p: { etiqueta: string; nombre: string | null } | null): string {
-    if (!p) return 'Propuesta A';
-    return `Propuesta ${p.etiqueta}${p.nombre ? ` · ${p.nombre}` : ''}`;
+    // En pantalla se dicen OPCIONES (2026-09-26): así las piensa el asesor, y
+    // el PDF ya dice "Opción C". En el código siguen siendo propuestas.
+    if (!p) return 'Opción A';
+    return `Opción ${p.etiqueta}${p.nombre ? ` · ${p.nombre}` : ''}`;
 }

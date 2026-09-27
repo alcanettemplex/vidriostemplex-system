@@ -104,8 +104,10 @@ export const apiAptitudCotizacion = (id: number) =>
 export const apiCrearCotizacion = (datos: CotizacionEntrada) =>
     axios.post<Cotizacion>(`${BASE}/cotizaciones`, datos);
 
-export const apiActualizarCotizacion = (id: number, datos: CotizacionEntrada) =>
-    axios.put<Cotizacion>(`${BASE}/cotizaciones/${id}`, datos);
+/** PUT /cotizaciones/:id. `ligera` (autoguardado, 2026-09-26): la respuesta
+ * trae número, versión y totales pero NO el detalle de cálculo de los ítems. */
+export const apiActualizarCotizacion = (id: number, datos: CotizacionEntrada, { ligera = false }: { ligera?: boolean } = {}) =>
+    axios.put<Cotizacion>(`${BASE}/cotizaciones/${id}`, datos, ligera ? { params: { respuesta: 'ligera' } } : undefined);
 
 export const apiEliminarCotizacion = (id: number) =>
     axios.delete<void>(`${BASE}/cotizaciones/${id}`);
@@ -259,3 +261,19 @@ export const apiEditarParametros = (datos: {
     mo_instalacion_cabina_und?: number; mo_instalacion_espejo_tablero_m2?: number;
     smo?: Partial<Parametros['smo']>; motivo: string; por?: string;
 }) => axios.put<Parametros>(`${BASE}/parametros`, datos);
+
+// ─── Documento de cotización (2026-09-26) ───────────────────────────────────
+// Textos del PDF que se editan desde Configuración. `PUT /empresa` hace merge
+// campo por campo: sólo se tocan los que se mandan.
+
+export interface DocumentoCotizacion {
+    condicionesComerciales: string[];
+    garantia: string;
+    validezOfertaTexto: string;
+}
+
+/** GET /empresa — sin el logo (no lo necesita esta pantalla). */
+export const apiGetEmpresa = () => axios.get<Partial<DocumentoCotizacion>>(`${BASE}/empresa`);
+
+/** PUT /empresa — condiciones (una por elemento), garantía y validez. */
+export const apiGuardarDocumentoCotizacion = (datos: DocumentoCotizacion) => axios.put(`${BASE}/empresa`, datos);

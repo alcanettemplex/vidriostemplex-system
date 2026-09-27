@@ -15,7 +15,7 @@ import { EsteProducto, EstadoPrecio } from './ResumenPropuesta';
 import { usePlanoPrevisualizacion } from '../hooks/usePlano';
 import { colorPropuesta, rotuloPropuesta } from '../propuestaColor';
 import { BorradorCotizar } from '../totalesPropuesta';
-import { detalleCorto, leerFicha } from '../fichaProducto';
+import { descripcionDeItem, leerFicha } from '../fichaProducto';
 import { descripcionComercial } from '../descripcionesModulo';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -304,7 +304,7 @@ const TabCotizar: React.FC<Props> = ({
         nombre: moduloActivo
             ? `${moduloActivo.nombre}${ficha.medidas ? ` · ${ficha.medidas}` : ''}`
             : 'Elige un producto',
-        detalle: hayResultado ? detalleCorto(ficha) : '',
+        detalle: hayResultado ? descripcionDeItem(ultimoInput, ultimoResultado, moduloActivo, moduloActivo?.nombre ?? '') : '',
         nivelCorte: hayResultado ? ficha.nivelCorte : null,
         piezas: ficha.piezas,
         subtotalConAiu: ultimoResultado ? Number(ultimoResultado.subtotalConAiu) || 0 : null,

@@ -7,6 +7,7 @@ import {
 import { apiObtenerCotizacion, apiAptitudCotizacion, apiPlanoDeItem, apiDespieceDeItem, apiDescargarPdfPropuesta, apiGetModulos } from '../../services/cotizadorApi';
 import { Aptitud, Cotizacion, DespieceItem, ItemCotizacion, ModuloMeta, Plano, Propuesta } from '../../types';
 import { ETIQUETA_CARGO, fmtCOP, fmtFecha, fmtPct } from '../../format';
+import { descripcionDeItem } from '../../fichaProducto';
 import { abrirVentanaImpresion } from '../../../../utils/printWindow';
 import DiagramaProducto from '../DiagramaProducto';
 import ComparadorPropuestas from '../ComparadorPropuestas';
@@ -370,7 +371,6 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                             <table className="w-full text-sm">
                                 <thead className="bg-slate-50 text-slate-900 border-b border-slate-200 text-[11px] uppercase tracking-wide">
                                     <tr>
-                                        <th className="px-3 py-2 text-left font-semibold">Módulo</th>
                                         <th className="px-3 py-2 text-left font-semibold">Descripción</th>
                                         <th className="px-3 py-2 text-center font-semibold">Piezas</th>
                                         <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Subtotal + AIU</th>
@@ -384,7 +384,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {cot.items.length === 0 && (
-                                        <tr><td colSpan={7} className="px-3 py-6 text-center text-slate-700">
+                                        <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-700">
                                             Esta propuesta no tiene ítems.
                                         </td></tr>
                                     )}
@@ -393,9 +393,13 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                                         return (
                                             <React.Fragment key={it.id}>
                                                 <tr>
-                                                    <td className="px-3 py-2 font-semibold text-slate-900">{nombreModulo(it.moduloId)}</td>
-                                                    <td className={`px-3 py-2 ${(it.descripcionItem || resumenMedidas(it.input)) ? 'text-slate-800' : 'text-slate-500'}`}>
-                                                        {it.descripcionItem || resumenMedidas(it.input) || '—'}
+                                                    {/* La frase que imprime el PDF, con el módulo como
+                                                        rótulo pequeño (2026-09-26). */}
+                                                    <td className="px-3 py-2 text-slate-900">
+                                                        {descripcionDeItem(it.input, it.resultado, modulos.find(m => m.id === it.moduloId), nombreModulo(it.moduloId))}
+                                                        <span className="block mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                                                            {nombreModulo(it.moduloId)}
+                                                        </span>
                                                     </td>
                                                     <td className="px-3 py-2 text-center text-slate-800 tabular-nums">{it.cantidadPiezas}</td>
                                                     <td className="px-3 py-2 text-right font-semibold text-slate-900 tabular-nums whitespace-nowrap">{fmtCOP(it.subtotalConAiu)}</td>
@@ -413,7 +417,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                                                 </tr>
                                                 {aptitud && apt && !apt.imprimible && apt.motivos.length > 0 && (
                                                     <tr>
-                                                        <td colSpan={7} className="px-3 pb-2 pt-0">
+                                                        <td colSpan={6} className="px-3 pb-2 pt-0">
                                                             <ul className="text-[12px] text-rose-800 list-disc list-inside pl-2">
                                                                 {apt.motivos.map((m, i) => <li key={i}>{m.texto}</li>)}
                                                             </ul>

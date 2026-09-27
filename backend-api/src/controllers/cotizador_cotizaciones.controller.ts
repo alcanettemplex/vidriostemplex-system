@@ -13,6 +13,7 @@ import { evaluarAptitudOrden } from '../cotizador/lib/aptitudOrden';
 import { calcularManoObraProductos } from '../cotizador/lib/cargos';
 import * as empresaStore from '../cotizador/store/empresaStore';
 import { generarPdfCotizacion } from '../cotizador/lib/generadorPdfCotizacion';
+import { getParametros } from '../cotizador/lib/catalogo';
 import type { CotizacionPdf, PropuestaPdf } from '../cotizador/lib/generadorPdfCotizacion';
 
 const clienteSchema = z
@@ -92,6 +93,8 @@ const crearSchema = z
     items: z.array(itemSchema).optional(),
     propuestas: z.array(propuestaEntradaSchema).optional(),
     propuestaId: z.number().int().positive().optional(),
+    /** Sólo al actualizar: versión sobre la que trabajó la pantalla (autoguardado). */
+    versionEsperada: z.number().int().positive().optional(),
   })
   .strict();
 
@@ -287,8 +290,12 @@ export const actualizarCotizacion = async (req: Request, res: Response) => {
   const id = idValido(req.params.id);
   if (id === null) return res.status(400).json({ error: 'El identificador de cotización no es válido.' });
   try {
-    const datos = crearSchema.parse(req.body ?? {});
-    const actualizada = await store.actualizar(id, datos);
+    const { versionEsperada, ...datos } = crearSchema.parse(req.body ?? {});
+    // `?respuesta=ligera`: el autoguardado sólo necesita número, versión y totales.
+    const actualizada = await store.actualizar(id, datos, {
+      versionEsperada,
+      ligero: req.query.respuesta === 'ligera',
+    });
     if (!actualizada) return res.status(404).json({ error: 'Cotización no encontrada.' });
     res.json(actualizada);
   } catch (e) {
@@ -494,6 +501,7 @@ export const descargarPdfPropuesta = async (req: Request, res: Response) => {
       propuesta,
       otrasPropuestas: propuestas.filter((p) => p.id !== ids.pid),
       empresa,
+      ivaPct: getParametros().iva,
     });
 
     res.setHeader('Content-Type', 'application/pdf');

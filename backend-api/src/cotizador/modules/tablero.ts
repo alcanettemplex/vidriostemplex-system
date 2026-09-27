@@ -80,6 +80,9 @@ export const meta = {
     { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
     // Mano de obra por producto (2026-09-26): no toca el despiece; la lee
     // `calcularManoObraProductos` (lib/cargos.ts) desde el input guardado.
+    // Ubicación en la obra (2026-09-26): "Sala", "Baño social". Opcional; no
+    // toca el precio. Va al inicio de la descripción comercial del ítem.
+    { nombre: "descripcionItem", tipo: "string", etiqueta: "Ubicación (opcional)", requerido: false, grupo: "comercial" },
     { nombre: "conInstalacion", tipo: "boolean", etiqueta: "Con instalación", requerido: false, grupo: "comercial", defecto: true },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de piezas iguales", requerido: true, grupo: "comercial" },
     // `descuentoPct` salió del formulario el 2026-09-20: desde entonces hay UN

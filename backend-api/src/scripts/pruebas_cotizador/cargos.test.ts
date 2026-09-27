@@ -32,6 +32,8 @@ import {
   totalDeCargo,
 } from "../../cotizador/lib/cargos";
 import type { ItemParaCargos, CargoParaTotales } from "../../cotizador/lib/cargos";
+import { manoObraPorItem } from "../../cotizador/lib/cargos";
+import { valoresConManoObra } from "../../cotizador/lib/generadorPdfCotizacion";
 import { getParametros } from "../../cotizador/lib/catalogo";
 import { round2 } from "../../cotizador/lib/motorCalculo";
 import type { LineaBOM } from "../../cotizador/lib/motorCalculo";
@@ -583,4 +585,38 @@ test("tablero: 4 elevadores, +2 si el ancho pasa de 1.500 mm y +2 si el alto pas
   } as InputModulo) as { items: LineaBOM[] };
   assert.equal(r.items.find((l) => l.codigo === "ELE1101")?.cantidad, 8);
   assert.equal(r.items.find((l) => l.codigo === "PERF01")?.cantidad, 8);
+});
+
+// ── Mano de obra dentro del precio de cada ítem en el PDF (2026-09-26) ───────
+
+test("manoObraPorItem suma lo mismo que las líneas de calcularManoObraProductos", () => {
+  const items: ItemParaCargos[] = [
+    { moduloId: "ventanas", input: { anchoCm: 100, altoCm: 90, conInstalacion: true, cantidadPiezas: 1 } },
+    { moduloId: "ventanas", input: { anchoCm: 90, altoCm: 60, conInstalacion: false, cantidadPiezas: 2 } },
+    { moduloId: "cabinas-corredizas", input: { anchoCm: 120, altoCm: 190, conInstalacion: true, enL: true } },
+    { moduloId: "espejo", input: { anchoCm: 120, altoCm: 90, conInstalacion: true, cantidadPiezas: 1 } },
+    { moduloId: "tablero", input: { anchoCm: 80, altoCm: 60, conInstalacion: false, cantidadPiezas: 3 } },
+  ];
+  const porItem = manoObraPorItem(items);
+  const lineas = calcularManoObraProductos(items);
+  const totalLineas = lineas.reduce((a, l) => a + round2(l.cantidad * l.valorUnitario), 0);
+  assert.ok(Math.abs(porItem.reduce((a, b) => a + b, 0) - totalLineas) < 1, `${porItem} vs ${totalLineas}`);
+  assert.equal(porItem[4], 0, "un tablero sin instalación no lleva mano de obra");
+  assert.ok(porItem[1] > 0, "una ventana sin instalación sí lleva ensamble");
+});
+
+test("valoresConManoObra: enteros que suman exactamente productos + mano de obra", () => {
+  const items = [
+    { moduloId: "ventanas", subtotalConAiu: 327107.4, input: { anchoCm: 100, altoCm: 100, conInstalacion: true, cantidadPiezas: 1 } },
+    { moduloId: "tablero", subtotalConAiu: 470686.35, input: { anchoCm: 120, altoCm: 180, conInstalacion: false, cantidadPiezas: 1 } },
+    { moduloId: "espejo", subtotalConAiu: 100995.55, input: { anchoCm: 100, altoCm: 100, conInstalacion: true, cantidadPiezas: 1 } },
+  ];
+  const totalManoObra = 175000.33;
+  const v = valoresConManoObra(items, totalManoObra)!;
+  const suma = items.reduce((a, it) => a + it.subtotalConAiu, 0) + totalManoObra;
+  assert.equal(v.reduce((a, b) => a + b, 0), Math.round(suma));
+  assert.ok(v.every(Number.isInteger));
+  assert.equal(v[1], Math.round(470686.35), "el tablero sin instalación no recibe mano de obra");
+  // Sin ítems que generen mano de obra no hay cómo repartir: renglones aparte.
+  assert.equal(valoresConManoObra([items[1]], 1000), null);
 });

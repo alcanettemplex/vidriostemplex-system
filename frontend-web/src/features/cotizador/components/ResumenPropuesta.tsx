@@ -85,10 +85,6 @@ interface Props {
     descuentoPct: number;
     /** Aclaración bajo el total (p. ej. que incluye el producto en pantalla). */
     notaTotal: string | null;
-    onGuardar: () => void;
-    guardando: boolean;
-    motivoNoGuardar: string | null;
-    sucio: boolean;
 }
 
 const nuevaKey = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -338,7 +334,7 @@ const CargosCompactos: React.FC<{
 const ResumenPropuesta: React.FC<Props> = ({
     este, etiquetaPropuesta, items, idEditando, onEditarItem, onVerPropuesta,
     manoObra, cargandoManoObra, cargos, onCambiarCargos, parametros, bloqueoCargos,
-    totales, descuentoPct, notaTotal, onGuardar, guardando, motivoNoGuardar, sucio,
+    totales, descuentoPct, notaTotal,
 }) => {
     const botonAgregar = este && (
         <BotonPrimario
@@ -357,7 +353,7 @@ const ResumenPropuesta: React.FC<Props> = ({
     return (
         <>
             <aside
-                aria-label={`Resumen de la propuesta ${etiquetaPropuesta}`}
+                aria-label={`Resumen de la Opción ${etiquetaPropuesta}`}
                 className="bg-white border border-slate-200 rounded-2xl shadow-card overflow-hidden xl:sticky xl:top-3 xl:max-h-[calc(100vh-1.5rem)] xl:overflow-y-auto"
             >
                 {/* ── 1 · Este producto ─────────────────────────────────── */}
@@ -406,7 +402,7 @@ const ResumenPropuesta: React.FC<Props> = ({
 
                 {/* ── 2 · La propuesta ──────────────────────────────────── */}
                 <Bloque
-                    titulo={`Propuesta ${etiquetaPropuesta}`}
+                    titulo={`Opción ${etiquetaPropuesta}`}
                     nota={`${items.length} ítem${items.length === 1 ? '' : 's'} · antes de IVA`}
                 >
                     {items.length === 0 ? (
@@ -425,7 +421,7 @@ const ResumenPropuesta: React.FC<Props> = ({
                                         >
                                             <span className="text-[12px] text-slate-600 tabular-nums">{i + 1}</span>
                                             <span className="min-w-0">
-                                                <span className="block text-[13px] font-semibold text-slate-900 truncate">{it.nombre}</span>
+                                                <span className="block text-[12.5px] font-semibold text-slate-900 leading-snug line-clamp-2" title={it.nombre}>{it.nombre}</span>
                                                 {it.detalle && <span className="block text-[11.5px] text-slate-700 truncate">{it.detalle}</span>}
                                             </span>
                                             <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-slate-900 tabular-nums">
@@ -440,7 +436,7 @@ const ResumenPropuesta: React.FC<Props> = ({
                     )}
                     {items.length > 0 && (
                         <button type="button" onClick={onVerPropuesta} className="mt-1.5 text-[12px] font-semibold text-templex-700 hover:underline">
-                            Cliente, descuento y detalle en Actual
+                            Cliente, descuento y detalle en Resumen
                         </button>
                     )}
                 </Bloque>
@@ -501,23 +497,10 @@ const ResumenPropuesta: React.FC<Props> = ({
                         <div className="flex justify-between gap-2"><dt className="text-slate-800">IVA</dt><dd className="tabular-nums text-slate-900">{fmtCOP(totales.iva)}</dd></div>
                     </dl>
                     <div className="mt-2.5 pt-2.5 border-t border-slate-300 flex items-baseline justify-between gap-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-900">Total propuesta</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-900">Total opción</span>
                         <span className="text-[26px] font-extrabold text-slate-900 tabular-nums tracking-tight leading-none">{fmtCOP(totales.total)}</span>
                     </div>
                     {notaTotal && <p className="mt-1.5 text-[11.5px] text-slate-700 leading-snug">{notaTotal}</p>}
-                    <div className="mt-3">
-                        <BotonPrimario
-                            ancho
-                            icono={Save}
-                            onClick={onGuardar}
-                            cargando={guardando}
-                            disabled={Boolean(motivoNoGuardar)}
-                            title={motivoNoGuardar ?? undefined}
-                            claseColor="bg-slate-900 text-white hover:bg-slate-800"
-                        >
-                            {sucio ? 'Guardar cotización' : 'Guardada'}
-                        </BotonPrimario>
-                    </div>
                 </section>
             </aside>
 
@@ -525,7 +508,7 @@ const ResumenPropuesta: React.FC<Props> = ({
                 página y aquí se mantienen el total y la acción principal. */}
             <div className="xl:hidden fixed inset-x-0 md:left-64 bottom-0 z-30 bg-white border-t border-slate-200 shadow-[0_-10px_28px_-14px_rgba(17,22,32,0.35)] px-4 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom,0px))] flex items-center gap-3">
                 <div className="min-w-0 leading-tight">
-                    <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Total propuesta {etiquetaPropuesta}</span>
+                    <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Total Opción {etiquetaPropuesta}</span>
                     <span className="block text-[20px] font-extrabold text-slate-900 tabular-nums">{fmtCOP(totales.total)}</span>
                 </div>
                 {este && (

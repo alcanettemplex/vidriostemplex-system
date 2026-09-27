@@ -19,11 +19,12 @@ import TabActual from './components/TabActual';
 import TabGuardadas from './components/TabGuardadas';
 import TabCalibracion from './components/TabCalibracion';
 import TabConfiguracion from './components/TabConfiguracion';
-import BarraTrabajo, { TipoNuevaPropuesta } from './components/BarraTrabajo';
+import BarraTrabajo, { EstadoGuardado, TipoNuevaPropuesta } from './components/BarraTrabajo';
 import { EstadoCargos, cargosADTO, cargosDesdeApi, cargosIniciales } from './components/PanelCargosObra';
 import ResumenPropuesta, { EsteProducto } from './components/ResumenPropuesta';
 import { BorradorCotizar, calcularTotalesPrevistos, useManoObra } from './totalesPropuesta';
-import { detalleCorto, leerFicha } from './fichaProducto';
+import { descripcionDeItem, leerFicha } from './fichaProducto';
+import { CotizacionReciente, leerRecientes, quitarReciente, registrarReciente } from './recientes';
 import ModalClonarPropuesta from './components/modals/ModalClonarPropuesta';
 import ModalCambiosSinGuardar, { DecisionCambios } from './components/modals/ModalCambiosSinGuardar';
 
@@ -50,6 +51,15 @@ import ModalCambiosSinGuardar, { DecisionCambios } from './components/modals/Mod
 // El reparto de responsabilidades con el backend no cambia: aquí no se calcula
 // ningún total de propuesta. Toda escritura devuelve la cotización recargada y
 // esta página la vuelca tal cual con `aplicarCotizacion`.
+//
+// AUTOGUARDADO (2026-09-26, flujo de varios clientes a la vez). El asesor ya no
+// guarda: cada cambio se guarda solo unos segundos después (`ESPERA_AUTOGUARDADO_MS`)
+// y antes de cualquier salto (otra cotización, otra opción, cotización nueva).
+// El autoguardado pide la respuesta LIGERA (sin el detalle de cálculo) y NO
+// vuelca la cotización: sólo actualiza versión y totales, para no reiniciar lo
+// que el asesor está editando. Solo si un guardado falla se le pregunta algo.
+// En pantalla, las "propuestas" se llaman OPCIONES (A/B/C) —así las piensa el
+// asesor—; en el código siguen siendo propuestas.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface CabeceraCotizacion {
@@ -102,6 +112,11 @@ const AccionAviso: React.FC<{ onClick: () => void; children: React.ReactNode }> 
     </span>
 );
 
+/** Espera tras el último cambio antes de autoguardar: agrupa los cambios de
+ * varios segundos en una escritura (auditoría y egress) sin que el asesor alcance
+ * a perder nada si cierra la pestaña. */
+const ESPERA_AUTOGUARDADO_MS = 4000;
+
 /** Tope de propuestas por cotización. Réplica de `MAX_PROPUESTAS` del store: no
  * es un número técnico, es donde el comparador deja de caber en una pantalla
  * girada hacia el cliente. Aquí sólo deshabilita el botón; quien de verdad lo
@@ -125,6 +140,88 @@ interface ContextoAccion {
     cot: Cotizacion | null;
 }
 
+/** "¿Para quién es esta cotización?" arriba de Cotizar (2026-09-26): el nombre
+ * con el que el asesor la encuentra después en "Cambiar a otra cotización". Antes
+ * el cliente sólo se escribía en la otra pestaña y las cotizaciones quedaban
+ * "sin cliente". El resto de sus datos siguen en Resumen. */
+const ClienteRapido: React.FC<{ nombre: string; onCambiar: (nombre: string) => void; bloqueado: boolean }> = ({
+    nombre, onCambiar, bloqueado,
+}) => (
+    <div className="px-4 pt-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-templex-100 bg-templex-50 px-3.5 py-2.5">
+            <label htmlFor="cotizador-cliente-rapido" className="text-[13px] font-bold text-slate-900">
+                ¿Para quién es esta cotización?
+            </label>
+            <input
+                id="cotizador-cliente-rapido"
+                value={nombre}
+                onChange={e => onCambiar(e.target.value)}
+                disabled={bloqueado}
+                maxLength={150}
+                placeholder="Nombre del cliente o de la obra"
+                className="flex-1 min-w-[220px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-templex-500 focus:ring-2 focus:ring-templex-200 disabled:bg-slate-50"
+            />
+            <span className="w-full text-[12px] text-slate-700">
+                Es el nombre con el que la encuentras después. Teléfono, dirección y obra van en Resumen.
+            </span>
+        </div>
+    </div>
+);
+
+/** Menú ⚙ Administración: Calibración y Configuración, fuera de las pestañas del
+ * trabajo diario (2026-09-26). Siguen siendo solo root/admin, como la página. */
+const MenuAdministracion: React.FC<{ activo: TabKey | null; onElegir: (k: TabKey) => void }> = ({ activo, onElegir }) => {
+    const [abierto, setAbierto] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!abierto) return;
+        const fuera = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false); };
+        const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
+        document.addEventListener('mousedown', fuera);
+        document.addEventListener('keydown', esc);
+        return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc); };
+    }, [abierto]);
+    const opciones: { k: TabKey; titulo: string; detalle: string; Icono: React.ComponentType<{ className?: string }> }[] = [
+        { k: 'calibracion', titulo: 'Calibración', detalle: 'Medidas de corte del taller', Icono: Gauge },
+        { k: 'configuracion', titulo: 'Configuración', detalle: 'Precios, parámetros y textos del PDF', Icono: Settings },
+    ];
+    return (
+        <div ref={ref} className="relative mb-1.5 shrink-0">
+            <button
+                type="button"
+                onClick={() => setAbierto(v => !v)}
+                aria-haspopup="menu"
+                aria-expanded={abierto}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[12.5px] font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400 ${activo
+                    ? 'border-templex-300 bg-templex-50 text-templex-700'
+                    : 'border-slate-300 bg-white text-slate-800 hover:border-templex-300'}`}
+            >
+                <Settings className="w-4 h-4" />
+                {activo ? opciones.find(o => o.k === activo)?.titulo : 'Administración'}
+            </button>
+            {abierto && (
+                <div role="menu" className="absolute right-0 top-full mt-1 z-30 w-72 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                    {opciones.map(o => (
+                        <button
+                            key={o.k}
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { setAbierto(false); onElegir(o.k); }}
+                            className={`w-full flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-slate-50 ${activo === o.k ? 'bg-templex-50' : ''}`}
+                        >
+                            <o.Icono className="w-4 h-4 mt-0.5 text-templex-600 shrink-0" />
+                            <span>
+                                <span className="block text-[12.5px] font-semibold text-slate-900">{o.titulo}</span>
+                                <span className="block text-[12px] text-slate-700">{o.detalle}</span>
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const CotizadorPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const tabInicial = (searchParams.get('tab') as TabKey) || 'cotizar';
@@ -138,8 +235,16 @@ const CotizadorPage: React.FC = () => {
     const [cabecera, setCabecera] = useState<CabeceraCotizacion>(CABECERA_INICIAL);
     /** Cotización guardada que se está editando. `estado` es el GUARDADO, no el
      * del select: el freno de "aprobada" depende de lo que hay en la base. */
-    const [edicion, setEdicion] = useState<{ id: number; numero: number; estado: EstadoCotizacion } | null>(null);
+    const [edicion, setEdicion] = useState<{ id: number; numero: number; estado: EstadoCotizacion; version: number } | null>(null);
     const [guardando, setGuardando] = useState(false);
+    /** Estado del autoguardado que pinta la barra ("Guardando…", "✓ Guardado"). */
+    const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
+    /** 409 por versión: otra ventana guardó. Se deja de autoguardar para no pisarla. */
+    const [conflicto, setConflicto] = useState(false);
+    /** Sube con cada cambio pendiente: un guardado que empezó antes de un cambio
+     * nuevo no debe marcar la cotización como guardada al terminar. */
+    const revision = useRef(0);
+    const [recientes, setRecientes] = useState<CotizacionReciente[]>(() => leerRecientes());
 
     /** Una sola carga por visita. Antes la pedía TabCotizar al montarse, o sea
      * en cada cambio de pestaña, y esta página no la tenía para rotular los
@@ -244,8 +349,7 @@ const CotizadorPage: React.FC = () => {
                     <span className="font-bold">{nombre}</span> agregado a la{' '}
                     <span className="font-bold">{rotuloPropuesta(propuestaActiva)}</span> ({n} ítem{n === 1 ? '' : 's'}).
                 </p>
-                <p className="text-[12px] opacity-80 mt-0.5">Recuerda guardar (Ctrl+S).</p>
-                <AccionAviso onClick={() => cambiarTab('actual')}>Ver propuesta</AccionAviso>
+                <AccionAviso onClick={() => cambiarTab('actual')}>Ver resumen</AccionAviso>
             </div>
         );
     }, [carrito.length, propuestaActiva, cambiarTab]);
@@ -328,18 +432,27 @@ const CotizadorPage: React.FC = () => {
         setCargos(cargosDesdeApi(activa?.cargos, parametros));
         setCargosTocados(false);
         cargosTocadosRef.current = false;
-        setEdicion({ id: cot.id, numero: cot.numero, estado: cot.estado });
+        setEdicion({ id: cot.id, numero: cot.numero, estado: cot.estado, version: Number(cot.version) || 1 });
         setItemEditandoId(null);
         setSucio(false);
+        setErrorGuardado(null);
+        setConflicto(false);
+        setRecientes(registrarReciente({ id: cot.id, numero: cot.numero, cliente: cot.cliente?.nombre ?? '' }));
     }, [parametros, nombreModulo]);
 
-    /** Carga en el carrito una cotización guardada, para editarla. */
-    const reabrirCotizacion = useCallback((cot: Cotizacion) => {
+    /** Carga en el carrito una cotización guardada. Antes (hasta el 2026-09-26)
+     * NO preguntaba por los cambios de la que estaba abierta y los perdía; ahora
+     * la termina de guardar primero (ver `asegurarGuardadoRef`). */
+    const reabrirCotizacion = useCallback(async (cot: Cotizacion) => {
+        if (!(await asegurarGuardadoRef.current('abrir otra cotización'))) return;
         aplicarCotizacion(cot);
-        cambiarTab('actual');
+        cambiarTab('cotizar');
     }, [aplicarCotizacion, cambiarTab]);
 
     const conError = (e: any, respaldo: string) => toast.error(e?.response?.data?.error || respaldo);
+    /** `reabrirCotizacion` se declara antes que `asegurarGuardado`: lo llama por
+     * este ref, que siempre apunta a la versión vigente. */
+    const asegurarGuardadoRef = useRef<(accion: string) => Promise<boolean>>(async () => true);
 
     /** Abre "Tienes cambios sin guardar" y espera la respuesta del vendedor. Es
      * una promesa para que cada acción se lea de corrido: pregunto → según la
@@ -366,11 +479,12 @@ const CotizadorPage: React.FC = () => {
      * Guardar en la barra de trabajo, el vendedor puede estar en Cotizar y
      * sacarlo de ahí sin pedirlo le rompe el flujo.
      */
-    const persistir = useCallback(async (): Promise<Cotizacion | null> => {
+    const persistir = useCallback(async ({ auto = false }: { auto?: boolean } = {}): Promise<Cotizacion | null> => {
         if (carrito.length === 0) {
-            toast.error('Agrega al menos un ítem antes de guardar.');
+            if (!auto) toast.error('Agrega al menos un producto para guardar la cotización.');
             return null;
         }
+        const revisionAlEmpezar = revision.current;
         setGuardando(true);
         try {
             const items = carrito.map(it => ({
@@ -396,21 +510,33 @@ const CotizadorPage: React.FC = () => {
                     descuentoPct,
                     items,
                     propuestaId: destino,
-                });
+                    versionEsperada: edicion.version,
+                }, { ligera: auto });
                 let cot = data;
                 if (cargosTocados && destino) {
                     try {
                         const r = await apiGuardarCargos(edicion.id, destino, cargosADTO(cargos));
                         cot = r.data;
                     } catch (e) {
-                        conError(e, 'Los ítems se guardaron, pero los cargos de obra no.');
+                        conError(e, 'Los productos se guardaron, pero los cargos de obra no.');
                     }
                 }
-                // Ya no hace falta volver a leer: `PUT /cotizaciones/:id` responde
-                // con la propuesta que se escribió (`obtener(id, {propuesta})` en
-                // el store), igual que el PUT de cargos.
-                aplicarCotizacion(cot);
-                toast.success(`Cotización N.° ${cot.numero} guardada.`);
+                if (auto) {
+                    // Sin volcar: el carrito y el formulario siguen como el asesor
+                    // los tiene. Sólo lo que cambió en el servidor: versión,
+                    // totales y la lista de opciones.
+                    setEdicion(e => (e ? { ...e, version: Number(cot.version) || e.version, estado: cot.estado } : e));
+                    if (cot.propuestas) setPropuestas(cot.propuestas);
+                    setCargosTocados(false);
+                    cargosTocadosRef.current = false;
+                    if (revision.current === revisionAlEmpezar) setSucio(false);
+                    setRecientes(registrarReciente({ id: cot.id, numero: cot.numero, cliente: cot.cliente?.nombre ?? '' }));
+                } else {
+                    // `PUT /cotizaciones/:id` responde con la propuesta que se
+                    // escribió (`obtener(id, {propuesta})` en el store).
+                    aplicarCotizacion(cot);
+                }
+                setErrorGuardado(null);
                 return cot;
             } else {
                 // Al crear se usa el contrato NUEVO (`propuestas: [...]`) para que
@@ -430,15 +556,15 @@ const CotizadorPage: React.FC = () => {
                     }],
                 });
                 aplicarCotizacion(data);
-                toast.success(
-                    `Cotización N.° ${data.numero} guardada como Propuesta A. ` +
-                    'Si el cliente quiere otra opción, usa "Nueva propuesta" en la barra de arriba.',
-                    { autoClose: 7000 }
-                );
+                toast.success(`Cotización N.° ${data.numero} creada y guardada.`);
                 return data;
             }
-        } catch (e) {
-            conError(e, 'No se pudo guardar la cotización. Tus cambios siguen en pantalla: revisa el aviso e inténtalo de nuevo.');
+        } catch (e: any) {
+            const mensaje = e?.response?.data?.error
+                || 'No se pudo guardar. Revisa tu conexión: tus cambios siguen en pantalla y se reintentan al pulsar Reintentar.';
+            setErrorGuardado(mensaje);
+            if (e?.response?.status === 409 && /otra ventana/.test(mensaje)) setConflicto(true);
+            if (!auto) toast.error(mensaje);
             return null;
         } finally {
             setGuardando(false);
@@ -446,8 +572,26 @@ const CotizadorPage: React.FC = () => {
     }, [carrito, cabecera, descuentoPct, cargos, cargosTocados, edicion, propuestaActivaId, aplicarCotizacion]);
 
     const guardarCotizacion = useCallback(async () => {
-        await persistir();
-    }, [persistir]);
+        await persistir({ auto: Boolean(edicion) });
+    }, [persistir, edicion]);
+
+    /**
+     * Antes de un salto (otra cotización, otra opción, cotización nueva): termina
+     * de guardar lo pendiente. Solo si NO se puede guardar se le pregunta al
+     * asesor, con el modal de siempre. Devuelve si se puede seguir.
+     */
+    const asegurarGuardado = useCallback(async (accion: string): Promise<boolean> => {
+        if (!sucio) return true;
+        // Una cotización nueva sin productos no existe en el servidor: lo único
+        // pendiente sería el nombre del cliente, que no vale un aviso.
+        if (!edicion && carrito.length === 0) return true;
+        if (await persistir({ auto: Boolean(edicion) })) return true;
+        const decision = await preguntarCambios(accion);
+        if (decision === 'cancelar') return false;
+        if (decision === 'descartar') return true;
+        return Boolean(await persistir({ auto: Boolean(edicion) }));
+    }, [sucio, edicion, carrito.length, persistir, preguntarCambios]);
+    asegurarGuardadoRef.current = asegurarGuardado;
 
     /** Cómo se nombra dónde están los cambios pendientes, en el modal. */
     const dondeCambios = edicion ? `la ${rotuloPropuesta(propuestaActiva)}` : 'la cotización nueva';
@@ -469,14 +613,9 @@ const CotizadorPage: React.FC = () => {
             const cot = await persistir();
             return cot ? { cotId: cot.id, pid: idPropuestaActiva(cot), cot } : null;
         }
-        if (!sucio) return { cotId: edicion.id, pid: propuestaActivaId, cot: null };
-
-        const decision = await preguntarCambios(accion);
-        if (decision === 'cancelar') return null;
-        if (decision === 'descartar') return { cotId: edicion.id, pid: propuestaActivaId, cot: null };
-        const cot = await persistir();
-        return cot ? { cotId: cot.id, pid: idPropuestaActiva(cot), cot } : null;
-    }, [edicion, sucio, propuestaActivaId, persistir, preguntarCambios]);
+        if (!(await asegurarGuardado(accion))) return null;
+        return { cotId: edicion.id, pid: propuestaActivaId, cot: null };
+    }, [edicion, propuestaActivaId, persistir, asegurarGuardado]);
 
     const activarPropuesta = useCallback(async (pid: number) => {
         if (!edicion || pid === propuestaActivaId) return;
@@ -488,7 +627,7 @@ const CotizadorPage: React.FC = () => {
             const { data } = await apiObtenerCotizacion(ctx.cotId, pid);
             aplicarCotizacion(data);
         } catch (e) {
-            conError(e, 'No se pudo abrir esa propuesta. Recarga la página si el problema sigue.');
+            conError(e, 'No se pudo abrir esa opción. Recarga la página si el problema sigue.');
         } finally {
             setOcupado(false);
         }
@@ -504,8 +643,8 @@ const CotizadorPage: React.FC = () => {
      */
     const nuevaPropuesta = useCallback(async (tipo: TipoNuevaPropuesta) => {
         const accion = tipo === 'vacia'
-            ? 'crear una propuesta vacía'
-            : tipo === 'copia' ? 'copiar la propuesta' : 'crear una variante con otro vidrio';
+            ? 'crear una opción vacía'
+            : tipo === 'copia' ? 'copiar la opción' : 'crear una variante con otro vidrio';
         const ctx = await prepararAccion(accion);
         if (!ctx) return;
 
@@ -526,16 +665,16 @@ const CotizadorPage: React.FC = () => {
             const nueva = (data.cotizacion.propuestas ?? []).find(p => p.id === data.propuestaId) ?? null;
             if (tipo === 'vacia') {
                 cambiarTab('cotizar');
-                toast.success(`${rotuloPropuesta(nueva)} creada y vacía: configura aquí su primer ítem.`);
+                toast.success(`${rotuloPropuesta(nueva)} creada y vacía: agrégale aquí su primer producto.`);
             } else {
                 const origen = (ctx.cot?.propuestas ?? propuestas).find(p => p.id === ctx.pid) ?? null;
                 toast.success(
                     `${rotuloPropuesta(nueva)} creada como copia de la ${origen?.etiqueta ?? 'anterior'}. ` +
-                    'Agrega, quita o edita lo que cambie.'
+                    'Cambia lo que sea distinto (por ejemplo el vidrio).'
                 );
             }
         } catch (e) {
-            conError(e, 'No se pudo crear la propuesta.');
+            conError(e, 'No se pudo crear la opción.');
         } finally {
             setOcupado(false);
         }
@@ -554,9 +693,9 @@ const CotizadorPage: React.FC = () => {
         try {
             const { data } = await apiElegirPropuesta(ctx.cotId, pid);
             aplicarCotizacion(data);
-            toast.success('Propuesta marcada como elegida: es la que se cobra y la que sale a corte.');
+            toast.success('Opción marcada como elegida: es la que se cobra y la que sale a corte.');
         } catch (e) {
-            conError(e, 'No se pudo elegir la propuesta.');
+            conError(e, 'No se pudo elegir la opción.');
         } finally {
             setOcupado(false);
         }
@@ -565,7 +704,7 @@ const CotizadorPage: React.FC = () => {
     const borrarPropuesta = useCallback(async (pid: number) => {
         if (!edicion) return;
         const p = propuestas.find(x => x.id === pid) ?? null;
-        if (!window.confirm(`¿Borrar la ${rotuloPropuesta(p)}? Se pierden sus ítems y sus cargos, y no se puede deshacer.`)) return;
+        if (!window.confirm(`¿Borrar la ${rotuloPropuesta(p)}? Se pierden sus productos y sus cargos, y no se puede deshacer.`)) return;
         // Borrar recarga la cotización: sin esto, los cambios pendientes de la
         // propuesta activa se perdían en silencio aunque se borrara otra.
         const ctx = await prepararAccion(`borrar la ${rotuloPropuesta(p)}`);
@@ -574,9 +713,9 @@ const CotizadorPage: React.FC = () => {
         try {
             const { data } = await apiEliminarPropuesta(ctx.cotId, pid);
             aplicarCotizacion(data);
-            toast.success('Propuesta borrada.');
+            toast.success('Opción borrada.');
         } catch (e) {
-            conError(e, 'No se pudo borrar la propuesta.');
+            conError(e, 'No se pudo borrar la opción.');
         } finally {
             setOcupado(false);
         }
@@ -608,7 +747,7 @@ const CotizadorPage: React.FC = () => {
             toast.success(nombre ? `Nombre guardado: "${nombre}".` : 'Nombre quitado.');
             return true;
         } catch (e) {
-            conError(e, 'No se pudo cambiar el nombre de la propuesta.');
+            conError(e, 'No se pudo cambiar el nombre de la opción.');
             return false;
         }
     }, [edicion, propuestaActivaId]);
@@ -617,14 +756,28 @@ const CotizadorPage: React.FC = () => {
      * acciones — también en una cotización todavía sin guardar, que es donde más
      * trabajo se podía perder con el `window.confirm` anterior. */
     const nuevaCotizacion = useCallback(async () => {
-        if (sucio) {
-            const decision = await preguntarCambios('empezar una cotización nueva');
-            if (decision === 'cancelar') return;
-            if (decision === 'guardar' && !(await persistir())) return;
-        }
+        if (!(await asegurarGuardado('empezar la cotización de otro cliente'))) return;
         limpiarCotizacionActual();
+        setErrorGuardado(null);
+        setConflicto(false);
         cambiarTab('cotizar');
-    }, [sucio, preguntarCambios, persistir, limpiarCotizacionActual, cambiarTab]);
+    }, [asegurarGuardado, limpiarCotizacionActual, cambiarTab]);
+
+    /** "Cambiar a otra cotización" de la barra: se trae y se abre. */
+    const abrirReciente = useCallback(async (id: number) => {
+        if (edicion?.id === id) { cambiarTab('cotizar'); return; }
+        try {
+            const { data } = await apiObtenerCotizacion(id);
+            await reabrirCotizacion(data);
+        } catch (e: any) {
+            if (e?.response?.status === 404) {
+                setRecientes(quitarReciente(id));
+                toast.error('Esa cotización ya no existe: la quitamos de la lista.');
+            } else {
+                conError(e, 'No se pudo abrir esa cotización. Inténtalo de nuevo.');
+            }
+        }
+    }, [edicion, reabrirCotizacion, cambiarTab]);
 
     /**
      * Cambia el segmento (PA/PM/PB) y RECALCULA los ítems con la lista nueva.
@@ -648,7 +801,7 @@ const CotizadorPage: React.FC = () => {
             try {
                 const { data } = await apiCambiarSegmento(ctx.cotId, segmento, ctx.pid);
                 aplicarCotizacion(data.cotizacion);
-                toast.success(`Tipo de cliente cambiado a ${segmento}: se recalcularon los precios de todas las propuestas.`);
+                toast.success(`Tipo de cliente cambiado a ${segmento}: se recalcularon los precios de todas las opciones.`);
                 for (const aviso of data.advertencias ?? []) toast.warn(aviso, { autoClose: 9000 });
             } catch (e) {
                 conError(e, 'No se pudo cambiar el tipo de cliente. No se modificó nada.');
@@ -712,7 +865,7 @@ const CotizadorPage: React.FC = () => {
      * acepta porque en ese mismo guardado deja de estar aprobada).
      */
     const bloqueoEdicion = edicion?.estado === 'APROBADA' && cabecera.estado === 'APROBADA' && propuestaActiva?.elegida
-        ? `La cotización N.° ${edicion.numero} está aprobada y la propuesta ${propuestaActiva.etiqueta} es la elegida: ` +
+        ? `La cotización N.° ${edicion.numero} está aprobada y la Opción ${propuestaActiva.etiqueta} es la elegida: ` +
           'no se pueden cambiar sus ítems, descuento, cargos ni segmento porque puede haber material cortado. ' +
           'Para editarla, cambia el estado a Pendiente.'
         : null;
@@ -724,6 +877,39 @@ const CotizadorPage: React.FC = () => {
     }, [itemEditandoId, carrito]);
 
     const modulosDisponibles = useMemo(() => new Set(modulos.map(m => m.id)), [modulos]);
+
+    // ─── Autoguardado (2026-09-26) ──────────────────────────────────────────
+    // Cada cambio pendiente sube la revisión y reinicia la espera; al cumplirse,
+    // se guarda. Una cotización nueva se crea con su primer producto.
+    useEffect(() => {
+        if (sucio) revision.current += 1;
+    }, [sucio, carrito, cabecera, cargos, descuentoPct]);
+
+    useEffect(() => {
+        if (!sucio || guardando || conflicto || errorGuardado || carrito.length === 0) return;
+        const espera = window.setTimeout(() => {
+            persistir({ auto: Boolean(edicion) });
+        }, edicion ? ESPERA_AUTOGUARDADO_MS : 300);
+        return () => window.clearTimeout(espera);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sucio, guardando, conflicto, errorGuardado, carrito, cabecera, cargos, descuentoPct, edicion?.id]);
+
+    // El nombre del cliente de la abierta se refleja en "Cambiar a otra cotización".
+    useEffect(() => {
+        if (!edicion) return;
+        setRecientes(registrarReciente({ id: edicion.id, numero: edicion.numero, cliente: cabecera.cliente.nombre ?? '' }));
+    }, [edicion, cabecera.cliente.nombre]);
+
+    const reintentarGuardado = useCallback(() => {
+        setErrorGuardado(null);
+        persistir({ auto: Boolean(edicion) });
+    }, [persistir, edicion]);
+
+    const estadoGuardado: EstadoGuardado = errorGuardado
+        ? 'error'
+        : guardando ? 'guardando'
+            : !edicion ? 'nuevo'
+                : sucio ? 'pendiente' : 'guardado';
 
     // ─── Mano de obra y total en vivo (2026-09-26) ──────────────────────────
     // La mano de obra por producto la calcula el backend (`POST /mano-obra`); aquí
@@ -748,11 +934,13 @@ const CotizadorPage: React.FC = () => {
 
     const modulosPorId = useMemo(() => new Map(modulos.map(m => [m.id, m])), [modulos]);
     const itemsResumen = useMemo(() => carrito.map(it => {
-        const ficha = leerFicha(it.input, it.resultado, modulosPorId.get(it.moduloId));
+        const modulo = modulosPorId.get(it.moduloId);
+        const ficha = leerFicha(it.input, it.resultado, modulo);
         return {
             idTemp: it.idTemp,
-            nombre: it.descripcionItem || `${it.moduloNombre}${ficha.medidas ? ` · ${ficha.medidas}` : ''}`,
-            detalle: [`${ficha.piezas} und`, detalleCorto(ficha)].filter(Boolean).join(' · '),
+            // La misma frase que imprime el PDF (2026-09-26), en hasta dos líneas.
+            nombre: descripcionDeItem(it.input, it.resultado, modulo, it.moduloNombre),
+            detalle: `${ficha.piezas} und`,
             subtotal: Number(it.resultado.subtotalConAiu) || 0,
         };
     }), [carrito, modulosPorId]);
@@ -779,10 +967,7 @@ const CotizadorPage: React.FC = () => {
             if (activeTab !== 'cotizar' && activeTab !== 'actual') return;
             e.preventDefault();
             if (guardando || preguntaCambios) return;
-            if (edicion && !sucio) {
-                toast.info('No hay cambios por guardar.', { autoClose: 2500 });
-                return;
-            }
+            if (edicion && !sucio) return;
             guardarCotizacion();
         };
         window.addEventListener('keydown', alTeclado);
@@ -833,8 +1018,8 @@ const CotizadorPage: React.FC = () => {
     const usarGuardado = !sucio && Boolean(propuestaActiva);
     const notaTotalCotizar = borrador
         ? (borrador.reemplazaIdTemp
-            ? 'Incluye los cambios del ítem en edición, aún sin guardar en la propuesta.'
-            : 'Incluye el producto en pantalla, aún sin agregar a la propuesta.')
+            ? 'Incluye los cambios del producto en edición.'
+            : 'Incluye el producto en pantalla, aún sin agregar.')
         : null;
 
     const controlPropuestas = {
@@ -854,15 +1039,15 @@ const CotizadorPage: React.FC = () => {
     // aprobada o una legada. Antes sólo se miraba la activa y, parado en la B de
     // una aprobada, el control parecía disponible y el backend respondía 409.
     const motivoNoSegmento = edicion?.estado === 'APROBADA' && cabecera.estado === 'APROBADA'
-        ? 'La cotización está aprobada: pásala a Pendiente (pestaña Actual) para cambiar el tipo de cliente.'
+        ? 'La cotización está aprobada: pásala a Pendiente (en Resumen) para cambiar el tipo de cliente.'
         : propuestas.some(p => p.legadoCargosEnItems)
-            ? 'Hay una propuesta legada: duplícala a la forma nueva antes de cambiar el tipo de cliente.'
+            ? 'Hay una opción antigua: duplícala a la forma nueva antes de cambiar el tipo de cliente.'
             : null;
 
     const motivoNoNueva = propuestas.length >= MAX_PROPUESTAS
-        ? `Una cotización admite como máximo ${MAX_PROPUESTAS} propuestas.`
+        ? `Una cotización admite como máximo ${MAX_PROPUESTAS} opciones.`
         : !edicion && carrito.length === 0
-            ? 'Agrega al menos un ítem antes de crear otra propuesta.'
+            ? 'Agrega al menos un producto antes de crear otra opción.'
             : null;
 
     const barraVisible = activeTab === 'cotizar' || activeTab === 'actual';
@@ -876,12 +1061,16 @@ const CotizadorPage: React.FC = () => {
                 {barraVisible && (
                     <BarraTrabajo
                         numero={edicion?.numero ?? null}
+                        cotizacionId={edicion?.id ?? null}
                         estado={edicion?.estado ?? cabecera.estado}
                         cliente={cabecera.cliente.nombre ?? ''}
-                        sucio={sucio}
-                        guardando={guardando}
-                        motivoNoGuardar={carrito.length === 0 ? 'Agrega al menos un ítem a esta propuesta antes de guardar.' : null}
-                        onGuardar={guardarCotizacion}
+                        estadoGuardado={estadoGuardado}
+                        mensajeError={errorGuardado}
+                        onReintentar={conflicto ? undefined : reintentarGuardado}
+                        recientes={recientes}
+                        onAbrirReciente={abrirReciente}
+                        onVerTodas={() => cambiarTab('guardadas')}
+                        onNuevoCliente={nuevaCotizacion}
                         propuestas={propuestas}
                         activaId={propuestaActivaId}
                         ocupado={ocupado}
@@ -904,18 +1093,34 @@ const CotizadorPage: React.FC = () => {
                     />
                 )}
 
-                <FolderTabs
-                    tabs={[
-                        { key: 'cotizar', label: 'Cotizar', icon: <IconCotizar className="w-4 h-4" /> },
-                        { key: 'actual', label: 'Actual', icon: <ClipboardList className="w-4 h-4" />, badge: carrito.length || undefined },
-                        { key: 'guardadas', label: 'Guardadas', icon: <Archive className="w-4 h-4" /> },
-                        { key: 'calibracion', label: 'Calibración', icon: <Gauge className="w-4 h-4" /> },
-                        { key: 'configuracion', label: 'Configuración', icon: <Settings className="w-4 h-4" /> },
-                    ]}
-                    activeKey={activeTab}
-                    onChange={cambiarTab}
-                />
+                {/* Tres pestañas para el trabajo del asesor (2026-09-26). Calibración
+                    y Configuración son de administración: van en el menú ⚙. */}
+                <div className="flex items-end gap-2">
+                    <div className="flex-1 min-w-0">
+                        <FolderTabs
+                            tabs={[
+                                { key: 'cotizar', label: 'Cotizar', icon: <IconCotizar className="w-4 h-4" /> },
+                                { key: 'actual', label: 'Resumen', icon: <ClipboardList className="w-4 h-4" />, badge: carrito.length || undefined },
+                                { key: 'guardadas', label: 'Mis cotizaciones', icon: <Archive className="w-4 h-4" /> },
+                            ]}
+                            activeKey={activeTab}
+                            onChange={(k) => {
+                                // Ir a la lista también termina de guardar la abierta.
+                                if (k === 'guardadas') { asegurarGuardado('ver tus cotizaciones').then(ok => { if (ok) cambiarTab(k); }); return; }
+                                cambiarTab(k);
+                            }}
+                        />
+                    </div>
+                    <MenuAdministracion activo={activeTab === 'calibracion' || activeTab === 'configuracion' ? activeTab : null} onElegir={cambiarTab} />
+                </div>
                 <div className={activeTab === 'cotizar' || activeTab === 'actual' ? CUERPO_TRABAJO : FOLDER_BODY}>
+                    {activeTab === 'cotizar' && (
+                        <ClienteRapido
+                            nombre={cabecera.cliente.nombre ?? ''}
+                            onCambiar={(nombre) => { setCabecera(c => ({ ...c, cliente: { ...c.cliente, nombre } })); marcarSucio(); }}
+                            bloqueado={Boolean(bloqueoEdicion)}
+                        />
+                    )}
                     {activeTab === 'cotizar' && (
                         <TabCotizar
                             modulos={modulos}
@@ -947,15 +1152,11 @@ const CotizadorPage: React.FC = () => {
                                     onCambiarCargos={cambiarCargos}
                                     parametros={parametros}
                                     bloqueoCargos={legadoActiva
-                                        ? 'Propuesta anterior al cambio de cargos: duplícala para editarlos.'
+                                        ? 'Opción anterior al cambio de cargos: duplícala para editarlos.'
                                         : bloqueoEdicion ? 'Cotización aprobada: los cargos no se pueden cambiar.' : null}
                                     totales={totalesCotizar}
                                     descuentoPct={descuentoPct}
                                     notaTotal={notaTotalCotizar}
-                                    onGuardar={guardarCotizacion}
-                                    guardando={guardando}
-                                    motivoNoGuardar={carrito.length === 0 ? 'Agrega al menos un ítem a esta propuesta antes de guardar.' : null}
-                                    sucio={sucio || !edicion}
                                 />
                             )}
                         />
@@ -966,8 +1167,6 @@ const CotizadorPage: React.FC = () => {
                             cabecera={cabecera}
                             onCambiarCabecera={(cambios) => { setCabecera(c => ({ ...c, ...cambios })); marcarSucio(); }}
                             onQuitarItem={quitarItem}
-                            onGuardar={guardarCotizacion}
-                            guardando={guardando}
                             numeroEnEdicion={edicion?.numero ?? null}
                             asesoresSugeridos={parametros?.asesores || []}
                             estadosDisponibles={(parametros?.estados_cotizacion as EstadoCotizacion[] | undefined) || ['PENDIENTE', 'APROBADA', 'CANCELADO', 'PERDIDO']}

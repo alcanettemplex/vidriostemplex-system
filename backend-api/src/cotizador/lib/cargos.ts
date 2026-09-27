@@ -250,6 +250,43 @@ export function calcularManoObraProductos(items: ItemParaCargos[] = []): CargoSu
   return lineas;
 }
 
+/**
+ * Cuánto de la mano de obra (ensamble + instalación, con AIU) le corresponde a
+ * cada ítem, en el mismo orden de `items`. Mismas reglas y tarifas que
+ * `calcularManoObraProductos`: la suma de este arreglo es el total de sus líneas
+ * salvo redondeo.
+ *
+ * Existe para el PDF (decisión del usuario, 2026-09-26): un ítem que dice
+ * "Suministro e instalación de…" muestra el precio ya instalado, en vez de
+ * separar el ensamble y la instalación en renglones de los totales. El PDF usa
+ * estos valores como PESOS para repartir el total GUARDADO de la propuesta (ver
+ * `repartirManoObra` en generadorPdfCotizacion.ts), no como montos: así el total
+ * impreso nunca se aparta del guardado aunque una tarifa haya cambiado después.
+ */
+export function manoObraPorItem(items: ItemParaCargos[] = []): number[] {
+  const p = getParametros();
+  const aiu = Number(p.aiu) > 0 ? Number(p.aiu) : 1;
+  const tarifa = (t: unknown) => round2((Number(t) || 0) / aiu);
+  const ensamble = tarifa(p.mo_ensamble_ventana_m2);
+  const instVentana = tarifa(p.mo_instalacion_ventana_m2);
+  const instCabina = tarifa(p.mo_instalacion_cabina_und);
+  const instEspejo = tarifa(p.mo_instalacion_espejo_tablero_m2);
+
+  return items.map((it) => {
+    const modulo = String(it?.moduloId ?? '');
+    const instalar = conInstalacion(it);
+    if (MODULOS_VENTANERIA.has(modulo)) {
+      const m2 = m2CobrablesDe(it);
+      return m2 * ensamble + (instalar ? m2 * instVentana : 0);
+    }
+    if (MODULOS_CABINA.has(modulo) && instalar) {
+      return piezasDe(it) * (marcado(it?.input?.enL) ? 2 : 1) * instCabina;
+    }
+    if (MODULOS_ESPEJO_TABLERO.has(modulo) && instalar) return m2CobrablesDe(it) * instEspejo;
+    return 0;
+  });
+}
+
 /** Un cargo recién sugerido o calculado, en la forma que espera el store para persistirlo. */
 export interface CargoSugerido {
   tipo: TipoCargo;

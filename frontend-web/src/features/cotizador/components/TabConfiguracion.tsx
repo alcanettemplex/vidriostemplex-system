@@ -1,15 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Loader2, Save, Calculator, AlertTriangle, RefreshCw, Percent, SlidersHorizontal, PackageSearch } from '../../../components/ui/icons';
+import { Loader2, Save, Calculator, AlertTriangle, RefreshCw, Percent, SlidersHorizontal, PackageSearch, FileText } from '../../../components/ui/icons';
 
 import {
     apiListarMultiplicadores, apiGuardarMultiplicador, apiRecalcularCategoria,
-    apiGetParametros, apiEditarParametros,
+    apiGetParametros, apiEditarParametros, apiGetEmpresa, apiGuardarDocumentoCotizacion,
 } from '../services/cotizadorApi';
 import { MultiplicadorCategoria, ProductoCatalogo, ResultadoRecalculoCategoria } from '../types';
 import ModalCatalogoGeneral from './modals/ModalCatalogoGeneral';
 import { fmtCOP, fmtFecha } from '../format';
-import { BotonPrimario, BotonSecundario, Campo, Chip, Input, Tarjeta } from './ui';
+import { BotonPrimario, BotonSecundario, Campo, Chip, Input, Tarjeta, claseControl } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pestaña "Configuración" del Cotizador — solo root/admin (gate heredado del
@@ -21,6 +21,8 @@ import { BotonPrimario, BotonSecundario, Campo, Chip, Input, Tarjeta } from './u
 //   2. Parámetros de negocio (AIU, IVA, flete, andamio, huacal y —desde el
 //      2026-09-26— las 4 tarifas de mano de obra por producto; antes, las 6 tarifas
 //      de mano de obra). El endpoint existía desde siempre; nunca hubo pantalla.
+//   3. Documento de cotización (2026-09-26): condiciones comerciales, garantía y
+//      validez del PDF. `PUT /empresa` existía; sólo se cambiaban por script.
 //
 // Guardar un multiplicador NO mueve precios ya cargados — eso es el botón
 // "Recalcular", aparte y con previsualización.
@@ -41,6 +43,7 @@ const TabConfiguracion: React.FC = () => (
         <SeccionCatalogoGeneral />
         <SeccionMultiplicadores />
         <SeccionParametros />
+        <SeccionDocumento />
     </div>
 );
 
@@ -531,6 +534,108 @@ const SeccionParametros: React.FC = () => {
                     </Campo>
                     <BotonPrimario type="submit" icono={Save} cargando={guardando} className="whitespace-nowrap">
                         Guardar parámetros
+                    </BotonPrimario>
+                </div>
+            </form>
+        </Tarjeta>
+    );
+};
+
+// ─── Documento de cotización (2026-09-26) ───────────────────────────────────
+// Los textos fijos del PDF que recibe el cliente. Las condiciones se escriben
+// una por renglón (el PDF las numera solo); `**texto**` sale en negrilla, como
+// el "NO asumimos" del formato VR09.
+
+const SeccionDocumento: React.FC = () => {
+    const [condiciones, setCondiciones] = useState('');
+    const [garantia, setGarantia] = useState('');
+    const [validez, setValidez] = useState('');
+    const [cargando, setCargando] = useState(true);
+    const [guardando, setGuardando] = useState(false);
+
+    const cargar = useCallback(async () => {
+        setCargando(true);
+        try {
+            const { data } = await apiGetEmpresa();
+            setCondiciones((data.condicionesComerciales ?? []).join('\n'));
+            setGarantia(data.garantia ?? '');
+            setValidez(data.validezOfertaTexto ?? '');
+        } catch (e: any) {
+            toast.error(e?.response?.data?.error || 'No se pudieron cargar los textos del documento.');
+        } finally {
+            setCargando(false);
+        }
+    }, []);
+
+    useEffect(() => { cargar(); }, [cargar]);
+
+    const lista = condiciones.split('\n').map(c => c.trim()).filter(Boolean);
+
+    const guardar = async (ev: React.FormEvent) => {
+        ev.preventDefault();
+        if (lista.length === 0) {
+            toast.error('Escribe al menos una condición comercial (una por renglón).');
+            return;
+        }
+        setGuardando(true);
+        try {
+            await apiGuardarDocumentoCotizacion({
+                condicionesComerciales: lista,
+                garantia: garantia.trim(),
+                validezOfertaTexto: validez.trim(),
+            });
+            toast.success('Textos del documento guardados. Salen en el próximo PDF.');
+            cargar();
+        } catch (e: any) {
+            toast.error(e?.response?.data?.error || 'No se pudieron guardar los textos del documento.');
+        } finally {
+            setGuardando(false);
+        }
+    };
+
+    if (cargando) {
+        return (
+            <Tarjeta className="p-8 flex justify-center text-slate-500">
+                <Loader2 className="w-5 h-5 animate-spin" />
+            </Tarjeta>
+        );
+    }
+
+    return (
+        <Tarjeta
+            titulo="Documento de cotización"
+            icono={FileText}
+            descripcion="Textos fijos del PDF que recibe el cliente. Aplican a todo PDF que se descargue desde ahora, incluidas cotizaciones ya guardadas."
+        >
+            <form onSubmit={guardar} className="space-y-4">
+                <Campo
+                    etiqueta={`Condiciones comerciales · ${lista.length}`}
+                    htmlFor="doc-condiciones"
+                    ayuda="Una condición por renglón; el PDF las numera. Para negrilla, rodea el texto con dos asteriscos: **NO asumimos**."
+                >
+                    <textarea
+                        id="doc-condiciones"
+                        value={condiciones}
+                        onChange={(e) => setCondiciones(e.target.value)}
+                        rows={12}
+                        className={claseControl(false, 'font-normal leading-snug')}
+                    />
+                </Campo>
+                <Campo etiqueta="Garantía" htmlFor="doc-garantia">
+                    <textarea
+                        id="doc-garantia"
+                        value={garantia}
+                        onChange={(e) => setGarantia(e.target.value)}
+                        rows={3}
+                        className={claseControl(false, 'font-normal leading-snug')}
+                    />
+                </Campo>
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                    <Campo etiqueta="Validez de la oferta" htmlFor="doc-validez" className="flex-1">
+                        <Input id="doc-validez" value={validez} onChange={(e) => setValidez(e.target.value)} placeholder="VALIDEZ DE LA OFERTA: 8 días hábiles." />
+                    </Campo>
+                    <BotonPrimario type="submit" icono={Save} cargando={guardando} className="whitespace-nowrap">
+                        Guardar textos
                     </BotonPrimario>
                 </div>
             </form>

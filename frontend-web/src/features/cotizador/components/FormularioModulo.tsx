@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 
 import { apiCotizarItem } from '../services/cotizadorApi';
 import { CampoMeta, GrupoCampo, ModuloMeta, OpcionCampo, PersonalizacionItem, ResultadoCalculo, SegmentoCliente } from '../types';
+import { CAMPOS_DERIVADOS_DEL_DISENO, ETIQUETAS_CON_DISENO, MODULOS_CON_DISENO } from '../fichaProducto';
 import CampoDinamico from './CampoDinamico';
 import SelectorDiseno from './SelectorDiseno';
 import { BotonSecundario, Chip, Tarjeta } from './ui';
@@ -103,12 +104,10 @@ function esCampoAlto(campo: CampoMeta): boolean {
     return campo.tipo === 'number' && /^alto.*Cm$/i.test(campo.nombre);
 }
 
-// Campos que el backend deduce del código del diseño y deja de leer del input
-// cuando llega `disenoId` (ver calcularPorDiseno en ventanas.ts). Mientras haya
-// un diseño elegido se ocultan, porque pedirlos sugiere que influyen en el
-// precio — y `cuerpos` es además obligatorio, así que bloqueaba el cálculo por
-// un dato que se iba a ignorar.
-const CAMPOS_DERIVADOS_DEL_DISENO = ['cuerpos', 'alasCorredizas'];
+// Qué módulos admiten diseño, qué campos deduce el diseño (se ocultan mientras
+// haya uno elegido: pedirlos sugería que influyen en el precio, y varios son
+// obligatorios, así que bloqueaban el cálculo) y qué etiquetas cambian: viven
+// en fichaProducto.ts, compartidas con la Hoja de Trabajo.
 
 // El segmento (PA/PM/PB) es de la COTIZACIÓN desde el 2026-09-23: lo decide la
 // cabecera y se inyecta al calcular. Pedirlo por ítem permitía mezclar precios
@@ -150,10 +149,15 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
         setInput(prev => ({ ...prev, [nombre]: value }));
     };
 
-    const hayDiseno = Boolean(input.disenoId);
+    const admiteDiseno = MODULOS_CON_DISENO.has(modulo.id);
+    const hayDiseno = admiteDiseno && Boolean(input.disenoId);
+    const derivados = CAMPOS_DERIVADOS_DEL_DISENO[modulo.id] ?? [];
     const campoOculto = (nombre: string) =>
-        CAMPOS_DE_LA_COTIZACION.includes(nombre) || (hayDiseno && CAMPOS_DERIVADOS_DEL_DISENO.includes(nombre));
-    const camposVisibles = (campos: CampoMeta[]) => campos.filter(c => !campoOculto(c.nombre));
+        CAMPOS_DE_LA_COTIZACION.includes(nombre) || (hayDiseno && derivados.includes(nombre));
+    const etiquetasDiseno = hayDiseno ? ETIQUETAS_CON_DISENO[modulo.id] : undefined;
+    const camposVisibles = (campos: CampoMeta[]) => campos
+        .filter(c => !campoOculto(c.nombre))
+        .map(c => (etiquetasDiseno?.[c.nombre] ? { ...c, etiqueta: etiquetasDiseno[c.nombre] } : c));
 
     const buscarFaltante = () => modulo.campos.find(
         c => c.requerido && !campoOculto(c.nombre) && esVacio(input[c.nombre])
@@ -186,6 +190,17 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
             const enviado: Record<string, unknown> = { ...input, segmentoCliente: segmento };
             delete enviado.personalizacion;
             if (personalizacion) enviado.personalizacion = personalizacion;
+            if (modulo.id === 'proyectantes') {
+                // Ver ETIQUETAS_CON_DISENO. Sin diseño se quitan: un anchoCm
+                // viejo haría que la mano de obra ignorara las naves.
+                if (hayDiseno) {
+                    enviado.anchoCm = enviado.anchoNaveCm;
+                    enviado.altoCm = enviado.altoNaveCm;
+                } else {
+                    delete enviado.anchoCm;
+                    delete enviado.altoCm;
+                }
+            }
             const { data } = await apiCotizarItem(modulo.id, enviado);
             if (pedido !== secuencia.current) return;
             onResultado(data, enviado);
@@ -235,10 +250,12 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
 
     const selectorDiseno = (
         <SelectorDiseno
-            modulo="ventanas"
+            modulo={modulo.id}
             value={input.disenoId as string | undefined}
             onChange={id => setInput(prev => ({ ...prev, disenoId: id }))}
-            sistema={input.sistema as string | undefined}
+            // Solo ventanas filtra por el campo "Sistema"; el resto lista todos
+            // los diseños de su módulo, agrupados por sistema.
+            sistema={modulo.id === 'ventanas' ? input.sistema as string | undefined : undefined}
         />
     );
 
@@ -250,7 +267,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
         return (
             <div className="space-y-3">
                 <Tarjeta cuerpoClassName="space-y-3">
-                    {modulo.id === 'ventanas' && selectorDiseno}
+                    {admiteDiseno && selectorDiseno}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {camposVisibles(modulo.campos).map(campo => (
                             <CampoDinamico
@@ -323,7 +340,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
                             <span aria-hidden="true" className="flex-1 h-px bg-slate-200 min-w-[24px]" />
                             {accion}
                         </div>
-                        {grupo === 'medidas' && modulo.id === 'ventanas' && selectorDiseno}
+                        {grupo === 'medidas' && admiteDiseno && selectorDiseno}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {camposVisibles(campos).map(campo => (

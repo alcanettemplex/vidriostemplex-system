@@ -93,8 +93,14 @@ export function leerFicha(
         : (esVacio(i.matizado) || i.matizado === false ? null : labelDeOpcion(campoDe('matizado'), i.matizado));
 
     const piezas = Number(i.cantidadPiezas);
+    let medidas = anchoMm || altoMm ? `${anchoMm ? mil(anchoMm) : '?'} × ${altoMm ? mil(altoMm) : '?'} mm` : null;
+    // Proyectante sin diseño: las medidas capturadas son las de CADA nave.
+    const naves = Math.floor(Number(i.numeroNaves));
+    if (medidas && esVacio(i.anchoCm) && !esVacio(i.anchoNaveCm) && naves > 1) {
+        medidas = `${naves} naves de ${medidas}`;
+    }
     return {
-        medidas: anchoMm || altoMm ? `${anchoMm ? mil(anchoMm) : '?'} × ${altoMm ? mil(altoMm) : '?'} mm` : null,
+        medidas,
         sistema: textoDe('sistema', 'tipoSistema') ?? disenoRef?.sistema ?? null,
         color: textoDe('colorPerfileria', 'acabado'),
         diseno: disenoRef ? (disenoRef.etiqueta || disenoRef.diseno || disenoRef.id) : disenoId,
@@ -106,6 +112,116 @@ export function leerFicha(
         enL: i.enL === true,
         piezas: Number.isFinite(piezas) && piezas > 0 ? Math.floor(piezas) : 1,
     };
+}
+
+// ─── Reglas de diseño compartidas con el formulario ─────────────────────────
+// Viven aquí y no en FormularioModulo para que la Hoja de Trabajo describa el
+// ítem con el mismo criterio con el que se capturó.
+
+/** Módulos cuyo backend cotiza "por diseño" cuando llega `disenoId` (despiece
+ * real, plano y cortes). Hasta el 2026-09-26 el selector solo aparecía en
+ * ventanas, aunque proyectantes, cabinas y espejo ya aceptaban diseño. */
+export const MODULOS_CON_DISENO: ReadonlySet<string> = new Set([
+    'ventanas', 'proyectantes', 'cabinas-corredizas', 'cabinas-batientes', 'espejo',
+]);
+
+/** Campos que el backend deduce del diseño y deja de leer del input cuando llega
+ * `disenoId`: ventanas saca cuerpos y alas del código; proyectantes, el número
+ * de naves; cabinas corredizas, el kit de perfiles (corrediza, Primavera,
+ * Torino), que reemplaza a `tipoSistema`. */
+export const CAMPOS_DERIVADOS_DEL_DISENO: Readonly<Record<string, readonly string[]>> = {
+    ventanas: ['cuerpos', 'alasCorredizas'],
+    proyectantes: ['numeroNaves'],
+    'cabinas-corredizas': ['tipoSistema'],
+};
+
+/** Proyectantes por diseño trabaja con la medida TOTAL del vano, no la de cada
+ * nave (proyectantes.ts: `input.anchoCm ?? input.anchoNaveCm`). Con diseño, los
+ * mismos campos se rotulan como total y el formulario los envía además como
+ * anchoCm/altoCm, que es lo que leen el backend, la mano de obra y el plano. */
+export const ETIQUETAS_CON_DISENO: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+    proyectantes: { anchoNaveCm: 'Ancho total (mm)', altoNaveCm: 'Alto total (mm)' },
+};
+
+// ─── Ficha de fabricación ───────────────────────────────────────────────────
+
+export interface Especificacion {
+    etiqueta: string;
+    valor: string;
+}
+
+/** Campos que no describen el producto: el segmento es de la cotización, la
+ * cantidad ya va en la cabecera de la hoja y las líneas del ítem libre se
+ * imprimen como lista de materiales. */
+const CAMPOS_FUERA_DE_FICHA = new Set(['segmentoCliente', 'cantidadPiezas', 'descripcionItem']);
+
+/** "Ancho (mm)" → "Ancho": la unidad ya va en el valor. */
+const sinUnidad = (etiqueta: string) => etiqueta.replace(/\s*\((mm|cm|%|unidades[^)]*)\)\s*$/i, '').trim();
+
+/**
+ * Todo lo que el asesor eligió en el formulario, campo por campo, en texto
+ * legible. Es la ficha que imprime la Hoja de Trabajo cuando el ítem no tiene
+ * diseño (y por eso tampoco plano ni cortes): el taller necesita al menos saber
+ * qué se vendió. Sale del contrato data-driven del módulo, así que sirve para
+ * los 7 módulos sin conocer ninguno.
+ */
+export function especificaciones(
+    input: Record<string, unknown> | null | undefined,
+    modulo: ModuloMeta | null | undefined,
+): Especificacion[] {
+    const i = input ?? {};
+    if (!modulo) return [];
+    const conDiseno = MODULOS_CON_DISENO.has(modulo.id) && typeof i.disenoId === 'string' && Boolean(i.disenoId);
+    const derivados = conDiseno ? (CAMPOS_DERIVADOS_DEL_DISENO[modulo.id] ?? []) : [];
+    const etiquetas = conDiseno ? ETIQUETAS_CON_DISENO[modulo.id] : undefined;
+
+    const salida: Especificacion[] = [];
+    for (const campo of modulo.campos) {
+        if (CAMPOS_FUERA_DE_FICHA.has(campo.nombre) || campo.tipo === 'lineas' || derivados.includes(campo.nombre)) continue;
+        const valor = i[campo.nombre];
+        const etiqueta = sinUnidad(etiquetas?.[campo.nombre] ?? campo.etiqueta);
+        let texto: string | null = null;
+        if (campo.tipo === 'boolean') {
+            texto = valor === true || valor === 'true' ? 'Sí' : 'No';
+        } else if (campo.tipo === 'select') {
+            texto = labelDeOpcion(campo, valor);
+            // Espesores (espesorMm, espesorVidrioMm): opciones numéricas sin unidad.
+            if (texto && /Mm$/.test(campo.nombre) && /^\d+([.,]\d+)?$/.test(texto)) texto = `${texto} mm`;
+        } else if (campo.tipo === 'number') {
+            if (/Cm$/.test(campo.nombre)) {
+                const mm = aMilimetros(valor);
+                texto = mm ? `${mil(mm)} mm` : null;
+            } else if (!esVacio(valor) && Number.isFinite(Number(valor))) {
+                texto = mil(Number(valor));
+            }
+        } else if (!esVacio(valor)) {
+            texto = String(valor);
+        }
+        if (texto) salida.push({ etiqueta, valor: texto });
+    }
+    return salida;
+}
+
+/**
+ * La descripción del ítem para listas y tablas, la misma que imprime el PDF:
+ * "Sala — Suministro e instalación de ventana 744 color mate, vidrio claro 4 mm
+ * crudo, medidas 1.000 × 1.000 mm". La arma el backend y viaja en
+ * `resultado.descripcionComercial`; aquí no se reimplementa, para que pantalla y
+ * PDF no digan cosas distintas. Un ítem calculado antes de que existiera cae a
+ * un respaldo con la ficha: "Sala — Ventanas · 1.000 × 1.000 mm · Mate · …".
+ */
+export function descripcionDeItem(
+    input: Record<string, unknown> | null | undefined,
+    resultado: ResultadoCalculo | null | undefined,
+    modulo: ModuloMeta | null | undefined,
+    nombreModulo: string,
+): string {
+    const frase = resultado?.descripcionComercial;
+    if (typeof frase === 'string' && frase.trim()) return frase;
+    const ficha = leerFicha(input, resultado, modulo);
+    const ubicacion = typeof input?.descripcionItem === 'string' ? input.descripcionItem.trim() : '';
+    const cuerpo = [nombreModulo, ficha.medidas, detalleCorto(ficha)].filter(Boolean).join(' · ');
+    return ubicacion ? `${ubicacion} — ${cuerpo}` : cuerpo;
 }
 
 /** Una línea corta para listas: "Mate · Claro 5 mm · con instalación". */

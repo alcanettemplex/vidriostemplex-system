@@ -464,7 +464,16 @@ function agrupar(filas: Fila[], clave: string): Map<number, Fila[]> {
  * Al pedir `propuesta` se devuelve también `propuestaActivaId` para que el
  * cliente sepa cuál de las listas trae despiece.
  */
-export async function obtener(id: number, { propuesta }: { propuesta?: number | string } = {}) {
+/**
+ * `ligero` (2026-09-26, autoguardado): la propuesta activa también viaja SIN los
+ * blobs `input`/`resultado`, como las demás. El autoguardado del frontend sólo
+ * necesita número, versión y totales; devolverle cada pocos segundos el detalle
+ * de cálculo de todos los ítems sería egress de Supabase sin uso.
+ */
+export async function obtener(
+  id: number,
+  { propuesta, ligero = false }: { propuesta?: number | string; ligero?: boolean } = {}
+) {
   const fila = (await CotizadorCotizacion.findByPk(id, { raw: true })) as unknown as Fila | null;
   if (!fila) return null;
 
@@ -498,6 +507,7 @@ export async function obtener(id: number, { propuesta }: { propuesta?: number | 
     activaId !== null
       ? (CotizadorCotizacionItem.findAll({
           where: { propuesta_id: activaId },
+          ...(ligero ? { attributes: COLUMNAS_ITEM_LIGERO } : {}),
           order: [['orden', 'ASC']],
           raw: true,
         }) as unknown as Promise<Fila[]>)
@@ -1032,13 +1042,27 @@ export async function crear(datos: CotizacionEntrada) {
  * `propuestaId` y, si no llega, a la elegida — que es la que el frontend está
  * mostrando. El `descuentoPct` de la cabecera se aplica a esa misma propuesta.
  */
-export async function actualizar(id: number, datos: CotizacionEntrada) {
+export async function actualizar(
+  id: number,
+  datos: CotizacionEntrada,
+  { versionEsperada, ligero = false }: { versionEsperada?: number; ligero?: boolean } = {}
+) {
   const t = await sequelize.transaction();
   try {
     const cot = (await CotizadorCotizacion.findByPk(id, { transaction: t })) as Fila | null;
     if (!cot) {
       await t.rollback();
       return null;
+    }
+    // Autoguardado (2026-09-26): la pantalla dice sobre qué versión trabajó. Si
+    // la base ya tiene otra, alguien guardó desde otra ventana o equipo y este
+    // guardado pisaría esos cambios sin que nadie lo notara.
+    if (versionEsperada !== undefined && (Number(cot.version) || 1) !== versionEsperada) {
+      throw new ErrorCotizador(
+        409,
+        'Esta cotización cambió en otra ventana o en otro equipo. Ábrela de nuevo desde "Mis cotizaciones" ' +
+          'para ver la última versión antes de seguir editando.'
+      );
     }
 
     const cambios: Fila = { actualizada_en: new Date() };
@@ -1125,7 +1149,7 @@ export async function actualizar(id: number, datos: CotizacionEntrada) {
     await sincronizarCabecera(id, t);
 
     await t.commit();
-    return await obtener(id, idDestino ? { propuesta: idDestino } : {});
+    return await obtener(id, { ...(idDestino ? { propuesta: idDestino } : {}), ligero });
   } catch (e) {
     await t.rollback();
     throw e;

@@ -402,6 +402,24 @@ a mano, el asesor marca `APROBADA` en el sistema). Botón "Descargar PDF" en
 - **Paleta estimada del logo real** (`frontend-web/public/assets/images/logotemplex.png`), no un
   código de marca confirmado — navy `#1B3A63` / azul `#2E75B6`. Es el único punto a tocar si el
   usuario da los códigos exactos.
+- **Especificaciones por ítem (2026-09-26, tras las pruebas N.° 16 y N.° 18):** bajo el nombre de cada
+  ítem va una línea gris con medidas, sistema (el del diseño si lo hay), forma del diseño, color,
+  vidrio, matizado, película, alfajía, "en L", tubulares y "sin instalación" (solo la excepción). Sale
+  de `lib/detalleComercial.ts` (`detalleComercial`), función pura sobre el `input` guardado y las
+  etiquetas de `meta.campos` — sin códigos internos. Motivo: en la prueba de 3 opciones (crudo /
+  templado / con película) las tres propuestas se veían idénticas renglón por renglón. Si hubo
+  **personalización** de componentes, una tercera línea en cursiva ("Personalizado: X en lugar de Y;
+  sin Z; incluye W") desde `resultado.personalizacion` (`personalizacionComercial`). Pruebas:
+  `detalleComercial.test.ts` (9).
+- **Nombre de la opción en el encabezado** ("Opción C: Templado 5 mm con película") bajo el folio.
+- **Columna VR. UNIT.** = `subtotalConAiu ÷ piezas`, solo presentación (redondeado × piezas puede
+  diferir en $1 del subtotal, que sigue siendo el del motor).
+- **"IVA (19%)"**: el controlador pasa `ivaPct` desde `getParametros().iva`; solo rotula.
+- **Paginación:** filas `dontBreakRows` (un ítem no se parte entre hojas), método de pago + garantía
+  `unbreakable`, y términos y condiciones en un bloque con `id` que `pageBreakBefore` pasa entero a
+  la hoja siguiente si no cabe (antes la cláusula 11 caía sola en la página 2).
+- **Pendiente, no hecho:** un PDF único comparativo con todas las opciones (hoy es un PDF por
+  propuesta con "Otras propuestas presentadas" en total).
 
 ---
 
@@ -429,9 +447,20 @@ de printables del Cotizador, que son A4.
 - **Ítem sin diseño:** no tiene ni plano ni despiece calculable — el endpoint
   `GET /cotizaciones/:id/items/:itemId/despiece` rechaza con 400 "Este ítem no tiene despiece por
   diseño" cuando `resultado.cortes` no existe (sólo lo llena `calcularDespiecePorDiseno`, la rama
-  que corre cuando el vendedor eligió un diseño). Igual lleva su página completa, con aviso en cada
-  caja ("Sin plano — cotizado por medidas libres" / "Sin despiece calculado") — no desaparece del
-  documento.
+  que corre cuando el vendedor eligió un diseño). Hasta el 2026-09-26 su página salía con dos cajas
+  vacías y "Sistema: —" (en la prueba N.° 18, 27 de 29 páginas). Desde entonces la caja de arriba
+  lleva la **FICHA DE FABRICACIÓN** —cada campo del formulario en texto, `especificaciones()` de
+  `fichaProducto.ts`, data-driven para los 7 módulos— y la de abajo los **MATERIALES de la
+  cotización** (el BOM de `resultado.items`, sin precios, cantidades de UNA pieza) con un aviso ámbar:
+  "No son medidas de corte".
+- **Tercera fila de datos para todos los ítems** (2026-09-26): MEDIDA · COLOR / ACABADO · VIDRIO,
+  desde `leerFicha`. `SISTEMA` cae a `ficha.sistema` (lo elegido en el formulario) y luego al nombre
+  del módulo cuando no hay diseño.
+- **Plano** (2026-09-26): `DiagramaProducto` acepta `altoMaximoPx` (la hoja pasa 300) y limita el
+  ancho para respetar ese alto — antes una ventana alta (1000 × 1800) crecía hacia abajo y se cortaba.
+  La cota de cada paño se dimensiona por el ancho DEL PAÑO y va en dos líneas; antes usaba el ancho
+  total y en una 7038 de tres paños las etiquetas se montaban. Se sigue rotulando un paño por tamaño
+  distinto (es a propósito).
 - **Aviso de confiabilidad**, sin cambios de criterio: reutiliza `ordenarParaTaller()`
   (`ordenCorte.ts`) para el orden de los perfiles y el mismo corte que `NIVELES_APTOS_PARA_CORTE`
   en `motorDespiece.ts` (A y B pasan, C o "sin nivel" avisan) — `esConfiable()` en
@@ -1003,8 +1032,9 @@ Claude. El orden va de lo que desbloquea cotizar hoy a lo que conecta con el ERP
 1. ~~**Los 18 diseños no cotizables**~~ — **cerrado el 2026-09-25**, 163/163.
 2. ~~**Los 5 kits/accesorios en $0**~~ — **cerrado el 2026-09-26** (4 con costo, `KVE001` a cotizar).
 3. ~~**Vidrios sobre pedido**~~ — **cerrado el 2026-09-26** con la marca "precio a cotizar".
-4. **El PDF no menciona la personalización** — una ventana con miniboreal sale como "Ventanas". Es
-   lo que ve el cliente.
+4. ~~**El PDF no menciona la personalización**~~ — **cerrado el 2026-09-26**: especificaciones por
+   ítem, línea "Personalizado: …", nombre de la opción, valor unitario y paginación (ver "PDF de
+   cotización").
 5. **Red de pruebas** — las 3 suites faltantes (`aptitudOrden`, `hojaTrabajo`, `pdf`) y regenerar el
    golden master, antes de tocar el flujo del ERP.
 6. **Identidad y acceso de asesores** — `cliente_id`, `asesor_usuario_id`, rol asesor con sus
@@ -1207,3 +1237,141 @@ cinco fletes). El total del módulo pasó de 37 a **55**.
 Postgres **no preserva el orden de claves** de un objeto en JSONB. Cualquier comparación de
 fidelidad contra JSON de origen debe usar deep-equal insensible al orden — nunca
 `JSON.stringify(a) === JSON.stringify(b)`. Dio 129 falsos positivos la primera vez.
+
+---
+
+## Diseño del catálogo fuera de ventanas (2026-09-26)
+
+El backend ya cotizaba **por diseño** en proyectantes (28 diseños 3831), cabinas corredizas (14:
+Corrediza, Primavera, Torino), cabinas batientes (4) y espejo (3), pero el formulario solo mostraba
+`SelectorDiseno` en ventanas: esos ítems salían siempre por medidas libres y sin plano ni cortes en
+la Hoja de Trabajo. Tablero e ítem libre no tienen diseños.
+
+- `MODULOS_CON_DISENO`, `CAMPOS_DERIVADOS_DEL_DISENO` y `ETIQUETAS_CON_DISENO` viven en
+  `fichaProducto.ts`, compartidos por `FormularioModulo` y la Hoja de Trabajo.
+- **Campos que se ocultan con diseño:** ventanas `cuerpos`/`alasCorredizas`; proyectantes
+  `numeroNaves`; cabinas corredizas `tipoSistema` (el kit lo da el diseño).
+- **Proyectantes por diseño trabaja con medida TOTAL** (`proyectantes.ts`: `input.anchoCm ??
+  input.anchoNaveCm`). Con diseño, los campos se rotulan "Ancho/Alto total" y el formulario envía
+  además `anchoCm`/`altoCm`; sin diseño los borra. Sin eso la mano de obra (`areaPiezaM2`) habría
+  multiplicado la medida total por las naves: verificado, 3 naves de 1500 × 600 → 2,7 m² sin diseño,
+  1 m² (mínimo) con diseño.
+- El filtro por "Sistema" del selector solo aplica a ventanas; los demás listan todos los diseños de
+  su módulo agrupados por sistema.
+- Verificado con Playwright (11/11): selector en proyectantes/cabinas/espejo, ausente en tablero,
+  naves y tipo de sistema ocultos con diseño, proyectante por diseño calcula y dibuja plano.
+
+---
+
+## Espejo: un producto por acabado, sin BPB aparte (2026-09-26)
+
+Decisión del usuario tras preguntar de dónde salía `ES0001`.
+
+- **`ES0001` "ESPEJO"** viene del Excel de los asesores (semilla 2026-09-07, costo $71.429). En el
+  catálogo maestro está vinculado a **`ESP4BPB` "ESPEJO 4MM BPB"**, así que su costo lo pone
+  Proveedores: desde el 2026-09-17, $55.200/m² de RAPI VIDRIOS (TODOVIDRIO vende a $62.400; manda el
+  menor). **Ese precio ya trae el borde pulido brillado** (confirmado por el usuario).
+- **BPB → solo `ES0001` por m².** Antes se sumaba además `BPB04` por el perímetro: el borde se cobraba
+  dos veces (1 × 1 m PM: $119.474 → **$91.228** sin IVA).
+- **BISELADO → `ESP4MMBPB` por m²** (costo $120.549 sembrado del Excel, **sin proveedor vinculado**).
+  Antes: `ES0001` + recargo del 15,07 % (`ESP02`, diferencial ESP02/ESP01 del Excel), que al bajar
+  `ES0001` al costo real dejó el biselado más barato que el BPB (1 × 1 m PM: $104.975 →
+  **$199.231** sin IVA).
+- `ESP4MMBPB` se corrigió con `2026-09-26_cotizador_espejo_biselado.ts` (ya corrido en local): unidad
+  "X METRO" → "X M2" (el usuario confirmó m²) y descripción → "ESPEJO 4MM BISELADO". También en
+  `catalogo.json`, para que regenerar el catálogo no lo revierta.
+- Aplica igual en la rama por diseño (`codigoVidrio` = producto del acabado, sin accesorios de borde).
+- Salieron `RECARGO_BISELADO`, `lineaManual` y la línea `ESP02` del módulo. Las cotizaciones ya
+  guardadas no cambian hasta que se recalculen.
+- ⚠️ El golden master del espejo cambia a propósito: regenerarlo en el punto 5 de la hoja de ruta.
+- Pendiente del usuario: vincular un proveedor real a `ESP4MMBPB` en Proveedores para que su costo
+  deje de ser el del Excel.
+
+---
+
+## Descripción comercial, instalación dentro del precio y formato VR09 (2026-09-26)
+
+Pedido del usuario: que el producto se identifique ("ventana 744 color mate con vidrio claro 4 mm"),
+que el PDF diga "Suministro e instalación de…" o "Suministro de…" según la casilla, el logo actual y
+las condiciones de su formato impreso (VR09). Respuestas del selector: frase **con vidrio**,
+**ubicación opcional**, **instalación dentro del precio del ítem**, **12 condiciones corregidas +
+bloque de cierre**.
+
+- **`lib/detalleComercial.ts` → `descripcionComercial(moduloId, input, resultado)`** (reemplaza a
+  `detalleComercial`). "Sala — Suministro e instalación de ventana 744 color mate, vidrio claro 4 mm
+  crudo, medidas 1.000 × 1.000 mm". Verbo por `conInstalacion`; ubicación = `descripcionItem`; módulo
+  sin esa casilla (ítem libre) = el texto del asesor. Frases por módulo: ventana (sistema del diseño y
+  su forma entre paréntesis), ventana proyectante (N naves, medidas "por nave" sin diseño), cabina de
+  baño corrediza/Glasvit/deslizante…/batiente (+ "en L"), tablero en vidrio templado, espejo 4 mm
+  biselado / con borde pulido brillado. Pruebas: `detalleComercial.test.ts` (10).
+- **`calcularItem` la guarda en `resultado.descripcionComercial`** para que la pantalla no la
+  reimplemente (import circular registry ↔ detalleComercial, seguro porque ambos lados se llaman
+  dentro de funciones). El PDF la recalcula al imprimir; el frontend usa `descripcionDeItem`
+  (`fichaProducto.ts`) con respaldo para ítems sin ella.
+- **Campo "Ubicación (opcional)"** (`descripcionItem`, grupo comercial) en los 6 módulos con
+  instalación. Sin cambio de BD: la columna ya existía y `TabCotizar` ya la tomaba del input.
+- **Instalación dentro del precio (solo PDF):** `manoObraPorItem` (lib/cargos.ts, mismas reglas y
+  tarifas que `calcularManoObraProductos`) da los PESOS; `valoresConManoObra`
+  (generadorPdfCotizacion.ts) reparte el total de mano de obra GUARDADO y redondea por mayor
+  residuo, así los ítems suman exactamente el "Subtotal" (productos + mano de obra) y el total no
+  cambia. Totales del PDF: Subtotal → Descuento → cargos → IVA (19%) → Total. Si no hay cómo repartir,
+  vuelven los renglones aparte. La pantalla conserva el desglose. Pruebas en `cargos.test.ts` (23).
+- **Pantalla:** Actual y el detalle unen "Producto"/"Detalle" en una columna **Descripción** con el
+  módulo como rótulo; el resumen de Cotizar muestra la frase en dos líneas.
+- **Formato VR09:** script `2026-09-26_cotizador_formato_vr09.ts` (corrido en local; imprime los
+  valores anteriores para revertir): 12 condiciones corregidas (la 12 es la de desmontes; "**NO
+  asumimos**" en negrilla vía `**…**`), garantía y validez corregidas, y el **logo del ERP**
+  (`datos_cotizador/logo-templex.png`, copia de `frontend-web/public/assets/images/logotemplex.png`,
+  porque el contenedor del backend no trae el frontend). El PDF cierra con condiciones → garantía →
+  validez → recuadro: marca (navy) + Asesor comercial / Fecha de entrega / Aprobó SÍ ☐ NO ☐ / O.D.P.
+  No, todo en un bloque que no se parte. La validez salió del encabezado.
+- **Configuración → "Documento de cotización":** edita condiciones (una por renglón), garantía y
+  validez vía `PUT /empresa`, que existía sin pantalla.
+
+### Hoja de Trabajo con letra grande (2026-09-26)
+Pedido del usuario: los cortes "más grandes, más llamativos y que aprovechen la hoja". Plano 430 → 340
+px (dibujo con `altoMaximoPx` 230), caja de cortes 400 → 490 px. Tablas `.tabla-cortes` con escala por
+renglones (`escalaCortes`): ≤12 → texto 17 / medida 22 negrilla / encabezado 15 px; ≤15 → 15/19/13;
+más → 13/16/12 (nunca se cortan filas). Materiales cuentan +3 renglones por el encabezado y el aviso.
+Ficha de fabricación a 15 px. Verificado con 4 casos (diseño corto, 7038 de 6 paños, 8025 sin
+diseño con 14 materiales, tablero).
+
+**Plano +50 % (mismo día, pedido del usuario):** `DiagramaProducto` acepta `anchoMaximoPx` e
+`impresion` (menos relleno y ancho completo de la caja: sin `w-full` el recuadro se encogía al
+contenido y un plano ancho no crecía). La hoja pasa 345 px de alto y 630 de ancho; cajas 400 px
+(plano) / 430 px (cortes); escalones ≤10 → 17/22/15, ≤12 → 15/19/13, más → 13/16/12. La pantalla
+conserva 420 × 420. `@page { margin: 0 }` **no** quitó la fecha ni el "about:blank" en el navegador del
+usuario (los pone el diálogo, "Encabezados y pies de página"): se volvió a 5 mm, como las hojas de la
+ODP.
+
+---
+
+## Autoguardado y varios clientes a la vez (2026-09-26, a prueba)
+
+Pedido del usuario: "tengo 5 cotizaciones a clientes distintos, ¿cómo salto de una a otra?". Validado
+antes con una maqueta clickeable (artifact "Cotizador Templex · varios clientes"). El usuario pidió
+verlo en real y **revertir si no le convence** (respaldo de los archivos previos en el scratchpad de
+la sesión, `respaldo-antes-autoguardado/`).
+
+- **Autoguardado** (`CotizadorPage.tsx`): 4 s después del último cambio (`ESPERA_AUTOGUARDADO_MS`);
+  una cotización nueva se crea con su primer producto (300 ms). El autoguardado usa
+  `PUT /cotizaciones/:id?respuesta=ligera` —`obtener(id, { ligero: true })` no trae los blobs de la
+  propuesta activa— y NO vuelca la cotización: actualiza versión, totales y opciones, para no
+  reiniciar lo que el asesor edita. `revision` (ref) evita marcar "guardado" si hubo cambios durante
+  el guardado.
+- **Versión:** el `PUT` acepta `versionEsperada`; si la base tiene otra, 409 "cambió en otra ventana"
+  (`cotizacionStore.actualizar`). La pantalla muestra "Cambió en otra ventana" y deja de autoguardar.
+- **Saltos:** `asegurarGuardado` guarda antes de abrir otra cotización, otra opción, la lista o una
+  cotización nueva; el modal "cambios sin guardar" sólo aparece si ese guardado falla. Corrige un
+  riesgo previo: reabrir desde Guardadas descartaba en silencio los cambios de la abierta.
+- **Barra:** el nombre del cliente es el título y abre "Cambiar a otra cotización" (últimas 5 de este
+  navegador, `recientes.ts` en `localStorage`); indicador "Guardando… / ✓ Guardado / No se pudo guardar
+  · Reintentar"; "+ Nuevo cliente". Sin botón Guardar (Ctrl+S sigue guardando ya).
+- **Cotizar:** campo "¿Para quién es esta cotización?" arriba (`ClienteRapido`).
+- **Pestañas:** Cotizar · Resumen (antes Actual) · Mis cotizaciones (antes Guardadas); Calibración y
+  Configuración en el menú ⚙ Administración. Las claves internas (`actual`, `guardadas`) no cambiaron.
+- **Vocabulario:** en pantalla las propuestas son "Opción A/B/C" (`rotuloPropuesta`); "+ Otra opción
+  para este cliente".
+- Verificado con Playwright (12/12): 3 clientes creados sin pulsar Guardar, salto con el selector
+  (≈3,4 s: guarda la abierta y trae la otra), edición previa al salto persistida, autoguardado en
+  Resumen, conflicto detectado sin pisar la otra ventana.

@@ -5647,3 +5647,88 @@ que los **cargos sean editables** cargando el predeterminado. Procede.
 ### Pendientes
 - Revisión del usuario en pantalla.
 - Sin commit: el usuario decide.
+
+---
+
+## 2026-09-26 (5) — Cotizador: pruebas de imprimibles, diseño en todos los módulos, Hoja de Trabajo y PDF
+
+**Pedido del usuario:** dos pruebas para ver el imprimible — (1) 3 ventanas con 3 opciones (crudo,
+templado, con película) y (2) una obra de ~20 ventanas de distintos sistemas + cabinas, espejos y
+tableros. Luego preguntó por qué la Hoja de Trabajo salía vacía y qué módulos no generan diseño.
+Procede sobre el plan de 4 puntos.
+
+### Pruebas creadas (BD local, datos de prueba)
+- **N.° 16** "PRUEBA 1 · Familia Restrepo": 3 ventanas 744, propuestas A crudo / B templado / C templado
+  con película, vía `clonar`. **N.° 18** "PRUEBA 2 · Constructora Los Álamos": 29 ítems, descuento 5 %,
+  flete, andamio y huacal. La N.° 17 se borró (error de datos de mi script: segmento no enviado a
+  cabinas, proyectantes en negro).
+- Totales verificados a mano contra las reglas de mano de obra (mínimo 1 m², cabina en L doble,
+  ensamble sin instalación) y el contrato de descuento/IVA.
+
+### Hecho
+- **Selector de diseño** en proyectantes, cabinas corredizas/batientes y espejo (antes solo ventanas).
+  Proyectantes con diseño usan medida total (`anchoCm`/`altoCm`).
+- **Hoja de Trabajo:** ficha de fabricación + materiales para ítems sin diseño; fila MEDIDA/COLOR/
+  VIDRIO; `SISTEMA` ya no sale "—".
+- **Plano:** tope de alto (ventanas altas ya no se cortan) y cotas de paño ajustadas al paño.
+- **PDF al cliente:** especificaciones por ítem (`detalleComercial.ts`), línea de personalización,
+  nombre de la opción, VR. UNIT., "IVA (19%)", sin filas ni bloques partidos entre hojas.
+  Cierra el punto 4 de la hoja de ruta.
+
+### Verificación
+- `tsc` backend y frontend limpios; ESLint de los archivos del frontend limpio.
+- Suites: detalleComercial 9/9 (nueva, agregada a `test:cotizador`), codigoDiseno 11/11, plano 16/16,
+  generadorSapPerfileria 10/10, humo 4/4 (corrida sola, por el pooler).
+- Playwright: selector de diseño 11/11, recorrido de Guardadas/detalle/Hoja de Trabajo sin errores de
+  consola. PDFs regenerados y revisados página por página.
+
+### Hallazgos del catálogo (no son código)
+- Negro no existe en 744, 8025 ni proyectante 3831; 7038 solo por diseño; alfajía 7038 sin referencia;
+  espejo biselado derivado (+15 %) sin SKU propio.
+
+### Pendientes
+- PDF único comparativo con todas las opciones (hoy uno por propuesta).
+- Textos de Configuración → empresa con faltas ("8 dias habiles", "clausula", "perforacion"…): los
+  edita el usuario.
+- Sin commit: el usuario decide.
+
+### Adenda — espejo (misma sesión)
+- El usuario preguntó de dónde sale `ES0001`: semilla del Excel, vinculado a `ESP4BPB`, costo de RAPI
+  VIDRIOS $55.200/m² **con BPB incluido**. Confirmó además que `ESP4MMBPB` ($120.549) es el biselado y
+  va por m².
+- `espejo.ts`: BPB cobra solo `ES0001` (sale `BPB04`, que duplicaba el borde); biselado cobra
+  `ESP4MMBPB` (sale el recargo del 15,07 %). Script `2026-09-26_cotizador_espejo_biselado.ts` corrido
+  en local (unidad X M2, descripción "ESPEJO 4MM BISELADO") y `catalogo.json` alineado.
+- 1 × 1 m PM sin IVA: BPB $119.474 → $91.228; biselado $104.975 → $199.231. Verificado con el motor
+  en PA/PM/PB y por diseño; `tsc` limpio; cargos 21/21, humo 4/4.
+- **Al desplegar:** correr el script y recargar la caché (o reiniciar el backend).
+
+### Adenda — descripción comercial y formato VR09 (misma sesión)
+- Pedido: identificar el producto en pantalla y PDF ("Suministro e instalación de ventana 744 color
+  mate…"), logo actual, condiciones del formato impreso. El usuario eligió: frase con vidrio,
+  ubicación opcional, instalación dentro del precio del ítem, 12 condiciones corregidas + bloque.
+- Hecho: `descripcionComercial` (backend, guardada en el resultado), campo Ubicación en 6 módulos,
+  reparto de mano de obra por ítem en el PDF (cuadra al peso), nuevo cierre del PDF, script
+  `2026-09-26_cotizador_formato_vr09.ts` (corrido en local), columna Descripción en Actual/detalle,
+  sección "Documento de cotización" en Configuración.
+- Verificado: tsc back/front, ESLint, detalleComercial 10/10, cargos 23/23, Playwright 8/8 sin
+  errores de consola, PDFs revisados (pruebas recreadas como N.° 19 y 20 y borradas al terminar).
+- Hallazgo: el usuario 1 borró desde Guardadas todas las cotizaciones (11–16, 18) a las 21:39; la
+  tabla quedó vacía. No es un fallo.
+- **Al desplegar:** correr `2026-09-26_cotizador_espejo_biselado.ts` y
+  `2026-09-26_cotizador_formato_vr09.ts`, y recargar la caché o reiniciar el backend.
+
+### Adenda — Hoja de Trabajo con letra grande (misma sesión)
+- Cortes a 17 px (medida 22 px negrilla), escalones por cantidad de renglones, plano más bajo y cortes
+  más altos, sin encabezados del navegador. Verificado con una cotización temporal (N.° 22/23, borrada).
+- Plano de la Hoja de Trabajo +50 % (345 × 630 px máx., modo `impresion` en `DiagramaProducto`); cajas
+  400/430 px. El margen 0 no quitó los encabezados del navegador: vuelve a 5 mm; se quitan desmarcando
+  "Encabezados y pies de página" en el diálogo. Verificado con temporales N.° 24/25 (borradas).
+
+### Adenda — autoguardado y varios clientes (misma sesión, A PRUEBA)
+- Tras maqueta aprobada: autoguardado, selector "Cambiar a otra cotización", "+ Nuevo cliente", campo
+  del cliente en Cotizar, pestañas Cotizar/Resumen/Mis cotizaciones + ⚙ Administración, "Opción A/B/C".
+- Backend: `PUT /cotizaciones/:id?respuesta=ligera` y `versionEsperada` (409 si otra ventana guardó).
+- Playwright 12/12; cotizaciones de prueba 27–40 creadas y borradas. La N.° 26 (sin cliente, 2 ítems,
+  22:48) no es de las pruebas: no se tocó.
+- El usuario puede pedir revertir: respaldo en `scratchpad/respaldo-antes-autoguardado/`.

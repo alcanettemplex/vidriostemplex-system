@@ -4161,9 +4161,9 @@
   },
   {
     "codigo": "ESP4MMBPB",
-    "descripcion": "ESPEJO 4MM BPB",
+    "descripcion": "ESPEJO 4MM BISELADO",
     "categoria": "VIDRIO",
-    "unidad": "X METRO",
+    "unidad": "X M2",
     "costo_unitario": 120549.6,
     "precio_pa": 201655.4031448645,
     "precio_pm": 191261.83184902434,

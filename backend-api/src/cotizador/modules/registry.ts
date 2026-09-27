@@ -20,6 +20,9 @@ import * as espejo from "./espejo";
 import * as itemLibre from "./itemLibre";
 import { aplicarPersonalizacion } from "../lib/personalizacion";
 import { advertenciasPrecioACotizar } from "../lib/motorCalculo";
+// Import circular (detalleComercial usa getModulo de aquí): seguro, porque los
+// dos lados sólo se llaman dentro de funciones, nunca al cargar el módulo.
+import { descripcionComercial } from "../lib/detalleComercial";
 import type { InputModulo } from "../tipos";
 
 // El orden de este objeto es el orden en que el frontend pinta las tarjetas de
@@ -64,7 +67,16 @@ export function calcularItem(moduloId: string, input: InputModulo) {
   // Aquí y no en cada módulo: un producto con precio a cotizar puede entrar por
   // el ítem libre, por un componente agregado o por un cambio de componente.
   const avisos = Array.isArray(resultado?.items) ? advertenciasPrecioACotizar(resultado.items) : [];
-  if (avisos.length === 0) return resultado;
+  // La frase que ve el cliente ("Suministro e instalación de ventana 744…"),
+  // guardada con el resultado para que la pantalla la muestre tal cual la
+  // imprimirá el PDF. Usa el input COMPLETO: la ubicación (descripcionItem) y
+  // "Con instalación" no pasan por el motor pero sí por la frase.
+  const descripcion = descripcionComercial(moduloId, input, resultado);
+  if (avisos.length === 0) return { ...resultado, descripcionComercial: descripcion };
   const previas: string[] = Array.isArray(resultado.advertencias) ? resultado.advertencias : [];
-  return { ...resultado, advertencias: [...previas, ...avisos.filter((a) => !previas.includes(a))] };
+  return {
+    ...resultado,
+    descripcionComercial: descripcion,
+    advertencias: [...previas, ...avisos.filter((a) => !previas.includes(a))],
+  };
 }

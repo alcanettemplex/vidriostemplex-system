@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import {
-    Trash2, Inbox, AlertTriangle, Save, Package, Copy, Layers,
+    Trash2, Inbox, AlertTriangle, Package, Copy, Layers,
     CheckCircle2, Scale, FilePlus2, User, Briefcase, Receipt, Pencil, Lock,
 } from '../../../components/ui/icons';
 
 import { fmtCOP, fmtPct } from '../format';
+import { descripcionDeItem } from '../fichaProducto';
 import {
     ClienteCotizacion, EstadoCotizacion, ItemCarrito, LineaManoObra, Parametros, Propuesta, SegmentoCliente,
 } from '../types';
@@ -13,7 +14,7 @@ import PanelCargosObra, { EstadoCargos, resumenCargos } from './PanelCargosObra'
 import { TotalesPrevistos } from '../totalesPropuesta';
 import ComparadorPropuestas from './ComparadorPropuestas';
 import {
-    BotonPrimario, BotonSecundario, Chip, CONTROL_LABEL_CLASS, EstadoVacio, Tarjeta, claseControl,
+    BotonSecundario, Chip, CONTROL_LABEL_CLASS, EstadoVacio, Tarjeta, claseControl,
 } from './ui';
 import { colorPropuesta } from '../propuestaColor';
 
@@ -65,8 +66,6 @@ interface Props {
     cabecera: CabeceraCotizacion;
     onCambiarCabecera: (cambios: Partial<CabeceraCotizacion>) => void;
     onQuitarItem: (idTemp: string) => void;
-    onGuardar: () => Promise<void>;
-    guardando: boolean;
     numeroEnEdicion: number | null;
     asesoresSugeridos: string[];
     estadosDisponibles: EstadoCotizacion[];
@@ -120,23 +119,6 @@ const btnChip = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg borde
 const thClass = 'px-3 py-2 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap text-slate-900';
 const btnFila = 'p-1.5 rounded-lg text-slate-600 hover:text-templex-700 hover:bg-templex-50 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-600';
 
-/**
- * Texto de respaldo cuando el ítem no trae `descripcionItem`.
- * Ancho×alto es lo único razonablemente común a los módulos hoy; si el input
- * no trae esos campos, cae al nombre del módulo sin más.
- */
-const descripcionRespaldo = (item: ItemCarrito): string => {
-    const anchoCm = item.input?.anchoCm ?? item.input?.anchoNaveCm;
-    const altoCm = item.input?.altoCm ?? item.input?.altoNaveCm;
-    if (anchoCm != null || altoCm != null) {
-        // El motor de cálculo trabaja internamente en cm; la UI muestra mm.
-        const anchoMm = anchoCm != null ? (anchoCm as number) * 10 : '?';
-        const altoMm = altoCm != null ? (altoCm as number) * 10 : '?';
-        return `${anchoMm}×${altoMm} mm`;
-    }
-    return item.moduloNombre;
-};
-
 /** Renglón de la cadena de totales: rótulo con su aclaración debajo e importe a
  * la derecha. Existe para que los cuatro parciales se lean como una cadena
  * (productos → descuento → cargos → IVA) y no como cuatro tarjetas sueltas que
@@ -163,7 +145,7 @@ const FilaTotal: React.FC<{
 );
 
 const TabActual: React.FC<Props> = ({
-    carrito, cabecera, onCambiarCabecera, onQuitarItem, onGuardar, guardando,
+    carrito, cabecera, onCambiarCabecera, onQuitarItem,
     numeroEnEdicion, asesoresSugeridos, estadosDisponibles, parametros,
     descuentoPct, onCambiarDescuento, cargos, onCambiarCargos, manoObra, cargandoManoObra, totalesPrevistos, propuestas,
     hayCambiosSinGuardar, onNuevaCotizacion, onEditarItem, onDuplicarItem,
@@ -238,7 +220,7 @@ const TabActual: React.FC<Props> = ({
                         >
                             <p className="text-[12px] text-slate-700 leading-snug -mt-1 mb-2.5">
                                 El total de la cotización es el de la elegida, y de ella sale la orden de corte.
-                                Para ofrecerle otra opción al cliente, usa <span className="font-semibold text-slate-900">Nueva propuesta</span> en
+                                Para ofrecerle otra opción al cliente, usa <span className="font-semibold text-slate-900">Otra opción para este cliente</span> en
                                 la barra de arriba.
                             </p>
 
@@ -255,7 +237,7 @@ const TabActual: React.FC<Props> = ({
                                             <button
                                                 onClick={() => propuestas.onActivar(p.id)}
                                                 disabled={propuestas.ocupado}
-                                                title={esActiva ? 'Es la propuesta que estás editando' : `Abrir la propuesta ${p.etiqueta}`}
+                                                title={esActiva ? 'Es la opción que estás editando' : `Abrir la Opción ${p.etiqueta}`}
                                                 className="text-left w-full disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400 rounded-lg"
                                             >
                                                 <div className="flex flex-wrap items-center gap-1.5">
@@ -290,8 +272,8 @@ const TabActual: React.FC<Props> = ({
                                                     onClick={() => propuestas.onBorrar(p.id)}
                                                     disabled={propuestas.ocupado || propuestas.propuestas.length <= 1}
                                                     title={propuestas.propuestas.length <= 1
-                                                        ? 'No se puede borrar la única propuesta de la cotización.'
-                                                        : 'Borrar esta propuesta'}
+                                                        ? 'No se puede borrar la única opción de la cotización.'
+                                                        : 'Borrar esta opción'}
                                                     className="ml-auto text-[12px] font-semibold text-slate-700 hover:text-rose-700 disabled:opacity-40 disabled:hover:text-slate-700"
                                                 >
                                                     Borrar
@@ -407,7 +389,7 @@ const TabActual: React.FC<Props> = ({
                                         la cabecera quedó legado: había dos y sólo uno de
                                         los dos afectaba a algún total. */}
                                     <label className={labelClass} htmlFor="cot-descuento">
-                                        Descuento (%){activa ? ` · propuesta ${activa.etiqueta}` : ''}
+                                        Descuento (%){activa ? ` · Opción ${activa.etiqueta}` : ''}
                                     </label>
                                     <input
                                         id="cot-descuento"
@@ -418,7 +400,7 @@ const TabActual: React.FC<Props> = ({
                                         className={inputClass}
                                         disabled={legado || aprobada}
                                         title={legado
-                                            ? 'Las propuestas anteriores al cambio no aplican descuento.'
+                                            ? 'Las opciones anteriores al cambio no aplican descuento.'
                                             : aprobada ? 'La cotización está aprobada: pásala a Pendiente para cambiar el descuento.' : ''}
                                         value={descuentoPct * 100}
                                         onChange={e => {
@@ -471,13 +453,13 @@ const TabActual: React.FC<Props> = ({
                         <Tarjeta className="border-dashed">
                             <EstadoVacio
                                 icono={Inbox}
-                                titulo={activa ? `La propuesta ${activa.etiqueta} todavía no tiene ítems` : 'Sin ítems'}
+                                titulo={activa ? `La Opción ${activa.etiqueta} todavía no tiene productos` : 'Sin ítems'}
                                 detalle="Ve a la pestaña Cotizar para agregar el primero."
                             />
                         </Tarjeta>
                     ) : (
                         <Tarjeta
-                            titulo={activa ? `Ítems de la propuesta ${activa.etiqueta}` : 'Ítems de la cotización'}
+                            titulo={activa ? `Productos de la Opción ${activa.etiqueta}` : 'Productos de la cotización'}
                             icono={Package}
                             cuerpoClassName="pt-0"
                             accion={
@@ -493,8 +475,7 @@ const TabActual: React.FC<Props> = ({
                                 <table className="w-full text-sm">
                                     <thead className="bg-slate-50 text-slate-900 border-y border-slate-200">
                                         <tr>
-                                            <th className={`${thClass} text-left`}>Producto</th>
-                                            <th className={`${thClass} text-left`}>Detalle</th>
+                                            <th className={`${thClass} text-left`}>Descripción</th>
                                             <th className={`${thClass} text-right`}>Piezas</th>
                                             <th className={`${thClass} text-right`}>Subtotal + AIU</th>
                                             {/* El `iva` y el `total` del blob del ítem se
@@ -522,7 +503,7 @@ const TabActual: React.FC<Props> = ({
                                             // Legada: su blob trae SMO y flete dentro del BOM, y
                                             // recalcularla con el motor actual los sacaría.
                                             const motivoNoEditar = bloqueoEdicion
-                                                ?? (legado ? 'Propuesta legada: duplícala a la forma nueva para editar sus ítems.' : null)
+                                                ?? (legado ? 'Opción antigua: duplícala a la forma nueva para editar sus productos.' : null)
                                                 ?? (moduloExiste ? null : 'Este producto ya no existe en el cotizador: no se puede recalcular.');
                                             return (
                                             <tr
@@ -531,18 +512,24 @@ const TabActual: React.FC<Props> = ({
                                                     ? 'bg-rose-50 text-rose-800'
                                                     : 'text-slate-800 hover:bg-slate-50 transition-colors'}
                                             >
-                                                <td className="px-3 py-2 align-top">
-                                                    <span className="flex items-start gap-1.5 font-semibold text-[12.5px]">
+                                                {/* Una sola columna con la frase que imprime el PDF
+                                                    ("Sala — Suministro e instalación de ventana 744
+                                                    color mate, vidrio claro 4 mm…"), 2026-09-26. Antes
+                                                    eran dos: "Producto" decía el módulo ("Ventanas") y
+                                                    "Detalle" solo la medida, sin sistema, color ni
+                                                    vidrio. El módulo queda como rótulo pequeño. */}
+                                                <td className="px-3 py-2 align-top text-[12.5px] min-w-[18rem]">
+                                                    <span className="flex items-start gap-1.5">
                                                         {item.resultado.hayErrores && (
                                                             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                                         )}
                                                         <span className={item.resultado.hayErrores ? '' : 'text-slate-900'}>
-                                                            {item.moduloNombre}
+                                                            {descripcionDeItem(item.input, item.resultado, null, item.moduloNombre)}
                                                         </span>
                                                     </span>
-                                                </td>
-                                                <td className={`px-3 py-2 align-top text-[12.5px] ${item.resultado.hayErrores ? '' : 'text-slate-800'}`}>
-                                                    {item.descripcionItem || descripcionRespaldo(item)}
+                                                    <span className="inline-block mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                                                        {item.moduloNombre}
+                                                    </span>
                                                     {item.resultado.personalizacion && (
                                                         item.resultado.personalizacion.cambios.length +
                                                         item.resultado.personalizacion.quitados.length +
@@ -585,7 +572,7 @@ const TabActual: React.FC<Props> = ({
                                                     <button
                                                         onClick={() => onDuplicarItem(item.idTemp)}
                                                         disabled={Boolean(bloqueoEdicion || legado)}
-                                                        title={bloqueoEdicion ?? (legado ? 'Propuesta legada: duplícala a la forma nueva.' : 'Duplicar el ítem')}
+                                                        title={bloqueoEdicion ?? (legado ? 'Opción antigua: duplícala a la forma nueva.' : 'Duplicar el ítem')}
                                                         className={btnFila}
                                                     >
                                                         <Copy className="w-4 h-4" />
@@ -620,7 +607,7 @@ const TabActual: React.FC<Props> = ({
 
                     {/* ── Totales de la propuesta ──────────────────────────────── */}
                     <Tarjeta
-                        titulo={`Totales${activa ? ` · propuesta ${activa.etiqueta}` : ''}`}
+                        titulo={`Totales${activa ? ` · Opción ${activa.etiqueta}` : ''}`}
                         icono={Receipt}
                         accion={hayCambiosSinGuardar
                             ? (
@@ -674,38 +661,22 @@ const TabActual: React.FC<Props> = ({
                                 <span className="text-[11px] text-templex-50 mt-1.5 leading-snug">
                                     {resumenCargos(cargos, ivaPct).total > 0 && !legado
                                         ? 'Incluye cargos con su IVA'
-                                        : 'Propuesta completa'}
+                                        : 'Opción completa'}
                                 </span>
                             </div>
                         </div>
                     </Tarjeta>
 
                     {/* ── Acciones ─────────────────────────────────────────────── */}
-                    <div className="flex flex-wrap gap-2">
-                        <BotonPrimario
-                            onClick={onGuardar}
-                            cargando={guardando}
-                            icono={Save}
-                            disabled={carrito.length === 0}
-                            title={carrito.length === 0 ? 'Agrega al menos un ítem a esta propuesta antes de guardar.' : ''}
-                            className="flex-1 min-w-[240px] py-3 shadow-lg shadow-templex-600/25"
-                        >
-                            {/* Mismo verbo que el botón de la barra de trabajo: dos
-                                nombres para la misma acción hacían dudar si eran
-                                dos cosas distintas. */}
-                            {numeroEnEdicion !== null ? `Guardar cotización N.° ${numeroEnEdicion}` : 'Guardar cotización'}
-                        </BotonPrimario>
-                        {numeroEnEdicion !== null && (
-                            <BotonSecundario
-                                icono={FilePlus2}
-                                // Con cambios pendientes, CotizadorPage pregunta
-                                // guardar / descartar / cancelar.
-                                onClick={onNuevaCotizacion}
-                            >
-                                Cotización nueva
+                    {/* Sin "Guardar" desde el 2026-09-26: la cotización se guarda sola
+                        (ver el indicador de la barra de arriba). */}
+                    {numeroEnEdicion !== null && (
+                        <div className="flex flex-wrap gap-2">
+                            <BotonSecundario icono={FilePlus2} onClick={onNuevaCotizacion}>
+                                Nuevo cliente
                             </BotonSecundario>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </>
             )}
         </div>

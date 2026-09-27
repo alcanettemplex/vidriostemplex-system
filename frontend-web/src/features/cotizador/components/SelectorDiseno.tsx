@@ -7,11 +7,13 @@ import { DisenoResumen } from '../types';
 import { ChipNivelCorte, CONTROL_LABEL_CLASS } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Selector de diseño de catálogo. Solo lo usa el módulo "ventanas": si se elige
-// un diseño, el backend cotiza "por diseño" (despiece real); si se deja vacío,
-// cae a "medidas libres" (ver backend-api/src/cotizador/modules/ventanas.ts,
-// manejo de `input.disenoId`). El sistema 7038 es la excepción: no tiene mapa de
-// perfilería para medidas libres, así que ahí el diseño es obligatorio.
+// Selector de diseño de catálogo. Lo usan ventanas, proyectantes, cabinas y
+// espejo (2026-09-26; antes solo ventanas): si se elige un diseño, el backend
+// cotiza "por diseño" (despiece real, plano y cortes para la Hoja de Trabajo);
+// si se deja vacío, cae a "medidas libres" (ver el manejo de `input.disenoId` en
+// cada módulo de backend-api/src/cotizador/modules/). El sistema 7038 de
+// ventanas es la excepción: no tiene mapa de perfilería para medidas libres, así
+// que ahí el diseño es obligatorio.
 //
 // No es un <select> nativo porque cada diseño son cuatro datos (código, forma,
 // paneles y nivel de corte) y un option de texto plano los aplasta en una línea
@@ -226,7 +228,7 @@ const SelectorDiseno: React.FC<Props> = ({ modulo, value, onChange, sistema }) =
                                 <span className="flex-1">
                                     <span className="block text-[13px] font-semibold text-slate-900">Medidas libres</span>
                                     <span className="block text-[11px] text-slate-700">
-                                        Sin diseño: el motor estima el despiece con reglas generales
+                                        Sin diseño: precio con reglas generales; la Hoja de Trabajo sale sin plano ni cortes
                                     </span>
                                 </span>
                             </button>

@@ -145,6 +145,11 @@ export interface ResultadoCalculo {
     total: number;
     hayErrores: boolean;
     advertencias: string[];
+    /** "Suministro e instalación de ventana 744 color mate, vidrio claro 4 mm
+     * crudo, medidas 1.000 × 1.000 mm" — la frase que imprime el PDF, armada por
+     * el backend (`lib/detalleComercial.ts`). Ausente en ítems calculados antes
+     * del 2026-09-26: usar `descripcionDeItem` de fichaProducto.ts. */
+    descripcionComercial?: string;
     areaM2?: number;
     /** Resumen de lo que personalizó el asesor (2026-09-23). Ausente = despiece estándar. */
     personalizacion?: ResumenPersonalizacion;
@@ -514,6 +519,9 @@ export interface CotizacionEntrada {
     items?: ItemEntrada[];
     /** Forma nueva: varias propuestas de una vez. Sólo se usa al CREAR. */
     propuestas?: PropuestaEntrada[];
+    /** Sólo al actualizar: versión sobre la que trabajó la pantalla. Si la base
+     * tiene otra (se guardó desde otra ventana), el backend responde 409. */
+    versionEsperada?: number;
     propuestaId?: number;
 }
 
