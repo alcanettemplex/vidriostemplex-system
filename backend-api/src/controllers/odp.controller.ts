@@ -720,11 +720,24 @@ export const getODP = async (req: Request, res: Response) => {
 
 
 export const createODP = async (req: Request, res: Response) => {
+  const r = await crearODPRegistro(req.body, req.user?.id);
+  res.status(r.status).json(r.body);
+};
+
+/** Resultado del flujo, que el handler traduce tal cual a la respuesta (2026-09-27). */
+export interface ResultadoCrearODP { status: number; body: any }
+
+/**
+ * Cuerpo de `createODP`, extraído sin cambios de comportamiento (2026-09-27)
+ * para que el "Crear ODP" del Cotizador (cotización vinculada a un cliente)
+ * cree la ODP por ESTE camino: misma validación, numeración con
+ * `generarNumeroODP` + `withUniqueRetry`, Pedido PV automático y socket.
+ */
+export async function crearODPRegistro(body: unknown, userId: number | undefined): Promise<ResultadoCrearODP> {
   try {
-    const data = odpSchema.parse(req.body);
-    const userId = req.user?.id;
+    const data = odpSchema.parse(body);
     if (!userId) {
-      return res.status(401).json({ error: 'Usuario no autenticado' });
+      return { status: 401, body: { error: 'Usuario no autenticado' } };
     }
 
     const { newOdp, odpId } = await withUniqueRetry(async () => {
@@ -841,15 +854,15 @@ export const createODP = async (req: Request, res: Response) => {
     }
 
     import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'create')).catch(() => {});
-    res.status(201).json(newOdp);
+    return { status: 201, body: newOdp };
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       console.error('Validation Error Details:', JSON.stringify((error as any).errors, null, 2));
-      return res.status(400).json({ error: 'Datos de ODP inválidos', detalles: (error as any).errors });
+      return { status: 400, body: { error: 'Datos de ODP inválidos', detalles: (error as any).errors } };
     }
-    res.status(500).json({ error: error.message || 'Error al crear ODP' });
+    return { status: 500, body: { error: error.message || 'Error al crear ODP' } };
   }
-};
+}
 
 export const updateODP = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();

@@ -30,9 +30,15 @@ function purgarSiHaceFalta(): void {
   }
 }
 
-export function cacheRespuesta(ttlMs: number) {
+/**
+ * `claveExtra` (opcional, 2026-09-27): segmento que se suma a la clave para los
+ * endpoints cuya respuesta depende de QUIÉN pregunta (p. ej. la pestaña Cotizaciones,
+ * donde un asesor solo ve lo suyo). Sin él, la clave es solo método + URL, como siempre.
+ */
+export function cacheRespuesta(ttlMs: number, opciones: { claveExtra?: (req: Request) => string } = {}) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const key = `${req.method}:${req.originalUrl}`;
+    const extra = opciones.claveExtra ? `|${opciones.claveExtra(req)}` : '';
+    const key = `${req.method}:${req.originalUrl}${extra}`;
     const hit = store.get(key);
     if (hit && hit.exp > Date.now()) {
       res.setHeader('X-Cache', 'HIT');

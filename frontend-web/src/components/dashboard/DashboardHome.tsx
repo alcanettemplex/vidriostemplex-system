@@ -1,6 +1,8 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 import GerenciaDashboard from './GerenciaDashboard';
+import TableroCotizacionesSolo from './panels/cotizaciones/TableroCotizacionesSolo';
+import { puedeVerTableroCotizaciones } from './panels/cotizaciones/acceso';
 
 // Interfaz para esquivar el error de typed useSelector si rootState no tiene typings estrictos del usuario
 interface AuthStateUser {
@@ -20,6 +22,12 @@ const DashboardHome: React.FC = () => {
   // Si es administrador o gerencia u otro rol autorizado para esto
   if (['admin', 'gerencia', 'contabilidad', 'jefe_produccion', 'root', 'marketing', 'asesor_comercial', 'produccion', 'compras', 'asistente_administrativo'].includes(user.rol)) {
     return <GerenciaDashboard />;
+  }
+
+  // Roles con acceso al tablero de Cotizaciones que no ven el Dashboard gerencial (hoy:
+  // `gerente`). Ven SOLO esa pestaña, sin exponerles las demás.
+  if (puedeVerTableroCotizaciones(user.rol)) {
+    return <TableroCotizacionesSolo />;
   }
 
   // Fallbacks visuales para otros roles por ahora si llegan aquí

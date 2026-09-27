@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     Trash2, Inbox, AlertTriangle, Package, Copy, Layers,
-    CheckCircle2, Scale, FilePlus2, User, Briefcase, Receipt, Pencil, Lock,
+    CheckCircle2, Scale, FilePlus2, User, Briefcase, Receipt, Pencil, Lock, Link2, FileCheck, ExternalLink,
 } from '../../../components/ui/icons';
 
 import { fmtCOP, fmtPct } from '../format';
@@ -17,6 +17,10 @@ import {
     BotonSecundario, Chip, CONTROL_LABEL_CLASS, EstadoVacio, Tarjeta, claseControl,
 } from './ui';
 import { colorPropuesta } from '../propuestaColor';
+import { AsesorCotizador, FichaVinculo, MOTIVOS_PERDIDA } from '../vinculo';
+import { MotivoPerdida } from '../types';
+import { ChipVinculo } from './BuscadorVinculo';
+import { BotonPrimario } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pestaña "Actual": la propuesta que se está armando, de principio a fin.
@@ -92,6 +96,17 @@ interface Props {
     bloqueoEdicion: string | null;
     /** Ids de módulo que existen hoy: un ítem de un módulo retirado no se edita. */
     modulosDisponibles: Set<string>;
+    // ─── Vínculo con el ERP (2026-09-27) ─────────────────────────────────
+    vinculo?: FichaVinculo | null;
+    odpVinculada?: { id: number; numero: string } | null;
+    /** Estado GUARDADO (null = cotización nueva). */
+    estadoGuardado?: EstadoCotizacion | null;
+    motivoPerdida?: MotivoPerdida | null;
+    /** null = no se ofrece "Crear ODP" (no aprobada, ya tiene ODP o sin permiso). */
+    onCrearOdp?: (() => void) | null;
+    asesores?: AsesorCotizador[];
+    /** Nueva: quien puede crear. Guardada: solo control total. */
+    puedeCambiarAsesor?: boolean;
 }
 
 /** Rótulo largo del tipo de cliente, para la ficha de sólo lectura de Comercial
@@ -146,10 +161,12 @@ const FilaTotal: React.FC<{
 
 const TabActual: React.FC<Props> = ({
     carrito, cabecera, onCambiarCabecera, onQuitarItem,
-    numeroEnEdicion, asesoresSugeridos, estadosDisponibles, parametros,
+    numeroEnEdicion, estadosDisponibles, parametros,
     descuentoPct, onCambiarDescuento, cargos, onCambiarCargos, manoObra, cargandoManoObra, totalesPrevistos, propuestas,
     hayCambiosSinGuardar, onNuevaCotizacion, onEditarItem, onDuplicarItem,
     bloqueoEdicion, modulosDisponibles,
+    vinculo = null, odpVinculada = null, estadoGuardado = null, motivoPerdida = null, onCrearOdp = null,
+    asesores = [], puedeCambiarAsesor = false,
 }) => {
     const [comparando, setComparando] = useState(false);
     const aprobada = Boolean(bloqueoEdicion);
@@ -204,6 +221,42 @@ const TabActual: React.FC<Props> = ({
                             <p>{bloqueoEdicion}</p>
                         </div>
                     )}
+
+                    {/* ── Para quién es y cierre (2026-09-27) ──────────────────── */}
+                    <Tarjeta titulo="Para quién es" icono={Link2}>
+                        <div className="flex flex-wrap items-center gap-3">
+                            {vinculo
+                                ? <ChipVinculo ficha={vinculo} className="flex-1 min-w-[220px]" />
+                                : <span className="flex-1 text-[12.5px] text-slate-800">Sin vínculo todavía: elígelo arriba, en Cotizar.</span>}
+                            {odpVinculada && (
+                                <a
+                                    href={`/odp?buscar=${encodeURIComponent(odpVinculada.numero)}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[12.5px] font-bold text-emerald-800 hover:bg-emerald-100"
+                                    title="Abrir la ODP en otra pestaña"
+                                >
+                                    <FileCheck className="w-4 h-4" /> {odpVinculada.numero} <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                            )}
+                            {onCrearOdp && (
+                                <BotonPrimario compacto icono={FileCheck} onClick={onCrearOdp} claseColor="bg-emerald-600 text-white hover:bg-emerald-700">
+                                    Crear ODP
+                                </BotonPrimario>
+                            )}
+                        </div>
+                        {estadoGuardado && estadoGuardado !== 'APROBADA' && !odpVinculada && estadoGuardado !== 'PERDIDO' && (
+                            <p className="mt-2 text-[12px] text-slate-700">
+                                Cuando el cliente la apruebe, pásala a <span className="font-semibold text-slate-900">Aprobada</span> (Estado,
+                                en Comercial) y aquí aparecerá <span className="font-semibold text-slate-900">Crear ODP</span>.
+                            </p>
+                        )}
+                        {cabecera.estado === 'PERDIDO' && motivoPerdida && (
+                            <p className="mt-2 text-[12px] text-rose-800">
+                                Perdida · motivo: <span className="font-semibold">{MOTIVOS_PERDIDA.find(m => m.valor === motivoPerdida)?.rotulo ?? motivoPerdida}</span>
+                            </p>
+                        )}
+                    </Tarjeta>
 
                     {/* ── Propuestas (A · B · C) ───────────────────────────────── */}
                     {hayPropuestas && (
@@ -371,17 +424,31 @@ const TabActual: React.FC<Props> = ({
                                 </div>
                                 <div>
                                     <label className={labelClass} htmlFor="cot-asesor">Asesor</label>
-                                    <input
-                                        id="cot-asesor"
-                                        className={inputClass}
-                                        list="cotizador-asesores"
-                                        value={cabecera.asesor}
-                                        onChange={e => onCambiarCabecera({ asesor: e.target.value })}
-                                        placeholder="Nombre del asesor"
-                                    />
-                                    <datalist id="cotizador-asesores">
-                                        {asesoresSugeridos.map(a => <option key={a} value={a} />)}
-                                    </datalist>
+                                    {/* El asesor es el DUEÑO (2026-09-27): quien la crea —nadie
+                                        cotiza a nombre de otro—. Solo un administrador lo
+                                        reasigna, en una cotización ya creada. Las anteriores
+                                        conservan su nombre en texto. */}
+                                    {puedeCambiarAsesor && asesores.length > 0 ? (
+                                        <select
+                                            id="cot-asesor"
+                                            className={inputClass}
+                                            value={cabecera.asesorUsuarioId ?? ''}
+                                            onChange={e => {
+                                                const a = asesores.find(x => x.id === Number(e.target.value));
+                                                if (a) onCambiarCabecera({ asesorUsuarioId: a.id, asesor: a.nombre });
+                                            }}
+                                        >
+                                            {cabecera.asesorUsuarioId === null && <option value="">{cabecera.asesor || 'Sin asesor asignado'}</option>}
+                                            {cabecera.asesorUsuarioId !== null && !asesores.some(a => a.id === cabecera.asesorUsuarioId) && (
+                                                <option value={cabecera.asesorUsuarioId}>{cabecera.asesor}</option>
+                                            )}
+                                            {asesores.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                                        </select>
+                                    ) : (
+                                        <div className="h-10 flex items-center px-3 text-sm rounded-lg bg-slate-50 border border-slate-200 text-slate-900">
+                                            {cabecera.asesor || '—'}
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     {/* UN SOLO descuento, el de la propuesta. El del

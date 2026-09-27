@@ -57,6 +57,8 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  // El frontend lee el nombre del archivo de los PDF (Cotizador, 2026-09-27).
+  exposedHeaders: ['Content-Disposition'],
 }));
 
 app.use(helmet());

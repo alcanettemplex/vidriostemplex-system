@@ -113,6 +113,25 @@ export interface CotizacionPdf {
   creadaEn: string | Date;
   cliente: { nombre?: string | null; direccion?: string | null; telefono?: string | null; obra?: string | null; contacto?: string | null };
   asesor?: string | null;
+  /** "ODP-24381" si la cotización ya tiene ODP (2026-09-27). */
+  odpNumero?: string | null;
+}
+
+// ─── Referencia del documento (2026-09-27, pedido del usuario) ──────────────
+// "COT-87" y, si la cotización tiene varias opciones, la letra: "COT-87 B". Con
+// una sola opción la letra sobra (siempre sería la A). La misma referencia
+// encabeza el PDF y da nombre al archivo: "COT-87 B, ODP-24381 Luis Rafael
+// Alcala Muñoz.pdf", para que el cliente y el asesor los encuentren igual.
+
+export function folioCotizacion(numero: number, etiqueta: string, variasOpciones: boolean): string {
+  return variasOpciones && etiqueta ? `COT-${numero} ${etiqueta}` : `COT-${numero}`;
+}
+
+/** Nombre del archivo, sin extensión, sin los caracteres que Windows no admite. */
+export function nombreArchivoCotizacion(folio: string, odpNumero?: string | null, cliente?: string | null): string {
+  const partes = [folio, odpNumero?.trim()].filter(Boolean).join(", ");
+  const nombre = [partes, cliente?.trim()].filter(Boolean).join(" ");
+  return nombre.replace(/[\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 150);
 }
 
 export interface EmpresaPdf {
@@ -238,7 +257,7 @@ export async function generarPdfCotizacion({
     month: "long",
     year: "numeric",
   });
-  const folio = `${cotizacion.numero}-${propuesta.etiqueta}`;
+  const folio = folioCotizacion(cotizacion.numero, propuesta.etiqueta, otrasPropuestas.length > 0);
 
   const manoObra = cargos.filter((c) => esCargoManoObra(c.tipo));
   const otrosCargos = cargos.filter((c) => !esCargoManoObra(c.tipo));
@@ -302,9 +321,21 @@ export async function generarPdfCotizacion({
         {
           stack: [
             { text: "COTIZACIÓN", style: "tituloDocumento", alignment: "right" },
-            { text: `No. ${folio}`, style: "subtituloDocumento", alignment: "right" },
-            // El nombre de la opción (2026-09-26): con varias propuestas, "16-C"
-            // solo no le dice al cliente cuál de las tres está leyendo.
+            // Referencia (2026-09-27): "COT-87 B" en grande; debajo la ODP, si
+            // ya la tiene, y el cliente. Es lo mismo que dice el nombre del archivo.
+            { text: folio, style: "folioDocumento", alignment: "right" },
+            cotizacion.odpNumero?.trim()
+              ? {
+                  text: [{ text: "ODP ", style: "referenciaEtiqueta" }, { text: cotizacion.odpNumero.trim().replace(/^ODP-?/i, "") }],
+                  style: "referenciaDocumento",
+                  alignment: "right",
+                }
+              : null,
+            cotizacion.cliente.nombre?.trim()
+              ? { text: cotizacion.cliente.nombre.trim(), style: "clienteDocumento", alignment: "right" }
+              : null,
+            // El nombre de la opción (2026-09-26): con varias propuestas, la
+            // letra sola no le dice al cliente cuál de las tres está leyendo.
             propuesta.nombre?.trim()
               ? { text: `Opción ${propuesta.etiqueta}: ${propuesta.nombre.trim()}`, style: "opcionDocumento", alignment: "right" }
               : null,
@@ -508,6 +539,10 @@ export async function generarPdfCotizacion({
   });
 
   const docDefinition: Record<string, unknown> = {
+    info: {
+      title: nombreArchivoCotizacion(folio, cotizacion.odpNumero, cotizacion.cliente.nombre),
+      author: empresa?.nombreComercial ?? "Vidrios Templex",
+    },
     pageSize: "A4",
     pageMargins: [40, 40, 40, 50],
     content,
@@ -536,6 +571,10 @@ export async function generarPdfCotizacion({
       marca: { fontSize: 18, bold: true, color: COLOR.navy },
       tituloDocumento: { fontSize: 22, bold: true, color: COLOR.navy },
       subtituloDocumento: { fontSize: 11, color: COLOR.gray },
+      folioDocumento: { fontSize: 14, bold: true, color: COLOR.blue, margin: [0, 2, 0, 0] },
+      referenciaDocumento: { fontSize: 10, bold: true, color: COLOR.grayDark, margin: [0, 1, 0, 0] },
+      referenciaEtiqueta: { fontSize: 8, bold: true, color: COLOR.gray },
+      clienteDocumento: { fontSize: 10, color: COLOR.grayDark, margin: [0, 1, 0, 0] },
       opcionDocumento: { fontSize: 10, bold: true, color: COLOR.blue, margin: [0, 2, 0, 0] },
       detalleItem: { fontSize: 8, color: COLOR.gray, margin: [0, 2, 0, 0] },
       validez: { fontSize: 10, bold: true, color: COLOR.navy, alignment: "center" },

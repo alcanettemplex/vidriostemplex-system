@@ -4,11 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { Plus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase, Calendar } from '../../../components/ui/icons';
+import { Plus, Minus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase, Calendar, Check, Lock } from '../../../components/ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
 import API from '../../../services/config';
+import PartirDeCotizacion, { DatosDeCotizacion } from '../../cotizador/components/PartirDeCotizacion';
+import { apiActualizarCotizacion } from '../../cotizador/services/cotizadorApi';
 
 const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Gris', 'Azul', 'Verde', 'Mate', 'Otro'];
 
@@ -124,7 +126,7 @@ const ColorField: React.FC<{ index: number; register: any; control: any }> = ({ 
             <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Color</label>
             <select
                 {...register(`items.${index}.color`)}
-                className="w-full p-2 text-sm border border-slate-200 rounded focus:ring-2 focus:ring-blue-500 bg-white"
+                className="w-full p-2 text-sm border border-slate-400 rounded focus:ring-2 focus:ring-blue-500 bg-white"
             >
                 <option value="">—</option>
                 {COLORES_VIDRIO.map(c => <option key={c} value={c}>{c}</option>)}
@@ -141,6 +143,28 @@ const ColorField: React.FC<{ index: number; register: any; control: any }> = ({ 
 };
 
 const FUENTES_CLIENTE = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Show Room', 'Referidos', 'Visita Asesor', 'Cliente'];
+
+// ─── Paso 1, rediseño visual (2026-09-27) ────────────────────────────────────
+// Solo presentación: los campos, validaciones y el payload no cambian.
+// Todos los controles miden 40 px (h-10) y comparten borde; `min-w-0` evita que
+// un <select> con opciones largas empuje la tarjeta y abra scroll horizontal.
+const CONTROL = 'h-10 w-full min-w-0 rounded-lg border bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500';
+const borde = (error?: unknown) => (error ? 'border-rose-400' : 'border-slate-400');
+const ROTULO = 'block text-sm font-semibold text-slate-900 mb-1';
+const ROTULO_LINEA = 'block text-xs font-semibold text-slate-900 mb-1';
+const REQUERIMIENTOS = [
+    { key: 'matizado', label: 'Matizado' },
+    { key: 'pelicula', label: 'Película' },
+    { key: 'acarreo', label: 'Acarreo' },
+    { key: 'instalacion', label: 'Instalación' },
+    { key: 'huacal', label: 'Huacal' },
+    { key: 'carton', label: 'Cartón' },
+] as const;
+/** 1250000 → "1.250.000"; 0 o vacío → "" (el placeholder hace de cero). */
+const conMiles = (n: unknown) => {
+    const v = Number(n);
+    return Number.isFinite(v) && v > 0 ? Math.round(v).toLocaleString('es-CO') : '';
+};
 
 const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesorId, tipoOdp }) => {
     const authUser = useSelector((state: any) => state.auth.user);
@@ -160,6 +184,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const [clienteBusqueda, setClienteBusqueda] = useState('');
     const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
     const [clienteSeleccionadoObj, setClienteSeleccionadoObj] = useState<{ id: number; nombre_razon_social: string; numero_documento?: string; fuente?: string | null } | null>(null);
+    /** Cotización aprobada de la que parte esta ODP (2026-09-27): al crearla se vincula. */
+    const [deCotizacion, setDeCotizacion] = useState<DatosDeCotizacion | null>(null);
     const [prospectosBanner, setProspectosBanner] = useState<{ id: number; numero_prospecto: string; descripcion: string }[]>([]);
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [calendarMes, setCalendarMes] = useState(() => {
@@ -172,7 +198,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const [loadingDetalle, setLoadingDetalle] = useState(false);
     const calendarRef = useRef<HTMLDivElement>(null);
 
-    const { register, control, handleSubmit, trigger, reset, setValue, formState: { errors, isSubmitting } } = useForm<ODPFormValues>({
+    const { register, control, handleSubmit, trigger, reset, setValue, getValues, formState: { errors, isSubmitting } } = useForm<ODPFormValues>({
         resolver: zodResolver(odpSchema as any),
         defaultValues: {
             servicios_detalle: [{ cantidad: 1, tipo_servicio: '', descripcion: '' }],
@@ -205,6 +231,18 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const proveedorVidrio = useWatch({ control, name: 'proveedor_vidrio' });
     const clienteIdWatch = useWatch({ control, name: 'cliente_id' });
     const fechaEntregaWatch = useWatch({ control, name: 'fecha_entrega' });
+    const requerimientosWatch = useWatch({ control, name: REQUERIMIENTOS.map(r => r.key) as any }) as unknown as boolean[];
+    // "Lleva vidrio" no es un campo: muestra el proveedor, que es el que crea el
+    // Pedido PV al guardar. Con un pedido ya creado el backend no deja vaciar el
+    // proveedor (409), así que el chip queda fijo y lo explica.
+    const [llevaVidrio, setLlevaVidrio] = useState(false);
+    const pedidoPvCreado = esEdicion && !!odpToEdit?.proveedor_vidrio && !!odpToEdit?.numero_pedido_proveedor;
+    useEffect(() => { if (proveedorVidrio) setLlevaVidrio(true); }, [proveedorVidrio]);
+    const alternarVidrio = () => {
+        if (pedidoPvCreado) return;
+        if (llevaVidrio) setValue('proveedor_vidrio', '');
+        setLlevaVidrio(v => !v);
+    };
     const clienteSeleccionadoODP = clienteSeleccionadoObj || clientes.find(c => c.id === Number(clienteIdWatch));
     // En creación, si el cliente seleccionado aún no tiene fuente registrada, hay que pedirla
     const requiereClienteFuente = !odpToEdit && !!clienteSeleccionadoODP && !clienteSeleccionadoODP.fuente;
@@ -358,8 +396,9 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                             ? 'MEDICION'
                             : 'EN_ESPERA'
                 } : {}),
-                // Si se asignó a otro asesor desde el modal previo, incluir en el payload
-                ...(asesorId ? { asesor_id: asesorId } : {}),
+                // Si se asignó a otro asesor desde el modal previo, incluir en el payload.
+                // Si parte de una cotización, manda su asesor (2026-09-27).
+                ...((deCotizacion?.asesorUsuarioId ?? asesorId) ? { asesor_id: deCotizacion?.asesorUsuarioId ?? asesorId } : {}),
                 // Tipo de orden (ODP normal o OA sin IVA)
                 ...(!odpToEdit && tipoOdp ? { tipo_odp: tipoOdp } : {}),
                 // Pago adelantado sin requerimientos de vidrio
@@ -374,10 +413,19 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                 });
                 toast.success('ODP Actualizada Exitosamente');
             } else {
-                await axios.post(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp`, payload, {
+                const { data: creada } = await axios.post(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp`, payload, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 toast.success('ODP Creada Exitosamente');
+                // Vincular la cotización de la que partió (no bloquea: la ODP ya existe).
+                if (deCotizacion && creada?.id) {
+                    try {
+                        await apiActualizarCotizacion(deCotizacion.cotizacionId, { odpId: Number(creada.id) });
+                    } catch (e: any) {
+                        toast.warn(`La ODP se creó, pero no se pudo vincular la cotización N.° ${deCotizacion.numero}: `
+                            + (e?.response?.data?.error || 'vincúlala desde la ficha de la ODP.'));
+                    }
+                }
             }
             onSuccess();
         } catch (error: any) {
@@ -453,7 +501,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                             <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step === 1 ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-600'}`}>
                                 1
                             </div>
-                            <span className={`text-xs font-bold uppercase ${step === 1 ? 'text-blue-600' : 'text-slate-400'}`}>Acuerdo Comercial</span>
+                            <span className={`text-xs font-bold uppercase ${step === 1 ? 'text-blue-700' : 'text-slate-700'}`}>Acuerdo Comercial</span>
                         </div>
                         <div className="flex-1 h-1 bg-slate-200 rounded-full mb-6">
                             <div className={`h-full bg-blue-600 rounded-full transition-all duration-300 ${step === 2 ? 'w-full' : 'w-0'}`}></div>
@@ -462,7 +510,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                             <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step === 2 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
                                 2
                             </div>
-                            <span className={`text-xs font-bold uppercase ${step === 2 ? 'text-blue-600' : 'text-slate-400'}`}>Desglose Técnico</span>
+                            <span className={`text-xs font-bold uppercase ${step === 2 ? 'text-blue-700' : 'text-slate-700'}`}>Desglose Técnico</span>
                         </div>
                     </div>
 
@@ -475,14 +523,25 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                 exit={{ opacity: 0, x: -20 }}
                                 className="space-y-6"
                             >
+                                {!odpToEdit && (
+                                    <PartirDeCotizacion
+                                        onAplicar={(d) => {
+                                            setDeCotizacion(d);
+                                            if (!d) return;
+                                            setValue('cliente_id', d.clienteId);
+                                            setClienteSeleccionadoObj({ id: d.clienteId, nombre_razon_social: d.clienteNombre });
+                                            setValue('valor_total', d.valor);
+                                        }}
+                                    />
+                                )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Cliente */}
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
+                                        <label className={ROTULO}>Cliente <span className="text-rose-600">*</span></label>
                                         <input type="hidden" {...register('cliente_id')} />
                                         {odpToEdit ? (
-                                            <div className={`w-full p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700`}>
-                                                {clienteSeleccionadoODP?.nombre_razon_social || 'Cliente'}
+                                            <div className={`${CONTROL} border-slate-300 bg-slate-100 flex items-center`}>
+                                                <span className="truncate">{clienteSeleccionadoODP?.nombre_razon_social || 'Cliente'}</span>
                                             </div>
                                         ) : (
                                             <div className="relative">
@@ -491,8 +550,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                     value={dropdownClienteAbierto ? clienteBusqueda : (clienteSeleccionadoObj?.nombre_razon_social || '')}
                                                     onChange={e => { setClienteBusqueda(e.target.value); setClienteSeleccionadoObj(null); setValue('cliente_id', '' as any); setDropdownClienteAbierto(true); }}
                                                     onFocus={() => { setClienteBusqueda(clienteSeleccionadoObj?.nombre_razon_social || ''); setDropdownClienteAbierto(true); }}
-                                                    placeholder="Buscar cliente..."
-                                                    className={`w-full p-2.5 bg-white border ${errors.cliente_id ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:ring-2 focus:ring-blue-500`}
+                                                    placeholder="Buscar cliente por nombre o documento"
+                                                    className={`${CONTROL} ${borde(errors.cliente_id)}`}
                                                 />
                                                 {dropdownClienteAbierto && (
                                                     <>
@@ -519,7 +578,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             </div>
                                         )}
                                         {odpToEdit && (
-                                            <p className="text-xs text-slate-400 mt-1">El cliente no se puede cambiar al editar una ODP.</p>
+                                            <p className="text-xs text-slate-700 mt-1">El cliente no se puede cambiar al editar una ODP.</p>
                                         )}
                                         {errors.cliente_id && <p className="text-red-500 text-xs mt-1">{errors.cliente_id.message}</p>}
 
@@ -570,18 +629,21 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
                                     {/* Fecha Entrega */}
                                     <div ref={calendarRef} className="relative">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Fecha ODP Listo Material</label>
+                                        <label className={ROTULO}>Fecha ODP listo material</label>
                                         <input type="hidden" {...register('fecha_entrega')} />
                                         <button
                                             type="button"
                                             onClick={() => setCalendarOpen(v => !v)}
-                                            className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-left text-sm flex items-center gap-2 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                            className={`${CONTROL} border-slate-400 text-left flex items-center gap-2 hover:border-blue-400 transition`}
                                         >
-                                            <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
-                                            <span className={fechaEntregaWatch ? 'text-slate-800' : 'text-slate-700'}>
-                                                {fechaEntregaWatch ? fmtFechaBtn(fechaEntregaWatch) : 'Ver disponibilidad...'}
+                                            <Calendar className="w-4 h-4 text-slate-600 shrink-0" />
+                                            <span className={fechaEntregaWatch ? 'text-slate-900 font-medium' : 'text-slate-500'}>
+                                                {fechaEntregaWatch ? fmtFechaBtn(fechaEntregaWatch) : 'Seleccionar fecha'}
                                             </span>
                                         </button>
+                                        {!calendarOpen && (
+                                            <p className="text-xs text-slate-700 mt-1">El calendario muestra cuántas ODP tiene el taller cada día.</p>
+                                        )}
                                         {calendarOpen && (
                                             <div className="mt-1 border border-slate-200 rounded-xl bg-white p-4 shadow-lg z-30 relative">
                                                 <div className="flex items-center justify-between mb-3">
@@ -630,17 +692,24 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
                                     {/* Valor Total de la Obra */}
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">{esOA ? 'Valor Total de la Obra (sin IVA)' : 'Valor Total de la Obra (con IVA)'}</label>
+                                        <label className={ROTULO} htmlFor="odp-valor-total">{esOA ? 'Valor total de la obra (sin IVA)' : 'Valor total de la obra (con IVA)'}</label>
                                         <div className="relative">
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <DollarSign className="w-4 h-4 text-slate-400" />
+                                                <DollarSign className="w-4 h-4 text-slate-500" />
                                             </div>
+                                            {/* Se muestra con miles ("1.250.000") y se guarda el número. */}
+                                            <input type="hidden" {...register('valor_total')} />
                                             <input
-                                                type="number"
-                                                step="1"
-                                                {...register('valor_total')}
+                                                id="odp-valor-total"
+                                                type="text"
+                                                inputMode="numeric"
+                                                value={conMiles(valorTotalRaw)}
+                                                onChange={e => {
+                                                    const digitos = e.target.value.replace(/\D/g, '');
+                                                    setValue('valor_total', digitos ? Number(digitos) : 0, { shouldDirty: true });
+                                                }}
                                                 placeholder="0"
-                                                className="w-full pl-9 p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                className={`${CONTROL} border-slate-400 pl-9 text-right tabular-nums font-semibold`}
                                             />
                                         </div>
                                         {!esOA && Number(valorTotalRaw) > 0 && (
@@ -659,16 +728,16 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 </div>
                                             </div>
                                         )}
-                                        {esOA && <p className="text-xs text-slate-400 mt-1">Esta orden no aplica IVA.</p>}
+                                        {esOA && <p className="text-xs text-slate-700 mt-1">Esta orden no aplica IVA.</p>}
                                     </div>
 
                                     {/* Forma de Pago */}
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pago</label>
+                                        <label className={ROTULO}>Forma de pago</label>
                                         <select
                                             {...register('forma_pago')}
                                             disabled={!puedeEditarFormaPago}
-                                            className={`w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm ${puedeEditarFormaPago ? 'bg-white' : 'bg-slate-100 text-slate-500 cursor-not-allowed'}`}
+                                            className={`${CONTROL} border-slate-400 ${puedeEditarFormaPago ? '' : '!bg-slate-100 !text-slate-600 cursor-not-allowed'}`}
                                         >
                                             <option value="">Seleccionar...</option>
                                             <option value="contado">Pago Anticipado</option>
@@ -676,152 +745,160 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             <option value="50_50">50% anticipo / 50% entrega</option>
                                         </select>
                                         {!puedeEditarFormaPago && (
-                                            <p className="text-xs text-slate-500 mt-1">La forma de pago solo puede cambiarla gerencia o un administrador.</p>
+                                            <p className="text-xs text-slate-700 mt-1">La forma de pago solo puede cambiarla gerencia o un administrador.</p>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="p-5 bg-blue-50/50 rounded-xl border border-blue-100 space-y-6">
-                                    <h3 className="font-bold text-blue-900 flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-2">
-                                            <Briefcase className="w-5 h-5 text-blue-600" />
-                                            Información de Productos / Servicios
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => appendServicio({ cantidad: 1, tipo_servicio: 'Suministro e Instalación', descripcion: '' })}
-                                            className="text-sm flex items-center gap-1 text-blue-600 hover:text-blue-700 bg-white px-3 py-1.5 rounded-lg border border-blue-200 shadow-sm transition"
-                                        >
-                                            <Plus className="w-4 h-4" /> Agregar Servicio
-                                        </button>
+                                {/* Productos / servicios — una tarjeta por línea, numerada (2026-09-27) */}
+                                <section className="p-5 bg-blue-50/50 rounded-xl border border-blue-100 space-y-3 min-w-0">
+                                    <h3 className="font-bold text-blue-900 flex items-center gap-2">
+                                        <Briefcase className="w-5 h-5 text-blue-600" />
+                                        Productos y servicios
+                                        <span className="text-xs font-semibold text-blue-800 bg-white ring-1 ring-blue-200 rounded-full px-2 py-0.5">{servicioFields.length}</span>
                                     </h3>
 
-                                    {servicioFields.map((field, index) => (
-                                        <div key={field.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-white border border-blue-100 rounded-lg relative">
-                                            {servicioFields.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeServicio(index)}
-                                                    className="absolute -top-3 -right-3 bg-red-100 text-red-600 p-1.5 rounded-full hover:bg-red-200 shadow-sm"
-                                                    title="Eliminar este servicio"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                </button>
-                                            )}
-
-                                            <div className="md:col-span-2">
-                                                <label className="block text-xs font-semibold text-slate-900 mb-1">Cant. *</label>
-                                                <input
-                                                    type="number"
-                                                    {...register(`servicios_detalle.${index}.cantidad`)}
-                                                    min="1"
-                                                    className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.cantidad ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white`}
-                                                />
-                                            </div>
-
-                                            <div className="md:col-span-4">
-                                                <label className="block text-xs font-semibold text-slate-900 mb-1">Servicio/Gestión *</label>
-                                                <select
-                                                    {...register(`servicios_detalle.${index}.tipo_servicio`)}
-                                                    className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.tipo_servicio ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white`}
-                                                >
-                                                    <option value="Suministro e Instalación">Suministro e Instalación</option>
-                                                    <option value="Solo Instalación">Solo Instalación</option>
-                                                    <option value="Venta">Venta</option>
-                                                    <option value="Mantenimiento">Mantenimiento</option>
-                                                    <option value="Garantía / Reposición">Garantía / Reposición</option>
-                                                    <option value="Otro">Otro</option>
-                                                </select>
-                                            </div>
-
-                                            <div className="md:col-span-6 space-y-2">
-                                                <label className="block text-xs font-semibold text-slate-900 mb-1">Descripción del Producto/Obra *</label>
-                                                {catalogo.length > 0 && (
-                                                    <div className="flex gap-2">
-                                                        <select
-                                                            value={catSeleccionada[index] || ''}
-                                                            onChange={e => setCatSeleccionada(prev => ({ ...prev, [index]: e.target.value }))}
-                                                            className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400"
-                                                        >
-                                                            <option value="">-- Categoría --</option>
-                                                            {categorias.map(cat => (
-                                                                <option key={cat} value={cat}>{cat}</option>
-                                                            ))}
-                                                        </select>
-                                                        <select
-                                                            value=""
-                                                            onChange={e => {
-                                                                const item = catalogo.find(i => i.id === Number(e.target.value));
-                                                                if (item) setValue(`servicios_detalle.${index}.descripcion`, item.descripcion);
-                                                            }}
-                                                            className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400"
-                                                        >
-                                                            <option value="">-- Producto --</option>
-                                                            {catalogo
-                                                                .filter(i => !catSeleccionada[index] || i.categoria === catSeleccionada[index])
-                                                                .map(i => (
-                                                                    <option key={i.id} value={i.id}>{i.nombre}</option>
-                                                                ))}
-                                                        </select>
-                                                    </div>
-                                                )}
-                                                <textarea
-                                                    {...register(`servicios_detalle.${index}.descripcion`)}
-                                                    placeholder="Descripción del producto u obra..."
-                                                    rows={3}
-                                                    className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.descripcion ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white text-xs resize-none`}
-                                                />
-                                                {errors.servicios_detalle?.[index]?.descripcion && (
-                                                    <p className="text-xs text-red-700">{errors.servicios_detalle[index]?.descripcion?.message}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {errors.servicios_detalle?.root && <p className="text-red-700 text-sm">{errors.servicios_detalle.root.message}</p>}
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
-                                        <h3 className="font-semibold text-slate-900 text-sm uppercase">Requerimientos Adicionales</h3>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {[
-                                                { key: 'matizado', label: 'Matizado' },
-                                                { key: 'pelicula', label: 'Película' },
-                                                { key: 'acarreo', label: 'Acarreo' },
-                                                { key: 'instalacion', label: 'Instalación' },
-                                                { key: 'huacal', label: 'Huacal' },
-                                                { key: 'carton', label: 'Cartón' }
-                                            ].map(({ key, label }) => (
-                                                <label key={key} className="flex items-center gap-2 cursor-pointer group">
-                                                    <div className="relative flex items-center">
-                                                        <input
-                                                            type="checkbox"
-                                                            {...register(key as keyof ODPFormValues)}
-                                                            className="peer sr-only"
-                                                        />
-                                                        <div className="w-5 h-5 bg-white border-2 border-slate-300 rounded group-hover:border-blue-500 peer-checked:bg-blue-600 peer-checked:border-blue-600 transition flex items-center justify-center">
-                                                            <svg className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    {servicioFields.map((field, index) => {
+                                        const e = errors.servicios_detalle?.[index];
+                                        const cambiarCantidad = (delta: number) => {
+                                            const actual = Number(getValues(`servicios_detalle.${index}.cantidad`)) || 1;
+                                            setValue(`servicios_detalle.${index}.cantidad`, Math.max(1, actual + delta), { shouldDirty: true, shouldValidate: true });
+                                        };
+                                        return (
+                                            <div key={field.id} className="p-4 bg-white border border-blue-100 rounded-lg space-y-3 min-w-0">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-blue-800 bg-blue-50 ring-1 ring-blue-200 rounded-md px-2 py-0.5">#{index + 1}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeServicio(index)}
+                                                        disabled={servicioFields.length === 1}
+                                                        title={servicioFields.length === 1 ? 'La ODP necesita al menos una línea' : `Quitar la línea #${index + 1}`}
+                                                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-rose-700 hover:bg-rose-50 rounded-md px-2 py-1 transition disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-700 disabled:cursor-not-allowed"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" /> Quitar
+                                                    </button>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                                    <div className="md:col-span-2 min-w-0">
+                                                        <label className={ROTULO_LINEA}>Cant. <span className="text-rose-600">*</span></label>
+                                                        <div className={`flex h-10 items-stretch rounded-lg border bg-white overflow-hidden ${borde(e?.cantidad)}`}>
+                                                            <button type="button" onClick={() => cambiarCantidad(-1)} aria-label="Menos" className="px-2.5 text-slate-700 hover:bg-slate-100">
+                                                                <Minus className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                {...register(`servicios_detalle.${index}.cantidad`)}
+                                                                className="w-full min-w-0 text-center text-sm font-semibold text-slate-900 tabular-nums border-x border-slate-200 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                            />
+                                                            <button type="button" onClick={() => cambiarCantidad(1)} aria-label="Más" className="px-2.5 text-slate-700 hover:bg-slate-100">
+                                                                <Plus className="w-3.5 h-3.5" />
+                                                            </button>
                                                         </div>
                                                     </div>
-                                                    <span className="text-sm text-slate-700 font-medium group-hover:text-slate-900 transition">{label}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
+                                                    <div className="md:col-span-4 min-w-0">
+                                                        <label className={ROTULO_LINEA}>Servicio / gestión <span className="text-rose-600">*</span></label>
+                                                        <select {...register(`servicios_detalle.${index}.tipo_servicio`)} className={`${CONTROL} ${borde(e?.tipo_servicio)}`}>
+                                                            <option value="">Seleccionar…</option>
+                                                            <option value="Suministro e Instalación">Suministro e Instalación</option>
+                                                            <option value="Solo Instalación">Solo Instalación</option>
+                                                            <option value="Venta">Venta</option>
+                                                            <option value="Mantenimiento">Mantenimiento</option>
+                                                            <option value="Garantía / Reposición">Garantía / Reposición</option>
+                                                            <option value="Otro">Otro</option>
+                                                        </select>
+                                                    </div>
+                                                    {catalogo.length > 0 && (
+                                                        <>
+                                                            <div className="md:col-span-3 min-w-0">
+                                                                <label className={ROTULO_LINEA}>Categoría</label>
+                                                                <select
+                                                                    value={catSeleccionada[index] || ''}
+                                                                    onChange={ev => setCatSeleccionada(prev => ({ ...prev, [index]: ev.target.value }))}
+                                                                    className={`${CONTROL} border-slate-400`}
+                                                                >
+                                                                    <option value="">Todas</option>
+                                                                    {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                                                </select>
+                                                            </div>
+                                                            <div className="md:col-span-3 min-w-0">
+                                                                <label className={ROTULO_LINEA}>Producto del catálogo</label>
+                                                                <select
+                                                                    value=""
+                                                                    onChange={ev => {
+                                                                        const item = catalogo.find(i => i.id === Number(ev.target.value));
+                                                                        if (item) setValue(`servicios_detalle.${index}.descripcion`, item.descripcion, { shouldValidate: true });
+                                                                    }}
+                                                                    className={`${CONTROL} border-slate-400`}
+                                                                >
+                                                                    <option value="">Elegir para llenar la descripción</option>
+                                                                    {catalogo
+                                                                        .filter(i => !catSeleccionada[index] || i.categoria === catSeleccionada[index])
+                                                                        .map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+                                                                </select>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    <div className="md:col-span-12 min-w-0">
+                                                        <label className={ROTULO_LINEA}>Descripción del producto u obra <span className="text-rose-600">*</span></label>
+                                                        <textarea
+                                                            {...register(`servicios_detalle.${index}.descripcion`)}
+                                                            placeholder="Ej.: Ventana corrediza 744 color mate, vidrio claro 4 mm, 1.200 × 1.000 mm"
+                                                            rows={2}
+                                                            className={`w-full min-w-0 px-3 py-2 bg-white border rounded-lg text-sm text-slate-900 resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 ${borde(e?.descripcion)}`}
+                                                        />
+                                                        {e?.descripcion && <p className="text-xs text-rose-700 mt-1">{e.descripcion.message}</p>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {errors.servicios_detalle?.root && <p className="text-rose-700 text-sm">{errors.servicios_detalle.root.message}</p>}
 
-                                    <div className="bg-orange-50/50 p-5 rounded-xl border border-orange-200/50 space-y-4">
-                                        <h3 className="font-semibold text-slate-900 text-sm uppercase flex items-center gap-2">
-                                            <Package className="w-4 h-4 text-orange-500" />
-                                            Pedido Externo (Vidrio)
-                                        </h3>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-xs font-semibold text-slate-900 mb-1">Proveedor</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => appendServicio({ cantidad: 1, tipo_servicio: 'Suministro e Instalación', descripcion: '' })}
+                                        className="w-full h-10 inline-flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-blue-300 text-sm font-semibold text-blue-700 hover:bg-white hover:border-blue-400 transition"
+                                    >
+                                        <Plus className="w-4 h-4" /> Agregar servicio
+                                    </button>
+                                </section>
+
+                                {/* Requerimientos como chips + "Lleva vidrio" con su proveedor (2026-09-27) */}
+                                <section className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-3">
+                                    <h3 className="font-semibold text-slate-900 text-sm uppercase tracking-wide">Requerimientos</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {REQUERIMIENTOS.map(({ key, label }, i) => {
+                                            const activo = Boolean(requerimientosWatch?.[i]);
+                                            return (
+                                                <label key={key} className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold cursor-pointer select-none ring-1 transition focus-within:ring-2 focus-within:ring-blue-500 ${activo ? 'bg-blue-600 text-white ring-blue-600' : 'bg-white text-slate-800 ring-slate-300 hover:ring-blue-400'}`}>
+                                                    <input type="checkbox" {...register(key as keyof ODPFormValues)} className="sr-only" />
+                                                    {activo && <Check className="w-3.5 h-3.5" />} {label}
+                                                </label>
+                                            );
+                                        })}
+                                        <button
+                                            type="button"
+                                            onClick={alternarVidrio}
+                                            aria-pressed={llevaVidrio}
+                                            title={pedidoPvCreado ? 'Ya tiene Pedido PV: el proveedor no se puede quitar.' : 'Muestra el proveedor del vidrio (crea el Pedido PV al guardar).'}
+                                            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold ring-1 transition ${llevaVidrio ? 'bg-orange-500 text-white ring-orange-500' : 'bg-white text-slate-800 ring-slate-300 hover:ring-orange-400'} ${pedidoPvCreado ? 'cursor-not-allowed' : ''}`}
+                                        >
+                                            {pedidoPvCreado ? <Lock className="w-3.5 h-3.5" /> : llevaVidrio ? <Check className="w-3.5 h-3.5" /> : <Package className="w-3.5 h-3.5" />}
+                                            Lleva vidrio
+                                        </button>
+                                    </div>
+                                    <input type="hidden" {...register('proveedor_vidrio')} />
+                                    {llevaVidrio && (
+                                        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-orange-200 bg-orange-50/60 p-3">
+                                            <div className="w-full sm:w-64">
+                                                <label className={ROTULO_LINEA}>Proveedor del vidrio</label>
                                                 <select
-                                                    {...register('proveedor_vidrio')}
-                                                    className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                    value={proveedorVidrio || ''}
+                                                    onChange={ev => setValue('proveedor_vidrio', ev.target.value, { shouldDirty: true })}
+                                                    className={`${CONTROL} border-slate-400`}
                                                 >
-                                                    <option value="">Seleccionar...</option>
+                                                    {!pedidoPvCreado && <option value="">Seleccionar…</option>}
                                                     <option value="Vitelsa">Vitelsa</option>
                                                     <option value="Templacol">Templacol</option>
                                                     <option value="Vidplex">Vidplex</option>
@@ -829,75 +906,72 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 </select>
                                             </div>
                                             {proveedorVidrio && !odpToEdit && (
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-slate-900 mb-1">Núm. Pedido PV (auto)</label>
-                                                    <div className="w-full text-sm p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-mono font-bold">
-                                                        {siguienteNumeroPV ?? '...'}
-                                                    </div>
-                                                    <p className="text-xs text-slate-700 mt-1">Se asigna automáticamente al crear la ODP</p>
-                                                </div>
+                                                <p className="text-sm text-slate-800 pb-2">
+                                                    Pedido PV <span className="font-mono font-bold text-slate-900">{siguienteNumeroPV ?? '…'}</span> — se crea al guardar la ODP.
+                                                </p>
                                             )}
-                                            {odpToEdit && odpToEdit.numero_pedido_proveedor && (
-                                                <div>
-                                                    <label className="block text-xs font-semibold text-slate-900 mb-1">Núm. Pedido PV</label>
-                                                    <div className="w-full text-sm p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-mono font-bold">
-                                                        {odpToEdit.numero_pedido_proveedor}
-                                                    </div>
-                                                </div>
+                                            {odpToEdit?.numero_pedido_proveedor && (
+                                                <p className="text-sm text-slate-800 pb-2">
+                                                    Pedido PV <span className="font-mono font-bold text-slate-900">{odpToEdit.numero_pedido_proveedor}</span>
+                                                    {pedidoPvCreado && ' · ya creado: se puede cambiar de proveedor, no quitarlo.'}
+                                                </p>
+                                            )}
+                                            {!proveedorVidrio && (
+                                                <p className="text-sm text-orange-800 font-semibold pb-2">Elige el proveedor o desmarca "Lleva vidrio".</p>
                                             )}
                                         </div>
-                                    </div>
-                                </div>
+                                    )}
+                                </section>
 
                                 <div className="space-y-4 mt-6">
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Dirección de Instalación / Entrega <span className="text-rose-500">*</span></label>
+                                        <label className={ROTULO}>Dirección de instalación / entrega <span className="text-rose-600">*</span></label>
                                         <input
                                             type="text"
                                             {...register('direccion_instalacion')}
                                             placeholder="Ej. Cra 45 #23-10, Barrio El Centro"
-                                            className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.direccion_instalacion ? 'border-rose-400' : 'border-slate-200'}`}
+                                            className={`${CONTROL} ${borde(errors.direccion_instalacion)}`}
                                         />
                                         {errors.direccion_instalacion && <p className="text-xs text-rose-500 mt-1">{errors.direccion_instalacion.message}</p>}
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Contacto en Obra <span className="text-rose-500">*</span></label>
+                                            <label className="block text-sm font-semibold text-slate-900 mb-1">Contacto en Obra <span className="text-rose-500">*</span></label>
                                             <input
                                                 type="text"
                                                 {...register('nombre_recibe')}
                                                 placeholder="Nombre de quien recibe"
-                                                className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.nombre_recibe ? 'border-rose-400' : 'border-slate-200'}`}
+                                                className={`${CONTROL} ${borde(errors.nombre_recibe)}`}
                                             />
                                             {errors.nombre_recibe && <p className="text-xs text-rose-500 mt-1">{errors.nombre_recibe.message}</p>}
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono Contacto <span className="text-rose-500">*</span></label>
+                                            <label className="block text-sm font-semibold text-slate-900 mb-1">Teléfono Contacto <span className="text-rose-500">*</span></label>
                                             <input
                                                 type="text"
                                                 {...register('telefono_recibe')}
                                                 placeholder="Cel. o fijo de contacto"
-                                                className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.telefono_recibe ? 'border-rose-400' : 'border-slate-200'}`}
+                                                className={`${CONTROL} ${borde(errors.telefono_recibe)}`}
                                             />
                                             {errors.telefono_recibe && <p className="text-xs text-rose-500 mt-1">{errors.telefono_recibe.message}</p>}
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Cargo Contacto</label>
+                                            <label className="block text-sm font-semibold text-slate-900 mb-1">Cargo Contacto</label>
                                             <input
                                                 type="text"
                                                 {...register('cargo_recibe')}
                                                 placeholder="Ej: Administrador, Residente de obra"
-                                                className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                className={`${CONTROL} border-slate-400`}
                                             />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Observaciones Esp. Cliente</label>
+                                        <label className="block text-sm font-semibold text-slate-900 mb-1">Observaciones Esp. Cliente</label>
                                         <textarea
                                             {...register('observaciones')}
                                             placeholder="Notas, cuidados, horarios límite, indicaciones para la visita técnica, etc..."
                                             rows={3}
-                                            className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                                            className="w-full p-3 bg-white border border-slate-400 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
                                         />
                                     </div>
                                 </div>
@@ -1006,7 +1080,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                     <input
                                                         type="text"
                                                         {...register(`items.${index}.espesor`)}
-                                                        className="w-full p-2 text-sm border border-slate-200 rounded focus:ring-2 focus:ring-blue-500"
+                                                        className="w-full p-2 text-sm border border-slate-400 rounded focus:ring-2 focus:ring-blue-500"
                                                     />
                                                 </div>
                                                 <div className="w-1/2 lg:w-2/12 border-l border-slate-200 pl-4">
@@ -1016,14 +1090,14 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                             type="number"
                                                             placeholder="Ancho"
                                                             {...register(`items.${index}.ancho_mm`)}
-                                                            className="w-1/2 p-2 text-sm border border-slate-200 rounded focus:ring-2 focus:ring-blue-500"
+                                                            className="w-1/2 p-2 text-sm border border-slate-400 rounded focus:ring-2 focus:ring-blue-500"
                                                         />
                                                         <span className="text-slate-700 self-center">×</span>
                                                         <input
                                                             type="number"
                                                             placeholder="Alto"
                                                             {...register(`items.${index}.alto_mm`)}
-                                                            className="w-1/2 p-2 text-sm border border-slate-200 rounded focus:ring-2 focus:ring-blue-500"
+                                                            className="w-1/2 p-2 text-sm border border-slate-400 rounded focus:ring-2 focus:ring-blue-500"
                                                         />
                                                     </div>
                                                 </div>
@@ -1032,7 +1106,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                     <input
                                                         type="number"
                                                         {...register(`items.${index}.cantidad`)}
-                                                        className="w-full p-2 text-sm border border-slate-200 rounded focus:ring-2 focus:ring-blue-500"
+                                                        className="w-full p-2 text-sm border border-slate-400 rounded focus:ring-2 focus:ring-blue-500"
                                                     />
                                                 </div>
 
@@ -1040,27 +1114,27 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 <div className="w-full lg:flex-1 grid grid-cols-4 gap-2 border-l border-slate-200 pl-4">
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">PUL A*</label>
-                                                        <input type="number" min="0" max="9" {...register(`items.${index}.pulidos`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" placeholder="0" />
+                                                        <input type="number" min="0" max="9" {...register(`items.${index}.pulidos`)} className="w-full p-1.5 text-xs border border-slate-400 rounded text-center" placeholder="0" />
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">PUL H*</label>
-                                                        <input type="number" min="0" max="9" {...register(`items.${index}.pulidos_h`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" placeholder="0" />
+                                                        <input type="number" min="0" max="9" {...register(`items.${index}.pulidos_h`)} className="w-full p-1.5 text-xs border border-slate-400 rounded text-center" placeholder="0" />
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Perf.</label>
-                                                        <input type="number" {...register(`items.${index}.perforaciones`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" />
+                                                        <input type="number" {...register(`items.${index}.perforaciones`)} className="w-full p-1.5 text-xs border border-slate-400 rounded text-center" />
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Boq.</label>
-                                                        <input type="number" {...register(`items.${index}.boquetes`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" />
+                                                        <input type="number" {...register(`items.${index}.boquetes`)} className="w-full p-1.5 text-xs border border-slate-400 rounded text-center" />
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Des.</label>
-                                                        <input {...register(`items.${index}.descuentos`)} className="w-full p-1.5 text-xs border border-slate-200 rounded" />
+                                                        <input {...register(`items.${index}.descuentos`)} className="w-full p-1.5 text-xs border border-slate-400 rounded" />
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Otros**</label>
-                                                        <input {...register(`items.${index}.otros`)} className="w-full p-1.5 text-xs border border-slate-200 rounded" />
+                                                        <input {...register(`items.${index}.otros`)} className="w-full p-1.5 text-xs border border-slate-400 rounded" />
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">MTS PT</label>
@@ -1078,7 +1152,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">PROD</label>
-                                                        <select {...register(`items.${index}.prod`)} className="w-full p-1.5 text-xs border border-slate-200 rounded bg-white">
+                                                        <select {...register(`items.${index}.prod`)} className="w-full p-1.5 text-xs border border-slate-400 rounded bg-white">
                                                             <option value="">—</option>
                                                             <option value="PV">PV</option>
                                                             <option value="CAMARA">CAMARA</option>

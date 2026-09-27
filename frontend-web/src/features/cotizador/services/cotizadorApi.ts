@@ -9,6 +9,9 @@ import {
     Plano, ProductoCatalogo, ProductoCatalogoGeneral, ResultadoCalculo, ResultadoRecalculoCategoria,
     RespuestaPropuesta, SegmentoCliente, LineaManoObra,
 } from '../types';
+import type {
+    AsesorCotizador, FichaVinculo, FormaPagoODP, FuenteLead, PlanCrearODP, ResultadosVinculo, TipoVinculo,
+} from '../vinculo';
 
 const BASE = `${API}/api/cotizador`;
 
@@ -277,3 +280,56 @@ export const apiGetEmpresa = () => axios.get<Partial<DocumentoCotizacion>>(`${BA
 
 /** PUT /empresa — condiciones (una por elemento), garantía y validez. */
 export const apiGuardarDocumentoCotizacion = (datos: DocumentoCotizacion) => axios.put(`${BASE}/empresa`, datos);
+
+// ─── Vínculo con el ERP (2026-09-27) ─────────────────────────────────────────
+// "¿Para quién es esta cotización?": buscador, lead rápido y "Crear ODP".
+
+/** GET /vinculos/buscar — leads, prospectos, clientes y ODP (6 de cada uno). */
+export const apiBuscarVinculos = (q: string, tipos?: TipoVinculo[]) =>
+    axios.get<ResultadosVinculo>(`${BASE}/vinculos/buscar`, {
+        params: { q, ...(tipos && tipos.length ? { tipos: tipos.join(',') } : {}) },
+    });
+
+/** GET /vinculos/:tipo/:id — ficha de un vínculo (para pintarlo o precargar). */
+/**
+ * Alta de cliente desde "Crear ODP" (2026-09-27): el mismo POST /api/clientes
+ * del módulo Clientes (mismas validaciones y el 409 si el documento, el
+ * teléfono o el correo ya existen). No es del Cotizador: por eso va fuera de BASE.
+ */
+export interface ClienteNuevoEntrada {
+    nombre_razon_social: string;
+    tipo_documento: string;
+    numero_documento: string;
+    telefono?: string;
+    email?: string;
+    direccion?: string;
+    fuente: string;
+}
+export const apiCrearCliente = (datos: ClienteNuevoEntrada) =>
+    axios.post<{ id: number; nombre_razon_social: string; telefono?: string | null; direccion?: string | null }>(`${API}/api/clientes`, datos);
+
+export const apiObtenerVinculo = (tipo: TipoVinculo, id: number) =>
+    axios.get<FichaVinculo>(`${BASE}/vinculos/${tipo}/${id}`);
+
+/** GET /vinculos/asesores — quiénes pueden ser asesor de una cotización. */
+export const apiListarAsesoresCotizador = () => axios.get<AsesorCotizador[]>(`${BASE}/vinculos/asesores`);
+
+/** POST /vinculos/lead-rapido — crea un lead REAL del CRM. 409 trae `existente`. */
+export const apiCrearLeadRapido = (datos: { nombre: string; telefono: string; fuente?: FuenteLead; asesorId?: number | null }) =>
+    axios.post<FichaVinculo>(`${BASE}/vinculos/lead-rapido`, datos);
+
+/** Cotizaciones de un registro del ERP (lead, prospecto, cliente u ODP), sin blobs. */
+export const apiCotizacionesDe = (tipo: TipoVinculo, id: number) => {
+    const clave = { lead: 'leadId', prospecto: 'prospectoId', cliente: 'clienteId', odp: 'odpId' }[tipo];
+    return axios.get<CotizacionLigera[]>(`${BASE}/cotizaciones`, { params: { [clave]: id } });
+};
+
+/** GET /cotizaciones/:id/crear-odp — qué haría "Crear ODP" (no escribe nada). */
+export const apiPreviaCrearOdp = (cotizacionId: number) =>
+    axios.get<PlanCrearODP>(`${BASE}/cotizaciones/${cotizacionId}/crear-odp`);
+
+/** POST /cotizaciones/:id/crear-odp — crea la ODP por el flujo que corresponda y la vincula. */
+export const apiCrearOdpDesdeCotizacion = (
+    cotizacionId: number,
+    datos: { formaPago: FormaPagoODP; clienteId?: number; nombre?: string; telefono?: string }
+) => axios.post<{ odpId: number; numeroOdp: string; camino: string }>(`${BASE}/cotizaciones/${cotizacionId}/crear-odp`, datos);

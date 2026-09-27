@@ -260,9 +260,8 @@ de cotización guardados antes del 2026-09-21 no traen estos dos campos**, así 
 excluye con advertencia explícita ("clona la propuesta para regenerar") en vez de asumir 0 % de
 desperdicio o adivinar el código.
 
-⚠️ **Sigue sin conectarse a nada** — no hay endpoint, no hay botón en `SAPModal`. Bloqueado por la
-falta de vínculo Cotización↔ODP (`cotizador-vision.md` → sección "Identidad"): sin saber qué
-cotización alimenta qué SAP, no hay desde dónde invocarlo.
+✅ **Conectado desde el 2026-09-27** vía `lib/itemsParaSap.ts` y el botón "Traer ítems de la
+cotización" de la ficha ODP — ver la sección "Integración con la ficha ODP" al final.
 
 ---
 
@@ -1014,7 +1013,11 @@ correcto.
 
 ---
 
-## Cotización sin cliente ni asesor — deliberado mientras está aislado
+## ~~Cotización sin cliente ni asesor — deliberado mientras está aislado~~ (superado el 2026-09-27)
+
+> Desde la integración con el ERP (ver "Integración con el ERP" al final) toda cotización nueva exige
+> vínculo (lead, prospecto, cliente u ODP) y tiene asesor dueño (`asesor_usuario_id`). Lo de abajo queda
+> como historia.
 
 Hoy se puede guardar y aprobar una cotización sin cliente y sin asesor (`clienteSchema` y `asesor`
 son `optional()`; las N.° 11 y 12 están así). **No es un bug a corregir ahora** (decisión del
@@ -1375,3 +1378,229 @@ la sesión, `respaldo-antes-autoguardado/`).
 - Verificado con Playwright (12/12): 3 clientes creados sin pulsar Guardar, salto con el selector
   (≈3,4 s: guarda la abierta y trae la otra), edición previa al salto persistida, autoguardado en
   Resumen, conflicto detectado sin pisar la otra ventana.
+
+## Tablero de Cotizaciones en el Dashboard gerencial (2026-09-27)
+
+La pestaña **Cotizaciones** del Dashboard leía la tabla vieja `public.cotizacion` (0 filas: todo en cero). Se rediseñó sobre el schema `cotizador`.
+
+- **Backend:** `GET /api/dashboard/cotizaciones` (panel) y `GET /api/dashboard/cotizaciones/excel` (libro .xlsx). Controlador `controllers/dashboard_cotizaciones.controller.ts`; consultas y Excel en `services/dashboardCotizaciones.service.ts`. Filtros por query con Zod `.strict()`: `desde`, `hasta` (AAAA-MM-DD, por defecto el año en curso), `asesor_id`, `cliente` (nombre, obra o N.°), `estado`, `monto_min`, `monto_max`, `segmento`, `producto` (módulo en la opción elegida).
+- **Acceso:** control total del Cotizador (`nivelCotizador === 'total'`) ve todo; `asesor_comercial` ve **solo** sus cotizaciones (`asesor_usuario_id = su id`), impuesto en el servicio aunque mande otro `asesor_id`. Otros roles: 403. El asesor ya entraba al Dashboard gerencial (DashboardHome) y veía las otras 5 pestañas: eso no se tocó; solo se le suma esta. `gerente` (control total pero fuera de `DASHBOARD_ROLES`) ve un tablero con **solo** esta pestaña (`TableroCotizacionesSolo`).
+- **Reglas de cálculo:** valores = `cotizacion.total_total` (opción ELEGIDA, con IVA; sin elegida suma $0 y se avisa). Las **canceladas se excluyen** de todas las métricas salvo filtrando por ese estado. Fechas contra la fecha de **Bogotá** (`AT TIME ZONE 'America/Bogota'`: la sesión de Supabase está en UTC). Conversión = aprobadas ÷ cotizadas (# y $). "Con ODP" = `odp_id` no nulo. Productos y sistemas salen de las columnas espejo del ítem (`modulo_id`, `sistema`, `cantidad_piezas`, `total`) de la opción elegida: valor de productos **sin** cargos de obra ni descuento, por eso no cuadra con el total de la cotización.
+- **Validez:** `cotizador.empresa.validez_oferta_dias` días **hábiles lunes a viernes, sin festivos**. Vencida = pasó el plazo; por vencer = quedan 0–2 días hábiles. Solo señal visual, el estado no cambia (decisión del usuario).
+- **Egress:** el panel es 100% agregado en SQL, sin JSONB. El Excel lee `input` + `resultado->'diseno'` (no el blob entero) solo de los ítems filtrados, para `descripcionComercial`.
+- **Caché:** `cacheRespuesta(5 min, { claveExtra })` — la clave suma el ALCANCE (`total` compartido, `u<id>` por asesor). `cacheMemoria.ts` ganó la opción `claveExtra`, aditiva. Sin ella, un asesor con la misma URL recibiría la foto cacheada de un gerente. El Excel no se cachea.
+- **Frontend:** `components/dashboard/panels/PanelCotizaciones.tsx` + `panels/cotizaciones/` (filtros propios, hook `useCotizacionesDashboard`, 5 bloques). Ya no pasa por `useDashboardData` ni por el selector de periodo del encabezado.
+
+---
+
+## Integración con la ficha ODP: SAP, Hoja de trabajo y sección COT (2026-09-27)
+
+Tres piezas en la ficha de la ODP que leen la cotización del Cotizador vinculada
+(`cotizador.cotizacion.odp_id`). La ficha solo LEE el Cotizador; crear/editar se hace allá
+(`/cotizador?abrir=<id>`, `/cotizador?nuevo=1&vinculo=odp:<id>`).
+
+### Traer ítems de la cotización → SAP
+- Botón en Comercial → SAP, visible solo si hay una cotización vinculada **APROBADA** y el rol puede
+  escribir la SAP (`root/admin/gerencia/asesor_comercial/jefe_produccion`, espejo de
+  `documentos.routes.ts`). Usa la opción ELEGIDA.
+- Endpoint `POST /api/documentos/sap/desde-cotizacion` (`sap.controller.ts → traerItemsDeCotizacion`),
+  Zod `.strict()`: `{ odp_id, cotizacion_id?, sap_id?: number|'nueva', modo?: 'agregar'|'reemplazar',
+  dry_run? }`. **`dry_run` es TRUE por defecto**: sin `dry_run:false` explícito nunca escribe. La
+  previsualización devuelve exactamente las filas que se escribirían.
+- Lógica pura en `lib/itemsParaSap.ts` (pruebas `itemsParaSap.test.ts`, 16, sin BD, en `test:cotizador`):
+  - **Perfilería con cortes**: una fila por código, DIMENSIÓN "cant-medida" con " / ", × piezas del
+    ítem; CANT. = barras de 6 m calculadas por `generarPerfileriaSAP` (no se duplica la cuenta).
+  - **Sin cortes** (medidas libres, o blob sin `desperdicioPct`): barras desde los metros del BOM,
+    DIMENSIÓN "Total 4,2 m", OBSERVACIÓN "Medir en obra: sin cortes calculados". Un mismo perfil
+    puede salir dos veces (una con cortes y otra "medir") si la cotización mezcla ítems con y sin diseño.
+  - **Accesorios**: cantidad × piezas, UND/ML/M2, redondeo hacia arriba.
+  - **Película y matizado** (`PELI*`, `PEL0*`, `MATI*`, se reconocen por código): una fila por tamaño
+    de paño "750 x 1600" (despiece o medida del formulario), cantidad = paños.
+  - **No trae**: vidrio (categoría VIDRIO) ni procesos del vidrio (ACABADO: BPB, PERF, BOQ) — van al
+    Pedido PV; se listan en `excluidos`. `GPI1102` (guía de piso, mal categorizada como VIDRIO) sí va
+    como accesorio.
+  - **Códigos del ERP**: se traduce el código del Cotizador al de `catalogo_productos` vía
+    `cotizador.producto.catalogo_producto_id` (105 productos tienen código propio, p. ej.
+    PRV700MATE ↔ CAB0103) y se toma su nombre como DESCRIPCIÓN. Sin equivalencia → código del
+    Cotizador + advertencia. Sin esto Compras no encuentra el ítem ni se marca `tiene_aluminio`.
+  - Diseño no apto para corte → se trae con observación "Verificar medidas antes de cortar".
+  - `dimension` es VARCHAR(100): lo que no quepa pasa completo a la observación.
+  - Letras: convención de `SAPModal` (A…Z, luego "27", "28"…).
+- **Destino**: sin SAP → se crea una en borrador por el mismo camino que `createSAP`
+  (`generarNumeroSAP` + `withUniqueRetry`), en la MISMA transacción que los ítems (no queda una SAP
+  vacía que bloquee Herrajes). Con SAP → la más reciente; se puede elegir otra o "Nueva SAP".
+- **Agregar debajo**: letras desde la siguiente a la MAYOR usada (no rellena huecos).
+  **Reemplazar**: solo si ningún ítem está comprometido — `odc_items` que lo referencian,
+  `estado_compra ≠ pendiente`, `existencia_piezas`, `es_faltante`, `modificado`, `exist_perf` con
+  texto. Se recomprueba dentro de la transacción con `LOCK UPDATE`. El estado de la SAP no cuenta
+  (las 386 están en 'borrador'). Borrado y alta con `individualHooks: true` (auditoría).
+- **Doble carga**: `sap_items.origen_cotizacion_id`; si la cotización ya está en una SAP de la ODP se
+  rechaza (409) salvo reemplazar sobre esa misma SAP.
+- Después: `recalcularAluminioODP`, `recalcularChecksODP({herrajes:true})`, `emitirODPPatch`,
+  `emitirCambio('compras')`. Una ODP ANULADA se rechaza.
+- Verificado 2026-09-27 solo en `dry_run` contra ODP reales (633 sin SAP, 630 SAP libre, 627 con 11
+  ítems comprometidos → reemplazo bloqueado). **La escritura real no se ha probado.**
+
+### Hoja de trabajo en "Imprimir ODP"
+Formato nuevo en `ODPTabImprimir.tsx` → `HojaTrabajoODP.tsx`, que reutiliza **tal cual**
+`PrintableHojaTrabajo` y carga planos/despieces como `ModalDetalleCotizacion`. Prefiere las
+cotizaciones APROBADAS (selector si hay varias); sin cotización vinculada el botón queda
+deshabilitado con el motivo. Se imprime sin `ESTILOS_IMPRESION_ODP` (la hoja trae su `<style>`/@page).
+
+### Sección "Cotizaciones (COT)" de Comercial
+`CotizacionesODPSection.tsx` + `useCotizacionesDeOdp.ts`: tarjetas desde
+`GET /cotizador/cotizaciones?odpId=` y el detalle de cada una (máx. 5, por egress) para la
+descripción comercial y los servicios. Modal con productos, cargos, totales, cliente/vínculo,
+"Descargar PDF" y "Editar cotización" (si `puedeEditar`). "Nueva cotización" y "Vincular cotización"
+(aprobadas sin ODP, sugeridas por cliente, `PUT {odpId}`) para roles que crean cotizaciones.
+Ya no se pinta `odp.cotizaciones` (tabla vieja `cotizacion`, 0 filas); el include sigue en
+`getODPById` y `COTModal` sigue vivo en `ODPListPage`.
+
+
+---
+
+## Vínculo con el ERP, CRM automático y "Crear ODP" (2026-09-27, Agente B)
+
+Parte de la integración del Cotizador al ERP (permisos y migración: fase A del supervisor).
+
+- **Vínculo obligatorio.** "¿Para quién es esta cotización?" (arriba de Cotizar, `BarraVinculo` +
+  `BuscadorVinculo`) busca a la vez leads, prospectos, clientes y ODP (`GET /api/cotizador/vinculos/buscar`,
+  6 por tipo, mín. 2 caracteres). Sin vínculo se calcula pero no se agrega ("Primero elige para quién es";
+  prop `sinVinculo` de `TabCotizar`). El vínculo precarga nombre/teléfono/dirección (editables en Resumen).
+  En una cotización guardada, "Cambiar" hace `PUT {vinculo}` al instante.
+- **Lead rápido** (`POST /vinculos/lead-rapido`, exige `puedeCrear`): crea un lead REAL con
+  `crearLeadRegistro` —el cuerpo extraído de `createLead` del CRM—, asignado al asesor de la cotización.
+  Teléfono repetido → 409 con la ficha del existente ("Usar ese lead").
+- **Asesor = dueño.** Se elige al crear (por defecto quien crea; `GET /vinculos/asesores`); después solo
+  control total lo cambia (select en Resumen → Comercial).
+- **CRM automático** (`cotizador/lib/vinculos.ts`, dentro de la transacción del store; eventos con tipos
+  ya existentes del ENUM):
+  - crear / vincular a un lead → COTIZANDO si estaba en NUEVO, ASIGNADO, EN_CONTACTO o FRIO (FRIO se
+    reactiva); nunca retrocede SEGUIMIENTO/VISITA_TECNICA ni toca APROBADO/PERDIDO. Lead de bolsa común →
+    toma el asesor de la cotización (evento ASIGNACION). Siempre evento CAMBIO_ESTADO o SEGUIMIENTO.
+  - APROBADA → lead APROBADO + `fecha_aprobado` + `monto_real_venta` = total de la opción elegida (misma
+    escritura que `updateLeadStatus`).
+  - PERDIDO → modal `ModalMotivoPerdida` (PRECIO, TIEMPO_ENTREGA, COMPETENCIA, NO_RESPONDIO, DESISTIO,
+    OTRO + detalle) y "¿Marcar también el lead como perdido?" (`marcarLeadPerdido` en el PUT). Motivo al
+    CRM con sus etiquetas ("Precio alto", "Fue con la competencia"…). Un lead APROBADO no se pierde.
+  - La respuesta trae `avisosCRM: string[]` y la pantalla los muestra.
+  - **El prospecto NO se aprueba al aprobar la cotización**: en el código aprobar un prospecto ES crear su
+    ODP (`aprobarProspecto`); se aprueba con "Crear ODP".
+- **Crear ODP** (Resumen, solo con la cotización APROBADA guardada): `GET /cotizaciones/:id/crear-odp`
+  previsualiza (no escribe) y `POST` ejecuta **el flujo existente**:
+  prospecto (o lead con prospecto en gestión) → `aprobarProspectoRegistro`; lead → `crearODPParaLead`;
+  cliente → `crearODPRegistro` (el `POST /api/odp`). Valor = total con IVA de la opción elegida, asesor de
+  la cotización, `servicios_detalle`/descripción desde los ítems, forma de pago obligatoria (después solo
+  gerencia/admin la cambia). Si el lead/prospecto ya tiene ODP se ofrece vincular esa. Roles: los del
+  `POST /api/odp` (admin, gerencia, asesor_comercial, jefe_produccion); prospecto: su asesor o admin/gerencia.
+  Los cuatro handlers (`createLead`, `crearODPDesdeLead`, `aprobarProspecto`, `createODP`) se partieron en
+  handler + función exportable **sin cambiar su comportamiento**.
+- **Contrato de enlaces** (`enlaceCotizador` en `features/cotizador/vinculo.ts`):
+  `/cotizador?abrir=<id>` y `/cotizador?nuevo=1&vinculo=<tipo>:<id>`; se consumen una vez y se limpian.
+- **Entradas:** detalle del lead (CRM, `CotizacionesDeRegistro`), botón "Cotizar" en tarjetas de la columna
+  Cotizando, modal del prospecto (`CotizacionesDeRegistro`), y en el formulario de ODP nueva "¿Parte de una
+  cotización aprobada?" (`PartirDeCotizacion`: llena cliente, asesor y valor y al crear hace `PUT {odpId}`;
+  las de lead/prospecto se mandan al Cotizador para no desincronizar el CRM).
+- **Pruebas** (scratchpad de la sesión): `vinculos-api.js` (33 ✔), `sync-crm-rollback.ts` (10 ✔, en
+  transacción deshecha y sin auditoría), `regresion-flujos.js` (6 ramas sin escritura de los handlers
+  refactorizados), `e2e-vinculo.js` (Playwright, 19 ✔). Crear ODP / lead rápido reales quedan para la
+  prueba coordinada con el usuario (la base local es producción).
+
+---
+
+## Integración con el ERP (2026-09-27) — resumen del supervisor
+
+Orden del usuario: conectar el Cotizador al ERP. Trabajo repartido en una fase base (supervisor) y tres
+agentes (B vínculo/CRM/Crear ODP, C ficha ODP/SAP/impresión, D Dashboard), cada uno con su sección arriba.
+
+- **Base:** script `2026-09-27_cotizador_integracion_erp.ts` (columnas de dueño, creador, vínculo, ODP,
+  motivo de pérdida, `aprobada_en`, `perdida_en`; `sap_items.origen_cotizacion_id`). Permisos en
+  `cotizador/lib/permisos.ts` (espejo `features/cotizador/permisos.ts`): total = root, admin, gerencia,
+  gerente, jefe_produccion; propias = asesor_comercial, asistente_administrativo (ven todo, editan lo
+  suyo); resto solo lectura — **produccion y compras pasaron a lectura en la ronda 2** (abajo). Precios,
+  costos, calibración y configuración: solo total.
+- **Decisiones confirmadas por el usuario tras la revisión:** un lead FRÍO que recibe cotización vuelve a
+  COTIZANDO; el asesor comercial conserva las demás pestañas del Dashboard y suma Cotizaciones filtrada;
+  asistente/producción/compras no ven esa pestaña.
+- **Bug del CRM corregido:** "Crear ODP desde lead" guardaba `forma_pago = 'CONTADO'` (mayúsculas); ahora
+  'contado'. Script `2026-09-27_normalizar_forma_pago_odp.ts` para las 65 ODP afectadas (cuenta por
+  defecto; escribe con `--aplicar`).
+- **Verificación del supervisor (las tres partes juntas):** tsc back/front, ESLint sin avisos nuevos,
+  suites 90/90, permisos 20/20, vínculos 33/33, regresión de los 4 flujos extraídos (mismos códigos de
+  respuesta), UI Cotizador 18/18, ficha ODP 15/15 (root y asesor, sin escribir en SAP), Dashboard 20/20.
+- **⚠️ La base local es la de PRODUCCIÓN:** los caminos que escriben en el ERP (lead rápido, Crear ODP,
+  escritura real a SAP, sincronía CRM persistida) se verifican en una prueba coordinada con el usuario.
+
+## Ronda 2 de la integración (2026-09-27, tras la verificación del usuario)
+
+- **Nadie cotiza a nombre de otro.** La cotización nace con quien la crea como asesor (`store.crear`
+  ignora `asesorUsuarioId` si hay usuario). Se quitó el selector "Asesor" de la barra "¿Para quién…?";
+  en Resumen el asesor es un dato fijo, salvo para control total en una cotización ya creada (reasignar).
+  Crean: asesores, asistente administrativo, jefe de producción, admin, root, gerencia y gerente
+  (el gerente queda igual que gerencia, decisión del usuario). Producción y compras: solo lectura.
+- **Pestaña "Cotizaciones"** (antes "Mis cotizaciones") con filtro **Asesor**: "Todos / Mis cotizaciones /
+  cada asesor". Arranca en "Mis cotizaciones" para quien edita solo las suyas.
+- **Ficha del prospecto** (`ProspectosPage`, el modal de detalle — no el formulario `ProspectoModal`):
+  sección "Cotizaciones del prospecto" con "Nueva cotización".
+- **ODP nueva → "¿Parte de una cotización aprobada?"** se muestra siempre; sin disponibles explica por qué
+  y lleva al Cotizador (antes se ocultaba y el usuario no sabía que existía). `ODPForm`: etiquetas en
+  negro, bordes de campo `slate-400`, obligatorios con asterisco rojo (solo visual).
+- **Crear ODP → "+ Crear cliente"** en los tres caminos: mini formulario (nombre, tipo y número de
+  documento, teléfono, correo, dirección, fuente) contra `POST /api/clientes`; el 409 de duplicado se
+  explica. Reemplaza el "Es un cliente nuevo" (solo nombre + teléfono) del camino lead.
+- **Referencia del PDF:** `COT-87` y, con varias opciones, la letra (`COT-87 B`). Encabeza el PDF junto a
+  la ODP vinculada y el cliente, y da nombre al archivo: `COT-87 B, ODP-24381 Cliente.pdf`
+  (`folioCotizacion` / `nombreArchivoCotizacion` en `generadorPdfCotizacion.ts`). El backend lo manda en
+  `Content-Disposition` (`filename*` UTF-8) y `app.ts` expone esa cabecera por CORS.
+
+### Cabina Glasvit (antes "Cabina Deslizante Primavera")
+
+Script `2026-09-27_cotizador_cabina_glasvit.ts` (**corrido**, la base local es producción):
+- Solo cambia `cotizador.diseno.sistema` → "Cabina Glasvit". Los ids (`Cabina Deslizante Primavera::…`)
+  NO cambian: los referencian ítems guardados, perfiles, vidrios y accesorios. El módulo reconoce Glasvit
+  por `/PRIMAVERA/` en el id.
+- Alta de `KDG0305` (costo $105.000, del usuario, sin proveedor), `KDG0302` ($386.555) y `KDG0308`
+  ($115.000), ambos del proveedor vigente; PA/PM/PB con el multiplicador de ACCESORIO.
+- **Holgura de todas las cabinas: 3 mm en el ancho, 0 en el alto** (fila por sistema en
+  `calibracion_holgura`; la global sigue en 3 × 3).
+
+Reglas (usuario, `modules/cabinasCorredizas.ts`, por diseño y por medidas libres):
+- El kit trae los herrajes: **sin ROD0401 ni botón**. Perforación (PERF01), boquilla (BOQN02) y BPB sí se
+  cobran — son ACABADO y la SAP ya los excluye.
+- Kit: ancho ≤ 1.500 → KDG0306; ≤ 2.200 → KDG0305; más → KDG0305 **con aviso**. En L, un solo kit que
+  ya contempla los dos lados: KDG0302 (2 fijos + 1 corrediza) o KDG0308 (2 fijos + 2 corredizas).
+- Tubo TUB0316: **uno**, largo = ancho (en L, X + Y), cobrado por **tramo**: $37.500 hasta 1.800 mm,
+  $50.000 hasta 2.200, $75.000 hasta 3.000 y, pasando, $75.000 + la fracción proporcional (con aviso).
+  Precio = costo del tramo × multiplicador de su categoría. La SAP pide 1 tubo (`piezasEnteras`).
+- **En L se mide X × Y:** campos `ladoYCm` y `configuracionL`, visibles solo con "en L" (nuevo `soloSi` del
+  contrato de campos, lo respeta `FormularioModulo`). Lado Y: 2F1C = un fijo a la medida del lado; 2F2C =
+  el mismo diseño sobre Y. Van a los cortes con `lado: "Y"`. Sin lado Y → error claro.
+- `cotizarPorDiseno` ganó el hook `ajustarItems` (último retoque del BOM antes de totalizar).
+- Descripción comercial: "cabina de baño Glasvit en L (2 fijos + 1 corrediza), …, medidas 1.200 × 900 mm,
+  alto 1.900 mm".
+
+Verificación: `test:cotizador` 148/148 (4 pruebas nuevas de Glasvit; se corrigieron 2 que esperaban lo
+anterior — Primavera con rodachinas y `calcularItem` idéntico al motor, rota desde que existe la
+descripción comercial); API de permisos/PDF 10/10; capturas de barra, pestaña, cabina en L, ficha de
+prospecto y ODP nueva sin errores de página.
+
+## Ronda 3 de la integración (2026-09-27)
+
+- **Cliente oficial al crear la ODP:** `crearODPDesdeCotizacion` (`lib/vinculos.ts`), en los tres caminos,
+  copia a la cotización el cliente de la ODP recién creada (`cliente_id`, nombre, teléfono y dirección
+  oficiales). El lead / prospecto de origen se conservan. Antes quedaba el nombre escrito a mano al cotizar
+  y el filtro por cliente no la encontraba.
+- **Listado con vínculos:** `store.listar` agrega `vinculos: [{tipo, id, etiqueta}]` (nombre del lead,
+  PR-…, cliente, ODP-…) con 4 consultas agrupadas solo por los ids listados. El buscador `q` también
+  encuentra por número de ODP, de prospecto y nombre del lead (subconsultas con el texto escapado).
+  Pestaña Cotizaciones: columna "Vinculada a" con chips por tipo.
+- **Excel del tablero, hoja Listado:** columna **Fuente** = `leads.fuente_lead` de la cotización → fuente
+  del cliente (directo, del prospecto o de la ODP) → lead de origen del prospecto / ODP → "Sin registrar".
+- **Tablero:** el filtro Asesor va primero ("Todos los asesores") y lista a todos los que pueden cotizar,
+  no solo a quien ya tiene cotizaciones.
+- **"Partir de una cotización aprobada"** es un buscador (número, cliente, asesor) en vez de un select.
+
+### ⚠️ Pruebas contra la base de producción
+La base local es la de producción y el pooler de Supabase admite **15 conexiones** en modo sesión,
+compartidas con el ERP en uso. Correr la suite completa con el backend local encendido las agota: otros
+usuarios pueden ver errores momentáneos. Correr las pruebas por partes y fuera del horario laboral.

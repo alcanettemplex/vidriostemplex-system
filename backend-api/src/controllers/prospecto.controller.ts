@@ -163,9 +163,25 @@ export const noAprobarProspecto = async (req: Request, res: Response) => {
 
 // POST /prospectos/:id/aprobar — aprobar y generar ODP borrador
 export const aprobarProspecto = async (req: Request, res: Response) => {
+  const r = await aprobarProspectoRegistro(req.params.id, req.body, req.user);
+  res.status(r.status).json(r.body);
+};
+
+/** Resultado del flujo, que el handler traduce tal cual a la respuesta (2026-09-27). */
+export interface ResultadoAprobarProspecto { status: number; body: any }
+
+/**
+ * Cuerpo de `aprobarProspecto`, extraído sin cambios de comportamiento para que
+ * el "Crear ODP" del Cotizador apruebe el prospecto por ESTE mismo camino
+ * (ODP + TMs + leads sincronizados + capturas + Pedido PV) en vez de duplicarlo.
+ */
+export async function aprobarProspectoRegistro(
+  id: string | number,
+  body: any,
+  user: Request['user'],
+): Promise<ResultadoAprobarProspecto> {
   const t = await sequelize.transaction();
   try {
-    const { id } = req.params;
     const {
       servicios_detalle, fecha_entrega, valor_total, forma_pago, observaciones,
       nombre_recibe, telefono_recibe, cargo_recibe, direccion_instalacion,
@@ -177,8 +193,8 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       cliente_fuente,
       // asesor_id opcional: si se pasa, asigna la ODP a ese asesor; si no, al usuario logueado
       asesor_id: asesor_id_body,
-    } = req.body;
-    const userId = req.user?.id;
+    } = body;
+    const userId = user?.id;
 
     const prospecto = await Prospecto.findByPk(id, {
       include: [
@@ -187,17 +203,17 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       ],
       transaction: t,
     });
-    if (!prospecto) { await t.rollback(); return res.status(404).json({ error: 'Prospecto no encontrado' }); }
+    if (!prospecto) { await t.rollback(); return { status: 404, body: { error: 'Prospecto no encontrado' } }; }
     if (prospecto.getDataValue('estado') !== 'en_gestion') {
       await t.rollback();
-      return res.status(400).json({ error: 'Solo se pueden aprobar prospectos en gestión' });
+      return { status: 400, body: { error: 'Solo se pueden aprobar prospectos en gestión' } };
     }
 
     // ─── Verificación de ownership (solo creador, admin o gerencia) ───
-    if (!['admin', 'gerencia'].includes(req.user?.rol ?? '')) {
-      if (Number(prospecto.getDataValue('asesor_id')) !== Number(req.user?.id)) {
+    if (!['admin', 'gerencia'].includes(user?.rol ?? '')) {
+      if (Number(prospecto.getDataValue('asesor_id')) !== Number(user?.id)) {
         await t.rollback();
-        return res.status(403).json({ error: 'Solo el creador del prospecto puede aprobarlo' });
+        return { status: 403, body: { error: 'Solo el creador del prospecto puede aprobarlo' } };
       }
     }
 
@@ -218,7 +234,7 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
         await prospecto.update({ cliente_id: cliente_id_final }, { transaction: t });
       } else {
         await t.rollback();
-        return res.status(400).json({ error: 'Debes seleccionar o crear un cliente para aprobar el prospecto' });
+        return { status: 400, body: { error: 'Debes seleccionar o crear un cliente para aprobar el prospecto' } };
       }
     }
 
@@ -395,9 +411,9 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
     });
 
     import('../server').then(({ emitirCambio }) => { emitirCambio('crm'); emitirCambio('odp'); }).catch(() => {});
-    res.status(201).json({ odp: odpCompleta, prospecto_id: id });
+    return { status: 201, body: { odp: odpCompleta, prospecto_id: id } };
   } catch (error: any) {
     await t.rollback();
-    res.status(500).json({ error: 'Error al aprobar prospecto', detail: error.message });
+    return { status: 500, body: { error: 'Error al aprobar prospecto', detail: error.message } };
   }
-};
+}

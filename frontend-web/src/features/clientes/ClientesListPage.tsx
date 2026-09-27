@@ -30,7 +30,9 @@ type ClienteFormValues = z.infer<typeof clienteSchema>;
 
 const ClientesListPage: React.FC = () => {
   const authUser = useSelector((state: any) => state.auth?.user);
-  const isReadOnly = authUser?.rol === 'asistente_administrativo';
+  // Asistente administrativo: crea y edita clientes desde el 2026-09-27; eliminar
+  // sigue siendo de los demás roles (el backend lo impone igual).
+  const puedeEliminar = authUser?.rol !== 'asistente_administrativo';
 
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -134,7 +136,7 @@ const ClientesListPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900">Directorio de Clientes</h1>
           <p className="text-slate-700 text-sm mt-1">Administra la base de datos de personas y empresas</p>
         </div>
-        {!isReadOnly && (
+        {(
         <button
           onClick={() => {
             setEditingClienteId(null);
@@ -237,7 +239,6 @@ const ClientesListPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        {!isReadOnly && (<>
                         <button
                           onClick={() => handleEdit(cliente)}
                           className="text-slate-500 hover:text-blue-700 transition p-1.5 hover:bg-blue-50 rounded"
@@ -245,6 +246,7 @@ const ClientesListPage: React.FC = () => {
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
+                        {puedeEliminar && (
                         <button
                           onClick={() => setDeletingCliente(cliente)}
                           className="text-slate-500 hover:text-red-700 transition p-1.5 hover:bg-red-50 rounded"
@@ -252,7 +254,7 @@ const ClientesListPage: React.FC = () => {
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                        </>)}
+                        )}
                       </div>
                     </td>
                   </motion.tr>

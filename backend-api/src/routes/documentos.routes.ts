@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getSAPsByODP, createSAP, updateSAP, deleteSAP, buscarCatalogo } from '../controllers/sap.controller';
+import { getSAPsByODP, createSAP, updateSAP, deleteSAP, buscarCatalogo, traerItemsDeCotizacion } from '../controllers/sap.controller';
 import { getCotizacionesByODP, createCotizacion, updateCotizacion } from '../controllers/cotizacion.controller';
 import { getTMsByODP, getTMPanel, createTM, programarTM, updateTM, deleteTM, uploadFotoTM, retornarTM, getTMsSinODP, vincularTMaODP } from '../controllers/toma_medidas.controller';
 import authMiddleware from '../middlewares/authMiddleware';
@@ -11,6 +11,9 @@ const router = Router();
 // SAP routes
 router.get('/sap/odp/:odp_id', authMiddleware, getSAPsByODP);
 router.post('/sap', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), createSAP);
+// Traer ítems de la cotización del Cotizador vinculada a la ODP (2026-09-27). Mismos roles
+// que crear/editar una SAP; `dry_run` (por defecto) solo previsualiza.
+router.post('/sap/desde-cotizacion', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), traerItemsDeCotizacion);
 router.put('/sap/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), updateSAP);
 router.delete('/sap/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), deleteSAP);
 router.get('/sap/catalogo/buscar', authMiddleware, buscarCatalogo);

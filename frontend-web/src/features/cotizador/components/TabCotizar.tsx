@@ -86,6 +86,9 @@ interface Props {
     /** Motivo por el que no se puede agregar ni editar (propuesta elegida de una
      * cotización aprobada). null = se puede. */
     bloqueo: string | null;
+    /** Cotización nueva sin "¿Para quién es?" (2026-09-27): se puede calcular,
+     * pero no agregar. A diferencia de `bloqueo`, no pinta el aviso verde. */
+    sinVinculo?: string | null;
     /** Propuesta a la que se agregará lo que se calcule aquí. */
     destino: { etiqueta: string; nombre: string | null };
     /** Avisa al padre qué producto calculado hay en pantalla (o null), para el
@@ -97,7 +100,7 @@ interface Props {
 }
 
 const TabCotizar: React.FC<Props> = ({
-    modulos, segmento, onAgregarItem, edicion, onGuardarEdicion, onCancelarEdicion, bloqueo, destino,
+    modulos, segmento, onAgregarItem, edicion, onGuardarEdicion, onCancelarEdicion, bloqueo, sinVinculo = null, destino,
     onBorrador, renderResumen,
 }) => {
     const [moduloId, setModuloId] = useState<string>(edicion?.item.moduloId ?? modulos[0]?.id ?? '');
@@ -249,7 +252,7 @@ const TabCotizar: React.FC<Props> = ({
     };
 
     const confirmar = () => {
-        if (!ultimoResultado || !ultimoInput || !moduloActivo || bloqueo) return;
+        if (!ultimoResultado || !ultimoInput || !moduloActivo || bloqueo || (sinVinculo && !edicion)) return;
         const item: ItemCarrito = {
             idTemp: edicion?.item.idTemp ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             moduloId: moduloActivo.id,
@@ -296,6 +299,7 @@ const TabCotizar: React.FC<Props> = ({
     const pendiente = estadoCalculo?.tipo === 'calculando' || estadoCalculo?.tipo === 'incompleto' || estadoCalculo?.tipo === 'error';
     const hayErrores = Boolean(ultimoResultado?.hayErrores);
     const motivoNoAgregar = bloqueo
+        ?? (sinVinculo && !edicion ? sinVinculo : null)
         ?? (!hayResultado ? null
             : hayErrores ? 'Corrige las líneas en rojo del despiece para poder agregarlo.'
             : pendiente || recalculando ? 'Espera a que termine el cálculo.'
@@ -318,7 +322,7 @@ const TabCotizar: React.FC<Props> = ({
         editando: edicion ? edicion.posicion : null,
         textoBoton: edicion ? `Guardar cambios en el ítem ${edicion.posicion}` : `Agregar a la ${rotulo}`,
         claseBoton: edicion ? undefined : color.boton,
-        puedeAgregar: hayResultado && !hayErrores && !bloqueo && !pendiente && !recalculando,
+        puedeAgregar: hayResultado && !hayErrores && !bloqueo && !(sinVinculo && !edicion) && !pendiente && !recalculando,
         motivoNoAgregar,
         onAgregar: confirmar,
         onCancelarEdicion: edicion ? onCancelarEdicion : undefined,

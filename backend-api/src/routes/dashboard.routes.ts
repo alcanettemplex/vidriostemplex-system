@@ -6,13 +6,18 @@ import {
   getProduccionData,
   getEquipoData,
   getAlertas,
-  getCotizacionesData,
   getCarteraVencida,
   getPedidosFacturados
 } from '../controllers/dashboard.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { cacheRespuesta } from '../utils/cacheMemoria';
+import {
+  exigirAccesoPanelCotizaciones,
+  getPanelCotizaciones,
+  descargarExcelCotizaciones,
+} from '../controllers/dashboard_cotizaciones.controller';
+import { claveAlcanceCache } from '../services/dashboardCotizaciones.service';
 
 const router = Router();
 
@@ -29,7 +34,16 @@ router.get('/ventas', authMiddleware, requireRole(...DASHBOARD_ROLES), cacheResp
 router.get('/produccion', authMiddleware, requireRole(...DASHBOARD_ROLES), cacheRespuesta(TTL_KPIS), getProduccionData);
 router.get('/equipo', authMiddleware, requireRole(...DASHBOARD_ROLES), cacheRespuesta(TTL_KPIS), getEquipoData);
 router.get('/alertas',       authMiddleware, requireRole(...DASHBOARD_ROLES), getAlertas);
-router.get('/cotizaciones', authMiddleware, requireRole('admin', 'gerencia', 'root'), cacheRespuesta(TTL_KPIS), getCotizacionesData);
+// Pestaña Cotizaciones (Cotizador nuevo, 2026-09-27). Control total ve todo; un asesor
+// comercial, solo lo suyo (impuesto en el servicio). La caché va por ALCANCE: control
+// total comparte la foto, cada asesor tiene la suya — sin eso, un asesor podría recibir
+// la respuesta cacheada de un gerente con la misma URL. TTL corto (5 min): el asesor
+// espera ver pronto la cotización que acaba de crear. El Excel no se cachea.
+const TTL_COTIZACIONES = 5 * 60 * 1000;
+router.get('/cotizaciones', authMiddleware, exigirAccesoPanelCotizaciones,
+  cacheRespuesta(TTL_COTIZACIONES, { claveExtra: (req) => claveAlcanceCache(req.user ? { id: Number(req.user.id), rol: String(req.user.rol) } : undefined) }),
+  getPanelCotizaciones);
+router.get('/cotizaciones/excel', authMiddleware, exigirAccesoPanelCotizaciones, descargarExcelCotizaciones);
 router.get('/cartera-vencida', authMiddleware, requireRole(...DASHBOARD_ROLES), cacheRespuesta(TTL_KPIS), getCarteraVencida);
 router.get('/pedidos-facturados', authMiddleware, requireRole(...DASHBOARD_ROLES), cacheRespuesta(TTL_KPIS), getPedidosFacturados);
 

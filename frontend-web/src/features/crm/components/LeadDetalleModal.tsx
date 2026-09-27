@@ -21,6 +21,7 @@ import ConvertirClienteModal from './ConvertirClienteModal';
 import CrearODPModal from './CrearODPModal';
 import SolicitarVisitaModal from './SolicitarVisitaModal';
 import LeadImagenes from './LeadImagenes';
+import CotizacionesDeRegistro from '../../cotizador/components/CotizacionesDeRegistro';
 
 // ─── Mapa estado → etiqueta visual ───────────────────────────────────────────
 const ESTADO_INFO: Record<string, { label: string; color: string; bg: string }> = {
@@ -680,6 +681,9 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
               )}
             </div>
           )}
+
+          {/* ── Cotizaciones del Cotizador (2026-09-27) ─────────────────── */}
+          <CotizacionesDeRegistro tipo="lead" id={lead.id} titulo="Cotizaciones del lead" />
 
           {/* ── PANEL DE CIERRE (solo APROBADO) ─────────────────────────── */}
           {lead.estado_crm === 'APROBADO' && (

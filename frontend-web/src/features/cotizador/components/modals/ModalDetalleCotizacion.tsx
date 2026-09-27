@@ -220,15 +220,24 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
      * patrón de descarga que `ManualVisor.tsx`/`PedidosPVPage.tsx`: con
      * `responseType: 'blob'` un error llega como Blob, no como JSON, así que el
      * mensaje de error es genérico en vez de intentar leer `.error` de él. */
+    const nombreDeContentDisposition = (valor?: string): string | null => {
+        if (!valor) return null;
+        const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(valor);
+        if (utf8) { try { return decodeURIComponent(utf8[1]); } catch { /* cae al ASCII */ } }
+        const ascii = /filename="([^"]+)"/i.exec(valor);
+        return ascii ? ascii[1] : null;
+    };
+
     const descargarPdf = async () => {
         if (!cot || !activa) return;
         setDescargandoPdf(true);
         try {
-            const { data } = await apiDescargarPdfPropuesta(cot.id, activa.id);
+            const { data, headers } = await apiDescargarPdfPropuesta(cot.id, activa.id);
             const url = URL.createObjectURL(data);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Cotizacion-${cot.numero}-${activa.etiqueta}.pdf`;
+            // "COT-87 B, ODP-24381 Cliente.pdf": el nombre lo arma el backend.
+            a.download = nombreDeContentDisposition(headers?.['content-disposition']) ?? `COT-${cot.numero}.pdf`;
             document.body.appendChild(a);
             a.click();
             a.remove();

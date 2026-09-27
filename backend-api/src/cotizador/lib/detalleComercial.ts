@@ -71,9 +71,15 @@ function forma(diseno: DisenoLaxo | null): string {
  * técnico entre paréntesis de la etiqueta del formulario. */
 const CABINA_CORREDIZA: Record<string, string> = {
   corrediza: "cabina de baño corrediza",
-  glasvit: "cabina de baño corrediza Glasvit",
+  glasvit: "cabina de baño Glasvit",
   deslizante_pizavidrio: "cabina de baño deslizante pizavidrio",
   tubo_rectangular: "cabina de baño corrediza en tubo rectangular",
+};
+
+/** Cabina Glasvit en L: qué lleva cada lado. */
+const CONFIGURACION_L: Record<string, string> = {
+  "2F1C": "2 fijos + 1 corrediza",
+  "2F2C": "2 fijos + 2 corredizas",
 };
 
 const ACABADO_ESPEJO: Record<string, string> = {
@@ -122,14 +128,20 @@ function producto(
       break;
     }
     case "cabinas-corredizas": {
-      // Con diseño manda su sistema ("Cabina Deslizante Primavera" → "cabina de
-      // baño deslizante Primavera"); sin diseño, el tipo elegido.
+      // Con diseño manda su sistema ("Cabina Deslizante Torino" → "cabina de
+      // baño deslizante Torino", "Cabina Glasvit" → "cabina de baño Glasvit":
+      // solo el tipo va en minúscula, la marca no); sin diseño, el tipo elegido.
       const porDiseno = diseno?.sistema
-        ? `cabina de baño ${diseno.sistema.replace(/^Cabina\s+/i, "").replace(/^\p{Lu}/u, (c) => c.toLowerCase())}`
+        ? `cabina de baño ${diseno.sistema
+            .replace(/^Cabina\s+/i, "")
+            .replace(/^(Deslizante|Corrediza|Batiente)\b/, (c) => c.toLowerCase())}`
         : null;
       base = porDiseno ?? CABINA_CORREDIZA[String(i.tipoSistema)] ?? "cabina de baño corrediza";
-      base += forma(diseno);
-      atributos = [marcado(i.enL) ? "en L" : null, vidrioTemplado];
+      // En L la forma del diseño (fijo + corredizo) describe solo el lado X: se
+      // cambia por la configuración de la L (Glasvit, 2026-09-27).
+      const configL = CONFIGURACION_L[String(i.configuracionL ?? "")];
+      base += marcado(i.enL) && configL ? "" : forma(diseno);
+      atributos = [marcado(i.enL) ? (configL ? `en L (${configL})` : "en L") : null, vidrioTemplado];
       break;
     }
     case "cabinas-batientes":
@@ -155,8 +167,9 @@ function producto(
       atributos = [];
   }
   // "en L" va pegado al nombre; lo demás separado por comas.
-  const conL = atributos[0] === "en L" ? `${base} en L` : base;
-  const resto = atributos[0] === "en L" ? atributos.slice(1) : atributos;
+  const esL = typeof atributos[0] === "string" && atributos[0].startsWith("en L");
+  const conL = esL ? `${base} ${atributos[0]}` : base;
+  const resto = esL ? atributos.slice(1) : atributos;
   return [conL, ...resto].filter((p): p is string => Boolean(p)).join(", ");
 }
 
@@ -165,6 +178,9 @@ function medidas(i: Record<string, unknown>, diseno: DisenoLaxo | null): string 
   const ancho = mm(i.anchoCm ?? i.anchoNaveCm);
   const alto = mm(i.altoCm ?? i.altoNaveCm);
   if (!ancho || !alto) return null;
+  // Cabina en L con sus dos lados (X × Y) y el alto aparte.
+  const ladoY = marcado(i.enL) ? mm(i.ladoYCm) : null;
+  if (ladoY) return `medidas ${mil(ancho)} × ${mil(ladoY)} mm, alto ${mil(alto)} mm`;
   const porNave = !diseno && vacio(i.anchoCm) && !vacio(i.anchoNaveCm) && Math.floor(Number(i.numeroNaves)) > 1;
   return `medidas ${mil(ancho)} × ${mil(alto)} mm${porNave ? " por nave" : ""}`;
 }

@@ -91,6 +91,9 @@ export interface CampoMeta {
     /** Valor con el que arranca el campo en un ítem nuevo (p. ej. "Con
      * instalación" marcado). Ausente = el vacío de su tipo. */
     defecto?: unknown;
+    /** Nombre de un campo booleano: este solo se muestra (y solo se exige) si
+     * aquel está marcado. P. ej. el lado Y de una cabina, `soloSi: 'enL'`. */
+    soloSi?: string;
     // Sólo en campos tipo 'select': cada opción es un primitivo (se muestra tal
     // cual) o un {value,label} cuando el texto a mostrar difiere del valor real.
     opciones?: Array<string | number | OpcionCampo>;
@@ -465,9 +468,18 @@ export interface RespuestaPropuesta {
     cotizacion: Cotizacion;
 }
 
+/** A qué está vinculada una cotización del listado, con texto legible (2026-09-27). */
+export interface RotuloVinculo {
+    tipo: 'lead' | 'prospecto' | 'cliente' | 'odp';
+    id: number;
+    etiqueta: string;
+}
+
 export interface CotizacionLigera {
     id: number;
     numero: number;
+    /** Solo en el listado: lead / prospecto / cliente / ODP con su nombre o número. */
+    vinculos?: RotuloVinculo[];
     version: number;
     estado: EstadoCotizacion;
     creadaEn?: string;
@@ -487,7 +499,23 @@ export interface CotizacionLigera {
     items: ItemCotizacionLigero[];
     propuestas?: PropuestaLigera[];
     propuestaElegidaId?: number | null;
+    // Integración con el ERP (2026-09-27).
+    /** Dueño: el asesor asignado, quien puede editarla. null = anterior a la integración. */
+    asesorUsuarioId?: number | null;
+    creadoPorId?: number | null;
+    /** Registro que originó la cotización. */
+    vinculo?: VinculoCotizacion | null;
+    leadId?: number | null;
+    prospectoId?: number | null;
+    clienteId?: number | null;
+    odpId?: number | null;
+    motivoPerdida?: MotivoPerdida | null;
+    motivoPerdidaDetalle?: string | null;
 }
+
+export type TipoVinculo = 'lead' | 'prospecto' | 'cliente' | 'odp';
+export interface VinculoCotizacion { tipo: TipoVinculo; id: number }
+export type MotivoPerdida = 'PRECIO' | 'TIEMPO_ENTREGA' | 'COMPETENCIA' | 'NO_RESPONDIO' | 'DESISTIO' | 'OTRO';
 
 export interface Cotizacion extends Omit<CotizacionLigera, 'items' | 'propuestas'> {
     /** Los de la propuesta ACTIVA, con sus blobs. El "carrito" del frontend es,
@@ -522,6 +550,12 @@ export interface CotizacionEntrada {
     /** Sólo al actualizar: versión sobre la que trabajó la pantalla. Si la base
      * tiene otra (se guardó desde otra ventana), el backend responde 409. */
     versionEsperada?: number;
+    /** Integración con el ERP (2026-09-27). Al crear, `vinculo` es obligatorio. */
+    asesorUsuarioId?: number;
+    vinculo?: VinculoCotizacion;
+    odpId?: number | null;
+    motivoPerdida?: MotivoPerdida | null;
+    motivoPerdidaDetalle?: string | null;
     propuestaId?: number;
 }
 
@@ -529,6 +563,8 @@ export interface FiltrosListado {
     cliente?: string;
     estado?: string;
     asesor?: string;
+    /** Dueño (2026-09-27): el filtro "Asesor" de la pestaña Cotizaciones. */
+    asesorUsuarioId?: number;
     numero?: string | number;
     q?: string;
 }

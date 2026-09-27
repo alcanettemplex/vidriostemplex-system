@@ -155,10 +155,61 @@ test("el kit KIK0301 trae las rodachinas: no se suman ROD0401, por diseño ni po
     items: Linea[];
   };
   assert.equal(lineasDe(libreCorrediza, "ROD0401")[0]?.cantidad, 4);
-  const primavera = calcularItem("cabinas-corredizas", {
-    ...base, disenoId: "Cabina Deslizante Primavera::OX_PRIMAVERA", tipoSistema: "corrediza",
-  } as never) as { items: Linea[] };
-  assert.equal(lineasDe(primavera, "ROD0401")[0]?.cantidad, 4);
+});
+
+// Cabina Glasvit (antes Primavera) — reglas del usuario, 2026-09-27.
+const GLASVIT_OX = "Cabina Deslizante Primavera::OX_PRIMAVERA";
+const cabina = (input: Record<string, unknown>) =>
+  calcularItem("cabinas-corredizas", {
+    espesorVidrioMm: 8, segmentoCliente: "PA", cantidadPiezas: 1, altoCm: 190, tipoBoton: "tamborAcero", ...input,
+  } as never) as { items: Linea[]; hayErrores: boolean; cortes: { perfiles: Array<{ codigo?: string; medidaMm: number; piezasEnteras?: number }> } };
+
+test("Glasvit: el kit trae los herrajes — sin ROD0401 ni botón; perforación, boquilla y BPB sí", () => {
+  for (const r of [cabina({ anchoCm: 120, disenoId: GLASVIT_OX }), cabina({ anchoCm: 120, tipoSistema: "glasvit" })]) {
+    assert.equal(r.hayErrores, false);
+    assert.equal(lineasDe(r, "ROD0401").length, 0);
+    assert.equal(lineasDe(r, "BHA1101").length, 0);
+    assert.equal(lineasDe(r, "PERF01")[0]?.cantidad, 2);
+    assert.equal(lineasDe(r, "BOQN02")[0]?.cantidad, 2);
+    assert.equal(lineasDe(r, "BPB05").length, 1);
+  }
+});
+
+test("Glasvit: kit por ancho — KDG0306 hasta 1.500, KDG0305 hasta 2.200 y más allá (con aviso)", () => {
+  assert.equal(lineasDe(cabina({ anchoCm: 150, disenoId: GLASVIT_OX }), "KDG0306").length, 1);
+  assert.equal(lineasDe(cabina({ anchoCm: 151, disenoId: GLASVIT_OX }), "KDG0305").length, 1);
+  assert.equal(lineasDe(cabina({ anchoCm: 220, disenoId: GLASVIT_OX }), "KDG0305").length, 1);
+  const ancha = cabina({ anchoCm: 240, disenoId: GLASVIT_OX }) as unknown as { items: Linea[]; advertencias: string[] };
+  assert.equal(lineasDe(ancha, "KDG0305").length, 1);
+  assert.ok(ancha.advertencias.some((a) => /2\.200 mm/.test(a)));
+});
+
+test("Glasvit: el tubo es UNO y se cobra por tramo de largo (37.500 / 50.000 / 75.000 + fracción)", () => {
+  const precio = (anchoCm: number) => lineasDe(cabina({ anchoCm, disenoId: GLASVIT_OX }), "TUB0316");
+  const [t18, t22, t30, t33] = [180, 220, 300, 330].map(precio);
+  for (const t of [t18, t22, t30, t33]) assert.equal(t.length, 1);
+  assert.equal(t18[0].cantidad, 1);
+  const pu = (t: Linea[]) => Number((t[0] as unknown as { precioUnitario: number }).precioUnitario);
+  // Proporciones exactas entre tramos (el multiplicador del segmento se cancela).
+  assert.ok(Math.abs(pu(t22) / pu(t18) - 50000 / 37500) < 1e-3);
+  assert.ok(Math.abs(pu(t30) / pu(t18) - 75000 / 37500) < 1e-3);
+  assert.ok(pu(t33) > pu(t30), "pasando de 3.000 mm se suma la fracción adicional");
+});
+
+test("Glasvit en L: X × Y, un solo kit (KDG0302 o KDG0308) y el tubo suma los dos lados", () => {
+  const l1 = cabina({ anchoCm: 120, ladoYCm: 90, enL: true, configuracionL: "2F1C", disenoId: GLASVIT_OX });
+  assert.equal(l1.hayErrores, false);
+  assert.equal(lineasDe(l1, "KDG0302")[0]?.cantidad, 1);
+  assert.equal(lineasDe(l1, "KDG0306").length, 0);
+  const tubos = l1.cortes.perfiles.filter((c) => c.codigo === "TUB0316");
+  assert.equal(tubos.length, 2, "un corte por lado");
+  assert.equal(tubos.reduce((a, c) => a + (c.piezasEnteras ?? 0), 0), 1, "la SAP pide un solo tubo");
+
+  const l2 = cabina({ anchoCm: 180, ladoYCm: 150, enL: true, configuracionL: "2F2C", disenoId: GLASVIT_OX });
+  assert.equal(lineasDe(l2, "KDG0308")[0]?.cantidad, 1);
+  assert.equal(lineasDe(l2, "PERF01")[0]?.cantidad, 4, "dos corredizas: el doble de perforaciones");
+
+  assert.throws(() => cabina({ anchoCm: 120, enL: true, disenoId: GLASVIT_OX }), /lado Y/);
 });
 
 test("el kit Glasvit KDG0306 también viene completo: no se suman ROD0401 (2026-09-26)", () => {

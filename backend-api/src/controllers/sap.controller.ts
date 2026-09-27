@@ -1,9 +1,18 @@
 import { Request, Response } from 'express';
-import { SAP, SAPItem, ODP, Usuario, CatalogoProducto, ODCItem } from '../models';
+import { z } from 'zod';
+import { SAP, SAPItem, ODP, Usuario, CatalogoProducto, ODCItem, CotizadorCotizacion, CotizadorProducto } from '../models';
 import sequelize from '../config/database';
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { recalcularChecksODP } from '../utils/checksAutomaticos';
+import * as cotizacionStore from '../cotizador/store/cotizacionStore';
+import {
+  itemsParaSap,
+  indiceDeLetra,
+  type EquivalenciaCatalogo,
+  type FilaSap,
+  type ItemCotizacionParaSap,
+} from '../cotizador/lib/itemsParaSap';
 
 // Recalcular tiene_aluminio en ODP según todos sus SAP items
 const recalcularAluminioODP = async (odp_id: number): Promise<void> => {
@@ -304,5 +313,372 @@ export const buscarCatalogo = async (req: Request, res: Response) => {
     res.json(items);
   } catch (error: any) {
     res.status(500).json({ error: 'Error en búsqueda' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Traer ítems de la cotización (2026-09-27, integración Cotizador ↔ ERP)
+//
+// POST /api/documentos/sap/desde-cotizacion
+//
+// Arma las filas de la SAP desde la propuesta ELEGIDA de la cotización del
+// Cotizador APROBADA y vinculada a la ODP (la lógica pura vive en
+// `cotizador/lib/itemsParaSap.ts`). `dry_run` (por defecto TRUE) devuelve la
+// previsualización sin escribir nada: es lo que abre el diálogo y lo que
+// permite probar contra ODP reales sin tocar producción.
+//
+// Destino:
+//   - La ODP no tiene SAP → se crea una en borrador por el MISMO camino que
+//     `createSAP` (número con `generarNumeroSAP` + `withUniqueRetry`, estado
+//     'borrador', recálculo de aluminio y de Herrajes). No se reutiliza el
+//     handler porque escribe su propia respuesta HTTP y no admite transacción
+//     externa; crear SAP e ítems en una sola transacción evita dejar una SAP
+//     vacía (que además bloquea el check de Herrajes) si falla la inserción.
+//   - La ODP tiene SAP → por defecto la más reciente (la que la ficha muestra
+//     primero); `sap_id` elige otra, o 'nueva' fuerza una SAP aparte.
+//
+// Modo (solo si la SAP destino ya tiene ítems):
+//   - 'agregar'    → filas nuevas con las letras siguientes a la mayor usada.
+//   - 'reemplazar' → borra los ítems de la SAP y trae los de la cotización, SOLO
+//     si ninguno está comprometido en el ciclo de compras (ver `motivosCompromiso`).
+//
+// Doble carga: si algún ítem de esta cotización ya está en una SAP de la ODP
+// (`sap_items.origen_cotizacion_id`), se avisa y no se escribe — salvo que el
+// modo sea reemplazar sobre la misma SAP que los contiene (los va a borrar).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const traerDesdeCotizacionSchema = z
+  .object({
+    odp_id: z.number().int().positive(),
+    cotizacion_id: z.number().int().positive().optional(),
+    sap_id: z.union([z.number().int().positive(), z.literal('nueva')]).optional(),
+    modo: z.enum(['agregar', 'reemplazar']).optional(),
+    dry_run: z.boolean().optional(),
+  })
+  .strict();
+
+class ErrorTraerSap extends Error {
+  constructor(readonly estado: number, mensaje: string, readonly extra: Record<string, unknown> = {}) {
+    super(mensaje);
+  }
+}
+
+/** Ítem de SAP leído con sus `odc_items` (forma plana). */
+interface ItemSapExistente {
+  id?: number;
+  item?: string | null;
+  codigo?: string | null;
+  estado_compra?: string | null;
+  es_faltante?: boolean | null;
+  modificado?: boolean | null;
+  existencia_piezas?: unknown;
+  exist_perf?: string | null;
+  origen_cotizacion_id?: number | null;
+  odc_items?: unknown[] | null;
+}
+
+const planos = (filas: SAPItem[] | undefined | null): ItemSapExistente[] =>
+  (filas ?? []).map((f) => f.get({ plain: true }) as ItemSapExistente);
+
+/**
+ * Por qué un ítem existente de la SAP no se puede borrar al reemplazar. Mismo
+ * criterio que ya usa `updateSAP` para no destruir ítems (ODC activa o
+ * faltante), ampliado con todo lo que Compras marca sobre la línea:
+ *   - `odc_items` que lo referencian (está pedido en una ODC),
+ *   - `estado_compra` distinto de 'pendiente' (en ODC o cubierto por existencia),
+ *   - `existencia_piezas` (consumió piezas del inventario de perfilería: borrarlo
+ *     perdería el snapshot que permite revertir),
+ *   - `es_faltante` (lo generó Compras al dividir una cobertura parcial),
+ *   - `modificado` (cambió después de entrar a una ODC: Compras aún no lo concilia),
+ *   - `exist_perf` con texto (Compras anotó existencia a mano).
+ * El estado de la SAP no cuenta: hoy las 386 SAP están en 'borrador'.
+ */
+function motivosCompromiso(items: ItemSapExistente[]): string[] {
+  const motivos: string[] = [];
+  for (const it of items) {
+    const razones = new Set<string>();
+    if ((Array.isArray(it.odc_items) && it.odc_items.length > 0) || it.estado_compra === 'en_odc') razones.add('está en una orden de compra');
+    if (it.estado_compra === 'en_existencia') razones.add('ya se cubrió con existencia');
+    if (it.existencia_piezas) razones.add('consumió piezas del inventario');
+    if (it.es_faltante) razones.add('es un faltante generado por Compras');
+    if (it.modificado) razones.add('tiene cambios pendientes de conciliar en Compras');
+    if (it.exist_perf && String(it.exist_perf).trim()) razones.add('Compras anotó existencia');
+    if (razones.size > 0) motivos.push(`Ítem ${it.item || '?'} (${it.codigo || 'sin código'}): ${[...razones].join(', ')}`);
+  }
+  return motivos;
+}
+
+/** Código del Cotizador → código y nombre en `catalogo_productos` (el catálogo
+ * que usan la SAP y Compras). Primero por el vínculo explícito
+ * `cotizador.producto.catalogo_producto_id` (105 productos tienen código propio
+ * en el Cotizador, p. ej. PRV700MATE ↔ CAB0103); si no lo hay, por código idéntico. */
+async function equivalenciasDeCatalogo(codigos: string[]): Promise<Map<string, EquivalenciaCatalogo>> {
+  const mapa = new Map<string, EquivalenciaCatalogo>();
+  if (codigos.length === 0) return mapa;
+  const productos = await CotizadorProducto.findAll({
+    where: { codigo: codigos },
+    attributes: ['codigo', 'catalogo_producto_id'],
+    include: [{ model: CatalogoProducto, as: 'catalogoProducto', attributes: ['codigo', 'nombre'], required: true }],
+  });
+  for (const p of productos) {
+    const cat = p.get('catalogoProducto') as CatalogoProducto | null;
+    const codigo = cat?.getDataValue('codigo') as string | undefined;
+    if (cat && codigo) mapa.set(String(p.getDataValue('codigo')), { codigo, descripcion: String(cat.getDataValue('nombre') ?? '') });
+  }
+  const faltan = codigos.filter((c) => !mapa.has(c));
+  if (faltan.length > 0) {
+    const directos = await CatalogoProducto.findAll({ where: { codigo: faltan }, attributes: ['codigo', 'nombre'] });
+    for (const c of directos) {
+      const codigo = String(c.getDataValue('codigo'));
+      mapa.set(codigo, { codigo, descripcion: String(c.getDataValue('nombre') ?? '') });
+    }
+  }
+  return mapa;
+}
+
+function codigosDeItems(items: ItemCotizacionParaSap[]): string[] {
+  const codigos = new Set<string>();
+  for (const it of items) {
+    for (const l of it.resultado?.items ?? []) if (l.codigo) codigos.add(String(l.codigo));
+    for (const c of it.resultado?.cortes?.perfiles ?? []) if (c.codigo) codigos.add(String(c.codigo));
+  }
+  return [...codigos];
+}
+
+/** Toda la lectura y validación, compartida por la previsualización y la escritura. */
+async function prepararTraerDesdeCotizacion(datos: z.infer<typeof traerDesdeCotizacionSchema>) {
+  const odp = await ODP.findByPk(datos.odp_id, { attributes: ['id', 'numero_odp', 'estado_produccion'] });
+  if (!odp) throw new ErrorTraerSap(404, 'No se encontró la ODP.');
+
+  // Cotizaciones del Cotizador vinculadas a la ODP y aprobadas.
+  const aprobadas = await CotizadorCotizacion.findAll({
+    where: { odp_id: datos.odp_id, estado: 'APROBADA' },
+    attributes: ['id', 'numero', 'cliente_nombre'],
+    order: [['numero', 'DESC']],
+  });
+  const cotizacionesAprobadas = aprobadas.map((c) => ({
+    id: Number(c.getDataValue('id')),
+    numero: Number(c.getDataValue('numero')),
+    cliente: (c.getDataValue('cliente_nombre') as string | null) || null,
+  }));
+  if (cotizacionesAprobadas.length === 0) {
+    throw new ErrorTraerSap(409, 'Esta ODP no tiene una cotización APROBADA vinculada. Vincúlala en la sección Cotizaciones y apruébala en el Cotizador.');
+  }
+  let cotizacionId = datos.cotizacion_id;
+  if (cotizacionId === undefined) {
+    if (cotizacionesAprobadas.length > 1) {
+      throw new ErrorTraerSap(409, 'La ODP tiene varias cotizaciones aprobadas: elige de cuál traer los ítems.', { cotizaciones_aprobadas: cotizacionesAprobadas });
+    }
+    cotizacionId = cotizacionesAprobadas[0].id;
+  } else if (!cotizacionesAprobadas.some((c) => c.id === cotizacionId)) {
+    throw new ErrorTraerSap(409, 'Esa cotización no está aprobada o no está vinculada a esta ODP.', { cotizaciones_aprobadas: cotizacionesAprobadas });
+  }
+
+  // Sin `propuesta`, `obtener` trae los blobs de la ELEGIDA.
+  const cot = await cotizacionStore.obtener(cotizacionId);
+  if (!cot) throw new ErrorTraerSap(404, 'No se encontró la cotización.');
+  const elegida = ((cot.propuestas ?? []) as Array<{ id: number; etiqueta: string; elegida?: boolean }>).find((p) => p.elegida);
+  if (!elegida) throw new ErrorTraerSap(409, `La cotización N.° ${cot.numero} no tiene una opción elegida: elígela en el Cotizador.`);
+  const items = (cot.items ?? []) as ItemCotizacionParaSap[];
+
+  // SAP de la ODP con sus ítems y lo que los compromete.
+  const saps = await SAP.findAll({
+    where: { odp_id: datos.odp_id },
+    include: [{
+      model: SAPItem, as: 'items',
+      attributes: ['id', 'item', 'codigo', 'estado_compra', 'es_faltante', 'modificado', 'existencia_piezas', 'exist_perf', 'origen_cotizacion_id'],
+      include: [{ model: ODCItem, as: 'odc_items', attributes: ['id'] }],
+    }],
+    order: [['fecha_creacion', 'DESC'], ['id', 'DESC']],
+  });
+  const itemsDe = (s: SAP) => planos(s.get('items') as SAPItem[] | undefined);
+  const resumenSaps = saps.map((s) => ({
+    id: Number(s.getDataValue('id')),
+    numero_sap: String(s.getDataValue('numero_sap')),
+    items: itemsDe(s).length,
+  }));
+
+  let destino: SAP | null = null;
+  if (datos.sap_id === 'nueva') destino = null;
+  else if (datos.sap_id !== undefined) {
+    destino = saps.find((s) => s.getDataValue('id') === datos.sap_id) ?? null;
+    if (!destino) throw new ErrorTraerSap(404, 'Esa SAP no pertenece a esta ODP.');
+  } else destino = saps[0] ?? null;
+
+  const itemsDestino = destino ? itemsDe(destino) : [];
+  const motivosReemplazo = motivosCompromiso(itemsDestino);
+  const requiereModo = itemsDestino.length > 0;
+  const modo = requiereModo ? (datos.modo ?? null) : null;
+
+  // Doble carga: ítems de esta cotización ya presentes en alguna SAP de la ODP.
+  // Si se va a reemplazar la SAP destino, sus ítems no cuentan (se borran).
+  const yaTraida = saps
+    .map((s) => ({
+      sap_id: Number(s.getDataValue('id')),
+      numero_sap: String(s.getDataValue('numero_sap')),
+      items: itemsDe(s).filter((it) => it.origen_cotizacion_id === cotizacionId).length,
+    }))
+    .filter((s) => s.items > 0);
+  const destinoId = destino ? Number(destino.getDataValue('id')) : null;
+  const yaTraidaBloquea = yaTraida.filter((s) => !(modo === 'reemplazar' && s.sap_id === destinoId));
+
+  // Agregar debajo: la siguiente a la MAYOR letra usada (no rellena huecos: una
+  // letra borrada puede seguir impresa en papel o citada en una ODC).
+  const indiceInicial = modo === 'agregar'
+    ? Math.max(-1, ...itemsDestino.map((it) => indiceDeLetra(it.item))) + 1
+    : 0;
+
+  const equivalencias = await equivalenciasDeCatalogo(codigosDeItems(items));
+  const armado = itemsParaSap(items, { equivalencias, indiceInicial, origenCotizacionId: cotizacionId });
+
+  return {
+    odp, cotizacionId, cot, elegida, cotizacionesAprobadas, resumenSaps, destino, destinoId,
+    itemsDestino, requiereModo, modo, motivosReemplazo, yaTraida, yaTraidaBloquea, armado,
+  };
+}
+
+export const traerItemsDeCotizacion = async (req: Request, res: Response) => {
+  const parsed = traerDesdeCotizacionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Solicitud inválida para traer ítems de la cotización.',
+      detalles: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
+    });
+  }
+  const datos = parsed.data;
+  const dryRun = datos.dry_run !== false;
+
+  try {
+    const p = await prepararTraerDesdeCotizacion(datos);
+    const destinoResumen = p.destino
+      ? { sap_id: p.destinoId, numero_sap: String(p.destino.getDataValue('numero_sap')), nueva: false, items_existentes: p.itemsDestino.length }
+      : { sap_id: null as number | null, numero_sap: null as string | null, nueva: true, items_existentes: 0 };
+    const respuesta = {
+      dry_run: dryRun,
+      cotizacion: {
+        id: p.cotizacionId,
+        numero: p.cot.numero,
+        cliente: p.cot.cliente?.nombre || null,
+        propuesta: { id: p.elegida.id, etiqueta: p.elegida.etiqueta },
+      },
+      cotizaciones_aprobadas: p.cotizacionesAprobadas,
+      saps: p.resumenSaps,
+      destino: destinoResumen,
+      requiere_modo: p.requiereModo,
+      modo: p.modo,
+      reemplazo: { permitido: p.motivosReemplazo.length === 0, motivos: p.motivosReemplazo },
+      ya_traida: p.yaTraida,
+      filas: p.armado.filas,
+      advertencias: p.armado.advertencias,
+      excluidos: p.armado.excluidos,
+    };
+    if (dryRun) return res.json(respuesta);
+
+    // ── Escritura ─────────────────────────────────────────────────────────
+    if (p.odp.getDataValue('estado_produccion') === 'ANULADA') {
+      throw new ErrorTraerSap(409, 'La ODP está anulada: no se le pueden agregar ítems a la SAP.');
+    }
+    if (p.armado.filas.length === 0) {
+      throw new ErrorTraerSap(409, 'La opción elegida de la cotización no tiene perfilería, accesorios ni película para traer.');
+    }
+    if (p.requiereModo && !p.modo) {
+      throw new ErrorTraerSap(409, `La ${destinoResumen.numero_sap} ya tiene ítems: elige "Agregar debajo" o "Reemplazar".`);
+    }
+    if (p.yaTraidaBloquea.length > 0) {
+      const donde = p.yaTraidaBloquea.map((s) => s.numero_sap).join(', ');
+      throw new ErrorTraerSap(409, `Los ítems de la cotización N.° ${p.cot.numero} ya se trajeron a ${donde}. Para volver a traerlos usa "Reemplazar" sobre esa SAP, o edítalos allí.`);
+    }
+    if (p.modo === 'reemplazar' && p.motivosReemplazo.length > 0) {
+      throw new ErrorTraerSap(409, 'No se puede reemplazar: hay ítems de esta SAP que ya están en el proceso de compras. Usa "Agregar debajo" o gestiona esos ítems desde Compras.', { motivos: p.motivosReemplazo });
+    }
+
+    const userId = req.user!.id;
+    const odpId = datos.odp_id;
+    const filas: FilaSap[] = p.armado.filas;
+    const aInsertar = (sapId: number) => filas.map((f) => ({
+      sap_id: sapId,
+      item: f.item,
+      codigo: f.codigo,
+      descripcion: f.descripcion,
+      dimension: f.dimension,
+      cantidad: f.cantidad,
+      und: f.und,
+      observacion: f.observacion,
+      origen_cotizacion_id: f.origen_cotizacion_id,
+      estado_compra: 'pendiente',
+      modificado: false,
+      es_faltante: false,
+      datos_anteriores: null,
+    }));
+
+    const sapId = await withUniqueRetry(async () => {
+      const t: Transaction = await sequelize.transaction();
+      try {
+        let id: number;
+        if (p.destino && p.destinoId) {
+          id = p.destinoId;
+          if (p.modo === 'reemplazar') {
+            // Se vuelve a comprobar DENTRO de la transacción y con bloqueo: entre
+            // la lectura y aquí, Compras pudo haber tomado una línea.
+            const actuales = await SAPItem.findAll({ where: { sap_id: id }, transaction: t, lock: t.LOCK.UPDATE });
+            const conOdc = await ODCItem.findAll({
+              where: { sap_item_id: actuales.map((a) => a.getDataValue('id')) },
+              attributes: ['sap_item_id'],
+              transaction: t,
+            });
+            const idsConOdc = new Set(conOdc.map((o) => o.getDataValue('sap_item_id')));
+            const motivos = motivosCompromiso(actuales.map((a) => ({
+              ...(a.get({ plain: true }) as ItemSapExistente),
+              odc_items: idsConOdc.has(a.getDataValue('id')) ? [1] : [],
+            })));
+            if (motivos.length > 0) {
+              throw new ErrorTraerSap(409, 'No se puede reemplazar: un ítem de esta SAP entró al proceso de compras mientras preparabas el cambio.', { motivos });
+            }
+            // individualHooks: sin él, el borrado masivo no deja rastro en auditoria_log.
+            await SAPItem.destroy({ where: { sap_id: id }, individualHooks: true, transaction: t });
+          }
+        } else {
+          const numero_sap = await generarNumeroSAP();
+          const nueva = await SAP.create({
+            numero_sap, odp_id: odpId, creado_por: userId, estado: 'borrador',
+            notas: `Ítems traídos de la cotización N.° ${p.cot.numero} (opción ${p.elegida.etiqueta}).`,
+          }, { transaction: t });
+          id = Number(nueva.getDataValue('id'));
+        }
+        await SAPItem.bulkCreate(aInsertar(id), { individualHooks: true, transaction: t });
+        await t.commit();
+        return id;
+      } catch (err) {
+        await t.rollback();
+        throw err;
+      }
+    });
+
+    await recalcularAluminioODP(odpId);
+    const sap = await SAP.findByPk(sapId, {
+      include: [{ model: SAPItem, as: 'items' }, { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+    });
+    // Líneas nuevas en 'pendiente': Herrajes deja de estar cubierto. El motor decide.
+    await recalcularChecksODP(odpId, {
+      usuarioId: userId ?? null,
+      origen: 'SAP',
+      detalle: `SAP ${sap?.getDataValue('numero_sap') ?? ''}: ítems traídos de la cotización N.° ${p.cot.numero}`,
+      herrajes: true,
+    });
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+
+    return res.status(p.destino ? 200 : 201).json({
+      ...respuesta,
+      dry_run: false,
+      destino: { ...destinoResumen, sap_id: sapId, numero_sap: sap?.getDataValue('numero_sap') ?? null },
+      sap,
+    });
+  } catch (error) {
+    if (error instanceof ErrorTraerSap) {
+      return res.status(error.estado).json({ error: error.message, ...error.extra });
+    }
+    console.error('traerItemsDeCotizacion:', error instanceof Error ? error.message : error);
+    return res.status(500).json({ error: 'No se pudieron traer los ítems de la cotización. Intenta de nuevo; si persiste, avisa a soporte.' });
   }
 };

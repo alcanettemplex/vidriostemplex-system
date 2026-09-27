@@ -113,11 +113,11 @@ export const MENU_ITEMS_CONFIG: ItemMenu[] = [
     section: 'logistica'
   },
   {
-    // Módulo aislado del flujo del ERP (no genera ODP) — ver plan de migración
+    // Integrado al ERP (2026-09-27): todos lo ven; permisos en features/cotizador/permisos.ts
     text: 'Cotizador',
     icon: FileSpreadsheet,
     path: '/cotizador',
-    allowedRoles: ['root', 'admin'],
+    allowedRoles: ['root', 'admin', 'gerencia', 'gerente', 'marketing', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'instalador', 'conductor', 'contabilidad', 'compras', 'asistente_administrativo'],
     section: 'comercial'
   },
   {

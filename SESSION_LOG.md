@@ -5732,3 +5732,86 @@ Procede sobre el plan de 4 puntos.
 - Playwright 12/12; cotizaciones de prueba 27–40 creadas y borradas. La N.° 26 (sin cliente, 2 ítems,
   22:48) no es de las pruebas: no se tocó.
 - El usuario puede pedir revertir: respaldo en `scratchpad/respaldo-antes-autoguardado/`.
+
+---
+
+## 2026-09-27 — Cotizador integrado al ERP (supervisor + 3 agentes)
+
+**Pedido:** permisos por rol, ítems de la cotización a la SAP, Hoja de Trabajo en la ficha ODP, vínculo
+obligatorio (lead/prospecto/cliente/ODP), cotizar desde Prospectos/CRM/ODP, sección de cotizaciones en la
+ficha ODP y rediseño del tablero de Cotizaciones del Dashboard con Excel. Preguntas en 4 rondas; procede.
+
+- Fase A (supervisor): migración aditiva (corrida — la base local ES producción), modelos, permisos
+  backend (20/20 por rol), ruta/menú abiertos, bloqueo por dueño en pantalla.
+- Agente B: buscador de vínculo, lead rápido, asesor, sincronía CRM, Crear ODP reutilizando
+  `crearLeadRegistro` / `crearODPParaLead` / `aprobarProspectoRegistro` / `crearODPRegistro` (extraídos sin
+  cambiar comportamiento), entradas desde CRM, Prospectos y ODPForm, enlaces `?abrir=` / `?nuevo=&vinculo=`.
+- Agente C: `POST /documentos/sap/desde-cotizacion` (dry_run por defecto), `itemsParaSap.ts` (16 pruebas),
+  sección COT nueva en la ficha, Hoja de Trabajo en Imprimir ODP.
+- Agente D: tablero de Cotizaciones nuevo (filtros, 5 bloques, Excel de 4 hojas con ExcelJS).
+- Los agentes se cortaron por límite de sesión y se retomaron con su contexto.
+- Supervisión: todo verificado junto (ver docs/modulos/cotizador.md → "Integración con el ERP").
+- Bug CRM `forma_pago='CONTADO'` corregido + script de normalización APLICADO en producción el 2026-09-27 (65 ODP → 'contado', 65 filas en auditoria_log).
+- Pendiente: prueba real de escritura con el usuario; sin commit.
+
+### Ronda 2 (misma fecha, tras la verificación del usuario en el ERP)
+- Selector de asesor fuera: nadie cotiza a nombre de otro (el dueño es quien crea). Crean: asesores,
+  asistente adm., jefe de producción, admin, root, gerencia y gerente; producción y compras solo leen.
+- Pestaña "Cotizaciones" con filtro por asesor; ficha del prospecto con sus cotizaciones; "Partir de una
+  cotización aprobada" siempre visible + contraste del formulario ODP; "+ Crear cliente" en Crear ODP.
+- PDF: referencia `COT-87 B` + ODP + cliente en el encabezado y en el nombre del archivo.
+- Cabina Glasvit (antes Primavera): kits por ancho y en L (KDG0306/0305/0302/0308), tubo por tramo,
+  sin rodachinas ni botón, lado Y en L, holgura de cabinas 3 × 0 mm. Script
+  `2026-09-27_cotizador_cabina_glasvit.ts` CORRIDO (base = producción).
+- Verificado: 148/148, API 10/10, capturas. Detalle en docs/modulos/cotizador.md → "Ronda 2".
+- Hallazgos: el pool de Supabase (15 conexiones en modo sesión) se agota si corren a la vez el backend
+  local y la suite completa; asistente administrativo crea cotizaciones pero no clientes (POST /clientes).
+
+### Ronda 3 (misma fecha)
+- Cotización toma el cliente oficial al crear la ODP; pestaña Cotizaciones con columna "Vinculada a" y
+  búsqueda por ODP/PR/lead; Excel con columna Fuente; filtro de asesor del tablero primero y completo.
+- Asistente administrativo crea y edita clientes (backend + ClientesListPage), sin eliminar. La edición
+  sigue limitada por la regla de dueño del controlador (solo los que creó, salvo admin/gerencia).
+- ODPForm rediseñado (solo presentación): controles de 40 px, sin scroll horizontal, cantidad con − / +,
+  líneas numeradas con "Quitar", "Agregar servicio" al final, valor con miles, requerimientos en chips,
+  chip "Lleva vidrio" que muestra el proveedor (fijo si ya hay Pedido PV), buscador de cotización,
+  "Seleccionar fecha" con ayuda. Nueva y edición.
+- Verificado: tsc back/front, 148/148, API 10/11 (el borrado del cliente de prueba con rol root da 403 por
+  la regla de dueño de Clientes — preexistente; se borró como admin), capturas sin errores de página.
+- Ronda 4: root y admin fuera de las listas de asesores (Cotizador `listarAsesores` con `ROLES_NO_ASESOR`,
+  y opciones del tablero); sus cotizaciones siguen en "Todos". En la pestaña Cotizaciones la etiqueta de la
+  ODP abre el `ODPFichaModal`. Verificado por API y captura.
+
+### Pantalla de inicio de sesión (2026-09-27)
+- `LoginPage.tsx` rediseñado con el diseño del usuario (`design/iniciodesesion.png`). La foto sin textos
+  (`design/personaje.png`, 2,3 MB) se publicó como WebP en `public/assets/images/login/`: `fondo.webp`
+  (160 KB), `fondo-movil.webp` (71 KB) y `avatar.webp` (14 KB, cara del personaje para celular). Textos,
+  íconos, sellos y formulario en código; responsive PC / PC ancho (sellos) / tablet / celular.
+- Se retiró el video de introducción (`preloader.mp4` sigue en `public/`). Lógica de login sin cambios.
+- Íconos nuevos en el registro: Handshake, WindowFrame, ChartLineUp, UsersThree.
+- Verificado a 1440, 1920, 820 y 390 px: sin scroll horizontal, botón visible sin desplazar, sin errores,
+  un usuario inválido recibe el 401 y su aviso.
+- Ajuste (mismo día): "Sistema Integral v2.1"; el pie de la tarjeta dice "Sistema creado por AlcaNET". En PC
+  la foto se corre (`left: calc(28% - 22dvh)`, ancho natural) para que el personaje quede entre el texto y
+  la tarjeta; los sellos pasaron a una fila bajo la tarjeta (xl+). Reverificado en los 4 tamaños.
+- Bienvenida digital tras el login (`features/auth/BienvenidaDigital.tsx`): fundido a negro, rejilla y
+  escaneo, "USUARIO DETECTADO", nombre y rol (`etiquetaRol`), fecha y hora, "CREDENCIALES VERIFICADAS",
+  saludo según la hora. Completa (~5 s) el primer ingreso del día de cada usuario en ese navegador (marca en
+  localStorage, decidida en el manejador del login por el doble render de StrictMode); corta (~1,7 s) los
+  siguientes; se salta con clic, toque o tecla; con "reducir movimiento" pasa directo. Se quitó el aviso
+  "¡Bienvenido a Templex!".
+- Bug corregido de paso: en PC la foto del login, más ancha que la pantalla, dejaba que el navegador
+  desplazara la página de lado al enfocar un campo (se perdía la columna izquierda). La foto va en su
+  propio marco recortado y el contenedor usa overflow-x-clip.
+- Verificado con login real (admin): completa, clave errada sin animación, sin desplazamiento lateral. La
+  corta y el salto se verificaron simulando la respuesta: el backend limita el login a 8 intentos / 15 min
+  por IP y las pruebas lo agotaron (solo el backend local).
+- Cambio del usuario: la bienvenida es SIEMPRE la completa (se retiró la versión corta y la marca del día en
+  localStorage). Verificado: 1er y 2º ingreso ~5,2 s, saltar con tecla ~1 s.
+- El usuario seguía viendo solo el saludo: su Windows tiene apagados los "Efectos de animación" y el
+  navegador lo reporta como `prefers-reduced-motion: reduce`, que la bienvenida respetaba. Por decisión del
+  usuario ya no se respeta: siempre completa. Verificado emulando movimiento reducido (5,2 s en cada ingreso).
+- Transición suave al ERP: al terminar (o saltar), textos y rejilla se disuelven sobre el negro (0,5 s) y se
+  entra al ERP bajo una "cortina" negra colgada del <body> (fuera de React, sobrevive al desmontar el login)
+  que espera 450 ms a que pinte el Dashboard y se desvanece en 1,4 s con curva ease-in-out; se retira sola.
+  Verificado cuadro a cuadro (opacidad 1 → 0,88 → 0,5 → 0), sin errores y sin cortina residual.

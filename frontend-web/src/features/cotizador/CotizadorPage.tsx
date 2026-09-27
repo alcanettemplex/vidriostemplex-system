@@ -8,9 +8,10 @@ import {
     apiEstadoCotizador, apiGetParametros, apiCrearCotizacion, apiActualizarCotizacion,
     apiObtenerCotizacion, apiCrearPropuesta, apiElegirPropuesta, apiEliminarPropuesta,
     apiGuardarCargos, apiGetModulos, apiCambiarSegmento, apiCotizarItem, apiActualizarPropuesta,
+    apiObtenerVinculo, apiListarAsesoresCotizador,
 } from './services/cotizadorApi';
 import {
-    ClienteCotizacion, Cotizacion, EstadoCotizacion, ItemCarrito, ModuloMeta, Parametros, Propuesta,
+    ClienteCotizacion, Cotizacion, CotizacionEntrada, EstadoCotizacion, MotivoPerdida, ItemCarrito, ModuloMeta, Parametros, Propuesta,
     RespuestaPropuesta, SegmentoCliente,
 } from './types';
 import { rotuloPropuesta } from './propuestaColor';
@@ -25,8 +26,13 @@ import ResumenPropuesta, { EsteProducto } from './components/ResumenPropuesta';
 import { BorradorCotizar, calcularTotalesPrevistos, useManoObra } from './totalesPropuesta';
 import { descripcionDeItem, leerFicha } from './fichaProducto';
 import { CotizacionReciente, leerRecientes, quitarReciente, registrarReciente } from './recientes';
+import { usePermisosCotizador } from './permisos';
 import ModalClonarPropuesta from './components/modals/ModalClonarPropuesta';
 import ModalCambiosSinGuardar, { DecisionCambios } from './components/modals/ModalCambiosSinGuardar';
+import ModalMotivoPerdida, { CierrePerdida } from './components/modals/ModalMotivoPerdida';
+import ModalCrearODP from './components/modals/ModalCrearODP';
+import BarraVinculo from './components/BarraVinculo';
+import { AsesorCotizador, FichaVinculo, leadSePuedePerder, leerVinculoDeUrl } from './vinculo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Módulo Cotizador — /cotizador, solo root/admin.
@@ -66,6 +72,9 @@ export interface CabeceraCotizacion {
     cliente: ClienteCotizacion;
     segmentoCliente: SegmentoCliente;
     asesor: string;
+    /** Dueño (2026-09-27). Al crear se elige (por defecto quien crea); después
+     * solo lo cambia un rol de control total. */
+    asesorUsuarioId: number | null;
     estado: EstadoCotizacion;
 }
 
@@ -73,7 +82,15 @@ const CABECERA_INICIAL: CabeceraCotizacion = {
     cliente: { nombre: '', direccion: '', telefono: '', obra: '', contacto: '' },
     segmentoCliente: 'PA',
     asesor: '',
+    asesorUsuarioId: null,
     estado: 'PENDIENTE',
+};
+
+/** Avisos del backend sobre lo que se sincronizó en el CRM (lead a Cotizando,
+ * Aprobado…). Viajan en la respuesta de crear/actualizar. */
+const avisosCRMDe = (cot: unknown): string[] => {
+    const a = (cot as { avisosCRM?: unknown } | null)?.avisosCRM;
+    return Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : [];
 };
 
 type TabKey = 'cotizar' | 'actual' | 'guardadas' | 'calibracion' | 'configuracion';
@@ -139,34 +156,6 @@ interface ContextoAccion {
      * se actualiza hasta el próximo render, y la acción la necesita ya. */
     cot: Cotizacion | null;
 }
-
-/** "¿Para quién es esta cotización?" arriba de Cotizar (2026-09-26): el nombre
- * con el que el asesor la encuentra después en "Cambiar a otra cotización". Antes
- * el cliente sólo se escribía en la otra pestaña y las cotizaciones quedaban
- * "sin cliente". El resto de sus datos siguen en Resumen. */
-const ClienteRapido: React.FC<{ nombre: string; onCambiar: (nombre: string) => void; bloqueado: boolean }> = ({
-    nombre, onCambiar, bloqueado,
-}) => (
-    <div className="px-4 pt-4">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-templex-100 bg-templex-50 px-3.5 py-2.5">
-            <label htmlFor="cotizador-cliente-rapido" className="text-[13px] font-bold text-slate-900">
-                ¿Para quién es esta cotización?
-            </label>
-            <input
-                id="cotizador-cliente-rapido"
-                value={nombre}
-                onChange={e => onCambiar(e.target.value)}
-                disabled={bloqueado}
-                maxLength={150}
-                placeholder="Nombre del cliente o de la obra"
-                className="flex-1 min-w-[220px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-templex-500 focus:ring-2 focus:ring-templex-200 disabled:bg-slate-50"
-            />
-            <span className="w-full text-[12px] text-slate-700">
-                Es el nombre con el que la encuentras después. Teléfono, dirección y obra van en Resumen.
-            </span>
-        </div>
-    </div>
-);
 
 /** Menú ⚙ Administración: Calibración y Configuración, fuera de las pestañas del
  * trabajo diario (2026-09-26). Siguen siendo solo root/admin, como la página. */
@@ -235,7 +224,24 @@ const CotizadorPage: React.FC = () => {
     const [cabecera, setCabecera] = useState<CabeceraCotizacion>(CABECERA_INICIAL);
     /** Cotización guardada que se está editando. `estado` es el GUARDADO, no el
      * del select: el freno de "aprobada" depende de lo que hay en la base. */
-    const [edicion, setEdicion] = useState<{ id: number; numero: number; estado: EstadoCotizacion; version: number } | null>(null);
+    /** `asesorUsuarioId`: el dueño (2026-09-27): decide si este usuario puede editarla. */
+    const [edicion, setEdicion] = useState<{ id: number; numero: number; estado: EstadoCotizacion; version: number; asesorUsuarioId: number | null } | null>(null);
+    const permisos = usePermisosCotizador();
+    // ─── Vínculo con el ERP (2026-09-27) ────────────────────────────────────
+    /** Registro del ERP para quien es la cotización. Obligatorio para crearla. */
+    const [vinculo, setVinculo] = useState<FichaVinculo | null>(null);
+    const [cargandoVinculo, setCargandoVinculo] = useState(false);
+    /** Evita que la ficha de una cotización anterior pise la de la que se abrió después. */
+    const pedidoVinculo = useRef(0);
+    const [odpVinculada, setOdpVinculada] = useState<{ id: number; numero: string } | null>(null);
+    const [asesores, setAsesores] = useState<AsesorCotizador[]>([]);
+    /** Motivo de pérdida elegido y aún no guardado (viaja con el próximo guardado). */
+    const [cierrePerdida, setCierrePerdida] = useState<CierrePerdida | null>(null);
+    const [preguntandoPerdida, setPreguntandoPerdida] = useState(false);
+    /** Motivo de pérdida ya guardado en la cotización abierta (para Resumen). */
+    const [motivoPerdidaGuardado, setMotivoPerdidaGuardado] = useState<MotivoPerdida | null>(null);
+    const [creandoOdp, setCreandoOdp] = useState(false);
+    const [parametrosListos, setParametrosListos] = useState(false);
     const [guardando, setGuardando] = useState(false);
     /** Estado del autoguardado que pinta la barra ("Guardando…", "✓ Guardado"). */
     const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
@@ -296,7 +302,12 @@ const CotizadorPage: React.FC = () => {
                 // ya puso sería peor que arrancar en cero.
                 if (!cargosTocadosRef.current) setCargos(cargosIniciales(res.data));
             })
-            .catch(() => { /* la pestaña Actual cae a valores por defecto sin bloquear */ });
+            .catch(() => { /* la pestaña Actual cae a valores por defecto sin bloquear */ })
+            .finally(() => setParametrosListos(true));
+
+        apiListarAsesoresCotizador()
+            .then(res => setAsesores(res.data))
+            .catch(() => { /* sin lista: el asesor queda el que crea (lo pone el backend) */ });
 
         apiGetModulos()
             .then(res => setModulos(res.data))
@@ -387,7 +398,13 @@ const CotizadorPage: React.FC = () => {
 
     const limpiarCotizacionActual = useCallback(() => {
         setCarrito([]);
-        setCabecera(CABECERA_INICIAL);
+        setCabecera({ ...CABECERA_INICIAL, asesorUsuarioId: permisos.usuarioId, asesor: permisos.usuarioNombre });
+        pedidoVinculo.current += 1;
+        setVinculo(null);
+        setCargandoVinculo(false);
+        setOdpVinculada(null);
+        setCierrePerdida(null);
+        setMotivoPerdidaGuardado(null);
         setEdicion(null);
         setPropuestas([]);
         setPropuestaActivaId(null);
@@ -397,7 +414,48 @@ const CotizadorPage: React.FC = () => {
         cargosTocadosRef.current = false;
         setItemEditandoId(null);
         setSucio(false);
-    }, [parametros]);
+    }, [parametros, permisos.usuarioId, permisos.usuarioNombre]);
+
+    /** Trae la ficha del vínculo y de la ODP de una cotización guardada. */
+    const resolverVinculo = useCallback((cot: Cotizacion) => {
+        const pedido = ++pedidoVinculo.current;
+        const v = cot.vinculo ?? null;
+        setVinculo(prev => (prev && v && prev.tipo === v.tipo && prev.id === v.id ? prev : null));
+        setOdpVinculada(prev => (prev && prev.id === cot.odpId ? prev : null));
+        if (v) {
+            setCargandoVinculo(true);
+            apiObtenerVinculo(v.tipo, v.id)
+                .then(r => { if (pedido === pedidoVinculo.current) setVinculo(r.data); })
+                .catch(() => { /* registro borrado: la cotización se sigue pudiendo ver */ })
+                .finally(() => { if (pedido === pedidoVinculo.current) setCargandoVinculo(false); });
+        } else {
+            setCargandoVinculo(false);
+        }
+        const odpId = cot.odpId;
+        if (odpId) {
+            apiObtenerVinculo('odp', odpId)
+                .then(r => { if (pedido === pedidoVinculo.current) setOdpVinculada({ id: r.data.id, numero: r.data.titulo.split(' · ')[0] }); })
+                .catch(() => { if (pedido === pedidoVinculo.current) setOdpVinculada({ id: odpId, numero: 'ODP #' + odpId }); });
+        }
+    }, []);
+
+    /** Vínculo de una cotización NUEVA: se guarda en pantalla y precarga el
+     * cliente (nombre, teléfono, dirección), que sigue editable en Resumen. */
+    const aplicarVinculoNuevo = useCallback((f: FichaVinculo) => {
+        pedidoVinculo.current += 1;
+        setVinculo(f);
+        setCargandoVinculo(false);
+        setOdpVinculada(f.tipo === 'odp' ? { id: f.id, numero: f.titulo.split(' · ')[0] } : null);
+        setCabecera(c => ({
+            ...c,
+            cliente: {
+                ...c.cliente,
+                nombre: f.nombre || c.cliente.nombre,
+                telefono: f.telefono ?? c.cliente.telefono,
+                direccion: f.direccion ?? c.cliente.direccion,
+            },
+        }));
+    }, []);
 
     /**
      * Vuelca una cotización del servidor sobre el estado local.
@@ -416,8 +474,12 @@ const CotizadorPage: React.FC = () => {
             cliente: cot.cliente,
             segmentoCliente: cot.segmentoCliente,
             asesor: cot.asesor,
+            asesorUsuarioId: cot.asesorUsuarioId ?? null,
             estado: cot.estado,
         });
+        setCierrePerdida(null);
+        setMotivoPerdidaGuardado(cot.motivoPerdida ?? null);
+        resolverVinculo(cot);
         setCarrito(cot.items.map(it => ({
             idTemp: `existente-${it.id}`,
             moduloId: it.moduloId,
@@ -432,13 +494,16 @@ const CotizadorPage: React.FC = () => {
         setCargos(cargosDesdeApi(activa?.cargos, parametros));
         setCargosTocados(false);
         cargosTocadosRef.current = false;
-        setEdicion({ id: cot.id, numero: cot.numero, estado: cot.estado, version: Number(cot.version) || 1 });
+        setEdicion({
+            id: cot.id, numero: cot.numero, estado: cot.estado, version: Number(cot.version) || 1,
+            asesorUsuarioId: cot.asesorUsuarioId ?? null,
+        });
         setItemEditandoId(null);
         setSucio(false);
         setErrorGuardado(null);
         setConflicto(false);
         setRecientes(registrarReciente({ id: cot.id, numero: cot.numero, cliente: cot.cliente?.nombre ?? '' }));
-    }, [parametros, nombreModulo]);
+    }, [parametros, nombreModulo, resolverVinculo]);
 
     /** Carga en el carrito una cotización guardada. Antes (hasta el 2026-09-26)
      * NO preguntaba por los cambios de la que estaba abierta y los perdía; ahora
@@ -484,6 +549,12 @@ const CotizadorPage: React.FC = () => {
             if (!auto) toast.error('Agrega al menos un producto para guardar la cotización.');
             return null;
         }
+        // No hay cotizaciones sin vínculo (2026-09-27): el backend respondería 400.
+        if (!edicion && !vinculo) {
+            if (!auto) toast.error('Primero elige para quién es la cotización (arriba, en Cotizar).');
+            return null;
+        }
+        const mostrarAvisosCRM = (cot: unknown) => avisosCRMDe(cot).forEach(a => toast.info(a, { autoClose: 7000 }));
         const revisionAlEmpezar = revision.current;
         setGuardando(true);
         try {
@@ -502,7 +573,10 @@ const CotizadorPage: React.FC = () => {
                 // 409 si la propuesta es legada, y eso no debe tumbar el guardado
                 // de los ítems.
                 const destino = propuestaActivaId ?? undefined;
-                const { data } = await apiActualizarCotizacion(edicion.id, {
+                const cambiaAsesor = permisos.administra && cabecera.asesorUsuarioId !== null
+                    && cabecera.asesorUsuarioId !== edicion.asesorUsuarioId;
+                const conCierre = cabecera.estado === 'PERDIDO' ? cierrePerdida : null;
+                const entrada: CotizacionEntrada & { marcarLeadPerdido?: boolean } = {
                     cliente: cabecera.cliente,
                     segmentoCliente: cabecera.segmentoCliente,
                     asesor: cabecera.asesor,
@@ -511,7 +585,18 @@ const CotizadorPage: React.FC = () => {
                     items,
                     propuestaId: destino,
                     versionEsperada: edicion.version,
-                }, { ligera: auto });
+                    // Reasignar el asesor: solo control total (el backend lo exige igual).
+                    ...(cambiaAsesor ? { asesorUsuarioId: cabecera.asesorUsuarioId as number } : {}),
+                    // Perdida: motivo y "¿también el lead?" viajan con el cambio de estado.
+                    ...(conCierre ? {
+                        motivoPerdida: conCierre.motivo,
+                        motivoPerdidaDetalle: conCierre.detalle,
+                        marcarLeadPerdido: conCierre.marcarLead,
+                    } : {}),
+                };
+                const { data } = await apiActualizarCotizacion(edicion.id, entrada, { ligera: auto });
+                if (conCierre) setCierrePerdida(null);
+                mostrarAvisosCRM(data);
                 let cot = data;
                 if (cargosTocados && destino) {
                     try {
@@ -525,7 +610,10 @@ const CotizadorPage: React.FC = () => {
                     // Sin volcar: el carrito y el formulario siguen como el asesor
                     // los tiene. Sólo lo que cambió en el servidor: versión,
                     // totales y la lista de opciones.
-                    setEdicion(e => (e ? { ...e, version: Number(cot.version) || e.version, estado: cot.estado } : e));
+                    setEdicion(e => (e ? {
+                        ...e, version: Number(cot.version) || e.version, estado: cot.estado,
+                        asesorUsuarioId: cot.asesorUsuarioId ?? e.asesorUsuarioId,
+                    } : e));
                     if (cot.propuestas) setPropuestas(cot.propuestas);
                     setCargosTocados(false);
                     cargosTocadosRef.current = false;
@@ -548,6 +636,8 @@ const CotizadorPage: React.FC = () => {
                     segmentoCliente: cabecera.segmentoCliente,
                     asesor: cabecera.asesor,
                     estado: cabecera.estado,
+                    vinculo: { tipo: vinculo!.tipo, id: vinculo!.id },
+                    ...(cabecera.asesorUsuarioId ? { asesorUsuarioId: cabecera.asesorUsuarioId } : {}),
                     propuestas: [{
                         elegida: true,
                         descuentoPct,
@@ -557,6 +647,7 @@ const CotizadorPage: React.FC = () => {
                 });
                 aplicarCotizacion(data);
                 toast.success(`Cotización N.° ${data.numero} creada y guardada.`);
+                mostrarAvisosCRM(data);
                 return data;
             }
         } catch (e: any) {
@@ -569,7 +660,8 @@ const CotizadorPage: React.FC = () => {
         } finally {
             setGuardando(false);
         }
-    }, [carrito, cabecera, descuentoPct, cargos, cargosTocados, edicion, propuestaActivaId, aplicarCotizacion]);
+    }, [carrito, cabecera, descuentoPct, cargos, cargosTocados, edicion, propuestaActivaId, aplicarCotizacion,
+        vinculo, cierrePerdida, permisos.administra]);
 
     const guardarCotizacion = useCallback(async () => {
         await persistir({ auto: Boolean(edicion) });
@@ -592,6 +684,80 @@ const CotizadorPage: React.FC = () => {
         return Boolean(await persistir({ auto: Boolean(edicion) }));
     }, [sucio, edicion, carrito.length, persistir, preguntarCambios]);
     asegurarGuardadoRef.current = asegurarGuardado;
+
+    /**
+     * "¿Para quién es esta cotización?" (2026-09-27). En una NUEVA solo se
+     * guarda en pantalla (viaja al crearla con su primer producto). En una ya
+     * guardada se escribe de inmediato, después de guardar lo pendiente; si es
+     * un lead, el backend lo pasa a Cotizando.
+     */
+    const elegirVinculo = useCallback(async (f: FichaVinculo) => {
+        if (!edicion) {
+            aplicarVinculoNuevo(f);
+            return;
+        }
+        if (!(await asegurarGuardado('cambiar para quién es la cotización'))) return;
+        try {
+            const { data } = await apiActualizarCotizacion(edicion.id, { vinculo: { tipo: f.tipo, id: f.id } }, { ligera: true });
+            setEdicion(e => (e ? { ...e, version: Number(data.version) || e.version } : e));
+            setVinculo(f);
+            if (f.tipo === 'odp') setOdpVinculada({ id: f.id, numero: f.titulo.split(' · ')[0] });
+            toast.success(`Cotización vinculada a ${f.titulo}.`);
+            avisosCRMDe(data).forEach(a => toast.info(a, { autoClose: 7000 }));
+        } catch (e) {
+            conError(e, 'No se pudo cambiar para quién es la cotización. No se modificó nada.');
+        }
+    }, [edicion, asegurarGuardado, aplicarVinculoNuevo]);
+
+    /** Cambios de la cabecera desde Resumen. Pasar a PERDIDO abre antes el
+     * modal del motivo (el backend lo exige); lo elegido viaja con el guardado. */
+    const cambiarCabecera = useCallback((cambios: Partial<CabeceraCotizacion>) => {
+        if (cambios.estado === 'PERDIDO' && cabecera.estado !== 'PERDIDO') {
+            if (!edicion) {
+                toast.info('Agrega primero un producto: la cotización se guarda con él y luego se puede marcar como perdida.');
+                return;
+            }
+            setPreguntandoPerdida(true);
+            return;
+        }
+        if (cambios.estado && cambios.estado !== 'PERDIDO') setCierrePerdida(null);
+        setCabecera(c => ({ ...c, ...cambios }));
+        setSucio(true);
+    }, [cabecera.estado, edicion]);
+
+    const confirmarPerdida = useCallback((c: CierrePerdida) => {
+        setCierrePerdida(c);
+        setCabecera(cab => ({ ...cab, estado: 'PERDIDO' }));
+        setSucio(true);
+        setPreguntandoPerdida(false);
+    }, []);
+
+    /** "Crear ODP" (Resumen): termina de guardar y abre el modal, que primero
+     * previsualiza qué flujo del ERP se va a usar. */
+    const abrirCrearOdp = useCallback(async () => {
+        if (!(await asegurarGuardado('crear la ODP'))) return;
+        setCreandoOdp(true);
+    }, [asegurarGuardado]);
+
+    const trasCrearOdp = useCallback(({ odpId, numeroOdp }: { odpId: number; numeroOdp: string }) => {
+        setCreandoOdp(false);
+        setOdpVinculada({ id: odpId, numero: numeroOdp });
+        toast.success(`${numeroOdp} creada y vinculada a esta cotización. Complétala en el módulo ODP.`, { autoClose: 9000 });
+    }, []);
+
+    /** El lead o el prospecto ya tenían ODP: se vincula la cotización a ella. */
+    const vincularOdpExistente = useCallback(async (odp: { id: number; numero: string }) => {
+        if (!edicion) return;
+        try {
+            const { data } = await apiActualizarCotizacion(edicion.id, { odpId: odp.id }, { ligera: true });
+            setEdicion(e => (e ? { ...e, version: Number(data.version) || e.version } : e));
+            setOdpVinculada(odp);
+            setCreandoOdp(false);
+            toast.success(`Cotización vinculada a ${odp.numero}.`);
+        } catch (e) {
+            conError(e, 'No se pudo vincular la ODP.');
+        }
+    }, [edicion]);
 
     /** Cómo se nombra dónde están los cambios pendientes, en el modal. */
     const dondeCambios = edicion ? `la ${rotuloPropuesta(propuestaActiva)}` : 'la cotización nueva';
@@ -779,6 +945,60 @@ const CotizadorPage: React.FC = () => {
         }
     }, [edicion, reabrirCotizacion, cambiarTab]);
 
+    // ─── Contrato de enlaces (2026-09-27) ───────────────────────────────────
+    //   /cotizador?abrir=<id>                    → abre esa cotización
+    //   /cotizador?nuevo=1&vinculo=<tipo>:<id>   → nueva, ya vinculada
+    // Lo usan CRM, Prospectos, ODP y el Dashboard (ver `enlaceCotizador`). Se
+    // consume una vez y se limpia de la URL.
+    const enlaceProcesado = useRef<string | null>(null);
+    useEffect(() => {
+        if (cargandoEstado || !disponible || !parametrosListos) return;
+        const abrir = searchParams.get('abrir');
+        const nuevo = searchParams.get('nuevo');
+        const vinculoUrl = searchParams.get('vinculo');
+        if (!abrir && !nuevo) return;
+        const clave = `${abrir}|${nuevo}|${vinculoUrl}`;
+        if (enlaceProcesado.current === clave) return;
+        enlaceProcesado.current = clave;
+        const limpiarUrl = () => setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.delete('abrir'); next.delete('nuevo'); next.delete('vinculo');
+            next.set('tab', 'cotizar');
+            return next;
+        }, { replace: true });
+        (async () => {
+            try {
+                if (abrir && Number(abrir) > 0) {
+                    await abrirReciente(Number(abrir));
+                    return;
+                }
+                if (!(await asegurarGuardado('empezar una cotización nueva'))) return;
+                limpiarCotizacionActual();
+                setErrorGuardado(null);
+                setConflicto(false);
+                setActiveTab('cotizar');
+                const v = leerVinculoDeUrl(vinculoUrl);
+                if (v) {
+                    try {
+                        const { data } = await apiObtenerVinculo(v.tipo, v.id);
+                        aplicarVinculoNuevo(data);
+                    } catch {
+                        toast.error('No se encontró el registro para el que ibas a cotizar. Búscalo en "¿Para quién es esta cotización?".');
+                    }
+                }
+            } finally {
+                limpiarUrl();
+            }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cargandoEstado, disponible, parametrosListos, searchParams]);
+
+    // Una cotización nueva arranca con quien la crea como asesor.
+    useEffect(() => {
+        if (edicion || cabecera.asesorUsuarioId !== null || !permisos.usuarioId || !permisos.puedeCrear) return;
+        setCabecera(c => ({ ...c, asesorUsuarioId: permisos.usuarioId, asesor: c.asesor || permisos.usuarioNombre }));
+    }, [edicion, cabecera.asesorUsuarioId, permisos.usuarioId, permisos.puedeCrear, permisos.usuarioNombre]);
+
     /**
      * Cambia el segmento (PA/PM/PB) y RECALCULA los ítems con la lista nueva.
      *
@@ -864,11 +1084,17 @@ const CotizadorPage: React.FC = () => {
      * en el select, puede editar y guardar ambas cosas juntas (el backend lo
      * acepta porque en ese mismo guardado deja de estar aprobada).
      */
-    const bloqueoEdicion = edicion?.estado === 'APROBADA' && cabecera.estado === 'APROBADA' && propuestaActiva?.elegida
+    // Permisos (2026-09-27): sin permiso sobre ESTA cotización todo queda en solo
+    // lectura, con el motivo a la vista. El backend lo impone igual (403).
+    const sinPermiso = edicion
+        ? permisos.motivoNoEditar(edicion.asesorUsuarioId, cabecera.asesor)
+        : permisos.puedeCrear ? null : 'Tu rol puede ver las cotizaciones, pero no crearlas ni modificarlas.';
+
+    const bloqueoEdicion = sinPermiso ?? (edicion?.estado === 'APROBADA' && cabecera.estado === 'APROBADA' && propuestaActiva?.elegida
         ? `La cotización N.° ${edicion.numero} está aprobada y la Opción ${propuestaActiva.etiqueta} es la elegida: ` +
           'no se pueden cambiar sus ítems, descuento, cargos ni segmento porque puede haber material cortado. ' +
           'Para editarla, cambia el estado a Pendiente.'
-        : null;
+        : null);
 
     const itemEnEdicion: ItemEnEdicion | null = useMemo(() => {
         if (!itemEditandoId) return null;
@@ -886,13 +1112,14 @@ const CotizadorPage: React.FC = () => {
     }, [sucio, carrito, cabecera, cargos, descuentoPct]);
 
     useEffect(() => {
-        if (!sucio || guardando || conflicto || errorGuardado || carrito.length === 0) return;
+        if (!sucio || guardando || conflicto || errorGuardado || carrito.length === 0 || sinPermiso) return;
+        if (!edicion && !vinculo) return; // sin "para quién" no se crea (ver BarraVinculo)
         const espera = window.setTimeout(() => {
             persistir({ auto: Boolean(edicion) });
         }, edicion ? ESPERA_AUTOGUARDADO_MS : 300);
         return () => window.clearTimeout(espera);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sucio, guardando, conflicto, errorGuardado, carrito, cabecera, cargos, descuentoPct, edicion?.id]);
+    }, [sucio, guardando, conflicto, errorGuardado, carrito, cabecera, cargos, descuentoPct, edicion?.id, sinPermiso, vinculo]);
 
     // El nombre del cliente de la abierta se refleja en "Cambiar a otra cotización".
     useEffect(() => {
@@ -1101,7 +1328,7 @@ const CotizadorPage: React.FC = () => {
                             tabs={[
                                 { key: 'cotizar', label: 'Cotizar', icon: <IconCotizar className="w-4 h-4" /> },
                                 { key: 'actual', label: 'Resumen', icon: <ClipboardList className="w-4 h-4" />, badge: carrito.length || undefined },
-                                { key: 'guardadas', label: 'Mis cotizaciones', icon: <Archive className="w-4 h-4" /> },
+                                { key: 'guardadas', label: 'Cotizaciones', icon: <Archive className="w-4 h-4" /> },
                             ]}
                             activeKey={activeTab}
                             onChange={(k) => {
@@ -1111,14 +1338,18 @@ const CotizadorPage: React.FC = () => {
                             }}
                         />
                     </div>
-                    <MenuAdministracion activo={activeTab === 'calibracion' || activeTab === 'configuracion' ? activeTab : null} onElegir={cambiarTab} />
+                    {permisos.administra && (
+                        <MenuAdministracion activo={activeTab === 'calibracion' || activeTab === 'configuracion' ? activeTab : null} onElegir={cambiarTab} />
+                    )}
                 </div>
                 <div className={activeTab === 'cotizar' || activeTab === 'actual' ? CUERPO_TRABAJO : FOLDER_BODY}>
                     {activeTab === 'cotizar' && (
-                        <ClienteRapido
-                            nombre={cabecera.cliente.nombre ?? ''}
-                            onCambiar={(nombre) => { setCabecera(c => ({ ...c, cliente: { ...c.cliente, nombre } })); marcarSucio(); }}
-                            bloqueado={Boolean(bloqueoEdicion)}
+                        <BarraVinculo
+                            vinculo={vinculo}
+                            cargandoVinculo={cargandoVinculo}
+                            onElegir={sinPermiso || odpVinculada ? null : elegirVinculo}
+                            esNueva={!edicion}
+                            asesorIdLeadRapido={permisos.usuarioId}
                         />
                     )}
                     {activeTab === 'cotizar' && (
@@ -1130,6 +1361,7 @@ const CotizadorPage: React.FC = () => {
                             onGuardarEdicion={guardarEdicionItem}
                             onCancelarEdicion={() => setItemEditandoId(null)}
                             bloqueo={bloqueoEdicion}
+                            sinVinculo={!edicion && !vinculo ? 'Primero elige para quién es.' : null}
                             onBorrador={setBorrador}
                             destino={{
                                 etiqueta: propuestaActiva?.etiqueta ?? 'A',
@@ -1165,7 +1397,7 @@ const CotizadorPage: React.FC = () => {
                         <TabActual
                             carrito={carrito}
                             cabecera={cabecera}
-                            onCambiarCabecera={(cambios) => { setCabecera(c => ({ ...c, ...cambios })); marcarSucio(); }}
+                            onCambiarCabecera={cambiarCabecera}
                             onQuitarItem={quitarItem}
                             numeroEnEdicion={edicion?.numero ?? null}
                             asesoresSugeridos={parametros?.asesores || []}
@@ -1185,13 +1417,20 @@ const CotizadorPage: React.FC = () => {
                             onDuplicarItem={duplicarItem}
                             bloqueoEdicion={bloqueoEdicion}
                             modulosDisponibles={modulosDisponibles}
+                            vinculo={vinculo}
+                            odpVinculada={odpVinculada}
+                            estadoGuardado={edicion?.estado ?? null}
+                            motivoPerdida={cierrePerdida?.motivo ?? motivoPerdidaGuardado}
+                            onCrearOdp={edicion && edicion.estado === 'APROBADA' && !odpVinculada && !sinPermiso ? abrirCrearOdp : null}
+                            asesores={asesores}
+                            puedeCambiarAsesor={Boolean(edicion) && permisos.administra}
                         />
                     )}
                     {activeTab === 'guardadas' && (
                         <TabGuardadas onReabrir={reabrirCotizacion} abrirDetalleInicial={abrirDetalleInicial} />
                     )}
-                    {activeTab === 'calibracion' && <TabCalibracion />}
-                    {activeTab === 'configuracion' && <TabConfiguracion />}
+                    {activeTab === 'calibracion' && permisos.administra && <TabCalibracion />}
+                    {activeTab === 'configuracion' && permisos.administra && <TabConfiguracion />}
                 </div>
             </div>
 
@@ -1202,6 +1441,26 @@ const CotizadorPage: React.FC = () => {
                     segmentoCliente={cabecera.segmentoCliente}
                     onClose={() => setClonando(null)}
                     onClonada={trasClonar}
+                />
+            )}
+
+            {preguntandoPerdida && (
+                <ModalMotivoPerdida
+                    numero={edicion?.numero ?? null}
+                    leadNombre={vinculo?.tipo === 'lead' && leadSePuedePerder(vinculo.estado) ? vinculo.titulo : null}
+                    onCancelar={() => setPreguntandoPerdida(false)}
+                    onConfirmar={confirmarPerdida}
+                />
+            )}
+
+            {creandoOdp && edicion && (
+                <ModalCrearODP
+                    cotizacionId={edicion.id}
+                    clienteNombre={cabecera.cliente.nombre ?? ''}
+                    clienteTelefono={cabecera.cliente.telefono ?? ''}
+                    onCerrar={() => setCreandoOdp(false)}
+                    onCreada={trasCrearOdp}
+                    onVincularExistente={vincularOdpExistente}
                 />
             )}
 

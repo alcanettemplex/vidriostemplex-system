@@ -1,237 +1,100 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, Info, Loader2, RefreshCw } from '../../ui/icons';
+import FiltrosBarra from './cotizaciones/FiltrosBarra';
+import BloqueKpis from './cotizaciones/BloqueKpis';
+import BloqueEmbudo from './cotizaciones/BloqueEmbudo';
+import BloqueAsesores from './cotizaciones/BloqueAsesores';
+import BloqueProductos from './cotizaciones/BloqueProductos';
+import BloqueSeguimiento from './cotizaciones/BloqueSeguimiento';
+import { TituloSeccion } from './cotizaciones/Piezas';
+import { filtrosIniciales, useCotizacionesDashboard } from './cotizaciones/useCotizacionesDashboard';
+import type { FiltrosCotizaciones } from './cotizaciones/tipos';
 
-interface PanelCotizacionesProps {
-  data: any | null;
-  isLoading: boolean;
-}
+/**
+ * Pestaña "Cotizaciones" del Dashboard gerencial (rediseño 2026-09-27).
+ *
+ * Lee el Cotizador nuevo (`GET /api/dashboard/cotizaciones`) con sus propios filtros:
+ * el selector de periodo del encabezado del dashboard no aplica aquí. El alcance lo
+ * impone el backend: control total ve todo; un asesor comercial, solo lo suyo.
+ */
+export const PanelCotizaciones: React.FC = () => {
+  const [filtros, setFiltros] = useState<FiltrosCotizaciones>(filtrosIniciales);
+  const { datos, cargando, error, recargar, descargarExcel, descargando } = useCotizacionesDashboard(filtros);
 
-const fmtM = (n: number) => {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n}`;
-};
+  // Opciones de asesor: se conservan entre recargas para que el selector no parpadee.
+  const [asesores, setAsesores] = useState<Array<{ id: number; nombre: string }> | null>(null);
+  useEffect(() => {
+    if (datos?.alcance.nivel === 'total') setAsesores(datos.asesores);
+    else if (datos) setAsesores(null);
+  }, [datos]);
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-const Skeleton: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className = '', style }) => (
-  <div className={`animate-pulse bg-slate-200 rounded ${className}`} style={style} />
-);
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-interface KpiCardProps {
-  label: string;
-  value: number | string;
-  sub?: string;
-  color: string;
-  isLoading: boolean;
-}
-
-const KpiCard: React.FC<KpiCardProps> = ({ label, value, sub, color, isLoading }) => (
-  <div className={`bg-white rounded-2xl border border-slate-200 shadow-card p-4 flex flex-col gap-1 border-l-4 min-w-0 ${color}`}>
-    {isLoading ? (
-      <>
-        <Skeleton className="h-3 w-24 mb-1" />
-        <Skeleton className="h-8 w-16" />
-      </>
-    ) : (
-      <>
-        <span className="text-[12px] font-semibold text-slate-900 uppercase tracking-wide">{label}</span>
-        <span className="text-[30px] leading-tight font-extrabold tracking-tight text-slate-900 tabular-nums whitespace-nowrap">{value}</span>
-        {sub && <span className="text-[12px] text-slate-700">{sub}</span>}
-      </>
-    )}
-  </div>
-);
-
-// ─── Gráfica de barras apiladas ───────────────────────────────────────────────
-const BarChart: React.FC<{ rows: any[] }> = ({ rows }) => {
-  if (!rows || rows.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-40 text-slate-700 text-sm">
-        Sin datos en el período seleccionado
-      </div>
-    );
-  }
-
-  const maxVal = Math.max(...rows.map(r => r.realizadas), 1);
-
-  const COLORS = {
-    aprobadas:      '#22c55e',
-    en_seguimiento: '#f59e0b',
-    rechazadas:     '#ef4444',
-  };
-
-  return (
-    <div className="flex items-end gap-2 h-44 pt-2">
-      {rows.map((row, i) => {
-        const pctAprob   = (row.aprobadas / maxVal) * 100;
-        const pctSeg     = (row.en_seguimiento / maxVal) * 100;
-        const pctRech    = (row.rechazadas / maxVal) * 100;
-
-        return (
-          <div key={i} className="flex flex-col items-center flex-1 gap-0.5" title={`${row.mes}: ${row.realizadas} realizadas`}>
-            <div className="w-full flex flex-col-reverse gap-px" style={{ height: '140px' }}>
-              {/* rechazadas (abajo) */}
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height: `${pctRech}%` }}
-                transition={{ duration: 0.7, delay: i * 0.05, ease: 'easeOut' }}
-                className="w-full rounded-sm"
-                style={{ backgroundColor: COLORS.rechazadas, minHeight: pctRech > 0 ? 3 : 0 }}
-                title={`Rechazadas: ${row.rechazadas}`}
-              />
-              {/* en seguimiento */}
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height: `${pctSeg}%` }}
-                transition={{ duration: 0.7, delay: i * 0.05 + 0.05, ease: 'easeOut' }}
-                className="w-full rounded-sm"
-                style={{ backgroundColor: COLORS.en_seguimiento, minHeight: pctSeg > 0 ? 3 : 0 }}
-                title={`En seguimiento: ${row.en_seguimiento}`}
-              />
-              {/* aprobadas (arriba) */}
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height: `${pctAprob}%` }}
-                transition={{ duration: 0.7, delay: i * 0.05 + 0.1, ease: 'easeOut' }}
-                className="w-full rounded-sm"
-                style={{ backgroundColor: COLORS.aprobadas, minHeight: pctAprob > 0 ? 3 : 0 }}
-                title={`Aprobadas: ${row.aprobadas}`}
-              />
-            </div>
-            <span className="text-[12px] text-slate-800 mt-1 truncate w-full text-center">{row.mes}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-// ─── Panel principal ──────────────────────────────────────────────────────────
-export const PanelCotizaciones: React.FC<PanelCotizacionesProps> = ({ data, isLoading }) => {
-  const resumen = data?.resumen_periodo || {};
-  const porMes  = data?.por_mes || [];
-  const activas = data?.en_seguimiento_activo || [];
+  const propio = datos?.alcance.nivel === 'propias';
 
   return (
     <div className="space-y-5">
+      <FiltrosBarra filtros={filtros} onChange={setFiltros} asesores={asesores} onExcel={descargarExcel} descargando={descargando} />
 
-      {/* ─── KPI Cards ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          label="Realizadas"
-          value={resumen.total_realizadas ?? '—'}
-          sub="en el período"
-          color="border-l-indigo-400"
-          isLoading={isLoading}
-        />
-        <KpiCard
-          label="En seguimiento"
-          value={resumen.total_en_seguimiento ?? '—'}
-          sub="esperando respuesta"
-          color="border-l-amber-400"
-          isLoading={isLoading}
-        />
-        <KpiCard
-          label="Aprobadas"
-          value={resumen.total_aprobadas ?? '—'}
-          sub={resumen.valor_total_aprobadas ? fmtM(resumen.valor_total_aprobadas) : ''}
-          color="border-l-emerald-400"
-          isLoading={isLoading}
-        />
-        <KpiCard
-          label="Rechazadas / Vencidas"
-          value={resumen.total_rechazadas ?? '—'}
-          sub="descartadas"
-          color="border-l-rose-400"
-          isLoading={isLoading}
-        />
-      </div>
+      {propio && (
+        <p className="flex items-start gap-2 text-[13px] text-templex-900 bg-templex-50 ring-1 ring-templex-100 rounded-xl px-3 py-2">
+          <Info className="w-4 h-4 mt-0.5 shrink-0 text-templex-600" />
+          Estás viendo solo tus cotizaciones (las que tienes asignadas como asesor).
+        </p>
+      )}
 
-      {/* ─── Gráfica mes a mes ──────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[15px] font-semibold text-slate-900">Cotizaciones por mes</h3>
-          <div className="flex flex-wrap items-center gap-3 text-[12px] text-slate-800">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block bg-emerald-500" />Aprobadas</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block bg-amber-400" />En seguimiento</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block bg-red-400" />Rechazadas</span>
-          </div>
+      {error && (
+        <div role="alert" className="flex flex-wrap items-center gap-3 text-[13px] text-rose-800 bg-rose-50 ring-1 ring-rose-200 rounded-xl px-3 py-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <span className="flex-1 min-w-[200px]">{error}</span>
+          <button type="button" onClick={recargar} className="inline-flex items-center gap-1 font-semibold text-rose-800 hover:underline">
+            <RefreshCw className="w-3.5 h-3.5" /> Reintentar
+          </button>
         </div>
-        {isLoading ? (
-          <div className="flex items-end gap-2 h-44">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="flex-1" style={{ height: `${40 + Math.random() * 60}%` } as React.CSSProperties} />
-            ))}
-          </div>
-        ) : (
-          <BarChart rows={porMes} />
-        )}
-      </div>
+      )}
 
-      {/* ─── En seguimiento activo ──────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[15px] font-semibold text-slate-900">
-            En seguimiento activo
-            <span className="ml-2 text-[12px] font-normal text-slate-700">(todas las pendientes de respuesta)</span>
-          </h3>
-          {!isLoading && (
-            <span className="text-[12px] font-semibold bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200 whitespace-nowrap">
-              {activas.length} pendientes
-            </span>
+      {!datos ? (
+        cargando ? (
+          <div className="space-y-4" aria-busy="true" aria-label="Cargando tablero de cotizaciones">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-[140px] rounded-2xl bg-white border border-slate-200 animate-pulse" />)}
+            </div>
+            <div className="h-[320px] rounded-2xl bg-white border border-slate-200 animate-pulse" />
+          </div>
+        ) : null
+      ) : (
+        <div className={`space-y-5 transition-opacity ${cargando ? 'opacity-60' : ''}`}>
+          {cargando && (
+            <p className="flex items-center gap-2 text-[12px] text-slate-700"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Actualizando…</p>
           )}
+
+          <TituloSeccion numero={1} titulo="Indicadores" detalle="Valores con IVA de la opción elegida de cada cotización." />
+          <BloqueKpis datos={datos} />
+
+          {datos.kpis.sin_valor > 0 && (
+            <p className="flex items-start gap-2 text-[12px] text-amber-900 bg-amber-50 ring-1 ring-amber-200 rounded-xl px-3 py-2">
+              <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+              {datos.kpis.sin_valor} cotización{datos.kpis.sin_valor === 1 ? '' : 'es'} sin opción elegida (o en $0): cuentan en cantidad pero suman $0 al valor.
+            </p>
+          )}
+
+          <TituloSeccion numero={2} titulo="Embudo y conversión" detalle="Cuántas se convierten y cuánto vale lo que se vende." />
+          <BloqueEmbudo datos={datos} />
+
+          <TituloSeccion numero={3} titulo={propio ? 'Tu desempeño' : 'Por asesor'} />
+          <BloqueAsesores datos={datos} />
+
+          <TituloSeccion numero={4} titulo="Por producto y segmento" detalle="Qué se cotiza y qué se vende más." />
+          <BloqueProductos datos={datos} />
+
+          <TituloSeccion numero={5} titulo="Seguimiento" detalle="Lo que hay que mover hoy." />
+          <BloqueSeguimiento datos={datos} />
+
+          <p className="text-[11px] text-slate-700 text-right">
+            Datos al {new Date(datos.generado_en).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })} · se actualizan cada 5 minutos como máximo.
+          </p>
         </div>
-
-        {isLoading ? (
-          <div className="space-y-2">
-            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-          </div>
-        ) : activas.length === 0 ? (
-          <div className="text-center py-8 text-slate-700 text-sm">
-            No hay cotizaciones en seguimiento actualmente
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="text-left border-b border-slate-200 text-[11px] uppercase tracking-wide">
-                  <th className="pb-2 font-semibold text-slate-900 pr-4">Número</th>
-                  <th className="pb-2 font-semibold text-slate-900 pr-4">Cliente</th>
-                  <th className="pb-2 font-semibold text-slate-900 pr-4 hidden md:table-cell">Proyecto</th>
-                  <th className="pb-2 font-semibold text-slate-900 pr-4 hidden lg:table-cell">Asesor</th>
-                  <th className="pb-2 font-semibold text-slate-900 pr-4 text-right">Valor</th>
-                  <th className="pb-2 font-semibold text-slate-900 text-right">Días</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {activas.map((c: any) => {
-                  const vencida  = c.dias_transcurridos > c.validez_dias;
-                  const proxVenc = !vencida && c.dias_transcurridos >= c.validez_dias - 3;
-                  return (
-                    <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2 pr-4 font-mono font-semibold text-indigo-700 whitespace-nowrap">{c.numero_cot}</td>
-                      <td className="py-2 pr-4 text-slate-900 font-semibold max-w-[180px] truncate">{c.cliente}</td>
-                      <td className="py-2 pr-4 text-slate-800 hidden md:table-cell max-w-[220px] truncate">{c.nombre_proyecto}</td>
-                      <td className="py-2 pr-4 text-slate-800 hidden lg:table-cell">{c.asesor}</td>
-                      <td className="py-2 pr-4 text-right font-semibold text-slate-900 tabular-nums whitespace-nowrap">{fmtM(c.valor_total)}</td>
-                      <td className="py-2 text-right">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[12px] font-semibold tabular-nums
-                          ${vencida  ? 'bg-rose-100 text-rose-700' :
-                            proxVenc ? 'bg-amber-100 text-amber-700' :
-                                       'bg-slate-100 text-slate-800'}`}>
-                          {c.dias_transcurridos}d
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
+      )}
     </div>
   );
 };
+
+export default PanelCotizaciones;

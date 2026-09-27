@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { Phone, Tag, Flag, Clock, Zap, UserCheck, ChevronRight } from '../../../components/ui/icons';
+import { useNavigate } from 'react-router-dom';
+import { Phone, Tag, Flag, Clock, Zap, UserCheck, ChevronRight, Calculator } from '../../../components/ui/icons';
 import LeadDetalleModal from './LeadDetalleModal';
+import { usePermisosCotizador } from '../../cotizador/permisos';
+import { enlaceCotizador } from '../../cotizador/vinculo';
 
 interface LeadCardProps {
   lead: any;
@@ -36,6 +39,8 @@ function formatearUltimoMovimiento(dias: number): string {
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool }) => {
   const [showDetalle, setShowDetalle] = useState(false);
+  const navigate = useNavigate();
+  const permisosCotizador = usePermisosCotizador();
   const esUrgente = (() => {
     if (['PERDIDO', 'APROBADO', 'FRIO'].includes(lead.estado_crm)) return false;
     const campo = FECHA_POR_ETAPA[lead.estado_crm] || 'createdAt';
@@ -199,6 +204,17 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
             >
               <UserCheck className="w-3.5 h-3.5" />
               Convertir
+            </button>
+          )}
+
+          {/* Cotizar en el Cotizador con el lead ya vinculado (2026-09-27). */}
+          {stageId === 'COTIZANDO' && permisosCotizador.puedeCrear && (
+            <button
+              onClick={e => { e.stopPropagation(); navigate(enlaceCotizador({ nuevo: { tipo: 'lead', id: lead.id } })); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-lg shadow hover:bg-amber-700 transition-colors"
+            >
+              <Calculator className="w-3.5 h-3.5" />
+              Cotizar
             </button>
           )}
 

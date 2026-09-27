@@ -27,6 +27,19 @@ CotizadorCotizacion.init({
   cliente_contacto: { type: DataTypes.STRING(120) },
   segmento_cliente: { type: DataTypes.ENUM('PA', 'PM', 'PB'), allowNull: false, defaultValue: 'PA' },
   asesor: { type: DataTypes.STRING(80) },
+  // Integración con el ERP (2026-09-27, script 2026-09-27_cotizador_integracion_erp.ts).
+  // `asesor` (texto) queda como nombre a mostrar y para las cotizaciones anteriores;
+  // el dueño real —quien puede editarla— es `asesor_usuario_id`.
+  asesor_usuario_id: { type: DataTypes.INTEGER, allowNull: true },
+  creado_por_id: { type: DataTypes.INTEGER, allowNull: true },
+  lead_id: { type: DataTypes.INTEGER, allowNull: true },
+  prospecto_id: { type: DataTypes.INTEGER, allowNull: true },
+  cliente_id: { type: DataTypes.INTEGER, allowNull: true },
+  odp_id: { type: DataTypes.INTEGER, allowNull: true },
+  motivo_perdida: { type: DataTypes.STRING(40), allowNull: true },
+  motivo_perdida_detalle: { type: DataTypes.TEXT, allowNull: true },
+  aprobada_en: { type: DataTypes.DATE, allowNull: true },
+  perdida_en: { type: DataTypes.DATE, allowNull: true },
   // ⚠️ LEGADA desde el 2026-09-20: se conserva la columna (y sus 4 filas
   // históricas), pero deja de escribirse. Nunca afectó a ningún total —
   // `calcularTotales` solo sumaba los ítems— y el descuento vivo pasó a ser

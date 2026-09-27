@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  FileText, Package, Ruler, Images, Shield, AlertCircle, Printer, Banknote, FileCheck, Pencil
+  FileText, Package, Ruler, Images, Shield, AlertCircle, Printer, Banknote, FileCheck, Pencil, HardHat
 } from '../../../components/ui/icons';
 import axios from 'axios';
 import PrintableTalonario from './PrintableTalonario';
@@ -11,6 +11,8 @@ import PrintableOA from './PrintableOA';
 import PrintableDetalleTecnico from './PrintableDetalleTecnico';
 import PrintableDetSAP from './PrintableDetSAP';
 import PrintableSAP from './PrintableSAP';
+import HojaTrabajoODP from './HojaTrabajoODP';
+import { useCotizacionesDeOdp } from './useCotizacionesDeOdp';
 import FacturaElectronicaModal from '../../contabilidad/components/FacturaElectronicaModal';
 import AbonoFormModal from '../../contabilidad/components/AbonoFormModal';
 import AbonosODPModal from '../../contabilidad/components/AbonosODPModal';
@@ -19,7 +21,7 @@ import { abrirVentanaImpresion } from '../../../utils/printWindow';
 import { ESTILOS_IMPRESION_ODP } from './printStyles';
 import API from '../../../services/config';
 
-type FormatId = 'compra' | 'op' | 'tecnico' | 'det_sap' | 'garantia' | 'noconformidad' | 'sap';
+type FormatId = 'compra' | 'op' | 'tecnico' | 'det_sap' | 'garantia' | 'noconformidad' | 'sap' | 'hoja_trabajo';
 
 const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUser }) => {
   const tieneNC = (odp?.no_conformidades?.length || 0) > 0;
@@ -32,6 +34,21 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
   const [garantiaIndex, setGarantiaIndex] = useState(0);
   const [detSapImagenes, setDetSapImagenes] = useState<any[]>([]);
   const [ncOrigenData, setNcOrigenData] = useState<any>(null);
+
+  // ─── Hoja de trabajo (2026-09-27): la de la cotización del Cotizador vinculada ──
+  // Solo el listado ligero: la hoja pide el detalle de UNA cotización al elegirse.
+  // Se prefieren las APROBADAS (la que se fabrica); si no hay, cualquiera con
+  // opción elegida. Sin ninguna, el formato queda deshabilitado con el motivo.
+  const { lista: cotsVinculadas, cargando: cargandoCots } = useCotizacionesDeOdp(odp?.id, { conDetalle: false });
+  const cotsHoja = (() => {
+    const aprobadas = cotsVinculadas.filter(c => c.estado === 'APROBADA');
+    return aprobadas.length > 0 ? aprobadas : cotsVinculadas.filter(c => c.propuestaElegidaId);
+  })();
+  const [cotHojaId, setCotHojaId] = useState<number | null>(null);
+  const cotHojaActiva = cotsHoja.find(c => c.id === cotHojaId) ?? cotsHoja[0] ?? null;
+  const motivoSinHoja = cargandoCots ? 'Cargando cotizaciones vinculadas…'
+    : cotsVinculadas.length === 0 ? 'La ODP no tiene una cotización del Cotizador vinculada (Comercial → Cotizaciones).'
+      : cotsHoja.length === 0 ? 'La cotización vinculada no tiene una opción elegida.' : null;
 
   // ─── Accesos directos a facturación y abonos (mismos modales que Contabilidad) ──
   // Visibilidad replicada de la tabla Estado Caja: las OA no se facturan, las garantías
@@ -48,10 +65,9 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
   const puedeVerAbonos = puedeCobros && totalAbonos > 0;
   const hayAccesosDirectos = puedeFacturar || puedeRegistrarAbono || puedeVerAbonos;
 
-  const token = sessionStorage.getItem('token');
-
   useEffect(() => {
     if (selectedFormat !== 'det_sap') return;
+    const token = sessionStorage.getItem('token');
     axios.get(`${API}/api/detalle-sap-imagenes?odp_id=${odp.id}`, {
       headers: { Authorization: `Bearer ${token}` }
     }).then(r => setDetSapImagenes(r.data)).catch(() => setDetSapImagenes([]));
@@ -59,6 +75,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
 
   useEffect(() => {
     if (!esNC || !odp?.odp_padre_id) return;
+    const token = sessionStorage.getItem('token');
     axios.get(`${API}/api/no-conformidad/odp/${odp.odp_padre_id}`, {
       headers: { Authorization: `Bearer ${token}` }
     }).then(r => {
@@ -70,6 +87,15 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
   const handlePrint = () => {
     const area = document.getElementById('printable-area');
     if (!area) return;
+    if (selectedFormat === 'hoja_trabajo') {
+      // Misma impresión que en el Cotizador: la hoja trae su propio <style> y
+      // su @page; los estilos de la ODP no aplican.
+      abrirVentanaImpresion({
+        titulo: `Hoja de Trabajo — ODP ${odp?.numero_odp || ''}${cotHojaActiva ? ` · Cotización ${cotHojaActiva.numero}` : ''}`,
+        contenidoHtml: area.innerHTML,
+      });
+      return;
+    }
     abrirVentanaImpresion({
       titulo: `Impresión ODP ${odp?.numero_odp || ''}`,
       contenidoHtml: area.innerHTML,
@@ -114,6 +140,14 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
               <span className="text-[11px] bg-indigo-500 text-white px-1.5 rounded-full">{odp.saps.length}</span>
             </button>
           )}
+          <button
+            onClick={() => { if (!motivoSinHoja) setSelectedFormat('hoja_trabajo'); }}
+            disabled={Boolean(motivoSinHoja)}
+            title={motivoSinHoja ?? 'Hoja de Trabajo de la cotización vinculada (opción elegida), sin precios'}
+            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed ${selectedFormat === 'hoja_trabajo' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <HardHat className="w-3 h-3" /> Hoja de trabajo
+          </button>
         </div>
 
         {selectedFormat === 'noconformidad' && odp?.no_conformidades?.length > 1 && (
@@ -122,6 +156,16 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
                 <select className="bg-transparent text-xs font-bold outline-none" value={ncIndex} onChange={e => setNcIndex(parseInt(e.target.value))}>
                     {odp.no_conformidades.map((nc: any, idx: number) => (
                         <option key={idx} value={idx}>{nc.numero_reporte} - {new Date(nc.creado_en).toLocaleDateString()}</option>
+                    ))}
+                </select>
+            </div>
+        )}
+        {selectedFormat === 'hoja_trabajo' && cotsHoja.length > 1 && (
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1 px-3">
+                <span className="text-[11px] font-semibold text-slate-900 uppercase">COTIZACIÓN:</span>
+                <select className="bg-transparent text-xs font-bold outline-none" value={cotHojaActiva?.id ?? ''} onChange={e => setCotHojaId(Number(e.target.value))}>
+                    {cotsHoja.map(c => (
+                        <option key={c.id} value={c.id}>N.° {c.numero}{c.cliente?.nombre ? ` · ${c.cliente.nombre}` : ''}</option>
                     ))}
                 </select>
             </div>
@@ -201,6 +245,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
             : <PrintableNoConformidad odp={odp} data={odp?.no_conformidades?.[ncIndex]} />
         )}
         {selectedFormat === 'sap' && <PrintableSAP odp={odp} sap={odp?.saps?.[0]} />}
+        {selectedFormat === 'hoja_trabajo' && cotHojaActiva && <HojaTrabajoODP cotizacionId={cotHojaActiva.id} />}
       </div>
 
       {/* Modales de Contabilidad — fuera de #printable-area para que no entren en la impresión.

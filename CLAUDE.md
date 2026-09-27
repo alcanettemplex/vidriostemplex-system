@@ -65,8 +65,8 @@ Para no rehacer el rastreo forense completo cada vez que se toca un módulo gran
 |---|---|---|
 | ODP | `docs/modulos/odp.md` | Estados de producción, motor de checks automáticos, impresión de OP, ODP No Conformidad |
 | Compras | `docs/modulos/compras.md` | SAP/ODC, PedidoPV, Proveedores (ingesta FE, precios, equivalencias) |
-| Cotizador | `docs/modulos/cotizador.md` | Schema `cotizador`, niveles de corte A/B/C, aptitud de orden, calibración, unidades mm↔cm |
-| Cotizador — destino | `docs/modulos/cotizador-vision.md` | **Destino, no pendiente.** Para qué se construye el módulo: SAP automática, plano en Det. Técnico, PDF al cliente, estadística comercial. El aislamiento sigue vigente: nada de ahí se implementa sin orden explícita |
+| Cotizador | `docs/modulos/cotizador.md` | Schema `cotizador`, niveles de corte A/B/C, aptitud de orden, calibración, unidades mm↔cm. **Integrado al ERP desde el 2026-09-27**: permisos por rol (`cotizador/lib/permisos.ts`), vínculo obligatorio a lead/prospecto/cliente/ODP, "Crear ODP", ítems a la SAP, sección en la ficha ODP y tablero en el Dashboard |
+| Cotizador — destino | `docs/modulos/cotizador-vision.md` | **Destino, no pendiente.** Para qué se construye el módulo: SAP automática, plano en Det. Técnico, PDF al cliente, estadística comercial. La integración con el ERP se ordenó el 2026-09-27 (ver cotizador.md) |
 | Rutas e Instalaciones | *(pendiente)* | RutaInstalacion/RutaODP, Instalaciones, Evidencias, Agenda |
 | CRM / Leads | *(pendiente)* | Leads, pipeline CRM, Supervisión CRM, Prospectos |
 | Contabilidad / Caja | *(pendiente)* | Facturación, Caja, Salidas de Almacén |

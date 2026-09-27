@@ -14,6 +14,8 @@ SAPItem.init({
   und: { type: DataTypes.STRING(20), allowNull: true },
   exist_perf: { type: DataTypes.TEXT, allowNull: true },
   observacion: { type: DataTypes.TEXT, allowNull: true },
+  // Ítem traído de una cotización del Cotizador (2026-09-27): evita traerlos dos veces.
+  origen_cotizacion_id: { type: DataTypes.INTEGER, allowNull: true },
   estado_compra: {
     type: DataTypes.STRING(20),
     defaultValue: 'pendiente',

@@ -28,8 +28,17 @@ const linea = (r: any, codigo: string) => (r.items as any[]).find((l) => l.codig
 
 test("sin personalización el resultado es idéntico al del motor", () => {
   const motor = getModulo("ventanas")!.calcular(VENTANA_744);
-  assert.deepEqual(calcularItem("ventanas", VENTANA_744), motor);
-  assert.deepEqual(calcularItem("ventanas", { ...VENTANA_744, personalizacion: { cambios: [], quitados: [], extras: [] } }), motor);
+  // `calcularItem` agrega la descripción comercial (2026-09-26): es texto para
+  // el cliente, no parte del cálculo. Todo lo demás debe ser idéntico.
+  const sinDescripcion = (r: unknown) => {
+    const { descripcionComercial: _d, ...resto } = r as Record<string, unknown>;
+    return resto;
+  };
+  assert.deepEqual(sinDescripcion(calcularItem("ventanas", VENTANA_744)), motor);
+  assert.deepEqual(
+    sinDescripcion(calcularItem("ventanas", { ...VENTANA_744, personalizacion: { cambios: [], quitados: [], extras: [] } })),
+    motor
+  );
 });
 
 test("cambiar la chapa por otra de la misma unidad reemplaza la línea y rehace el total", () => {

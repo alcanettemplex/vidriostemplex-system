@@ -33,18 +33,30 @@ const attrsLeadListado: any = {
   exclude: ['mensaje_entrada', 'descripcion_contexto'],
 };
 
+/** Resultado de un flujo extraído de su handler (2026-09-27): el handler lo
+ * traduce tal cual a `res.status(status).json(body)`. Existe para que el
+ * Cotizador reutilice ESTE flujo (lead rápido, crear ODP desde lead) en vez de
+ * duplicarlo; el comportamiento del endpoint del CRM no cambia. */
+export interface ResultadoFlujoCRM { status: number; body: any }
+type UsuarioFlujoCRM = NonNullable<Request['user']>;
+
 export const createLead = async (req: Request, res: Response) => {
+  const r = await crearLeadRegistro(req.body, req.user!);
+  res.status(r.status).json(r.body);
+};
+
+/** Cuerpo de `createLead`, reutilizable (lo llama el "lead rápido" del Cotizador). */
+export async function crearLeadRegistro(body: any, user: UsuarioFlujoCRM): Promise<ResultadoFlujoCRM> {
   try {
-    const user = req.user!;
     const {
       telefono, nombre, mensaje_entrada, segmento, fuente_lead,
       respondio, producto_interes, descripcion_contexto, asesor_id
-    } = req.body;
+    } = body;
 
     // Verificar duplicado por teléfono
     const existente = await Lead.findOne({ where: { telefono: telefono?.trim() } });
     if (existente) {
-      return res.status(409).json({ error: `Ya existe un lead registrado con el número ${telefono}. Búscalo en el pipeline antes de crear uno nuevo.` });
+      return { status: 409, body: { error: `Ya existe un lead registrado con el número ${telefono}. Búscalo en el pipeline antes de crear uno nuevo.`, lead_id: existente.getDataValue('id') } };
     }
 
     const newLead = await Lead.create({
@@ -79,13 +91,13 @@ export const createLead = async (req: Request, res: Response) => {
     }
 
     import('../server').then(({ emitirCambio }) => emitirCambio('crm')).catch(() => {});
-    res.status(201).json(newLead);
+    return { status: 201, body: newLead };
   } catch (error: any) {
     console.error('Error al crear lead:', error?.message || error);
     console.error('Stack:', error?.stack);
-    res.status(500).json({ error: 'Error del servidor al crear lead', detalle: error?.message });
+    return { status: 500, body: { error: 'Error del servidor al crear lead', detalle: error?.message } };
   }
-};
+}
 
 export const updateLeadStatus = async (req: Request, res: Response) => {
   try {
@@ -1284,25 +1296,43 @@ export const getStatsProspectos = async (req: Request, res: Response) => {
 
 // Crear una ODP mínima desde un lead APROBADO y vincularla automáticamente
 export const crearODPDesdeLead = async (req: Request, res: Response) => {
+  const r = await crearODPParaLead(req.params.id, req.body, req.user!);
+  res.status(r.status).json(r.body);
+};
+
+/** Ajustes opcionales del Cotizador (2026-09-27) sobre la ODP que crea
+ * `crearODPParaLead`. Sin ellos el flujo es idéntico al del CRM. */
+export interface AjustesODPDesdeLead {
+  asesor_id?: number;
+  valor_total?: number;
+  descripcion_pedido?: string;
+  forma_pago?: string;
+}
+
+/** Cuerpo de `crearODPDesdeLead`, reutilizable ("Crear ODP" del Cotizador). */
+export async function crearODPParaLead(
+  id: string | number,
+  body: any,
+  user: UsuarioFlujoCRM,
+  ajustes: AjustesODPDesdeLead = {},
+): Promise<ResultadoFlujoCRM> {
   try {
-    const { id } = req.params;
-    const user = req.user!;
-    const { cliente_id, nombre, telefono } = req.body;
+    const { cliente_id, nombre, telefono } = body;
 
     const lead = await Lead.findByPk(id);
-    if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
+    if (!lead) return { status: 404, body: { error: 'Lead no encontrado' } };
     if (lead.getDataValue('estado_crm') !== 'APROBADO') {
-      return res.status(400).json({ error: 'Solo se puede crear ODP para leads en estado APROBADO' });
+      return { status: 400, body: { error: 'Solo se puede crear ODP para leads en estado APROBADO' } };
     }
     if (lead.getDataValue('odp_id')) {
-      return res.status(409).json({ error: 'Este lead ya tiene una ODP vinculada' });
+      return { status: 409, body: { error: 'Este lead ya tiene una ODP vinculada' } };
     }
 
     // Resolver cliente_id
     let clienteIdFinal: number;
     if (cliente_id) {
       const clienteExist = await Cliente.findByPk(cliente_id);
-      if (!clienteExist) return res.status(404).json({ error: 'Cliente no encontrado' });
+      if (!clienteExist) return { status: 404, body: { error: 'Cliente no encontrado' } };
       clienteIdFinal = cliente_id;
     } else if (telefono) {
       // Buscar por teléfono para evitar duplicados
@@ -1322,7 +1352,7 @@ export const crearODPDesdeLead = async (req: Request, res: Response) => {
         clienteIdFinal = nuevo.getDataValue('id');
       }
     } else {
-      return res.status(400).json({ error: 'Se requiere cliente_id o teléfono para crear la ODP' });
+      return { status: 400, body: { error: 'Se requiere cliente_id o teléfono para crear la ODP' } };
     }
 
     // Generar y crear la ODP con número consecutivo. withUniqueRetry: ante colisión
@@ -1333,15 +1363,17 @@ export const crearODPDesdeLead = async (req: Request, res: Response) => {
       return ODP.create({
         numero_odp,
         cliente_id: clienteIdFinal,
-        asesor_id: lead.getDataValue('asesor_id') || user.id,
+        asesor_id: ajustes.asesor_id || lead.getDataValue('asesor_id') || user.id,
         estado_produccion: 'EN_ESPERA',
         estado_facturacion: 'PENDIENTE',
         estado_caja: 'PENDIENTE',
         fecha_creacion: new Date().toISOString().split('T')[0],
-        descripcion_pedido: lead.getDataValue('descripcion_contexto') || lead.getDataValue('producto_interes') || `Lead CRM #${id}`,
+        descripcion_pedido: ajustes.descripcion_pedido || lead.getDataValue('descripcion_contexto') || lead.getDataValue('producto_interes') || `Lead CRM #${id}`,
         tipo_servicio: lead.getDataValue('producto_interes') || null,
-        valor_total: parseFloat(lead.getDataValue('monto_real_venta') || lead.getDataValue('monto_proyectado_cotizacion') || '0'),
-        forma_pago: 'CONTADO',
+        valor_total: ajustes.valor_total ?? parseFloat(lead.getDataValue('monto_real_venta') || lead.getDataValue('monto_proyectado_cotizacion') || '0'),
+        // En minúsculas como el resto de ODP (ODPForm, filtros): 'CONTADO' dejaba
+        // esas ODP fuera del filtro "Contado" y el selector vacío al editarlas (2026-09-27).
+        forma_pago: ajustes.forma_pago || 'contado',
       } as any);
     });
 
@@ -1362,12 +1394,12 @@ export const crearODPDesdeLead = async (req: Request, res: Response) => {
     });
 
     import('../server').then(({ emitirCambio }) => emitirCambio('crm')).catch(() => {});
-    res.status(201).json({ lead: leadActualizado, odp_id: odp.getDataValue('id'), numero_odp });
+    return { status: 201, body: { lead: leadActualizado, odp_id: odp.getDataValue('id'), numero_odp } };
   } catch (error: any) {
     console.error('Error al crear ODP desde lead:', error);
-    res.status(500).json({ error: 'Error del servidor al crear ODP' });
+    return { status: 500, body: { error: 'Error del servidor al crear ODP' } };
   }
-};
+}
 
 // Solicitar visita técnica desde un lead en estado VISITA_TECNICA
 export const solicitarVisitaTecnica = async (req: Request, res: Response) => {

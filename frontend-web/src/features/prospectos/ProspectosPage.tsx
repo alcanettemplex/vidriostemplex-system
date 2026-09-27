@@ -15,6 +15,7 @@ import AsignarAsesorODPModal from '../odp/components/AsignarAsesorODPModal';
 import SeleccionarTipoODPModal from '../odp/components/SeleccionarTipoODPModal';
 import SolicitarTMModal from './components/SolicitarTMModal';
 import CotizacionCapturas from '../odp/components/CotizacionCapturas';
+import CotizacionesDeRegistro from '../cotizador/components/CotizacionesDeRegistro';
 import { getTmEstadoConfig, tmVisitaRealizada } from '../../utils/tmEstado';
 
 import API from '../../services/config';
@@ -232,6 +233,10 @@ const DetalleModal: React.FC<{
               </div>
             )}
           </div>
+
+          {/* Cotizaciones del Cotizador (2026-09-27): las vinculadas y "Nueva
+              cotización", que abre el Cotizador con el prospecto ya elegido. */}
+          <CotizacionesDeRegistro tipo="prospecto" id={Number(p.id)} titulo="Cotizaciones del prospecto" />
 
           {/* Capturas de cotización */}
           <div>

@@ -73,10 +73,10 @@ const AppRoutes: React.FC = () => {
             <Route element={<RoleRoute allowedRoles={['root', 'admin']} />}>
               <Route path="/proveedores" element={<ProveedoresPage />} />
             </Route>
-            {/* Cotizador — módulo aislado del flujo del ERP, solo root y admin (ver plan de migración) */}
-            <Route element={<RoleRoute allowedRoles={['root', 'admin']} />}>
-              <Route path="/cotizador" element={<CotizadorPage />} />
-            </Route>
+            {/* Cotizador — integrado al ERP desde el 2026-09-27: todos los roles lo VEN;
+                quién crea, edita o administra lo decide features/cotizador/permisos.ts
+                (y lo impone el backend). */}
+            <Route path="/cotizador" element={<CotizadorPage />} />
             <Route element={<RoleRoute allowedRoles={['admin', 'marketing', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras']} />}>
               <Route path="/inventario" element={<InventarioPage />} />
             </Route>

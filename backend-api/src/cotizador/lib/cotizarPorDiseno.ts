@@ -118,6 +118,21 @@ export interface ParamsCotizarPorDiseno {
    * el contexto ya calculado de la pieza; el módulo suele construir sus
    * líneas con `hacerAgregarRol`. */
   accesorios?: (ctx: ContextoAccesorios) => LineaBOM[] | void;
+  /** Último retoque del módulo sobre el BOM ya armado (despiece + accesorios),
+   * antes de totalizar (2026-09-27, cabinas Glasvit: el tubo se cobra por
+   * tramo de largo y la L suma el lado Y). Puede agregar vidrios o perfiles a
+   * `ctx.cortes`: es el mismo objeto que sale en el resultado. */
+  ajustarItems?: (items: LineaBOM[], ctx: ContextoAjuste) => LineaBOM[];
+}
+
+export interface ContextoAjuste {
+  cortes: { perfiles: CortePerfil[]; vidrios: CorteVidrio[] };
+  advertencias: string[];
+  /** Medida de fabricación (ya sin holgura). */
+  anchoCm: number;
+  altoCm: number;
+  holgura: { anchoMm: number; altoMm: number };
+  segmentoCliente: string;
 }
 
 export function cotizarPorDiseno({
@@ -136,6 +151,7 @@ export function cotizarPorDiseno({
   pelicula = false,
   incluirAlfajia = false,
   accesorios,
+  ajustarItems,
 }: ParamsCotizarPorDiseno) {
   const diseno = getDiseno(disenoId);
   if (!diseno) return null;
@@ -197,7 +213,7 @@ export function cotizarPorDiseno({
   });
 
   const advertencias = [...avisosMedida, ...despiece.advertencias];
-  const items = [...despiece.items];
+  let items = [...despiece.items];
 
   // Cuerpos y alas se leen del propio código del diseño ("OXXO" = 4 cuerpos,
   // 2 corredizas), en vez de pedírselos al vendedor.
@@ -245,6 +261,17 @@ export function cotizarPorDiseno({
       ),
     });
     if (Array.isArray(lineas)) items.push(...lineas);
+  }
+
+  if (typeof ajustarItems === "function") {
+    items = ajustarItems(items, {
+      cortes: despiece.cortes,
+      advertencias,
+      anchoCm: anchoFabCm,
+      altoCm: altoFabCm,
+      holgura: { anchoMm: Number(holgura.anchoMm) || 0, altoMm: Number(holgura.altoMm) || 0 },
+      segmentoCliente,
+    });
   }
 
   const areaVidrio = despiece.areaVidrioM2 ?? 0;

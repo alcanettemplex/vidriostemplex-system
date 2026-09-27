@@ -4,10 +4,13 @@ import {
     Search, Edit3, Trash2, Inbox, Loader2, ChevronUp, ChevronDown, ChevronsUpDown,
 } from '../../../components/ui/icons';
 
-import { apiListarCotizaciones, apiObtenerCotizacion, apiEliminarCotizacion } from '../services/cotizadorApi';
-import { Cotizacion, CotizacionLigera, EstadoCotizacion, FiltrosListado } from '../types';
+import { apiListarCotizaciones, apiObtenerCotizacion, apiEliminarCotizacion, apiListarAsesoresCotizador } from '../services/cotizadorApi';
+import { usePermisosCotizador } from '../permisos';
+import { AsesorCotizador } from '../vinculo';
+import { Cotizacion, CotizacionLigera, EstadoCotizacion, FiltrosListado, RotuloVinculo } from '../types';
 import { fmtCOP, fmtCOPCorto, fmtFecha } from '../format';
 import ModalDetalleCotizacion from './modals/ModalDetalleCotizacion';
+import ODPFichaModal from '../../odp/components/ODPFichaModal';
 import { Campo, ChipEstadoCotizacion, Input, Select, Tarjeta } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20,6 +23,10 @@ import { Campo, ChipEstadoCotizacion, Input, Select, Tarjeta } from './ui';
 // quedaban alineados a la izquierda sobre celdas centradas, así que el chip
 // rosa de "Perdido" se leía debajo de "ÍTEMS" como si la cifra fuera roja. Cada
 // encabezado lleva ahora la misma alineación que su celda.
+//
+// Filtro "Asesor" (2026-09-27): como nadie cotiza a nombre de otro, esta pestaña
+// es donde se ven las de todos. Arranca en "Mías" para quien edita solo las
+// suyas y en "Todos" para control total y solo lectura.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ESTADOS: { v: EstadoCotizacion; l: string }[] = [
@@ -30,6 +37,43 @@ const ESTADOS: { v: EstadoCotizacion; l: string }[] = [
 ];
 
 type OrdenCampo = 'numero' | 'cliente' | 'estado' | 'items' | 'total' | 'fecha';
+
+// Columna "Vinculada a" (2026-09-27): de dónde viene la cotización y a qué ODP
+// llegó. Un color por tipo, el mismo en toda la tabla.
+const ESTILO_VINCULO: Record<RotuloVinculo['tipo'], { prefijo: string; clase: string }> = {
+    lead: { prefijo: 'Lead', clase: 'bg-violet-50 text-violet-800 ring-violet-200' },
+    prospecto: { prefijo: '', clase: 'bg-amber-50 text-amber-900 ring-amber-200' },
+    cliente: { prefijo: 'Cliente', clase: 'bg-slate-100 text-slate-800 ring-slate-300' },
+    odp: { prefijo: '', clase: 'bg-emerald-50 text-emerald-800 ring-emerald-200' },
+};
+
+const ChipsVinculo: React.FC<{ vinculos?: RotuloVinculo[]; onAbrirOdp: (id: number) => void }> = ({ vinculos, onAbrirOdp }) => {
+    if (!vinculos?.length) return <span className="text-slate-500">Sin vínculo</span>;
+    return (
+        <div className="flex flex-wrap gap-1">
+            {vinculos.map(v => {
+                const e = ESTILO_VINCULO[v.tipo];
+                const texto = e.prefijo ? `${e.prefijo} · ${v.etiqueta}` : v.etiqueta;
+                // La ODP abre su ficha (2026-09-27) sin abrir el detalle de la cotización.
+                if (v.tipo === 'odp') {
+                    return (
+                        <button key={`${v.tipo}-${v.id}`} type="button" title={`Abrir la ficha de ${v.etiqueta}`}
+                            onClick={ev => { ev.stopPropagation(); onAbrirOdp(v.id); }}
+                            className={`max-w-[180px] truncate rounded-full px-2 py-0.5 text-[11.5px] font-semibold ring-1 underline decoration-dotted underline-offset-2 hover:bg-emerald-100 hover:ring-emerald-400 ${e.clase}`}>
+                            {texto}
+                        </button>
+                    );
+                }
+                return (
+                    <span key={`${v.tipo}-${v.id}`} title={texto}
+                        className={`max-w-[180px] truncate rounded-full px-2 py-0.5 text-[11.5px] font-semibold ring-1 ${e.clase}`}>
+                        {texto}
+                    </span>
+                );
+            })}
+        </div>
+    );
+};
 
 // ─── Cotizaciones con varias propuestas ─────────────────────────────────────
 // Desde el 2026-09-20 una cotización puede tener hasta 5 propuestas y su total
@@ -100,6 +144,18 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
     const [estado, setEstado] = useState('');
     const [numero, setNumero] = useState('');
     const [q, setQ] = useState('');
+    const permisos = usePermisosCotizador();
+    const [asesores, setAsesores] = useState<AsesorCotizador[]>([]);
+    /** '' = todos, o el id del asesor. */
+    const [asesorId, setAsesorId] = useState<string>(
+        permisos.nivel === 'propias' && permisos.usuarioId ? String(permisos.usuarioId) : ''
+    );
+
+    useEffect(() => {
+        apiListarAsesoresCotizador()
+            .then(r => setAsesores(r.data))
+            .catch(() => setAsesores([]));
+    }, []);
 
     const [cotizaciones, setCotizaciones] = useState<CotizacionLigera[]>([]);
     const [loading, setLoading] = useState(true);
@@ -111,6 +167,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
 
     const [detalleId, setDetalleId] = useState<number | null>(null);
     const [detalleVista, setDetalleVista] = useState<'normal' | 'tecnico'>('normal');
+    const [odpFichaId, setOdpFichaId] = useState<number | null>(null);
 
     // Debounce del texto de cliente: evita una consulta por tecla.
     useEffect(() => {
@@ -124,8 +181,9 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
         if (estado) f.estado = estado;
         if (numero.trim()) f.numero = numero.trim();
         if (q.trim()) f.q = q.trim();
+        if (asesorId) f.asesorUsuarioId = Number(asesorId);
         return f;
-    }, [clienteDebounced, estado, numero, q]);
+    }, [clienteDebounced, estado, numero, q, asesorId]);
 
     const cargar = useCallback(async () => {
         setLoading(true);
@@ -226,7 +284,16 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                 </p>
             )}
             {/* ── Filtros ──────────────────────────────────────────────────── */}
-            <Tarjeta cuerpoClassName="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <Tarjeta cuerpoClassName="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <Campo etiqueta="Asesor">
+                    <Select value={asesorId} onChange={e => setAsesorId(e.target.value)}>
+                        <option value="">Todos los asesores</option>
+                        {permisos.usuarioId && <option value={String(permisos.usuarioId)}>Mis cotizaciones</option>}
+                        {asesores.filter(a => a.id !== permisos.usuarioId).map(a => (
+                            <option key={a.id} value={String(a.id)}>{a.nombre}</option>
+                        ))}
+                    </Select>
+                </Campo>
                 <Campo etiqueta="Cliente">
                     <Input placeholder="Nombre del cliente" value={cliente} onChange={e => setCliente(e.target.value)} />
                 </Campo>
@@ -242,7 +309,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                 <Campo etiqueta="Buscar">
                     <div className="relative">
                         <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <Input className="pl-9" placeholder="Obra, contacto…" value={q} onChange={e => setQ(e.target.value)} />
+                        <Input className="pl-9" placeholder="Obra, ODP, PR-…, lead" value={q} onChange={e => setQ(e.target.value)} />
                     </div>
                 </Campo>
             </Tarjeta>
@@ -255,6 +322,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                             <tr>
                                 {th('numero', 'N.°')}
                                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 text-left">Cliente</th>
+                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 text-left">Vinculada a</th>
                                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 text-left">Asesor</th>
                                 {th('estado', 'Estado', 'text-center')}
                                 {th('items', 'Ítems', 'text-center')}
@@ -265,12 +333,12 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
-                                <tr><td colSpan={8} className="py-16 text-center text-slate-700">
+                                <tr><td colSpan={9} className="py-16 text-center text-slate-700">
                                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                                     Cargando cotizaciones…
                                 </td></tr>
                             ) : filas.length === 0 ? (
-                                <tr><td colSpan={8} className="py-16 text-center">
+                                <tr><td colSpan={9} className="py-16 text-center">
                                     <Inbox className="w-9 h-9 text-slate-400 mx-auto mb-2" />
                                     <p className="text-slate-900 font-semibold">Ninguna cotización guardada coincide con estos filtros</p>
                                 </td></tr>
@@ -295,6 +363,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                                         <div className="truncate" title={c.cliente?.nombre || ''}>{c.cliente?.nombre || '—'}</div>
                                         {c.cliente?.obra && <div className="text-[11.5px] text-slate-700 truncate">{c.cliente.obra}</div>}
                                     </td>
+                                    <td className="px-4 py-3 max-w-[260px]"><ChipsVinculo vinculos={c.vinculos} onAbrirOdp={setOdpFichaId} /></td>
                                     <td className={`px-4 py-3 max-w-[160px] truncate ${c.asesor ? 'text-slate-800' : 'text-slate-500'}`}>{c.asesor || '—'}</td>
                                     <td className="px-4 py-3 text-center">
                                         <ChipEstadoCotizacion estado={c.estado} />
@@ -326,6 +395,10 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                     </table>
                 </div>
             </Tarjeta>
+
+            {odpFichaId !== null && (
+                <ODPFichaModal odpId={odpFichaId} onClose={() => setOdpFichaId(null)} />
+            )}
 
             {detalleId !== null && (
                 <ModalDetalleCotizacion

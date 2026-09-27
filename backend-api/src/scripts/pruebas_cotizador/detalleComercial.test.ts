@@ -69,15 +69,33 @@ test("proyectante sin diseño se describe por naves; con diseño, por medida tot
 test("cabinas: tipo comercial, en L y vidrio templado", () => {
   assert.equal(
     descripcionComercial("cabinas-corredizas", { anchoCm: 120, altoCm: 190, espesorVidrioMm: 8, tipoSistema: "glasvit", enL: true, conInstalacion: true }),
-    "Suministro e instalación de cabina de baño corrediza Glasvit en L, vidrio templado 8 mm, medidas 1.200 × 1.900 mm"
+    "Suministro e instalación de cabina de baño Glasvit en L, vidrio templado 8 mm, medidas 1.200 × 1.900 mm"
   );
+  // Glasvit (antes Primavera, 2026-09-27): la marca no va en minúscula; el tipo sí.
   assert.match(
     descripcionComercial(
       "cabinas-corredizas",
       { anchoCm: 150, altoCm: 190, espesorVidrioMm: 8, tipoSistema: "corrediza", conInstalacion: true },
-      { diseno: { sistema: "Cabina Deslizante Primavera", etiqueta: null } }
+      { diseno: { sistema: "Cabina Glasvit", etiqueta: null } }
     ),
-    /^Suministro e instalación de cabina de baño deslizante Primavera, vidrio templado 8 mm,/
+    /^Suministro e instalación de cabina de baño Glasvit, vidrio templado 8 mm,/
+  );
+  assert.match(
+    descripcionComercial(
+      "cabinas-corredizas",
+      { anchoCm: 150, altoCm: 190, espesorVidrioMm: 8, conInstalacion: true },
+      { diseno: { sistema: "Cabina Deslizante Torino", etiqueta: null } }
+    ),
+    /^Suministro e instalación de cabina de baño deslizante Torino,/
+  );
+  // En L: X × Y y el alto aparte; la configuración reemplaza la forma del diseño.
+  assert.equal(
+    descripcionComercial(
+      "cabinas-corredizas",
+      { anchoCm: 120, ladoYCm: 90, altoCm: 190, espesorVidrioMm: 8, enL: true, configuracionL: "2F1C", conInstalacion: true },
+      { diseno: { sistema: "Cabina Glasvit", etiqueta: "Fijo + Corredizo" } }
+    ),
+    "Suministro e instalación de cabina de baño Glasvit en L (2 fijos + 1 corrediza), vidrio templado 8 mm, medidas 1.200 × 900 mm, alto 1.900 mm"
   );
   assert.equal(
     descripcionComercial("cabinas-batientes", { anchoCm: 90, altoCm: 190, espesorVidrioMm: 8, conInstalacion: true }),

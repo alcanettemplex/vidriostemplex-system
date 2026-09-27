@@ -152,8 +152,12 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
     const admiteDiseno = MODULOS_CON_DISENO.has(modulo.id);
     const hayDiseno = admiteDiseno && Boolean(input.disenoId);
     const derivados = CAMPOS_DERIVADOS_DEL_DISENO[modulo.id] ?? [];
-    const campoOculto = (nombre: string) =>
-        CAMPOS_DE_LA_COTIZACION.includes(nombre) || (hayDiseno && derivados.includes(nombre));
+    const campoOculto = (nombre: string) => {
+        if (CAMPOS_DE_LA_COTIZACION.includes(nombre) || (hayDiseno && derivados.includes(nombre))) return true;
+        // `soloSi` (2026-09-27): el campo depende de una casilla (lado Y ↔ "en L").
+        const soloSi = modulo.campos.find(c => c.nombre === nombre)?.soloSi;
+        return Boolean(soloSi) && !(input[soloSi as string] === true || input[soloSi as string] === 'true');
+    };
     const etiquetasDiseno = hayDiseno ? ETIQUETAS_CON_DISENO[modulo.id] : undefined;
     const camposVisibles = (campos: CampoMeta[]) => campos
         .filter(c => !campoOculto(c.nombre))

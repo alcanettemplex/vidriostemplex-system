@@ -55,6 +55,7 @@ import {
   type TipoCargo,
 } from '../lib/cargos';
 import { calcularItem, getModulo } from '../modules/registry';
+import { sincronizarLeadAlAprobar, sincronizarLeadAlCotizar, sincronizarLeadAlPerder } from '../lib/vinculos';
 
 /** Error de negocio con el código HTTP que le corresponde y un mensaje ya
  * redactado para el vendedor. El controlador sólo lo traduce a respuesta: así
@@ -108,10 +109,32 @@ export interface PropuestaEntrada {
   cargos?: CargoEntrada[];
 }
 
+/** A qué registro del ERP pertenece la cotización (2026-09-27). Obligatorio al
+ * crear: no hay cotizaciones sueltas (quien solo pregunta se registra como lead). */
+export type TipoVinculo = 'lead' | 'prospecto' | 'cliente' | 'odp';
+export interface VinculoCotizacion {
+  tipo: TipoVinculo;
+  id: number;
+}
+export const COLUMNA_VINCULO: Record<TipoVinculo, 'lead_id' | 'prospecto_id' | 'cliente_id' | 'odp_id'> = {
+  lead: 'lead_id',
+  prospecto: 'prospecto_id',
+  cliente: 'cliente_id',
+  odp: 'odp_id',
+};
+export const MOTIVOS_PERDIDA = ['PRECIO', 'TIEMPO_ENTREGA', 'COMPETENCIA', 'NO_RESPONDIO', 'DESISTIO', 'OTRO'] as const;
+
 export interface CotizacionEntrada {
   cliente?: ClienteCotizacion;
   segmentoCliente?: string;
   asesor?: string;
+  /** Dueño (quien la edita). Al crear, por defecto quien la crea. */
+  asesorUsuarioId?: number;
+  vinculo?: VinculoCotizacion;
+  /** ODP que se le vincula además de su lead/prospecto/cliente (al crear la ODP). */
+  odpId?: number | null;
+  motivoPerdida?: string | null;
+  motivoPerdidaDetalle?: string | null;
   /** LEGADO: la cabecera ya no guarda descuento. Si llega (contrato viejo del
    * frontend), se aplica a la propuesta que se esté escribiendo. */
   descuentoPct?: number;
@@ -130,6 +153,11 @@ export interface FiltrosListado {
   asesor?: string;
   numero?: string | number;
   q?: string;
+  asesorUsuarioId?: string | number;
+  leadId?: string | number;
+  prospectoId?: string | number;
+  clienteId?: string | number;
+  odpId?: string | number;
 }
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -245,6 +273,26 @@ function aCotizacion(fila: Fila, items: Fila[] | null, propuestas: Fila[] | null
     },
     segmentoCliente: fila.segmento_cliente,
     asesor: fila.asesor,
+    asesorUsuarioId: fila.asesor_usuario_id ?? null,
+    creadoPorId: fila.creado_por_id ?? null,
+    // El vínculo principal (el que la originó) y la ODP, que puede sumarse después.
+    vinculo: fila.lead_id
+      ? { tipo: 'lead', id: fila.lead_id }
+      : fila.prospecto_id
+        ? { tipo: 'prospecto', id: fila.prospecto_id }
+        : fila.cliente_id
+          ? { tipo: 'cliente', id: fila.cliente_id }
+          : fila.odp_id
+            ? { tipo: 'odp', id: fila.odp_id }
+            : null,
+    leadId: fila.lead_id ?? null,
+    prospectoId: fila.prospecto_id ?? null,
+    clienteId: fila.cliente_id ?? null,
+    odpId: fila.odp_id ?? null,
+    motivoPerdida: fila.motivo_perdida ?? null,
+    motivoPerdidaDetalle: fila.motivo_perdida_detalle ?? null,
+    aprobadaEn: fila.aprobada_en ?? null,
+    perdidaEn: fila.perdida_en ?? null,
     // ⚠️ LEGADO: la columna se conserva con sus 4 filas históricas pero ya no se
     // escribe. El descuento vivo es `propuesta.descuentoPct`. Se sigue emitiendo
     // para no romper a quien la lea todavía.
@@ -384,6 +432,13 @@ export async function listar(filtros: FiltrosListado = {}) {
   const where: Fila = {};
   if (filtros.estado) where.estado = filtros.estado;
   if (filtros.asesor) where.asesor = filtros.asesor;
+  // Filtros por dueño y por vínculo (2026-09-27): "mis cotizaciones", las de un
+  // lead, un prospecto, un cliente o una ODP.
+  if (filtros.asesorUsuarioId) where.asesor_usuario_id = Number(filtros.asesorUsuarioId);
+  if (filtros.leadId) where.lead_id = Number(filtros.leadId);
+  if (filtros.prospectoId) where.prospecto_id = Number(filtros.prospectoId);
+  if (filtros.clienteId) where.cliente_id = Number(filtros.clienteId);
+  if (filtros.odpId) where.odp_id = Number(filtros.odpId);
   if (filtros.numero !== undefined && filtros.numero !== '') {
     where.numero = Number(filtros.numero);
   }
@@ -400,6 +455,14 @@ export async function listar(filtros: FiltrosListado = {}) {
     // no pedirle a Postgres un cast que fallaría con texto libre.
     const comoNumero = Number(filtros.q);
     if (Number.isInteger(comoNumero)) condiciones.push({ numero: comoNumero });
+    // También por lo vinculado (2026-09-27): "ODP-24381", "PR-0250" o el nombre
+    // del lead. Subconsultas por índice, con el texto como parámetro escapado.
+    const qSql = sequelize.escape(q);
+    condiciones.push(
+      { odp_id: { [Op.in]: sequelize.literal(`(SELECT id FROM public.odp WHERE numero_odp ILIKE ${qSql})`) } },
+      { prospecto_id: { [Op.in]: sequelize.literal(`(SELECT id FROM public.prospectos WHERE numero_prospecto ILIKE ${qSql})`) } },
+      { lead_id: { [Op.in]: sequelize.literal(`(SELECT id FROM public.leads WHERE nombre ILIKE ${qSql})`) } }
+    );
     where[Op.or as unknown as string] = condiciones;
   }
 
@@ -434,11 +497,56 @@ export async function listar(filtros: FiltrosListado = {}) {
 
   const itemsPorCot = agrupar(items, 'cotizacion_id');
   const propsPorCot = agrupar(propuestas, 'cotizacion_id');
+  const rotulos = await rotulosDeVinculos(cabeceras);
 
   return cabeceras.map((c) => {
     const props = (propsPorCot.get(c.id) ?? []).map((p) => aPropuesta(p, null, null));
-    return aCotizacion(c, itemsPorCot.get(c.id) ?? [], props, null);
+    return { ...aCotizacion(c, itemsPorCot.get(c.id) ?? [], props, null), vinculos: rotulos(c) };
   });
+}
+
+export interface RotuloVinculo {
+  tipo: TipoVinculo;
+  id: number;
+  /** "Luis Pérez" (lead), "PR-0250", "Constructora X" (cliente), "ODP-24381". */
+  etiqueta: string;
+}
+
+/**
+ * A qué está vinculada cada cotización del listado, con un texto legible
+ * (2026-09-27, pestaña Cotizaciones). Cuatro consultas agrupadas por tipo, solo
+ * con los ids del listado y dos columnas cada una: no crece con las filas del ERP.
+ */
+async function rotulosDeVinculos(cabeceras: Fila[]): Promise<(c: Fila) => RotuloVinculo[]> {
+  const ids = (col: string) => [...new Set(cabeceras.map((c) => c[col]).filter((v) => v != null).map(Number))];
+  const consulta = async (sql: string, lista: number[]) =>
+    lista.length
+      ? new Map(
+          ((await sequelize.query(sql, { replacements: { ids: lista }, type: QueryTypes.SELECT })) as Fila[]).map(
+            (f) => [Number(f.id), String(f.etiqueta ?? '').trim()]
+          )
+        )
+      : new Map<number, string>();
+  const [leads, prospectos, clientes, odps] = await Promise.all([
+    consulta(`SELECT id, nombre AS etiqueta FROM public.leads WHERE id IN (:ids)`, ids('lead_id')),
+    consulta(`SELECT id, numero_prospecto AS etiqueta FROM public.prospectos WHERE id IN (:ids)`, ids('prospecto_id')),
+    consulta(`SELECT id, nombre_razon_social AS etiqueta FROM public.clientes WHERE id IN (:ids)`, ids('cliente_id')),
+    consulta(`SELECT id, numero_odp AS etiqueta FROM public.odp WHERE id IN (:ids)`, ids('odp_id')),
+  ]);
+  const orden: Array<[TipoVinculo, string, Map<number, string>]> = [
+    ['lead', 'lead_id', leads],
+    ['prospecto', 'prospecto_id', prospectos],
+    ['cliente', 'cliente_id', clientes],
+    ['odp', 'odp_id', odps],
+  ];
+  return (c: Fila) =>
+    orden
+      .filter(([, col]) => c[col] != null)
+      .map(([tipo, col, mapa]) => ({
+        tipo,
+        id: Number(c[col]),
+        etiqueta: mapa.get(Number(c[col])) || `${tipo} #${c[col]}`,
+      }));
 }
 
 function agrupar(filas: Fila[], clave: string): Map<number, Fila[]> {
@@ -971,7 +1079,44 @@ async function crearPropuestaInterna(
  * Si ninguna propuesta viene marcada como elegida, se elige la primera: una
  * cotización con una sola propuesta la tiene elegida por definición.
  */
-export async function crear(datos: CotizacionEntrada) {
+/**
+ * Comprueba que el vínculo exista antes de escribirlo: una FK rota respondería
+ * con un error de Postgres que el asesor no puede leer.
+ */
+async function validarVinculo(v: VinculoCotizacion | undefined, t: Transaction): Promise<void> {
+  if (!v) {
+    throw new ErrorCotizador(
+      400,
+      'Elige para quién es la cotización (lead, prospecto, cliente u ODP). Si la persona solo está preguntando, créala como lead rápido.'
+    );
+  }
+  const tabla = { lead: 'leads', prospecto: 'prospectos', cliente: 'clientes', odp: 'odp' }[v.tipo];
+  const [filas] = await sequelize.query(`SELECT 1 FROM public.${tabla} WHERE id = :id LIMIT 1`, {
+    replacements: { id: v.id },
+    transaction: t,
+  });
+  if ((filas as unknown[]).length === 0) {
+    throw new ErrorCotizador(404, `No existe el ${v.tipo === 'odp' ? 'ODP' : v.tipo} que elegiste (id ${v.id}). Búscalo de nuevo.`);
+  }
+}
+
+/** Nombre del usuario, para el campo de texto `asesor` (lo que se muestra). */
+async function nombreUsuario(id: number | undefined | null, t: Transaction): Promise<string | null> {
+  if (!id) return null;
+  const [filas] = await sequelize.query(`SELECT nombre_completo AS nombre FROM public.usuarios WHERE id = :id LIMIT 1`, {
+    replacements: { id },
+    transaction: t,
+  });
+  return ((filas as { nombre?: string }[])[0]?.nombre ?? null) || null;
+}
+
+/** Dueño de una cotización, para los permisos (null = sin dueño: anterior al 2026-09-27). */
+export async function duenoDe(id: number): Promise<{ existe: boolean; asesorUsuarioId: number | null }> {
+  const fila = (await CotizadorCotizacion.findByPk(id, { attributes: ['id', 'asesor_usuario_id'], raw: true })) as Fila | null;
+  return { existe: Boolean(fila), asesorUsuarioId: fila?.asesor_usuario_id ?? null };
+}
+
+export async function crear(datos: CotizacionEntrada, { usuarioId }: { usuarioId?: number } = {}) {
   const entradas: PropuestaEntrada[] =
     datos.propuestas && datos.propuestas.length
       ? datos.propuestas
@@ -996,6 +1141,11 @@ export async function crear(datos: CotizacionEntrada) {
   const ahora = new Date();
   const t = await sequelize.transaction();
   try {
+    await validarVinculo(datos.vinculo, t);
+    // Nadie cotiza a nombre de otro (2026-09-27): el dueño es quien la crea.
+    // `datos.asesorUsuarioId` solo cuenta si no hay usuario (scripts).
+    const asesorUsuarioId = usuarioId ?? datos.asesorUsuarioId ?? null;
+    const nombreAsesor = (await nombreUsuario(asesorUsuarioId, t)) ?? datos.asesor ?? '';
     const numero = await siguienteNumero(t);
     const cot = (await CotizadorCotizacion.create(
       {
@@ -1010,7 +1160,11 @@ export async function crear(datos: CotizacionEntrada) {
         cliente_obra: datos.cliente?.obra ?? null,
         cliente_contacto: datos.cliente?.contacto ?? null,
         segmento_cliente: segmento,
-        asesor: datos.asesor ?? '',
+        asesor: nombreAsesor,
+        asesor_usuario_id: asesorUsuarioId,
+        creado_por_id: usuarioId ?? null,
+        [COLUMNA_VINCULO[datos.vinculo!.tipo]]: datos.vinculo!.id,
+        ...(datos.odpId ? { odp_id: datos.odpId } : {}),
         // Columna legada: se deja en 0 a propósito. El descuento vivo está en
         // la propuesta. Ver el comentario de `aCotizacion`.
         descuento_pct: 0,
@@ -1026,8 +1180,17 @@ export async function crear(datos: CotizacionEntrada) {
     }
     await sincronizarCabecera(cot.id, t);
 
+    // CRM (2026-09-27): una cotización para un lead lo lleva a COTIZANDO y
+    // deja el evento en su bitácora, en la misma transacción.
+    const avisosCRM: string[] = [];
+    if (datos.vinculo!.tipo === 'lead' && usuarioId) {
+      const aviso = await sincronizarLeadAlCotizar(datos.vinculo!.id, { numero, asesorUsuarioId }, usuarioId, t);
+      if (aviso) avisosCRM.push(aviso);
+    }
+
     await t.commit();
-    return await obtener(cot.id);
+    const creada = await obtener(cot.id);
+    return creada && avisosCRM.length ? { ...creada, avisosCRM } : creada;
   } catch (e) {
     await t.rollback();
     throw e;
@@ -1045,7 +1208,19 @@ export async function crear(datos: CotizacionEntrada) {
 export async function actualizar(
   id: number,
   datos: CotizacionEntrada,
-  { versionEsperada, ligero = false }: { versionEsperada?: number; ligero?: boolean } = {}
+  {
+    versionEsperada,
+    ligero = false,
+    usuarioId,
+    marcarLeadPerdido = false,
+  }: {
+    versionEsperada?: number;
+    ligero?: boolean;
+    /** Quien guarda: autor de los eventos del CRM (2026-09-27). Sin él no se sincroniza. */
+    usuarioId?: number;
+    /** Respuesta a "¿Marcar también el lead como perdido?" al perder la cotización. */
+    marcarLeadPerdido?: boolean;
+  } = {}
 ) {
   const t = await sequelize.transaction();
   try {
@@ -1054,6 +1229,14 @@ export async function actualizar(
       await t.rollback();
       return null;
     }
+    // Foto previa: `cot.update()` muta la instancia y la sincronía con el CRM
+    // necesita saber de qué estado y de qué lead se partía.
+    const antes = {
+      estado: cot.estado as string,
+      leadId: (cot.lead_id ?? null) as number | null,
+      motivo: (cot.motivo_perdida ?? null) as string | null,
+      detalle: (cot.motivo_perdida_detalle ?? null) as string | null,
+    };
     // Autoguardado (2026-09-26): la pantalla dice sobre qué versión trabajó. Si
     // la base ya tiene otra, alguien guardó desde otra ventana o equipo y este
     // guardado pisaría esos cambios sin que nadie lo notara.
@@ -1086,6 +1269,37 @@ export async function actualizar(
     if (datos.items !== undefined) exigirMismoSegmento(datos.items, cot.segmento_cliente);
     if (datos.asesor !== undefined) cambios.asesor = datos.asesor;
     if (datos.estado !== undefined) cambios.estado = datos.estado;
+    // Cambiar de dueño: el controlador ya comprobó que es un rol de control total.
+    if (datos.asesorUsuarioId !== undefined) {
+      cambios.asesor_usuario_id = datos.asesorUsuarioId;
+      cambios.asesor = (await nombreUsuario(datos.asesorUsuarioId, t)) ?? cot.asesor;
+    }
+    // Vincular (o re-vincular) el origen: reemplaza el anterior del mismo tipo de
+    // registro; la ODP va aparte porque se suma al lead/prospecto/cliente.
+    if (datos.vinculo) {
+      await validarVinculo(datos.vinculo, t);
+      if (datos.vinculo.tipo !== 'odp') {
+        cambios.lead_id = null;
+        cambios.prospecto_id = null;
+        cambios.cliente_id = null;
+      }
+      cambios[COLUMNA_VINCULO[datos.vinculo.tipo]] = datos.vinculo.id;
+    }
+    if (datos.odpId !== undefined) {
+      if (datos.odpId) await validarVinculo({ tipo: 'odp', id: datos.odpId }, t);
+      cambios.odp_id = datos.odpId;
+    }
+    if (datos.motivoPerdida !== undefined) cambios.motivo_perdida = datos.motivoPerdida;
+    if (datos.motivoPerdidaDetalle !== undefined) cambios.motivo_perdida_detalle = datos.motivoPerdidaDetalle;
+    const estadoFinal = datos.estado ?? cot.estado;
+    // Fechas de cierre para las métricas: se fijan al CAMBIAR de estado.
+    if (datos.estado !== undefined && datos.estado !== cot.estado) {
+      if (datos.estado === 'APROBADA') cambios.aprobada_en = new Date();
+      if (datos.estado === 'PERDIDO') cambios.perdida_en = new Date();
+    }
+    if (estadoFinal === 'PERDIDO' && !(datos.motivoPerdida ?? cot.motivo_perdida)) {
+      throw new ErrorCotizador(400, 'Para marcarla como perdida, elige el motivo (precio, tiempo de entrega, competencia…).');
+    }
 
     // REGLA 5: no se aprueba una cotización sin propuesta elegida. Aprobar es lo
     // que habilita la orden de corte, y sin elegida no hay UN juego de medidas
@@ -1148,8 +1362,43 @@ export async function actualizar(
     await cot.update(cambios, { transaction: t });
     await sincronizarCabecera(id, t);
 
+    // ── Sincronía con el CRM (2026-09-27), en la misma transacción ──────────
+    const avisosCRM: string[] = [];
+    const leadId = ('lead_id' in cambios ? cambios.lead_id : antes.leadId) as number | null;
+    if (usuarioId && leadId) {
+      const anotar = (a: string | null) => { if (a) avisosCRM.push(a); };
+      if (datos.vinculo?.tipo === 'lead' && datos.vinculo.id !== antes.leadId) {
+        anotar(await sincronizarLeadAlCotizar(leadId, {
+          numero: cot.numero,
+          asesorUsuarioId: (cambios.asesor_usuario_id ?? cot.asesor_usuario_id ?? null) as number | null,
+        }, usuarioId, t));
+      }
+      const cambioEstado = datos.estado !== undefined && datos.estado !== antes.estado;
+      if (cambioEstado && datos.estado === 'APROBADA') {
+        const elegida = (await CotizadorPropuesta.findOne({
+          where: { cotizacion_id: id, elegida: true },
+          attributes: ['etiqueta', 'total_total'],
+          transaction: t,
+          raw: true,
+        })) as unknown as Fila | null;
+        anotar(await sincronizarLeadAlAprobar(leadId, {
+          numero: cot.numero,
+          etiqueta: elegida?.etiqueta ?? null,
+          total: Number(elegida?.total_total) || 0,
+        }, usuarioId, t));
+      }
+      if (cambioEstado && datos.estado === 'PERDIDO') {
+        anotar(await sincronizarLeadAlPerder(leadId, {
+          numero: cot.numero,
+          motivo: String(datos.motivoPerdida ?? antes.motivo ?? 'OTRO'),
+          detalle: (datos.motivoPerdidaDetalle !== undefined ? datos.motivoPerdidaDetalle : antes.detalle) ?? null,
+        }, marcarLeadPerdido, usuarioId, t));
+      }
+    }
+
     await t.commit();
-    return await obtener(id, { ...(idDestino ? { propuesta: idDestino } : {}), ligero });
+    const resultado = await obtener(id, { ...(idDestino ? { propuesta: idDestino } : {}), ligero });
+    return resultado && avisosCRM.length ? { ...resultado, avisosCRM } : resultado;
   } catch (e) {
     await t.rollback();
     throw e;

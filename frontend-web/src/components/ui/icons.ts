@@ -195,6 +195,10 @@ import {
     WrenchIcon,
     XIcon,
     XCircleIcon,
+    HandshakeIcon,
+    SquareSplitHorizontalIcon,
+    ChartLineUpIcon,
+    UsersThreeIcon,
 } from '@phosphor-icons/react';
 
 export type { Icon as IconComponent, IconProps, IconWeight } from '@phosphor-icons/react';
@@ -391,4 +395,10 @@ export {
     XCircleIcon as XCircle,
     LightningIcon as Zap,
     MagnifyingGlassPlusIcon as ZoomIn,
+    // Pantalla de inicio de sesión (2026-09-27)
+    HandshakeIcon as Handshake,
+    SquareSplitHorizontalIcon as WindowFrame,
+    GearSixIcon as GearSix,
+    ChartLineUpIcon as ChartLineUp,
+    UsersThreeIcon as UsersThree,
 };

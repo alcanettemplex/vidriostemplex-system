@@ -14,25 +14,25 @@ interface DashboardData {
   produccion:    any | null;
   equipo:        any | null;
   alertas:       any[];
-  cotizaciones:  any | null;
   loading: {
     general:      boolean;
     ventas:       boolean;
     produccion:   boolean;
     equipo:       boolean;
     alertas:      boolean;
-    cotizaciones: boolean;
   };
   error:   string | null;
   refetch: () => void;
 }
 
+// La pestaña Cotizaciones ya no pasa por aquí (2026-09-27): trae sus propios filtros y
+// su propio hook, `panels/cotizaciones/useCotizacionesDashboard.ts`.
 export const useDashboardData = (period: PeriodParams): DashboardData => {
   const [data, setData] = useState<Partial<DashboardData>>({
-    general: null, ventas: null, produccion: null, equipo: null, alertas: [], cotizaciones: null,
+    general: null, ventas: null, produccion: null, equipo: null, alertas: [],
   });
   const [loading, setLoading] = useState({
-    general: true, ventas: true, produccion: true, equipo: true, alertas: true, cotizaciones: true,
+    general: true, ventas: true, produccion: true, equipo: true, alertas: true,
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -65,7 +65,6 @@ export const useDashboardData = (period: PeriodParams): DashboardData => {
         fetchSection('produccion',   period),
         fetchSection('equipo',       period),
         fetchSection('alertas',      period),
-        fetchSection('cotizaciones', period),
       ]);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error de conexión al cargar el dashboard');
@@ -79,7 +78,7 @@ export const useDashboardData = (period: PeriodParams): DashboardData => {
   }, [fetchAll]);
 
   return {
-    ...data as { general: any; ventas: any; produccion: any; equipo: any; alertas: any[]; cotizaciones: any },
+    ...data as { general: any; ventas: any; produccion: any; equipo: any; alertas: any[] },
     loading,
     error,
     refetch: fetchAll,

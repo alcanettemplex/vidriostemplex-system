@@ -5,6 +5,7 @@ import { X, Building2, User, Ruler, Loader2 } from '../../../components/ui/icons
 import { getClientesCached } from '../../../services/listasCache';
 
 import API from '../../../services/config';
+import CotizacionesDeRegistro from '../../cotizador/components/CotizacionesDeRegistro';
 
 interface Cliente { id: number; nombre_razon_social: string; numero_documento?: string; telefono: string | null; celular: string | null; email: string | null; }
 
@@ -365,6 +366,9 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
               className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
           </div>
+
+          {/* Cotizaciones del Cotizador y "Nueva cotización" ya vinculada (2026-09-27). */}
+          {prospecto?.id && <CotizacionesDeRegistro tipo="prospecto" id={Number(prospecto.id)} titulo="Cotizaciones del prospecto" />}
         </div>
 
         <div className="flex gap-3 px-6 py-4 border-t border-slate-100">

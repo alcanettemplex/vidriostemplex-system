@@ -12,8 +12,12 @@ import { ErrorCotizador } from '../cotizador/store/cotizacionStore';
 import { evaluarAptitudOrden } from '../cotizador/lib/aptitudOrden';
 import { calcularManoObraProductos } from '../cotizador/lib/cargos';
 import * as empresaStore from '../cotizador/store/empresaStore';
-import { generarPdfCotizacion } from '../cotizador/lib/generadorPdfCotizacion';
+import { folioCotizacion, generarPdfCotizacion, nombreArchivoCotizacion } from '../cotizador/lib/generadorPdfCotizacion';
+import { ODP } from '../models';
 import { getParametros } from '../cotizador/lib/catalogo';
+import { nivelCotizador } from '../cotizador/lib/permisos';
+import * as vinculos from '../cotizador/lib/vinculos';
+import { ErrorVinculo } from '../cotizador/lib/vinculos';
 import type { CotizacionPdf, PropuestaPdf } from '../cotizador/lib/generadorPdfCotizacion';
 
 const clienteSchema = z
@@ -95,6 +99,20 @@ const crearSchema = z
     propuestaId: z.number().int().positive().optional(),
     /** Sólo al actualizar: versión sobre la que trabajó la pantalla (autoguardado). */
     versionEsperada: z.number().int().positive().optional(),
+    // Integración con el ERP (2026-09-27).
+    asesorUsuarioId: z.number().int().positive().optional(),
+    vinculo: z
+      .object({
+        tipo: z.enum(['lead', 'prospecto', 'cliente', 'odp'], { message: 'El vínculo debe ser un lead, un prospecto, un cliente o una ODP.' }),
+        id: z.number().int().positive(),
+      })
+      .strict()
+      .optional(),
+    odpId: z.number().int().positive().nullable().optional(),
+    motivoPerdida: z.enum(store.MOTIVOS_PERDIDA, { message: 'Elige un motivo de pérdida de la lista.' }).nullable().optional(),
+    motivoPerdidaDetalle: z.string().max(500).nullable().optional(),
+    /** Solo al actualizar a PERDIDO: "¿Marcar también el lead como perdido?". */
+    marcarLeadPerdido: z.boolean().optional(),
   })
   .strict();
 
@@ -172,7 +190,7 @@ function responderZod(res: Response, e: unknown): boolean {
  * si ya respondió, para que el `catch` del handler siga con el 500 genérico en
  * cualquier otro caso. */
 function responderNegocio(res: Response, e: unknown): boolean {
-  if (e instanceof ErrorCotizador) {
+  if (e instanceof ErrorCotizador || e instanceof ErrorVinculo) {
     res.status(e.estado).json({ error: e.message });
     return true;
   }
@@ -215,13 +233,19 @@ function fallo(res: Response, contexto: string, e: unknown, mensaje: string) {
  */
 export const listarCotizaciones = async (req: Request, res: Response) => {
   try {
-    const { cliente, estado, asesor, numero, q } = req.query;
+    const { cliente, estado, asesor, numero, q, asesorUsuarioId, leadId, prospectoId, clienteId, odpId } = req.query;
+    const texto = (v: unknown) => (typeof v === 'string' ? v : undefined);
     const lista = await store.listar({
-      cliente: typeof cliente === 'string' ? cliente : undefined,
-      estado: typeof estado === 'string' ? estado : undefined,
-      asesor: typeof asesor === 'string' ? asesor : undefined,
-      numero: typeof numero === 'string' ? numero : undefined,
-      q: typeof q === 'string' ? q : undefined,
+      cliente: texto(cliente),
+      estado: texto(estado),
+      asesor: texto(asesor),
+      numero: texto(numero),
+      q: texto(q),
+      asesorUsuarioId: texto(asesorUsuarioId),
+      leadId: texto(leadId),
+      prospectoId: texto(prospectoId),
+      clienteId: texto(clienteId),
+      odpId: texto(odpId),
     });
     res.json(lista);
   } catch (e) {
@@ -278,8 +302,10 @@ export const aptitudCotizacion = async (req: Request, res: Response) => {
 
 export const crearCotizacion = async (req: Request, res: Response) => {
   try {
-    const datos = crearSchema.parse(req.body ?? {});
-    const nueva = await store.crear(datos);
+    const { versionEsperada: _ignorada, marcarLeadPerdido: _noAplica, ...datos } = crearSchema.parse(req.body ?? {});
+    void _ignorada;
+    void _noAplica;
+    const nueva = await store.crear(datos, { usuarioId: req.user!.id });
     res.status(201).json(nueva);
   } catch (e) {
     fallo(res, 'crearCotizacion', e, 'No se pudo guardar la cotización.');
@@ -290,11 +316,17 @@ export const actualizarCotizacion = async (req: Request, res: Response) => {
   const id = idValido(req.params.id);
   if (id === null) return res.status(400).json({ error: 'El identificador de cotización no es válido.' });
   try {
-    const { versionEsperada, ...datos } = crearSchema.parse(req.body ?? {});
+    const { versionEsperada, marcarLeadPerdido, ...datos } = crearSchema.parse(req.body ?? {});
+    // Reasignar el asesor (cambiar el dueño) es de control total.
+    if (datos.asesorUsuarioId !== undefined && nivelCotizador(req.user!.rol) !== 'total') {
+      return res.status(403).json({ error: 'Solo un administrador puede cambiar el asesor de una cotización.' });
+    }
     // `?respuesta=ligera`: el autoguardado sólo necesita número, versión y totales.
     const actualizada = await store.actualizar(id, datos, {
       versionEsperada,
       ligero: req.query.respuesta === 'ligera',
+      usuarioId: req.user!.id,
+      marcarLeadPerdido,
     });
     if (!actualizada) return res.status(404).json({ error: 'Cotización no encontrada.' });
     res.json(actualizada);
@@ -496,21 +528,136 @@ export const descargarPdfPropuesta = async (req: Request, res: Response) => {
     if (!propuesta) return res.status(404).json({ error: 'Esa propuesta no existe en esta cotización.' });
 
     const empresa = await empresaStore.leer(true);
+    // Número de la ODP vinculada, para la referencia "COT-87, ODP-24381 …".
+    const odpId = (cot as { odpId?: number | null }).odpId ?? null;
+    const odpNumero = odpId
+      ? (((await ODP.findByPk(odpId, { attributes: ['numero_odp'] }))?.getDataValue('numero_odp') as string | undefined) ?? null)
+      : null;
+    const cotizacionPdf = { ...(cot as CotizacionPdf), odpNumero };
     const buffer = await generarPdfCotizacion({
-      cotizacion: cot as CotizacionPdf,
+      cotizacion: cotizacionPdf,
       propuesta,
       otrasPropuestas: propuestas.filter((p) => p.id !== ids.pid),
       empresa,
       ivaPct: getParametros().iva,
     });
 
+    const nombre = nombreArchivoCotizacion(
+      folioCotizacion(cot.numero, propuesta.etiqueta, propuestas.length > 1),
+      odpNumero,
+      cotizacionPdf.cliente?.nombre
+    );
+    // filename= en ASCII para navegadores viejos; filename*= con el nombre real
+    // (tildes, eñes) según RFC 5987. El frontend lo lee de aquí.
+    const ascii = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]/g, '');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="cotizacion-${cot.numero}-${propuesta.etiqueta}.pdf"`
+      `inline; filename="${ascii}.pdf"; filename*=UTF-8''${encodeURIComponent(`${nombre}.pdf`)}`
     );
     res.send(buffer);
   } catch (e) {
     fallo(res, 'descargarPdfPropuesta', e, 'No se pudo generar el PDF de la cotización.');
+  }
+};
+
+// ─── Vínculo con el ERP (2026-09-27) ─────────────────────────────────────────
+// Ver `cotizador/lib/vinculos.ts`: buscador de "¿Para quién es esta
+// cotización?", lead rápido y "Crear ODP" por los flujos existentes.
+
+const TIPOS_VINCULO = ['lead', 'prospecto', 'cliente', 'odp'] as const;
+
+/** GET /vinculos/buscar?q=&tipos=lead,cliente — mínimo 2 caracteres. */
+export const buscarVinculos = async (req: Request, res: Response) => {
+  try {
+    const q = typeof req.query.q === 'string' ? req.query.q.slice(0, 80) : '';
+    const tipos = typeof req.query.tipos === 'string'
+      ? req.query.tipos.split(',').filter((t): t is (typeof TIPOS_VINCULO)[number] => (TIPOS_VINCULO as readonly string[]).includes(t))
+      : undefined;
+    res.json(await vinculos.buscarVinculos(q, tipos && tipos.length ? tipos : undefined));
+  } catch (e) {
+    fallo(res, 'buscarVinculos', e, 'No se pudo buscar. Inténtalo de nuevo.');
+  }
+};
+
+/** GET /vinculos/asesores — quiénes pueden ser asesor de una cotización. */
+export const listarAsesoresCotizador = async (_req: Request, res: Response) => {
+  try {
+    res.json(await vinculos.listarAsesores());
+  } catch (e) {
+    fallo(res, 'listarAsesoresCotizador', e, 'No se pudo cargar la lista de asesores.');
+  }
+};
+
+/** GET /vinculos/:tipo/:id — ficha de un vínculo. */
+export const obtenerVinculo = async (req: Request, res: Response) => {
+  const tipo = String(req.params.tipo);
+  const id = idValido(req.params.id);
+  if (!(TIPOS_VINCULO as readonly string[]).includes(tipo) || id === null) {
+    return res.status(400).json({ error: 'El vínculo pedido no es válido.' });
+  }
+  try {
+    const ficha = await vinculos.resolverVinculo(tipo as (typeof TIPOS_VINCULO)[number], id);
+    if (!ficha) return res.status(404).json({ error: 'Ese registro ya no existe.' });
+    res.json(ficha);
+  } catch (e) {
+    fallo(res, 'obtenerVinculo', e, 'No se pudo cargar el registro vinculado.');
+  }
+};
+
+const leadRapidoSchema = z
+  .object({
+    nombre: z.string().trim().min(2, { message: 'Escribe el nombre de la persona.' }).max(100),
+    telefono: z
+      .string()
+      .trim()
+      .min(7, { message: 'Escribe un teléfono de al menos 7 dígitos.' })
+      .max(20, { message: 'El teléfono admite como máximo 20 caracteres.' }),
+    fuente: z.enum(vinculos.FUENTES_LEAD).optional(),
+    asesorId: z.number().int().positive().nullable().optional(),
+  })
+  .strict();
+
+/** POST /vinculos/lead-rapido — crea un lead REAL del CRM (flujo de `POST /api/crm`). */
+export const crearLeadRapido = async (req: Request, res: Response) => {
+  try {
+    const datos = leadRapidoSchema.parse(req.body ?? {});
+    const r = await vinculos.crearLeadRapido(datos, req.user!);
+    res.status(r.status).json(r.body);
+  } catch (e) {
+    fallo(res, 'crearLeadRapido', e, 'No se pudo crear el lead. Inténtalo de nuevo.');
+  }
+};
+
+/** GET /cotizaciones/:id/crear-odp — qué haría "Crear ODP" (no escribe nada). */
+export const previaCrearOdp = async (req: Request, res: Response) => {
+  const id = idValido(req.params.id);
+  if (id === null) return res.status(400).json({ error: 'El identificador de cotización no es válido.' });
+  try {
+    res.json(await vinculos.planCrearODP(id, req.user!));
+  } catch (e) {
+    fallo(res, 'previaCrearOdp', e, 'No se pudo preparar la ODP.');
+  }
+};
+
+const crearOdpSchema = z
+  .object({
+    clienteId: z.number().int().positive().optional(),
+    nombre: z.string().trim().max(100).optional(),
+    telefono: z.string().trim().max(20).optional(),
+    formaPago: z.enum(vinculos.FORMAS_PAGO, { message: 'Elige la forma de pago de la ODP.' }),
+  })
+  .strict();
+
+/** POST /cotizaciones/:id/crear-odp — crea la ODP por el flujo existente y la vincula. */
+export const crearOdpDesdeCotizacion = async (req: Request, res: Response) => {
+  const id = idValido(req.params.id);
+  if (id === null) return res.status(400).json({ error: 'El identificador de cotización no es válido.' });
+  try {
+    const datos = crearOdpSchema.parse(req.body ?? {});
+    const r = await vinculos.crearODPDesdeCotizacion(id, datos, req.user!);
+    res.status(201).json(r);
+  } catch (e) {
+    fallo(res, 'crearOdpDesdeCotizacion', e, 'No se pudo crear la ODP. No se modificó nada en la cotización.');
   }
 };

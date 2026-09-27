@@ -11,8 +11,7 @@ import { PanelAlertas }        from './panels/PanelAlertas';
 import { PanelCotizaciones }   from './panels/PanelCotizaciones';
 import ODPFichaModal from '../../features/odp/components/ODPFichaModal';
 import { RefreshCw } from '../ui/icons';
-
-const ROLES_COTIZACIONES = ['admin', 'gerencia', 'root'];
+import { puedeVerTableroCotizaciones } from './panels/cotizaciones/acceso';
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const YEARS = [2024, 2025, 2026, 2027];
@@ -28,9 +27,10 @@ export const GerenciaDashboard: React.FC = () => {
   });
 
   const userRol = useSelector((state: any) => state.auth.user?.rol as string | undefined);
-  const puedeVerCotizaciones = ROLES_COTIZACIONES.includes(userRol || '');
+  // Control total del Cotizador ve todo; el asesor comercial, solo lo suyo (lo filtra el backend).
+  const puedeVerCotizaciones = puedeVerTableroCotizaciones(userRol);
 
-  const { general, ventas, produccion, equipo, alertas, cotizaciones, loading, error, refetch } = useDashboardData(period);
+  const { general, ventas, produccion, equipo, alertas, loading, error, refetch } = useDashboardData(period);
 
   const [activeTab, setActiveTab]         = useState<'general'|'ventas'|'produccion'|'equipo'|'alertas'|'cotizaciones'>('general');
   const [isRefreshing, setIsRefreshing]   = useState(false);
@@ -70,7 +70,7 @@ export const GerenciaDashboard: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard Gerencial</h1>
-          <p className="text-[13px] text-slate-700 mt-0.5">{periodLabel}</p>
+          <p className="text-[13px] text-slate-700 mt-0.5">{activeTab === 'cotizaciones' ? 'Cotizaciones del Cotizador' : periodLabel}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -80,7 +80,12 @@ export const GerenciaDashboard: React.FC = () => {
             </span>
           )}
 
-          {/* ── Selector de periodo ─────────────────────────────────────── */}
+          {/* ── Selector de periodo (la pestaña Cotizaciones trae sus propios filtros) ── */}
+          {activeTab === 'cotizaciones' ? (
+            <span className="text-[12px] text-slate-700 bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg">
+              Esta pestaña usa sus propios filtros
+            </span>
+          ) : (
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl shadow-card px-3 py-1.5">
             <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-wide">Desde</span>
             <select
@@ -116,6 +121,7 @@ export const GerenciaDashboard: React.FC = () => {
               {YEARS.map(y => <option key={y}>{y}</option>)}
             </select>
           </div>
+          )}
 
           <span className="text-[12px] text-slate-700 hidden sm:flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg">
             Auto-actualización
@@ -173,7 +179,7 @@ export const GerenciaDashboard: React.FC = () => {
           )}
           {activeTab === 'cotizaciones' && puedeVerCotizaciones && (
             <motion.div key="pt-cot" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <PanelCotizaciones data={cotizaciones} isLoading={loading.cotizaciones} />
+              <PanelCotizaciones />
             </motion.div>
           )}
         </AnimatePresence>
