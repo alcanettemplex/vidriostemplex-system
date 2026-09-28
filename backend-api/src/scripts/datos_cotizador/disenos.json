@@ -30627,7 +30627,7 @@
         {
           "descripcion": "Acrilico Transparente 3mm",
           "cantidad": 1,
-          "desperdicioPct": 5,
+          "desperdicioPct": 0,
           "formulaAncho": {
             "a": 1,
             "b": 0,
@@ -30667,7 +30667,7 @@
         {
           "descripcion": "Acrilico Transparente 3mm",
           "cantidad": 1,
-          "desperdicioPct": 5,
+          "desperdicioPct": 0,
           "formulaAncho": {
             "a": 1,
             "b": 0,
@@ -30757,7 +30757,7 @@
         {
           "descripcion": "Acrilico Transparente 3mm",
           "cantidad": 1,
-          "desperdicioPct": 5,
+          "desperdicioPct": 0,
           "formulaAncho": {
             "a": 1,
             "b": 0,

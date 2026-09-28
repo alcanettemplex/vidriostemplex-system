@@ -26,6 +26,14 @@
 //     ES0001 + un recargo del 15,07% (ESP02/ESP01 del Excel), y como ES0001 bajó
 //     con el costo real del proveedor el biselado salía MÁS BARATO que el BPB.
 //
+// PRECIO FIJO DEL BPB (regla comercial del usuario, 2026-09-28): ES0001 se vende
+// a $146.000/m² PA ANTES DE IVA (PM/PB proporcionales). Vive en
+// `cotizador.precio_override`, no en la tabla base: el costo sigue llegando de
+// Proveedores, pero ya no mueve el precio de venta. Y se cobra el ÁREA REAL
+// del espejo, con o sin diseño: los paños de ESP_FLOT_1/ELEV_1/MARCO_1 van con
+// 0 % de desperdicio. Instalación, T-76 y biselado siguen aparte. Ver
+// `2026-09-28_cotizador_espejo_bpb_precio_fijo.ts`.
+//
 // SOPORTE TUBULAR (decisión del usuario, 2026-09-28): `tubularCantidad` sólo
 // cuenta SIN diseño (TUB0302 por metro, 2 × alto por soporte, fórmula del
 // Excel). CON diseño el soporte lo define el despiece y el campo se ignora —el
