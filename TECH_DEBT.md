@@ -4,6 +4,20 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-28 — Cotizador: costo de `TUB0605` "TUBULAR T-76 NEGRO" sospechoso
+
+**Severidad:** Baja (ningún diseño lo usa hoy) · **Estimación:** ~15 min una vez se conozca el precio real
+
+`cotizador.producto.TUB0605` tiene costo **$45.251,33/m** (PM $66.706/m), sembrado del Excel y sin
+proveedor vinculado. El crudo `TUB0302` quedó el 2026-09-28 en $8.333/m ($50.000 el perfil de 6 m).
+La primera hipótesis fue "precio de barra sin dividir entre 6", pero $45.251,33 × 6 = $271.508, y
+los decimales `,33` indican que el valor **ya** se dividió entre 6 en origen: no se corrigió
+dividiendo otra vez para no meter un número inventado. Hace falta el precio real del perfil negro
+(o vincularlo en Proveedores, que lo normaliza solo con `TIRA_6M`). Tampoco están en el Cotizador el
+T-76 mate (`TUB0120`) ni el bronce (`TUB0505`), que sí existen en el catálogo maestro.
+
+---
+
 ## 2026-09-26 (2) — Cotizador: restos del SMO por tipo de obra
 
 **Severidad:** Baja · **Estimación:** ~30 min

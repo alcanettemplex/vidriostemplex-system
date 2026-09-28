@@ -1290,6 +1290,34 @@ Decisión del usuario tras preguntar de dónde salía `ES0001`.
 - Pendiente del usuario: vincular un proveedor real a `ESP4MMBPB` en Proveedores para que su costo
   deje de ser el del Excel.
 
+### Soporte tubular T-76 (2026-09-28)
+
+El campo "Soportes tubulares T-76" solo existe para el cálculo **sin diseño**. Con diseño, el
+soporte lo pone el despiece y el campo se ignora:
+
+| Camino | Qué cobra |
+|---|---|
+| Sin diseño, `tubularCantidad` > 0 | `TUB0302` × **2 × alto × soportes** (fórmula J11 del Excel: cada soporte = los dos lados verticales) |
+| `ESP_FLOT_1` flotante | 2 piezas de `TUB0302` de **(alto − 200 mm)** + 5 % de desperdicio |
+| `ESP_ELEV_1` elevado | Ningún tubular (decisión del usuario: sigue así) |
+| `ESP_MARCO_1` con marco | Marco perimetral `VP010` (provisional `PRVVP010*`) |
+
+- **Antes:** el flotante cobraba el **T99** "Tubular Doble Pestaña" con precio provisional
+  (`PRVT99*`, $6.879/m PM), y el formulario mostraba el campo de tubulares con diseño elegido sin
+  que moviera el precio. Desde este cambio el campo se oculta (`CAMPOS_DERIVADOS_DEL_DISENO.espejo`
+  en `fichaProducto.ts`, que también respeta la Hoja de Trabajo).
+- **Costo de `TUB0302`:** $50.000 por perfil entero de 6 m (dato del usuario) → **$8.333,33/m**;
+  PA $13.015 · PM $12.284 · PB $11.553. Se cobra **por metro**, como el resto de la perfilería (no
+  por barra: decisión del usuario). Escrito en la tabla base con historial, **no** como override,
+  para que un vínculo futuro en Proveedores lo reemplace. Hoy **ningún proveedor lo tiene vinculado**.
+- Script `2026-09-28_cotizador_espejo_flotante_t76.ts` (**corrido** el 2026-09-28; simula por
+  defecto, escribe con `--aplicar`). `diseno_perfil` #981 pasó a ref `T76` y `TUB0302` en los 6
+  colores. `catalogo.json` y `disenos.json` actualizados para que la resiembra no lo revierta.
+- Efecto (100 × 150 cm, BPB, PM, sin IVA): flotante $156.718 → **$171.474**; sin diseño con 2
+  soportes $184.512 → **$205.075**. Había 0 cotizaciones de espejo guardadas.
+- ⚠️ `TUB0605` "TUBULAR T-76 NEGRO" cuesta $45.251/m, 7,5 veces el crudo. No se tocó: ver
+  `TECH_DEBT.md` 2026-09-28.
+
 ---
 
 ## Descripción comercial, instalación dentro del precio y formato VR09 (2026-09-26)

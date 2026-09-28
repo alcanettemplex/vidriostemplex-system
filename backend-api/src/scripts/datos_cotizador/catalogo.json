@@ -3464,10 +3464,10 @@
     "descripcion": "TUBULAR T-76 DE 1 X 1 CRUDO",
     "categoria": "PERFILERIA",
     "unidad": "X METRO",
-    "costo_unitario": 6008.400000000001,
-    "precio_pa": 9384.166054945572,
-    "precio_pm": 8857.120668366186,
-    "precio_pb": 8330.0752817868
+    "costo_unitario": 8333.33,
+    "precio_pa": 13015.34,
+    "precio_pm": 12284.36,
+    "precio_pb": 11553.38
   },
   {
     "codigo": "TUB0107",

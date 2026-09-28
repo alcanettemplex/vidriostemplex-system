@@ -5846,3 +5846,31 @@ ficha ODP y rediseño del tablero de Cotizaciones del Dashboard con Excel. Pregu
 - Hallazgos del análisis: bug H3 de "Asignar ítems" sigue vivo; 368 ítems con DT y ninguno con plano; la
   columna DES mezcla números y texto libre; `C:\Users\User` es un repositorio git ajeno (otro proyecto,
   objetos corruptos) y el prototipo no tiene control de versiones propio.
+
+## 2026-09-28 — Pull, ajustes de ODP y soporte T-76 del espejo flotante
+
+### Sincronización
+- `git pull --ff-only`: 12 commits de la otra máquina (4925347 → 07167a2). `npm ci` en frontend-web por
+  dependencias nuevas (Geist, Phosphor, exceljs; sale lucide-react). Backend y frontend levantados en local.
+
+### Datos de ODP (pedido del usuario, por script con auditoría; sin cambios en el repo)
+- ODP-24376 (id 629): valor_total 226.100 → 297.500 IVA incluido; pendiente 297.500; caja sigue
+  CREDITO_APROBADO. `auditoria_log` #51407. El usuario reportó que la pestaña Financiero no le dejó editarlo
+  (ODP ENTREGADA) — no se investigó.
+- ODP-24321 (id 569): valor 286.500 → 0, FACTURADA con FE `0000`, fecha 2026-09-28, monto FE 0, caja
+  CANCELADO (decisiones del usuario). `auditoria_log` #51421. Caso que la UI de facturación no permite
+  (exige monto > 0).
+- La caché de KPIs del backend de producción no se purgó con estos scripts.
+
+### Cotizador — espejo flotante con T-76
+- Análisis: el campo "Soportes tubulares T-76" solo actuaba sin diseño; con `ESP_FLOT_1` se ignoraba y el
+  despiece cobraba un T99 provisional.
+- Decisiones del usuario: con diseño ocultar el campo; el flotante usa `TUB0302` con costo $50.000 por
+  perfil de 6 m, cobrado por metro; el elevado sigue sin tubular.
+- Script `2026-09-28_cotizador_espejo_flotante_t76.ts` CORRIDO (idempotente, verificado con 2ª corrida).
+  `fichaProducto.ts` oculta `tubularCantidad` con diseño; cabecera de `espejo.ts`; `catalogo.json` y
+  `disenos.json` actualizados.
+- Verificado: motor real antes/después, 13 suites / 186 pruebas (humo y accesorios repetidas por pool
+  agotado con el backend dev arriba), build backend y tsc frontend.
+- Pendiente: al desplegar, `POST /api/cotizador/recargar` o reiniciar el backend de producción.
+  `TUB0605` (T-76 negro) con costo sospechoso → TECH_DEBT 2026-09-28.

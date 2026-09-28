@@ -30601,9 +30601,9 @@
       "refsSinPrecio": [],
       "perfiles": [
         {
-          "ref": "T99",
+          "ref": "T76",
           "refOriginal": "T99-SA",
-          "descripcion": "Tubular Doble Pestaña",
+          "descripcion": "Tubular T-76",
           "cantidad": 2,
           "desperdicioPct": 5,
           "formula": {
@@ -30613,12 +30613,12 @@
           },
           "nivelCorte": "A",
           "codigosPorColor": {
-            "MATE": "PRVT99MATE",
-            "BRONCE": "PRVT99BRONCE",
-            "BLANCO": "PRVT99BLANCO",
-            "GRISPLATA": "PRVT99GRISPLATA",
-            "NEGRO": "PRVT99NEGRO",
-            "CRUDO": "PRVT99CRUDO"
+            "MATE": "TUB0302",
+            "BRONCE": "TUB0302",
+            "BLANCO": "TUB0302",
+            "GRISPLATA": "TUB0302",
+            "NEGRO": "TUB0302",
+            "CRUDO": "TUB0302"
           },
           "esAlfajia": false
         }

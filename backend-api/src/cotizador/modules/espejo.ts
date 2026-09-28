@@ -25,6 +25,16 @@
 //   - BISELADO → ESP4MMBPB "ESPEJO 4MM BISELADO" por m². Hasta ese día se cobraba
 //     ES0001 + un recargo del 15,07% (ESP02/ESP01 del Excel), y como ES0001 bajó
 //     con el costo real del proveedor el biselado salía MÁS BARATO que el BPB.
+//
+// SOPORTE TUBULAR (decisión del usuario, 2026-09-28): `tubularCantidad` sólo
+// cuenta SIN diseño (TUB0302 por metro, 2 × alto por soporte, fórmula del
+// Excel). CON diseño el soporte lo define el despiece y el campo se ignora —el
+// formulario lo oculta (CAMPOS_DERIVADOS_DEL_DISENO en el frontend)—:
+// ESP_FLOT_1 lleva 2 piezas de T-76 (TUB0302) de (alto − 200 mm), ESP_ELEV_1
+// ninguna y ESP_MARCO_1 su marco VP010. Hasta ese día el flotante cobraba el
+// T99 provisional y el campo aparecía en pantalla sin mover el precio. Ver
+// `2026-09-28_cotizador_espejo_flotante_t76.ts`.
+//
 //   - Bug #10 (doble conteo de cantidad): en el Excel, el campo final "Cantidad de
 //     unidades" (C5) volvía a multiplicar un subtotal que YA incluía las
 //     cantidades de espejo BPB/biselado de cada línea. Aquí NO existe ningún campo

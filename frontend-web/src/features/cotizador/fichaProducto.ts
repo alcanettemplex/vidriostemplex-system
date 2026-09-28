@@ -139,11 +139,13 @@ export const MODULOS_CON_DISENO: ReadonlySet<string> = new Set([
 /** Campos que el backend deduce del diseño y deja de leer del input cuando llega
  * `disenoId`: ventanas saca cuerpos y alas del código; proyectantes, el número
  * de naves; cabinas corredizas, el kit de perfiles (corrediza, Primavera,
- * Torino), que reemplaza a `tipoSistema`. */
+ * Torino), que reemplaza a `tipoSistema`; espejo, el soporte (el flotante trae
+ * su T-76 en el despiece, el elevado y el de marco no llevan tubular). */
 export const CAMPOS_DERIVADOS_DEL_DISENO: Readonly<Record<string, readonly string[]>> = {
     ventanas: ['cuerpos', 'alasCorredizas'],
     proyectantes: ['numeroNaves'],
     'cabinas-corredizas': ['tipoSistema'],
+    espejo: ['tubularCantidad'],
 };
 
 /** Proyectantes por diseño trabaja con la medida TOTAL del vano, no la de cada
