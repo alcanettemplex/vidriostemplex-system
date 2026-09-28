@@ -130,7 +130,11 @@ const clonarSchema = z
     nombre: z.string().max(80).nullable().optional(),
     nota: z.string().max(2000).nullable().optional(),
     codigoVidrio: z.string().max(30).optional(),
-    pelicula: z.boolean().optional(),
+    // Código de la película (2026-09-27; '' = sin película). El booleano sigue
+    // valiendo: `true` = PELI31, como el sí/no de antes (ver lib/peliculas.ts).
+    pelicula: z.union([z.boolean(), z.string().max(20)]).optional(),
+    // Costo que escribe el asesor si la película elegida se cotiza aparte.
+    costoPelicula: z.number().positive('El costo de la película debe ser mayor a 0.').optional(),
     // El matizado admite `true` por compatibilidad: hasta 2026-09-12 era un
     // booleano y equivalía a la variante "total".
     matizado: z.union([z.boolean(), z.enum(['total', 'raya', 'dibujo'])]).optional(),

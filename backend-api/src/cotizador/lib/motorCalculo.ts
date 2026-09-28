@@ -60,6 +60,8 @@ export interface LineaBOM {
   provisional?: boolean;
   fuentePrecio?: string;
   revisarPrecio?: boolean;
+  /** Código del ERP cuando difiere del del Cotizador (ver `Producto.codigoErp`). */
+  codigoErp?: string;
   [clave: string]: unknown;
 }
 
@@ -153,6 +155,7 @@ export function lineaCatalogo(
         error: false,
         precioACotizar: true,
         costoManual: costo,
+        ...(producto.codigoErp ? { codigoErp: producto.codigoErp } : {}),
       };
     }
     if (getPrecio(codigo, segmentoCliente) === null) {
@@ -207,6 +210,7 @@ export function lineaCatalogo(
       : {}),
     // Llegó aquí sin costo escrito pero con precio de referencia en el catálogo.
     ...(producto.precioACotizar ? { precioACotizar: true } : {}),
+    ...(producto.codigoErp ? { codigoErp: producto.codigoErp } : {}),
   };
 }
 

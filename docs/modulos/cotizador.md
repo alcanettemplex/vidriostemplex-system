@@ -1604,3 +1604,66 @@ prospecto y ODP nueva sin errores de página.
 La base local es la de producción y el pooler de Supabase admite **15 conexiones** en modo sesión,
 compartidas con el ERP en uso. Correr la suite completa con el backend local encendido las agota: otros
 usuarios pueden ver errores momentáneos. Correr las pruebas por partes y fuera del horario laboral.
+
+---
+
+## Revisión del usuario: cerrojo, películas, código del ERP (2026-09-27)
+
+Detalles que el usuario encontró recorriendo el módulo. Decisiones suyas, no volver a preguntarlas.
+
+### Cerrojo y chapa en ventanas (`modules/ventanas.ts`)
+- **5020 lleva UN cerrojo `CPTOR`** (en el ERP `CPTOR01`, "CERROJO PUNTO ROJO") por ventana, por
+  diseño y por medidas libres. Antes no tenía ninguno.
+- **5020 Reforzado NO lleva cerrojo** (cierra con su traslape reforzado). Tiene entrada propia en
+  `CATALOGO_SISTEMAS` (`"5020Reforzado"`, los mismos accesorios del 5020 sin cerrojo). La búsqueda de
+  accesorios por diseño prueba primero el nombre exacto sin "Sistema" y sólo si no existe le quita
+  "Reforzado": antes se lo quitaba siempre y el reforzado heredaba todo del 5020.
+- **8025 ya no lleva cerrojo** (tenía `CPTOR`, 1 cada 2 cuerpos). Su chapa predeterminada es `CH8025S`.
+  744 y 7038 nunca lo tuvieron.
+
+### Película: una lista del catálogo, no un sí/no
+- `lib/peliculas.ts`: `listarPeliculas()` (productos del catálogo del Cotizador cuya descripción empieza
+  por "PELICULA", `PELI31` primero), `codigoPelicula()` (`true` de antes = `PELI31`, `''` = sin
+  película), `nombrePelicula()` (para la descripción comercial; tolera correr sin caché).
+- El campo `pelicula` de **ventanas, proyectantes y tablero** es `CAMPO_PELICULA` (select con
+  `opcionesDinamicas: "peliculas"`); `listarModulos()` le pone las opciones del catálogo en cada
+  consulta, así que una película dada de alta después aparece sola. Cabinas y espejo no tienen película
+  (decisión del usuario: "en todos" = también tableros).
+- **Película sin precio → precio a cotizar**: campo `costoPelicula` (`CAMPO_COSTO_PELICULA`, "$ por
+  metro, del proveedor"), que el formulario sólo muestra si la opción elegida trae `precioACotizar`
+  (propiedad nueva `soloSiACotizar` en `CampoMeta`, resuelta en `FormularioModulo.campoOculto`). Se pasa
+  como `costoManual` a `lineaCatalogo`: sin costo la línea sale en error, con costo lleva la advertencia
+  de siempre.
+- Script `2026-09-27_cotizador_peliculas_catalogo.ts` (**ya corrido**): 23 altas (`origen ALTA`,
+  vinculadas, `X METRO`, ACABADO) — 3 con precio de proveedor (PEL0103, PEL0104, PEL0106) y 20 a cotizar.
+  **Todas las películas en ACABADO**: PELI0101/PELI0102 (venían de ACCESORIO) y PEL0107 (de VIDRIO) se
+  recategorizaron y su precio se recalculó con el multiplicador de ACABADO (bajó un poco: ×1,534 frente a
+  ×1,551 y ×1,673). Revertible con `--revertir`.
+- Clonar propuesta acepta `pelicula` como código (o el booleano viejo) y `costoPelicula`.
+- `itemsParaSap.clasificar()` reconoce `^(PEL|MATI)` (antes `PELI|PEL0|MATI`, que dejaba PEL1020/PEL1030
+  como proceso del vidrio).
+- ⚠️ **Heredado, sin tocar:** la película se cobra con el ÁREA del vidrio (m²) como cantidad, pero su
+  unidad y el costo del proveedor son **por metro** de rollo. Es lo que hacía `PELI31` desde el Excel.
+  Si el rollo no mide 1 m de ancho, el precio no es exacto: pendiente de confirmar con el usuario.
+
+### Código del ERP en pantalla y en el buscador
+- 170 productos del Cotizador tienen un código distinto al del ERP: 44 del catálogo (`CPTOR` ↔
+  `CPTOR01`, `PELI31` ↔ `PEL0101`) y los 126 provisionales `PRV…` (`PRV700MATE` ↔ `CAB0103`). Vienen del
+  software de origen. **No se renombraron** (tocaría diseños, mapeo de accesorios, módulos y blobs).
+- La caché trae `catalogo_productos.codigo` de cada producto vinculado y emite `Producto.codigoErp` sólo
+  cuando difiere; `lineaCatalogo` lo copia a la línea (`LineaBOM.codigoErp`).
+- Se muestra en el despiece (`ResultadoCalculo`, el del Cotizador debajo), en el ítem libre, en
+  "Cambiar/Agregar componente" y en la tabla de materiales de la Hoja de Trabajo. El PDF no muestra
+  códigos. Los buscadores (`buscarEnCatalogo`) encuentran por cualquiera de los dos.
+- Las cotizaciones guardadas antes de esta fecha muestran el código del Cotizador hasta recalcularse.
+
+### Otros
+- Se quitaron los puntos de color de la descripción del despiece (azul si el texto decía "VIDRIO", gris
+  el resto): no tenían leyenda y fallaban.
+- La lista del buscador del ítem libre flota sobre toda la página (portal a `body`, `fixed`, se recoloca
+  con scroll/resize, se abre hacia arriba si no cabe). Antes la recortaba el `overflow-hidden` de la
+  tabla. Muestra hasta 30 y avisa si hay más.
+
+**Pruebas:** suite nueva `peliculasYCerrojo.test.ts` (12). Total **13 suites, 160 pruebas**, en verde
+corridas una a una con el backend dev arriba (cargos, itemLibre, personalizacion y piezaEntera dieron 0/N
+en la primera pasada por el pooler y pasaron completas al repetirlas solas).

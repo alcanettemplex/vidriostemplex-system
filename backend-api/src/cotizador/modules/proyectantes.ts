@@ -25,6 +25,7 @@ import { lineaCatalogo, totalizar, round2 } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
+import { codigoPelicula, CAMPO_PELICULA, CAMPO_COSTO_PELICULA } from "../lib/peliculas";
 import type { LineaBOM } from "../lib/motorCalculo";
 
 // `lineaManual()` construía las dos líneas de BOM sin código de catálogo —SMO y
@@ -51,7 +52,7 @@ const EMPAQUE = "EMP1301";
 const MANIJA_POR_TIPO = { importada: "MBL0406", nacional: "MAPR0101" };
 
 const VIDRIOS_VALIDOS = ["CL4MM01CR", "CL5MM01CR", "CL6MM01CR"];
-const ACABADOS = { matizado: "MATI07", pelicula: "PELI31" };
+const ACABADOS = { matizado: "MATI07" };
 
 function normalizarColor(color: unknown): string {
   const c = String(color ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -109,7 +110,9 @@ export const meta = {
       grupo: "vidrio",
     },
     { nombre: "matizado", tipo: "boolean", etiqueta: "Incluir matizado", requerido: false, grupo: "vidrio" },
-    { nombre: "pelicula", tipo: "boolean", etiqueta: "Incluir película", requerido: false, grupo: "vidrio" },
+    // Película (2026-09-27): lista del catálogo, ya no sí/no. Ver lib/peliculas.ts.
+    CAMPO_PELICULA,
+    CAMPO_COSTO_PELICULA,
     {
       nombre: "tipoManija",
       tipo: "select",
@@ -181,6 +184,7 @@ export function calcular(input: InputModulo = {}) {
       descuentoPct: Number.isFinite(Number(input.descuentoPct)) ? Number(input.descuentoPct) : 0,
       matizado: input.matizado,
       pelicula: input.pelicula,
+      costoPelicula: input.costoPelicula,
       accesorios: ({ cuerpos, segmentoCliente: seg, perimetroVidrioM }) => {
         // Los perfiles ya vienen del despiece; aquí sólo la herrajería, que el
         // catálogo de diseños no sabe costear. Una nave proyectante lleva dos
@@ -268,7 +272,10 @@ export function calcular(input: InputModulo = {}) {
   items.push(lineaCatalogo(codigoVidrio, areaUnaPieza, segmentoCliente));
 
   if (input.matizado) items.push(lineaCatalogo(ACABADOS.matizado, areaUnaPieza, segmentoCliente));
-  if (input.pelicula) items.push(lineaCatalogo(ACABADOS.pelicula, areaUnaPieza, segmentoCliente));
+  const codPelicula = codigoPelicula(input.pelicula);
+  if (codPelicula) {
+    items.push(lineaCatalogo(codPelicula, areaUnaPieza, segmentoCliente, { costoManual: input.costoPelicula }));
+  }
 
   // ⚠️ AQUÍ YA NO SE AGREGAN NI SMO NI FLETE (2026-09-20).
   // `totalizar()` multiplica cada línea del BOM por `cantidadPiezas`, así que

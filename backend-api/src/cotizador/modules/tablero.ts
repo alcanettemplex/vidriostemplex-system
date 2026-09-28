@@ -22,9 +22,9 @@
 //     el catálogo maestro (server/src/data/catalogo.json) solo conserva la entrada
 //     "PELICULA NORMAL" bajo PELI31 (la "Ultravisión" fue descartada en la
 //     normalización, ver analisis-para-webapp/modulos/costos.json). Este módulo
-//     ofrece únicamente "película" como opción booleana (mapeada a PELI31) y
-//     agrega una advertencia explícita cuando se activa, para que el vendedor
-//     sepa que "Ultravisión" no está disponible hasta que se corrija el catálogo.
+//     ofrecía únicamente "película" como opción booleana (mapeada a PELI31).
+//     Desde el 2026-09-27 la película es una lista con todas las del catálogo
+//     (la ultravisión entró como PEL0103): ver lib/peliculas.ts.
 //   - Bug #10 (doble conteo de cantidad): en el Excel, el campo final "Cantidad de
 //     unidades" (D5) volvía a multiplicar un subtotal que YA incluía las
 //     cantidades de vidrio 6mm/8mm de cada línea. Aquí NO existe ningún campo de
@@ -35,6 +35,7 @@
 import { lineaCatalogo, totalizar, areaM2, perimetroM, round2 } from "../lib/motorCalculo";
 import { getParametros, segmentosValidos } from "../lib/catalogo";
 import type { InputModulo } from "../tipos";
+import { codigoPelicula, CAMPO_PELICULA, CAMPO_COSTO_PELICULA } from "../lib/peliculas";
 import type { LineaBOM } from "../lib/motorCalculo";
 
 // Elevadores y perforaciones (regla del usuario, 2026-09-26): 4 de base, +2 si
@@ -70,13 +71,9 @@ export const meta = {
     { nombre: "altoCm", tipo: "number", etiqueta: "Alto (mm)", requerido: true, grupo: "medidas" },
     { nombre: "espesorMm", tipo: "select", opciones: [6, 8], etiqueta: "Espesor (mm)", requerido: true, grupo: "vidrio" },
     { nombre: "matizado", tipo: "boolean", etiqueta: "Matizado total (MATI07)", requerido: false, grupo: "vidrio" },
-    {
-      nombre: "pelicula",
-      tipo: "boolean",
-      etiqueta: "Película de seguridad (solo variante Normal disponible)",
-      requerido: false,
-      grupo: "vidrio",
-    },
+    // Película (2026-09-27): lista del catálogo, ya no sí/no. Ver lib/peliculas.ts.
+    CAMPO_PELICULA,
+    CAMPO_COSTO_PELICULA,
     { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
     // Mano de obra por producto (2026-09-26): no toca el despiece; la lee
     // `calcularManoObraProductos` (lib/cargos.ts) desde el input guardado.
@@ -148,12 +145,10 @@ export function calcular(input: InputModulo) {
   if (matizado) {
     items.push(lineaCatalogo("MATI07", area, segmentoCliente, { unidadOverride: "M2" }));
   }
-  if (pelicula) {
-    items.push(lineaCatalogo("PELI31", area, segmentoCliente, { unidadOverride: "M2" }));
-    advertencias.push(
-      'Solo está disponible la variante "Película Normal" (código PELI31). "Película Ultravisión" ' +
-        "tenía el mismo código duplicado en el Excel original (bug #5) y quedó descartada al normalizar " +
-        "el catálogo maestro; debe agregarse un código propio en catalogo.json si se necesita ofrecerla."
+  const codPelicula = codigoPelicula(pelicula);
+  if (codPelicula) {
+    items.push(
+      lineaCatalogo(codPelicula, area, segmentoCliente, { unidadOverride: "M2", costoManual: input?.costoPelicula })
     );
   }
 

@@ -55,13 +55,6 @@ const btnLinea = 'p-1 rounded-md text-slate-600 hover:text-templex-700 hover:bg-
 /** Color del punto de categoría en el BOM: error manda, luego una heurística
  * simple por categoría/unidad/descripción (vidrio vs. resto) — es un detalle
  * visual, no una clasificación de negocio. */
-const colorCategoria = (item: { error: boolean; categoria?: string; unidad?: string; descripcion?: string }): string => {
-    if (item.error) return '#e11d48';
-    const pista = `${item.categoria ?? ''} ${item.unidad ?? ''} ${item.descripcion ?? ''}`.toUpperCase();
-    if (pista.includes('VIDRIO')) return '#38bdf8';
-    return '#6f7a8c';
-};
-
 /** `provisional`, `fuentePrecio` y `revisarPrecio` viajan por el index signature
  * de `LineaBOM` (sólo existen en las líneas cuyo precio NO salió del catálogo
  * de Templex), así que llegan como `unknown` y hay que estrecharlos aquí. */
@@ -198,13 +191,18 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                                         ? 'bg-rose-50 text-rose-800'
                                         : 'text-slate-800 hover:bg-slate-50 transition-colors'}
                                 >
-                                    <td className="pl-4 pr-2 py-2 font-mono text-[12px] whitespace-nowrap align-top">{item.codigo}</td>
+                                    {/* Código del ERP primero (2026-09-27): es el que conocen Compras y
+                                        el catálogo. El del Cotizador queda debajo cuando difiere. */}
+                                    <td className="pl-4 pr-2 py-2 font-mono text-[12px] whitespace-nowrap align-top">
+                                        {item.codigoErp ?? item.codigo}
+                                        {item.codigoErp && (
+                                            <span className={`block text-[11px] ${item.error ? '' : 'text-slate-600'}`} title="Código interno del Cotizador">
+                                                {item.codigo}
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="px-2 py-2 align-top">
                                         <div className="flex items-start gap-1.5">
-                                            <span
-                                                className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 mt-[7px] flex-shrink-0"
-                                                style={{ background: colorCategoria(item) }}
-                                            />
                                             {item.error && <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />}
                                             <span className="min-w-0">
                                                 <span className={item.error ? 'font-semibold' : ''}>{item.descripcion}</span>

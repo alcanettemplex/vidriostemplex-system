@@ -5815,3 +5815,20 @@ ficha ODP y rediseño del tablero de Cotizaciones del Dashboard con Excel. Pregu
   entra al ERP bajo una "cortina" negra colgada del <body> (fuera de React, sobrevive al desmontar el login)
   que espera 450 ms a que pinte el Dashboard y se desvanece en 1,4 s con curva ease-in-out; se retira sola.
   Verificado cuadro a cuadro (opacidad 1 → 0,88 → 0,5 → 0), sin errores y sin cortina residual.
+
+### Cotizador — revisión del usuario (2026-09-27)
+- Cerrojo `CPTOR` (ERP `CPTOR01`): 1 por ventana solo en 5020; el 5020 Reforzado tiene accesorios propios
+  sin cerrojo; se quitó de la 8025 (queda su chapa CH8025S).
+- Película como lista del catálogo en ventanas, proyectantes y tablero (antes sí/no a PELI31). Script
+  `2026-09-27_cotizador_peliculas_catalogo.ts` CORRIDO: 23 películas nuevas (3 con precio, 20 a cotizar
+  con costo del asesor) y todas en ACABADO (PELI0101, PELI0102 y PEL0107 recategorizadas, precio
+  recalculado). Clonar propuesta y PDF/hoja de trabajo dicen qué película.
+- Código del ERP (`codigoErp`) en el despiece, ítem libre, cambio de componente y hoja de trabajo; los
+  buscadores encuentran por ambos códigos. No se renombraron los 170 códigos heredados.
+- Sin puntos de color en el despiece; lista del ítem libre flotante (portal), hasta 30 resultados.
+- Verificado: tsc back/front, 13 suites / 160 pruebas (suite nueva `peliculasYCerrojo`, 12).
+- Pendiente: la película se cobra por m² de vidrio con precio por metro de rollo (heredado del Excel);
+  confirmar el ancho del rollo con el usuario. Reiniciar el backend de producción al desplegar.
+- Lápiz siempre visible en la lista de ítems del panel derecho (`ResumenPropuesta.tsx`): al reabrir una
+  cotización el formulario sale vacío y nada indicaba que cada ítem se edita con un clic (el usuario creía
+  que había que empezar de cero). Verificado con captura en la N.° 87.

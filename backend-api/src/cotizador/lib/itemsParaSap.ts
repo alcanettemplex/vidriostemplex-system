@@ -171,7 +171,9 @@ type Clase = 'perfil' | 'accesorio' | 'acabado' | 'vidrio' | 'proceso_vidrio';
 function clasificar(linea: LineaBomLaxa): Clase {
   const codigo = String(linea.codigo ?? '').toUpperCase();
   const categoria = String(linea.categoria ?? '').toUpperCase();
-  if (/^(PELI|PEL0|MATI)/.test(codigo)) return 'acabado';
+  // `PEL` a secas (2026-09-27): con las películas del catálogo entraron
+  // PEL1020 y PEL1030, que `PELI|PEL0` dejaba caer a proceso del vidrio.
+  if (/^(PEL|MATI)/.test(codigo)) return 'acabado';
   if (/^GPI/.test(codigo)) return 'accesorio';
   if (categoria === 'PERFILERIA') return 'perfil';
   if (categoria === 'VIDRIO') return 'vidrio';

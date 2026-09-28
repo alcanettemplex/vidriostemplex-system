@@ -21,6 +21,7 @@
 // pantalla la lea sin reimplementarla; el PDF la recalcula al imprimir, así
 // también sirve para ítems guardados antes de que existiera.
 import { getModulo } from "../modules/registry";
+import { nombrePelicula } from "./peliculas";
 
 type Opcion = string | number | { value: unknown; label: string };
 interface CampoLaxo {
@@ -109,7 +110,9 @@ function producto(
   const espesor = i.espesorVidrioMm ?? i.espesorMm;
   const vidrioTemplado = !vacio(espesor) ? `vidrio templado ${espesor} mm` : null;
   const matizado = matizadoDe(campos, i.matizado);
-  const extras = [matizado, marcado(i.pelicula) ? "con película" : null];
+  // La película dice cuál (2026-09-27): "con película control solar titanio".
+  const pelicula = nombrePelicula(i.pelicula);
+  const extras = [matizado, pelicula ? `con ${pelicula}` : null];
 
   let base: string;
   let atributos: (string | null)[];

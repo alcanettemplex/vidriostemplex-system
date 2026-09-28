@@ -425,7 +425,13 @@ const ResumenPropuesta: React.FC<Props> = ({
                                                 {it.detalle && <span className="block text-[11.5px] text-slate-700 truncate">{it.detalle}</span>}
                                             </span>
                                             <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-slate-900 tabular-nums">
-                                                {editandoEste && <Pencil className="w-3 h-3 text-templex-700" />}
+                                                {/* Siempre visible (2026-09-27): sin él nada decía que el ítem
+                                                    se edita con un clic, y al reabrir una cotización parecía
+                                                    que había que empezar de cero. */}
+                                                <Pencil
+                                                    aria-hidden
+                                                    className={`w-3 h-3 ${editandoEste ? 'text-templex-700' : 'text-slate-500 group-hover:text-templex-700'}`}
+                                                />
                                                 {fmtCOP(it.subtotal)}
                                             </span>
                                         </button>

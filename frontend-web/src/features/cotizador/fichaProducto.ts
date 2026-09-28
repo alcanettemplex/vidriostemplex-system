@@ -33,7 +33,9 @@ export interface Ficha {
     nivelCorte: string | null;
     vidrio: string | null;
     acabados: string | null;
-    pelicula: boolean;
+    /** Qué película lleva ("película control solar titanio"), o null. Desde el
+     * 2026-09-27 es un código; `true` de antes = la película normal. */
+    pelicula: string | null;
     conInstalacion: boolean | null;
     enL: boolean;
     piezas: number;
@@ -59,6 +61,15 @@ function aMilimetros(valor: unknown): number | null {
 }
 
 const mil = (n: number) => n.toLocaleString('es-CO');
+
+/** Nombre legible de la película a partir de la etiqueta de su opción, sin el
+ * "(precio a cotizar)" que solo le sirve al asesor al elegirla. */
+function nombrePelicula(campo: CampoMeta | null, valor: unknown): string | null {
+    if (valor === true || valor === 'true') return 'película';
+    if (esVacio(valor) || valor === false) return null;
+    const label = labelDeOpcion(campo, valor) ?? String(valor);
+    return label.replace(/\s*\(precio a cotizar\)\s*$/i, '').trim().toLowerCase().replace(/^pelicula\b/, 'película');
+}
 
 export function leerFicha(
     input: Record<string, unknown> | null | undefined,
@@ -107,7 +118,7 @@ export function leerFicha(
         nivelCorte: disenoRef?.nivelCorte ?? null,
         vidrio: vidrio ?? (espesor ? `${espesor} mm` : null),
         acabados: matizado,
-        pelicula: i.pelicula === true,
+        pelicula: nombrePelicula(campoDe('pelicula'), i.pelicula),
         conInstalacion: 'conInstalacion' in i ? i.conInstalacion === true : null,
         enL: i.enL === true,
         piezas: Number.isFinite(piezas) && piezas > 0 ? Math.floor(piezas) : 1,
@@ -230,7 +241,7 @@ export function detalleCorto(f: Ficha): string {
         f.color,
         f.vidrio,
         f.acabados,
-        f.pelicula ? 'con película' : null,
+        f.pelicula ? `con ${f.pelicula}` : null,
         f.conInstalacion === null ? null : f.conInstalacion ? 'con instalación' : 'sin instalación',
         f.enL ? 'en L' : null,
     ].filter(Boolean).join(' · ');

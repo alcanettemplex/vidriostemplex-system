@@ -1533,7 +1533,7 @@ function aCargoEntrada(f: Fila): CargoEntrada {
 }
 
 /** Campos del input que el clonado puede cambiar de golpe en todos los ítems. */
-const CAMPOS_CLONABLES = ['codigoVidrio', 'pelicula', 'matizado'] as const;
+const CAMPOS_CLONABLES = ['codigoVidrio', 'pelicula', 'costoPelicula', 'matizado'] as const;
 export type CambiosClonado = Partial<Record<(typeof CAMPOS_CLONABLES)[number], unknown>>;
 
 /** ¿El módulo de este ítem declara ese campo en su formulario?
@@ -1793,6 +1793,7 @@ export async function cambiarSegmento(
 function nombreLegible(campo: string): string {
   if (campo === 'codigoVidrio') return 'el vidrio';
   if (campo === 'pelicula') return 'la película';
+  if (campo === 'costoPelicula') return 'el costo de la película';
   if (campo === 'matizado') return 'el matizado';
   return campo;
 }

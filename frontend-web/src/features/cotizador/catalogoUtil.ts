@@ -41,13 +41,16 @@ export function buscarEnCatalogo(
     const q = texto.trim().toUpperCase();
     if (q.length < MIN_BUSQUEDA) return [];
     const resultado: ProductoCatalogo[] = [];
+    // Por cualquiera de los dos códigos (2026-09-27): el asesor conoce el del
+    // ERP (CAB0103) y el Cotizador guarda el heredado (PRV700MATE).
+    const codigos = (p: ProductoCatalogo) => [p.codigo, p.codigoErp ?? ''].map(c => c.toUpperCase());
     for (const p of catalogo) {
-        if (filtro(p) && p.codigo.toUpperCase().startsWith(q)) resultado.push(p);
+        if (filtro(p) && codigos(p).some(c => c.startsWith(q))) resultado.push(p);
         if (resultado.length >= max) return resultado;
     }
     for (const p of catalogo) {
         if (resultado.includes(p) || !filtro(p)) continue;
-        if (p.codigo.toUpperCase().includes(q) || p.descripcion.toUpperCase().includes(q)) resultado.push(p);
+        if (codigos(p).some(c => c.includes(q)) || p.descripcion.toUpperCase().includes(q)) resultado.push(p);
         if (resultado.length >= max) break;
     }
     return resultado;

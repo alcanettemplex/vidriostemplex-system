@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Trash2, Search, AlertTriangle } from '../../../components/ui/icons';
 
 import { apiGetCatalogo } from '../services/cotizadorApi';
@@ -35,11 +36,34 @@ import { claseControl, CONTROL_LABEL_CLASS } from './ui';
 // egress) y filtrar en memoria evita una petición por tecla.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Cuántas coincidencias se ofrecen a la vez. Más que esto y la lista tapa el
- * formulario en vez de ayudar; el vendedor afina la búsqueda. La búsqueda, el
- * rótulo por unidad y el precio por segmento viven en `catalogoUtil.ts`,
- * compartidos con la personalización de componentes. */
-const MAX_SUGERENCIAS = 8;
+/** Cuántas coincidencias se ofrecen a la vez. Desde el 2026-09-27 la lista
+ * flota sobre toda la página (portal) con su propio scroll, así que ya no tapa
+ * el formulario: se subió de 8 a 30, y si hay más se avisa para afinar. La
+ * búsqueda, el rótulo por unidad y el precio por segmento viven en
+ * `catalogoUtil.ts`, compartidos con la personalización de componentes. */
+const MAX_SUGERENCIAS = 30;
+
+/** Posición de la lista flotante: justo debajo del buscador, o encima si no
+ * cabe abajo. `fixed` porque vive en `document.body`, fuera de la tabla. */
+interface Posicion {
+    left: number;
+    width: number;
+    top?: number;
+    bottom?: number;
+    maxHeight: number;
+}
+
+function calcularPosicion(ancla: HTMLElement): Posicion {
+    const r = ancla.getBoundingClientRect();
+    const margen = 8;
+    const abajo = window.innerHeight - r.bottom - margen;
+    const arriba = r.top - margen;
+    // Ancho mínimo legible aunque la columna del producto sea angosta.
+    const width = Math.min(Math.max(r.width, 360), window.innerWidth - 2 * margen);
+    const left = Math.max(margen, Math.min(r.left, window.innerWidth - width - margen));
+    if (abajo >= 240 || abajo >= arriba) return { left, width, top: r.bottom + 4, maxHeight: Math.min(abajo - 4, 420) };
+    return { left, width, bottom: window.innerHeight - r.top + 4, maxHeight: Math.min(arriba - 4, 420) };
+}
 
 interface Props {
     value: LineaLibre[];
@@ -60,6 +84,10 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
     const [filaAbierta, setFilaAbierta] = useState<number | null>(null);
     const [busqueda, setBusqueda] = useState('');
     const contenedorRef = useRef<HTMLDivElement>(null);
+    // La lista vive en un portal: el clic dentro de ella no es "clic fuera".
+    const listaRef = useRef<HTMLUListElement>(null);
+    const buscadorRef = useRef<HTMLDivElement>(null);
+    const [posicion, setPosicion] = useState<Posicion | null>(null);
 
     const lineas = Array.isArray(value) ? value : [];
 
@@ -77,7 +105,9 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
     useEffect(() => {
         if (filaAbierta === null) return;
         const alClic = (e: MouseEvent) => {
-            if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) {
+            const destino = e.target as Node;
+            if (listaRef.current?.contains(destino)) return;
+            if (contenedorRef.current && !contenedorRef.current.contains(destino)) {
                 setFilaAbierta(null);
             }
         };
@@ -91,10 +121,28 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
         return mapa;
     }, [catalogo]);
 
-    const sugerencias = useMemo(
-        () => buscarEnCatalogo(catalogo, busqueda, MAX_SUGERENCIAS),
+    // Se pide uno de más para saber si hay más coincidencias que las mostradas.
+    const encontrados = useMemo(
+        () => buscarEnCatalogo(catalogo, busqueda, MAX_SUGERENCIAS + 1),
         [busqueda, catalogo]
     );
+    const sugerencias = encontrados.slice(0, MAX_SUGERENCIAS);
+    const hayMas = encontrados.length > MAX_SUGERENCIAS;
+    const listaVisible = filaAbierta !== null && busqueda.trim().length >= MIN_BUSQUEDA;
+
+    // La lista sigue al buscador al hacer scroll (en cualquier contenedor: por
+    // eso `capture`) o al cambiar el tamaño de la ventana.
+    useLayoutEffect(() => {
+        if (!listaVisible) { setPosicion(null); return; }
+        const recolocar = () => { if (buscadorRef.current) setPosicion(calcularPosicion(buscadorRef.current)); };
+        recolocar();
+        window.addEventListener('scroll', recolocar, true);
+        window.addEventListener('resize', recolocar);
+        return () => {
+            window.removeEventListener('scroll', recolocar, true);
+            window.removeEventListener('resize', recolocar);
+        };
+    }, [listaVisible, filaAbierta]);
 
     const actualizar = (i: number, cambio: Partial<LineaLibre>) => {
         onChange(lineas.map((l, idx) => (idx === i ? { ...l, ...cambio } : l)));
@@ -177,7 +225,7 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
                             <div className="min-w-0 relative">
                                 {abierto ? (
                                     <>
-                                        <div className="relative">
+                                        <div className="relative" ref={buscadorRef}>
                                             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                                             <input
                                                 autoFocus
@@ -197,8 +245,20 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
                                                 }}
                                             />
                                         </div>
-                                        {busqueda.trim().length >= MIN_BUSQUEDA && (
-                                            <ul className="absolute z-20 left-0 right-0 mt-1 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                                        {/* Flota sobre toda la página (portal a body, 2026-09-27): dentro
+                                            de la tabla la recortaba su `overflow-hidden` y tapaba las filas. */}
+                                        {listaVisible && posicion && createPortal(
+                                            <ul
+                                                ref={listaRef}
+                                                className="fixed z-[1400] overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl"
+                                                style={{
+                                                    left: posicion.left,
+                                                    width: posicion.width,
+                                                    top: posicion.top,
+                                                    bottom: posicion.bottom,
+                                                    maxHeight: posicion.maxHeight,
+                                                }}
+                                            >
                                                 {sugerencias.length === 0 && (
                                                     <li className="px-3 py-2 text-[12px] text-slate-700">Sin coincidencias.</li>
                                                 )}
@@ -209,15 +269,24 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
                                                             onClick={() => elegir(i, p)}
                                                             className="w-full text-left px-3 py-2 hover:bg-templex-50 border-b border-slate-100 last:border-b-0"
                                                         >
-                                                            <span className="block text-[12px] font-semibold text-slate-900">{p.codigo}</span>
+                                                            <span className="block text-[12px] font-semibold text-slate-900">
+                                                                {p.codigoErp ?? p.codigo}
+                                                                {p.codigoErp && <span className="ml-1.5 font-normal text-slate-600">({p.codigo})</span>}
+                                                            </span>
                                                             <span className="block text-[11.5px] text-slate-800 leading-snug">{p.descripcion}</span>
                                                             <span className="block text-[11px] text-slate-700 mt-0.5">
-                                                                {p.unidad} · {fmtCOP(precioDe(p, segmento))}
+                                                                {p.unidad} · {p.precioACotizar ? 'precio a cotizar' : fmtCOP(precioDe(p, segmento))}
                                                             </span>
                                                         </button>
                                                     </li>
                                                 ))}
-                                            </ul>
+                                                {hayMas && (
+                                                    <li className="sticky bottom-0 px-3 py-2 text-[11.5px] font-semibold text-slate-800 bg-slate-50 border-t border-slate-200">
+                                                        Hay más de {MAX_SUGERENCIAS} coincidencias: escribe más del código o la descripción.
+                                                    </li>
+                                                )}
+                                            </ul>,
+                                            document.body,
                                         )}
                                     </>
                                 ) : (
@@ -233,7 +302,10 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
                                     >
                                         {producto ? (
                                             <>
-                                                <span className="block text-[12px] font-semibold text-slate-900">{producto.codigo}</span>
+                                                <span className="block text-[12px] font-semibold text-slate-900">
+                                                    {producto.codigoErp ?? producto.codigo}
+                                                    {producto.codigoErp && <span className="ml-1.5 font-normal text-slate-600">({producto.codigo})</span>}
+                                                </span>
                                                 <span className="block text-[11.5px] text-slate-700 leading-snug truncate">
                                                     {producto.descripcion}
                                                 </span>

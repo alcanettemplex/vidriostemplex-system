@@ -37,7 +37,9 @@ interface Props {
 
 const SIN_CAMBIO = '';
 
-type OpcionPelicula = '' | 'si' | 'no';
+/** '' = dejar como está, QUITAR_PELICULA = sin película, cualquier otro valor
+ * = el código de la película (2026-09-27: antes era un sí/no a PELI31). */
+const QUITAR_PELICULA = '__quitar';
 type OpcionMatizado = '' | 'sin' | 'total' | 'raya' | 'dibujo';
 
 const precioDe = (p: ProductoCatalogo, segmento?: SegmentoCliente): number => {
@@ -54,7 +56,11 @@ const ModalClonarPropuesta: React.FC<Props> = ({ cotizacionId, propuesta, segmen
     const [nombre, setNombre] = useState('');
     const [nota, setNota] = useState('');
     const [codigoVidrio, setCodigoVidrio] = useState<string>(SIN_CAMBIO);
-    const [pelicula, setPelicula] = useState<OpcionPelicula>('');
+    const [pelicula, setPelicula] = useState<string>('');
+    const [costoPelicula, setCostoPelicula] = useState('');
+    // Las películas salen del mismo campo que ve el formulario del ítem: el
+    // backend lo llena con el catálogo vigente (`opcionesDinamicas`).
+    const [peliculas, setPeliculas] = useState<OpcionCampo[]>([]);
     const [matizado, setMatizado] = useState<OpcionMatizado>('');
 
     useEffect(() => {
@@ -80,6 +86,14 @@ const ModalClonarPropuesta: React.FC<Props> = ({ cotizacionId, propuesta, segmen
                     }
                 }
                 setVidrios(resCatalogo.data.filter((p) => p.activo && admitidos.has(p.codigo)));
+                const campoPelicula = resModulos.data
+                    .flatMap((m) => m.campos ?? [])
+                    .find((c) => c.nombre === 'pelicula');
+                setPeliculas(
+                    (campoPelicula?.opciones ?? []).filter(
+                        (o): o is OpcionCampo => typeof o === 'object' && o !== null && String(o.value) !== ''
+                    )
+                );
             })
             .catch(() => toast.error('No se pudo cargar la lista de vidrios del catálogo.'))
             .finally(() => setCargandoVidrios(false));
@@ -91,9 +105,18 @@ const ModalClonarPropuesta: React.FC<Props> = ({ cotizacionId, propuesta, segmen
     );
     const vidrioSinPrecio = Boolean(vidrioElegido && precioDe(vidrioElegido, segmentoCliente) <= 0);
 
+    const peliculaElegida = peliculas.find((o) => String(o.value) === pelicula) ?? null;
+    const peliculaACotizar = Boolean(peliculaElegida?.precioACotizar);
+    const costoPeliculaNum = Number(costoPelicula);
+    const faltaCostoPelicula = peliculaACotizar && !(Number.isFinite(costoPeliculaNum) && costoPeliculaNum > 0);
+
     const hayCambios = codigoVidrio !== SIN_CAMBIO || pelicula !== '' || matizado !== '';
 
     const clonar = async () => {
+        if (faltaCostoPelicula) {
+            toast.error(`Escribe el costo que te dio el proveedor para ${peliculaElegida?.label ?? 'la película'}.`);
+            return;
+        }
         setClonando(true);
         try {
             // Sólo se envía lo que el vendedor decidió cambiar: una clave con
@@ -103,7 +126,9 @@ const ModalClonarPropuesta: React.FC<Props> = ({ cotizacionId, propuesta, segmen
                 nombre: nombre.trim() || undefined,
                 nota: nota.trim() || undefined,
                 ...(codigoVidrio !== SIN_CAMBIO ? { codigoVidrio } : {}),
-                ...(pelicula !== '' ? { pelicula: pelicula === 'si' } : {}),
+                // "Quitar" viaja como '' (sin película); una película, por su código.
+                ...(pelicula !== '' ? { pelicula: pelicula === QUITAR_PELICULA ? '' : pelicula } : {}),
+                ...(peliculaACotizar ? { costoPelicula: costoPeliculaNum } : {}),
                 // "Sin matizado" viaja como `false`: el motor lo traduce a "ninguno".
                 ...(matizado !== '' ? { matizado: matizado === 'sin' ? false : matizado } : {}),
             });
@@ -188,11 +213,31 @@ const ModalClonarPropuesta: React.FC<Props> = ({ cotizacionId, propuesta, segmen
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <Campo etiqueta="Película">
-                            <Select value={pelicula} onChange={(e) => setPelicula(e.target.value as OpcionPelicula)}>
+                            <Select value={pelicula} onChange={(e) => setPelicula(e.target.value)}>
                                 <option value="">Dejar como está</option>
-                                <option value="si">Incluir película</option>
-                                <option value="no">Quitar película</option>
+                                <option value={QUITAR_PELICULA}>Quitar película</option>
+                                {peliculas.map((o) => (
+                                    <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
+                                ))}
                             </Select>
+                            {peliculaACotizar && (
+                                <div className="mt-2">
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        step="any"
+                                        placeholder="Costo del proveedor ($ por metro)"
+                                        aria-label="Costo de la película, del proveedor"
+                                        value={costoPelicula}
+                                        onChange={(e) => setCostoPelicula(e.target.value)}
+                                    />
+                                    <p className="mt-1 flex items-start gap-1.5 text-[12px] text-amber-800 font-semibold">
+                                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                                        Esta película no tiene precio: pídelo al proveedor y escribe su costo; el
+                                        precio de venta sale con el margen del tipo de cliente.
+                                    </p>
+                                </div>
+                            )}
                         </Campo>
                         <Campo etiqueta="Matizado">
                             <Select value={matizado} onChange={(e) => setMatizado(e.target.value as OpcionMatizado)}>

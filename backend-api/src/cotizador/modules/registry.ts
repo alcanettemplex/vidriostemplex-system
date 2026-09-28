@@ -23,6 +23,7 @@ import { advertenciasPrecioACotizar } from "../lib/motorCalculo";
 // Import circular (detalleComercial usa getModulo de aquí): seguro, porque los
 // dos lados sólo se llaman dentro de funciones, nunca al cargar el módulo.
 import { descripcionComercial } from "../lib/detalleComercial";
+import { opcionesPelicula } from "../lib/peliculas";
 import type { InputModulo } from "../tipos";
 
 // El orden de este objeto es el orden en que el frontend pinta las tarjetas de
@@ -38,8 +39,22 @@ export const MODULOS = {
   "item-libre": itemLibre,
 };
 
+/** Opciones que salen del catálogo vigente y no de una constante del módulo
+ * (2026-09-27: la película). Se resuelven en cada consulta, así que un alta
+ * nueva aparece en el formulario sin reiniciar nada. */
+const OPCIONES_DINAMICAS: Record<string, () => unknown[]> = {
+  peliculas: opcionesPelicula,
+};
+
 export function listarModulos() {
-  return Object.entries(MODULOS).map(([id, mod]) => ({ id, ...mod.meta }));
+  return Object.entries(MODULOS).map(([id, mod]) => ({
+    id,
+    ...mod.meta,
+    campos: (mod.meta.campos as Record<string, unknown>[]).map((c) => {
+      const origen = typeof c.opcionesDinamicas === "string" ? OPCIONES_DINAMICAS[c.opcionesDinamicas] : undefined;
+      return origen ? { ...c, opciones: origen() } : c;
+    }),
+  }));
 }
 
 export function getModulo(id: string) {

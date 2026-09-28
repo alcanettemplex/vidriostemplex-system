@@ -162,7 +162,7 @@ const PrintableHojaTrabajo: React.FC<Props> = ({ cot, propuesta, modulos, planos
                                     <tr>
                                         <td className="w-[30%] font-bold">MEDIDA: <span className="font-normal uppercase ml-1">{ficha.medidas || '—'}</span></td>
                                         <td className="w-[40%] font-bold">COLOR / ACABADO: <span className="font-normal uppercase ml-1">{[ficha.color, ficha.acabados].filter(Boolean).join(' · ') || '—'}</span></td>
-                                        <td className="w-[30%] font-bold">VIDRIO: <span className="font-normal uppercase ml-1">{[ficha.vidrio, ficha.pelicula ? 'con película' : null].filter(Boolean).join(' · ') || '—'}</span></td>
+                                        <td className="w-[30%] font-bold">VIDRIO: <span className="font-normal uppercase ml-1">{[ficha.vidrio, ficha.pelicula ? `con ${ficha.pelicula}` : null].filter(Boolean).join(' · ') || '—'}</span></td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -225,7 +225,7 @@ const PrintableHojaTrabajo: React.FC<Props> = ({ cot, propuesta, modulos, planos
                                             <tbody>
                                                 {materiales.map((m, idx) => (
                                                     <tr key={`${m.codigo}-${idx}`}>
-                                                        <td>{m.codigo}</td>
+                                                        <td>{m.codigoErp ?? m.codigo}</td>
                                                         <td>{m.descripcion}</td>
                                                         <td className="text-right medida">{Number(m.cantidad).toLocaleString('es-CO', { maximumFractionDigits: 2 })}</td>
                                                         <td>{m.unidad}</td>

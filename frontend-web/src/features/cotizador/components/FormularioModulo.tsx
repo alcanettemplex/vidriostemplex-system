@@ -155,8 +155,18 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
     const campoOculto = (nombre: string) => {
         if (CAMPOS_DE_LA_COTIZACION.includes(nombre) || (hayDiseno && derivados.includes(nombre))) return true;
         // `soloSi` (2026-09-27): el campo depende de una casilla (lado Y ↔ "en L").
-        const soloSi = modulo.campos.find(c => c.nombre === nombre)?.soloSi;
-        return Boolean(soloSi) && !(input[soloSi as string] === true || input[soloSi as string] === 'true');
+        const campo = modulo.campos.find(c => c.nombre === nombre);
+        const soloSi = campo?.soloSi;
+        if (soloSi && !(input[soloSi] === true || input[soloSi] === 'true')) return true;
+        // `soloSiACotizar` (2026-09-27): el costo de una película solo se pide
+        // si la elegida no tiene precio de catálogo.
+        const deSelect = campo?.soloSiACotizar;
+        if (deSelect) {
+            const opciones = modulo.campos.find(c => c.nombre === deSelect)?.opciones ?? [];
+            const elegida = opciones.find(o => typeof o === 'object' && String(o.value) === String(input[deSelect] ?? ''));
+            return !(typeof elegida === 'object' && elegida.precioACotizar);
+        }
+        return false;
     };
     const etiquetasDiseno = hayDiseno ? ETIQUETAS_CON_DISENO[modulo.id] : undefined;
     const camposVisibles = (campos: CampoMeta[]) => campos

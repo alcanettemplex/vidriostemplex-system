@@ -19,8 +19,8 @@ import { getHolguras } from "../store/calibracionStore";
 import { parsearCodigo } from "./codigoDiseno";
 import type { LineaBOM, TipoObra } from "./motorCalculo";
 import type { CortePerfil, CorteVidrio, Diseno } from "../tipos";
+import { codigoPelicula } from "./peliculas";
 
-const ACABADOS = { pelicula: "PELI31" };
 
 /** Las tres variantes de matizado que existen en el catálogo, con su código.
  * Cada una tiene precio propio por metro, así que la elección del cliente sí
@@ -63,7 +63,8 @@ export function codigoMatizado(matizado: unknown): string | null {
  * @param {number} opts.cantidadPiezas
  * @param {number} opts.descuentoPct
  * @param {boolean} opts.matizado
- * @param {boolean} opts.pelicula
+ * @param {string|boolean} opts.pelicula - código de la película (o `true` = PELI31)
+ * @param {number} [opts.costoPelicula] - costo si la película se cotiza aparte
  * @param {boolean} opts.incluirAlfajia
  * @param {Function} [opts.accesorios] - (ctx) => Array de líneas de BOM. Recibe
  *        { cuerpos, alasCorredizas, anchoCm, altoCm, color, segmentoCliente,
@@ -103,7 +104,11 @@ export interface ParamsCotizarPorDiseno {
   /** `false`/ausente, o el nombre de la variante ("total" | "raya" | "dibujo").
    * `true` sigue aceptándose y equivale a "total" (ver codigoMatizado). */
   matizado?: boolean | string;
-  pelicula?: boolean;
+  /** Código de la película elegida (2026-09-27). `true` sigue valiendo como
+   * PELI31 (sí/no de antes); vacío/false = sin película. Ver lib/peliculas.ts. */
+  pelicula?: boolean | string;
+  /** Costo que escribió el asesor si la película se cotiza aparte. */
+  costoPelicula?: unknown;
   incluirAlfajia?: boolean;
   /** Tipo de obra que decide qué tarifa de mano de obra corresponde. Lo declara
    * el módulo que llama (cabinas cobran distinto que armar una ventana).
@@ -149,6 +154,7 @@ export function cotizarPorDiseno({
   descuentoPct = 0,
   matizado = false,
   pelicula = false,
+  costoPelicula,
   incluirAlfajia = false,
   accesorios,
   ajustarItems,
@@ -277,7 +283,10 @@ export function cotizarPorDiseno({
   const areaVidrio = despiece.areaVidrioM2 ?? 0;
   const codMatizado = codigoMatizado(matizado);
   if (codMatizado && areaVidrio > 0) items.push(lineaCatalogo(codMatizado, areaVidrio, segmentoCliente));
-  if (pelicula && areaVidrio > 0) items.push(lineaCatalogo(ACABADOS.pelicula, areaVidrio, segmentoCliente));
+  const codPelicula = codigoPelicula(pelicula);
+  if (codPelicula && areaVidrio > 0) {
+    items.push(lineaCatalogo(codPelicula, areaVidrio, segmentoCliente, { costoManual: costoPelicula }));
+  }
 
   const parametros = getParametros();
   // La mano de obra se cobra por el hueco que se tapa, no por la ventana: si el

@@ -43,6 +43,12 @@ export interface Producto {
   /** Se cotiza aparte con el proveedor: el asesor escribe el costo en la
    * línea (ver `lineaCatalogo`). Solo se emite cuando es true. */
   precioACotizar?: boolean;
+  /** Código del mismo producto en el catálogo general del ERP
+   * (`catalogo_productos.codigo`), sólo cuando es DISTINTO del código del
+   * Cotizador (2026-09-27): 170 productos heredaron el código del software de
+   * origen (PRV700MATE ↔ CAB0103, CPTOR ↔ CPTOR01). Es lo que se muestra al
+   * asesor y lo que encuentra el buscador; el motor sigue usando `codigo`. */
+  codigoErp?: string;
   ultimoCambio?: { fecha: string; por: string | null; motivo: string | null };
 }
 

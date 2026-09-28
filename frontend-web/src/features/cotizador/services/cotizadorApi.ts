@@ -146,7 +146,7 @@ export const apiClonarPropuesta = (
     propuestaId: number,
     datos: {
         nombre?: string | null; nota?: string | null;
-        codigoVidrio?: string; pelicula?: boolean; matizado?: boolean | 'total' | 'raya' | 'dibujo';
+        codigoVidrio?: string; pelicula?: boolean | string; costoPelicula?: number; matizado?: boolean | 'total' | 'raya' | 'dibujo';
     }
 ) => axios.post<RespuestaPropuesta>(`${BASE}/cotizaciones/${cotizacionId}/propuestas/${propuestaId}/clonar`, datos);
 

@@ -35,6 +35,7 @@ import { lineaCatalogo, totalizar, areaM2, round2 } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno, hacerAgregarRol, codigoMatizado } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
+import { codigoPelicula, CAMPO_PELICULA, CAMPO_COSTO_PELICULA } from "../lib/peliculas";
 import type { LineaBOM } from "../lib/motorCalculo";
 
 // `lineaManual()` construía las dos líneas de BOM sin código de catálogo —SMO y
@@ -52,18 +53,30 @@ function normalizarColor(color: unknown): string {
 // y color. Sólo se listan los colores que de verdad existen en el catálogo:
 // si un color no aparece aquí para un rol, esa línea queda marcada como error
 // (código inexistente) en vez de cobrar $0 en silencio (bug #4).
+// Accesorios del 5020 comunes a su versión normal y a la reforzada. El cerrojo
+// (CPTOR, "CERROJO PUNTO ROJO", en el ERP CPTOR01) va SOLO en la normal: la
+// reforzada cierra con su traslape reforzado. Uno por ventana, no por cuerpo
+// (decisión del usuario, 2026-09-27). 744, 8025 y 7038 no llevan cerrojo.
+const ACCESORIOS_5020 = {
+  cabezal: { blanco: "CAB0410", bronce: "CAB0510", crudo: "CAB0307", "gris plata": "CAB0203", mate: "CAB0102" },
+  sillar: { blanco: "SIL0416", bronce: "SIL0506", crudo: "SIL1002", "gris plata": "SIL0205", mate: "SIL0104" },
+  jamba: { blanco: "JAM0403", bronce: "JAM0504", crudo: "JAM1001", "gris plata": "JAM0102", mate: "JAM0103" },
+  enganche: { blanco: "ENG0406", bronce: "ENG0504", crudo: "ENG1001", "gris plata": "ENG0102", mate: "ENG0103" },
+  traslape: { blanco: "TRA0307", bronce: "TRA0102", crudo: "TRA1001", "gris plata": "TRA0201", mate: "TRA0103" },
+  guia: { _: "GUIA5020" },
+  rodamiento: { _: "RODA5020" },
+  empaque: { _: "EMP5020" },
+  sillarAlfajia: { mate: "SIA0102" },
+};
+
 const CATALOGO_SISTEMAS = {
   "5020": {
-    cabezal: { blanco: "CAB0410", bronce: "CAB0510", crudo: "CAB0307", "gris plata": "CAB0203", mate: "CAB0102" },
-    sillar: { blanco: "SIL0416", bronce: "SIL0506", crudo: "SIL1002", "gris plata": "SIL0205", mate: "SIL0104" },
-    jamba: { blanco: "JAM0403", bronce: "JAM0504", crudo: "JAM1001", "gris plata": "JAM0102", mate: "JAM0103" },
-    enganche: { blanco: "ENG0406", bronce: "ENG0504", crudo: "ENG1001", "gris plata": "ENG0102", mate: "ENG0103" },
-    traslape: { blanco: "TRA0307", bronce: "TRA0102", crudo: "TRA1001", "gris plata": "TRA0201", mate: "TRA0103" },
-    guia: { _: "GUIA5020" },
-    rodamiento: { _: "RODA5020" },
-    empaque: { _: "EMP5020" },
-    sillarAlfajia: { mate: "SIA0102" },
+    ...ACCESORIOS_5020,
+    cerrojo: { _: "CPTOR" },
   },
+  // Clave exacta del sistema sin el prefijo "Sistema" (Sistema5020Reforzado).
+  // Sin esta entrada caería al "5020" y cobraría el cerrojo que no lleva.
+  "5020Reforzado": ACCESORIOS_5020,
   "744": {
     cabezal: { blanco: "CAB0402", bronce: "CAB0508", "gris plata": "CAB0202", mate: "CAB0104" },
     sillar: { blanco: "SIL0408", bronce: "SIL0507", "gris plata": "SIL0212", mate: "SIL0744" },
@@ -90,7 +103,8 @@ const CATALOGO_SISTEMAS = {
     guiaSuperior: { _: "GSU8025" },
     rodamiento: { _: "ROD8025" },
     empaque: { _: "EMPA8025" },
-    cerrojo: { _: "CPTOR" },
+    // Sin cerrojo (2026-09-27): el 8025 cierra con la chapa, que es la
+    // predeterminada del sistema.
     chapa: { _: "CH8025S" }, // CHAPA 8025 SENCILLA CON SEGURO
   },
   // Solo se cotiza por diseño (calcular() corta antes de llegar aquí por
@@ -121,9 +135,9 @@ const VIDRIOS_VALIDOS = [
   "CL8MM03SP",
   "CL10MM03SP",
 ];
-// El matizado ya no vive aquí: tiene tres variantes con precio propio y su mapa
-// es compartido con el camino por diseño (codigoMatizado, en cotizarPorDiseno).
-const ACABADOS = { pelicula: "PELI31" };
+// El matizado y la película ya no viven aquí: su mapa es compartido con el
+// camino por diseño (codigoMatizado en cotizarPorDiseno, codigoPelicula en
+// lib/peliculas.ts).
 
 /** Avisa cuando el vendedor pidió alfajía pero este sistema/color no puede
  * cobrarla. `hacerAgregarRol` se salta en silencio un rol que no existe, así
@@ -212,10 +226,9 @@ export const meta = {
       requerido: false,
       grupo: "vidrio",
     },
-    // Sigue siendo booleano porque el catálogo tiene una sola película con
-    // precio (PELI31, "normal"): la "ultravisión" se descartó en la migración.
-    // Cuando existan más referencias, esto pasa a select como el matizado.
-    { nombre: "pelicula", tipo: "boolean", etiqueta: "Incluir película", requerido: false, grupo: "vidrio" },
+    // Película (2026-09-27): lista del catálogo, ya no sí/no. Ver lib/peliculas.ts.
+    CAMPO_PELICULA,
+    CAMPO_COSTO_PELICULA,
     // Mano de obra por producto (2026-09-26): no toca el despiece; la lee
     // `calcularManoObraProductos` (lib/cargos.ts) desde el input guardado.
     // Ubicación en la obra (2026-09-26): "Sala", "Baño social". Opcional; no
@@ -292,9 +305,15 @@ function calcularPorDiseno(
     descuentoPct,
     matizado: input.matizado,
     pelicula: input.pelicula,
+    costoPelicula: input.costoPelicula,
     accesorios: ({ cuerpos, alasCorredizas, diseno, advertencias }) => {
-      const sistemaCorto = diseno.sistema.replace(/^Sistema/, "").replace(/Reforzado$/, "");
-      const roles = CATALOGO_SISTEMAS[sistemaCorto as keyof typeof CATALOGO_SISTEMAS];
+      // Primero el nombre exacto ("5020Reforzado" tiene accesorios propios);
+      // si no hay entrada, el sistema base sin "Reforzado".
+      const sinPrefijo = diseno.sistema.replace(/^Sistema/, "");
+      const sistemaCorto = sinPrefijo in CATALOGO_SISTEMAS ? sinPrefijo : sinPrefijo.replace(/Reforzado$/, "");
+      const roles = CATALOGO_SISTEMAS[sistemaCorto as keyof typeof CATALOGO_SISTEMAS] as
+        | Record<string, Record<string, string>>
+        | undefined;
       if (!roles) {
         advertencias.push(
           `No hay accesorios configurados para el sistema ${diseno.sistema}: el despiece incluye ` +
@@ -308,7 +327,7 @@ function calcularPorDiseno(
       agregar("guiaSuperior", cuerpos);
       agregar("rodamiento", alasCorredizas * 2);
       agregar("empaque", (anchoCm / 100) * 2 + (altoCm / 100) * 2 * cuerpos);
-      agregar("cerrojo", cuerpos / 2, true);
+      agregar("cerrojo", 1, true); // uno por ventana; sólo el 5020 lo declara
       agregar("chapa", alasCorredizas, true);
       // Alfajía: sólo si el vendedor la pidió, y con la referencia que Templex
       // vende para este sistema (no la que traía el diseño extraído).
@@ -474,8 +493,8 @@ export function calcular(input: InputModulo = {}) {
   // Empaque de vidrio: perímetro aproximado del vano (ancho x2 + alto x2 por cuerpo).
   agregarRol("empaque", anchoM * 2 + altoM * 2 * cuerpos);
 
-  // Cerrojo (sólo 8025): 1 cada 2 cuerpos.
-  agregarRol("cerrojo", cuerpos / 2, { opcional: true });
+  // Cerrojo (sólo 5020): uno por ventana.
+  agregarRol("cerrojo", 1, { opcional: true });
 
   // Chapa: 1 por ala corrediza (744 y 8025).
   agregarRol("chapa", alasCorredizas, { opcional: true });
@@ -494,7 +513,10 @@ export function calcular(input: InputModulo = {}) {
   // Acabados opcionales, calculados sobre el área de vidrio de una pieza.
   const codMatizado = codigoMatizado(input.matizado);
   if (codMatizado) items.push(lineaCatalogo(codMatizado, areaUnaPieza, segmentoCliente));
-  if (input.pelicula) items.push(lineaCatalogo(ACABADOS.pelicula, areaUnaPieza, segmentoCliente));
+  const codPelicula = codigoPelicula(input.pelicula);
+  if (codPelicula) {
+    items.push(lineaCatalogo(codPelicula, areaUnaPieza, segmentoCliente, { costoManual: input.costoPelicula }));
+  }
 
   // ⚠️ AQUÍ YA NO SE AGREGAN NI SMO NI FLETE (2026-09-20).
   // Estaban en el BOM, y `totalizar()` multiplica cada línea del BOM por

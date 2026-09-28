@@ -30,6 +30,7 @@ import {
   CotizadorCalibracionHolgura,
   CotizadorCalibracionSistema,
   CotizadorMultiplicadorCategoria,
+  CatalogoProducto,
 } from '../models';
 import type {
   Bucket,
@@ -82,6 +83,21 @@ async function cargarProductos(): Promise<Map<string, Producto>> {
     CotizadorPrecioOverride.findAll({ raw: true }),
   ]);
 
+  // Código del ERP de cada producto vinculado (2026-09-27). Sólo id + código de
+  // los ~600 vinculados, una vez por recarga: egress despreciable.
+  const idsCatalogo = (filas as unknown as Record<string, unknown>[])
+    .map((f) => f.catalogo_producto_id)
+    .filter((id): id is number => typeof id === 'number');
+  const codigosErp = new Map<number, string>();
+  if (idsCatalogo.length > 0) {
+    const cps = (await CatalogoProducto.findAll({
+      attributes: ['id', 'codigo'],
+      where: { id: idsCatalogo },
+      raw: true,
+    })) as unknown as { id: number; codigo: string | null }[];
+    for (const cp of cps) if (cp.codigo) codigosErp.set(Number(cp.id), String(cp.codigo).trim());
+  }
+
   const mapa = new Map<string, Producto>();
   for (const f of filas as unknown as Record<string, unknown>[]) {
     const base: Producto = {
@@ -112,6 +128,9 @@ async function cargarProductos(): Promise<Map<string, Producto>> {
     // Mismo criterio: la clave solo existe en los perfiles por pieza entera.
     if (f.largo_pieza_mm != null) base.largoPiezaMm = Number(f.largo_pieza_mm);
     if (f.precio_a_cotizar === true) base.precioACotizar = true;
+    // Mismo criterio de "solo si tiene valor": se emite cuando difiere.
+    const codigoErp = codigosErp.get(Number(f.catalogo_producto_id));
+    if (codigoErp && codigoErp.toUpperCase() !== base.codigo.toUpperCase()) base.codigoErp = codigoErp;
     mapa.set(base.codigo, base);
   }
 

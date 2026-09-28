@@ -178,7 +178,10 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
                                     className="w-full text-left px-4 py-2.5 hover:bg-templex-50 flex items-start justify-between gap-3"
                                 >
                                     <span className="min-w-0">
-                                        <span className="block text-[12.5px] font-semibold text-slate-900">{p.codigo}</span>
+                                        <span className="block text-[12.5px] font-semibold text-slate-900">
+                                            {p.codigoErp ?? p.codigo}
+                                            {p.codigoErp && <span className="ml-1.5 font-normal text-slate-600">({p.codigo})</span>}
+                                        </span>
                                         <span className="block text-[12px] text-slate-800">{p.descripcion}</span>
                                     </span>
                                     <span className="text-right shrink-0 text-[12px] text-slate-900 font-semibold tabular-nums">
@@ -193,7 +196,7 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
 
                 {elegido && (
                     <div className="rounded-xl border border-templex-200 bg-templex-50 px-4 py-3">
-                        <p className="text-[13px] font-bold text-slate-900">{elegido.codigo} — {elegido.descripcion}</p>
+                        <p className="text-[13px] font-bold text-slate-900">{elegido.codigoErp ?? elegido.codigo} — {elegido.descripcion}</p>
                         <p className="text-[12px] text-slate-800 mt-0.5 tabular-nums">
                             {aCotizar
                                 ? `Precio a cotizar con el proveedor · ${elegido.categoria}`

@@ -75,6 +75,9 @@ export interface ProductoCatalogoGeneral {
 export interface OpcionCampo {
     value: string | number;
     label: string;
+    /** La opción no tiene precio de catálogo: el asesor escribe su costo en
+     * el campo que la declara con `soloSiACotizar` (p. ej. una película). */
+    precioACotizar?: boolean;
 }
 
 /** Agrupación puramente visual (backend/utils/modules/*.ts): en qué tarjeta del
@@ -94,6 +97,10 @@ export interface CampoMeta {
     /** Nombre de un campo booleano: este solo se muestra (y solo se exige) si
      * aquel está marcado. P. ej. el lado Y de una cabina, `soloSi: 'enL'`. */
     soloSi?: string;
+    /** Nombre de un campo select: este solo se muestra si la opción elegida
+     * allí se cotiza aparte (`OpcionCampo.precioACotizar`). P. ej. el costo de
+     * una película sin precio, `soloSiACotizar: 'pelicula'` (2026-09-27). */
+    soloSiACotizar?: string;
     // Sólo en campos tipo 'select': cada opción es un primitivo (se muestra tal
     // cual) o un {value,label} cuando el texto a mostrar difiere del valor real.
     opciones?: Array<string | number | OpcionCampo>;
@@ -117,6 +124,9 @@ export interface LineaBOM {
     precioUnitario: number;
     valorTotal: number;
     error: boolean;
+    /** Código del producto en el catálogo del ERP, sólo cuando difiere del del
+     * Cotizador (PRV700MATE ↔ CAB0103). Es el que se muestra al asesor. */
+    codigoErp?: string;
     [clave: string]: unknown;
 }
 
@@ -190,6 +200,9 @@ export interface ProductoCatalogo {
     /** Se cotiza aparte con el proveedor (KVE001, vidrios sobre pedido): el
      * asesor escribe el costo. Solo viene cuando es true. */
     precioACotizar?: boolean;
+    /** Código del ERP cuando difiere del del Cotizador (2026-09-27). El
+     * buscador encuentra el producto por cualquiera de los dos. */
+    codigoErp?: string;
 }
 
 // ─── Diseños (selector) ─────────────────────────────────────────────────────
