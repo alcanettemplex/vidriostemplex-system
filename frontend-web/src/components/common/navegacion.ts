@@ -20,6 +20,7 @@ import {
   Crosshair,
   Building2,
   FileSpreadsheet,
+  PencilRuler,
   IconComponent,
 } from '../ui/icons';
 
@@ -81,6 +82,15 @@ export const MENU_ITEMS_CONFIG: ItemMenu[] = [
     icon: Wrench,
     path: '/produccion',
     allowedRoles: ['admin', 'marketing', 'gerencia', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion', 'asistente_administrativo'],
+    section: 'produccion'
+  },
+  {
+    // Editor de planos de vidrio templado (2026-09-27). Aislado y solo admin
+    // hasta que el usuario decida cómo se integra con Pedidos PV.
+    text: 'Detalles Técnicos',
+    icon: PencilRuler,
+    path: '/detalles-tecnicos',
+    allowedRoles: ['admin'],
     section: 'produccion'
   },
   {

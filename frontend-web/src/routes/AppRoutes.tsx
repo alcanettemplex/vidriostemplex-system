@@ -25,6 +25,7 @@ import InformeEjecutivoPage from '../features/informe-ejecutivo/InformeEjecutivo
 import SupervisionCRMPage from '../features/supervision-crm/SupervisionCRMPage';
 import ProveedoresPage from '../features/proveedores/ProveedoresPage';
 import CotizadorPage from '../features/cotizador/CotizadorPage';
+import DetallesTecnicosPage from '../features/detalles-tecnicos/DetallesTecnicosPage';
 
 const AppRoutes: React.FC = () => {
   return (
@@ -59,6 +60,11 @@ const AppRoutes: React.FC = () => {
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion', 'asistente_administrativo']} />}>
               <Route path="/produccion" element={<ProduccionPage />} />
+            </Route>
+            {/* Detalles técnicos (2026-09-27) — editor de planos de vidrio templado, AISLADO
+                (sin backend, sin vínculo con Pedidos PV): solo admin mientras se decide su integración. */}
+            <Route element={<RoleRoute allowedRoles={['admin']} />}>
+              <Route path="/detalles-tecnicos" element={<DetallesTecnicosPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'marketing', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo']} />}>
               <Route path="/toma-medidas" element={<TomaMedidasPage />} />

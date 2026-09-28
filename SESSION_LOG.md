@@ -5832,3 +5832,17 @@ ficha ODP y rediseño del tablero de Cotizaciones del Dashboard con Excel. Pregu
 - Lápiz siempre visible en la lista de ítems del panel derecho (`ResumenPropuesta.tsx`): al reabrir una
   cotización el formulario sale vacío y nada indicaba que cada ítem se edita con un clic (el usuario creía
   que había que empezar de cero). Verificado con captura en la N.° 87.
+
+### Detalles Técnicos integrado al ERP, aislado (2026-09-27)
+- Prototipo standalone `…\Compra VITELSA\editor-detalles-tecnicos` traído a
+  `frontend-web/src/features/detalles-tecnicos/`: ruta `/detalles-tecnicos`, menú Producción, solo `admin`.
+  Sin backend, sin BD, sin tocar Pedidos PV (orden del usuario: aislado hasta que indique cómo integrarlo).
+- Adaptaciones: `import.meta.env` → `process.env.PUBLIC_URL`, iteraciones de Map/Set con `Array.from` (ES5),
+  21 iconos MUI → `components/ui/icons.ts` (+ Hand, LinkBreak, Redo2), impresión con `abrirVentanaImpresion`,
+  alto `calc(100dvh - 64px)`, clave localStorage `erp-detalles-tecnicos-v1`. Logo: el del ERP
+  (`logotemplex.png`, a pedido del usuario; en el Excel a 152×52 para conservar la proporción).
+- Dependencia nueva: `exceljs@^4.4.0` en frontend-web (decisión del usuario; misma versión que el backend).
+- Doc nueva `docs/modulos/detalles-tecnicos.md` + filas en CLAUDE.md (índice de módulos y features).
+- Hallazgos del análisis: bug H3 de "Asignar ítems" sigue vivo; 368 ítems con DT y ninguno con plano; la
+  columna DES mezcla números y texto libre; `C:\Users\User` es un repositorio git ajeno (otro proyecto,
+  objetos corruptos) y el prototipo no tiene control de versiones propio.

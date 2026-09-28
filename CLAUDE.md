@@ -67,6 +67,7 @@ Para no rehacer el rastreo forense completo cada vez que se toca un módulo gran
 | Compras | `docs/modulos/compras.md` | SAP/ODC, PedidoPV, Proveedores (ingesta FE, precios, equivalencias) |
 | Cotizador | `docs/modulos/cotizador.md` | Schema `cotizador`, niveles de corte A/B/C, aptitud de orden, calibración, unidades mm↔cm. **Integrado al ERP desde el 2026-09-27**: permisos por rol (`cotizador/lib/permisos.ts`), vínculo obligatorio a lead/prospecto/cliente/ODP, "Crear ODP", ítems a la SAP, sección en la ficha ODP y tablero en el Dashboard |
 | Cotizador — destino | `docs/modulos/cotizador-vision.md` | **Destino, no pendiente.** Para qué se construye el módulo: SAP automática, plano en Det. Técnico, PDF al cliente, estadística comercial. La integración con el ERP se ordenó el 2026-09-27 (ver cotizador.md) |
+| Detalles Técnicos | `docs/modulos/detalles-tecnicos.md` | Editor de planos de vidrio templado (FOR-005) para VITELSA/TEMPLACOL, traído del prototipo standalone. **Aislado desde el 2026-09-27**: solo admin, sin backend ni BD, pedido en `localStorage`; plan de integración con Pedidos PV pendiente de orden |
 | Rutas e Instalaciones | *(pendiente)* | RutaInstalacion/RutaODP, Instalaciones, Evidencias, Agenda |
 | CRM / Leads | *(pendiente)* | Leads, pipeline CRM, Supervisión CRM, Prospectos |
 | Contabilidad / Caja | *(pendiente)* | Facturación, Caja, Salidas de Almacén |
@@ -309,6 +310,7 @@ Cada módulo en `frontend-web/src/features/<nombre>/`: página principal + `comp
 | `odp` ⭐ | `/odp` | CRUD + modal detalle (`ODPFichaModal`) |
 | `crm` | `/crm` | Hub comercial: tabs pipeline (Kanban leads), métricas, gerencial, sin_respuesta, reportes, prospectos, monitor, embudo. Distinto de `/prospectos` (CRUD/pipeline clásico de captación) |
 | `produccion` | `/produccion` | Kanban + tabs **Por Imprimir** (cola de OP sin imprimir, con impresión por lote), Pausadas y **Automáticos** (bitácora de los últimos 10 movimientos que hizo el sistema solo) |
+| `detalles-tecnicos` | `/detalles-tecnicos` | Solo `admin`. Editor de planos de vidrio templado + Excel FOR-005 (ExcelJS en el navegador). **Aislado**: sin backend, no toca Pedidos PV. Ver `docs/modulos/detalles-tecnicos.md` |
 | `instalaciones` | `/instalaciones` | JefeView (incluye tab AgendaTab), InstaladorView, ConductorView |
 | `compras` | `/compras` | ODC: SAPs, Órdenes, Perfilería, Vidrios |
 | `contabilidad` | `/contabilidad` | Facturación y caja |

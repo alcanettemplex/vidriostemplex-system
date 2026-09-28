@@ -199,6 +199,9 @@ import {
     SquareSplitHorizontalIcon,
     ChartLineUpIcon,
     UsersThreeIcon,
+    HandIcon,
+    LinkBreakIcon,
+    ArrowUUpRightIcon,
 } from '@phosphor-icons/react';
 
 export type { Icon as IconComponent, IconProps, IconWeight } from '@phosphor-icons/react';
@@ -401,4 +404,8 @@ export {
     GearSixIcon as GearSix,
     ChartLineUpIcon as ChartLineUp,
     UsersThreeIcon as UsersThree,
+    // Detalles técnicos (2026-09-27): arrastrar, desagrupar herraje y rehacer.
+    HandIcon as Hand,
+    LinkBreakIcon as LinkBreak,
+    ArrowUUpRightIcon as Redo2,
 };
