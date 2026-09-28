@@ -762,7 +762,7 @@ export interface MultiplicadorCategoria {
 
 /**
  * `fase` distingue de dónde sale el número (ver el controlador):
- *   - 'proveedor'   — el costo se derivó del proveedor más barato.
+ *   - 'proveedor'   — el costo se derivó del proveedor de precio más alto (últimos 6 meses).
  *   - 'realineacion' — el costo se conservó y sólo se realineó el precio de
  *     venta al multiplicador de la categoría (productos sin proveedor).
  */

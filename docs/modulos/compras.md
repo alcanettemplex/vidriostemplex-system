@@ -800,7 +800,13 @@ posturas posibles — decisión pendiente (§7):
   proveedor. Sin esto, la funcionalidad induce a decisiones equivocadas con apariencia de
   dato duro.
 - 🔴 **Mapeo errado de código = precio contaminado en silencio.** De ahí que el match
-  automático solo sugiera y el humano confirme.
+  automático solo sugiera y el humano confirme. **Desde el 2026-09-28 el Cotizador toma el
+  proveedor de precio MÁS ALTO** (últimos 6 meses, ver `docs/modulos/cotizador.md`): un mapeo
+  con error de unidad ahora **infla** el precio de venta en vez de desinflarlo. Caso real:
+  `BPB05`/`BPB10` pasaron de $2.200 a $17.000 por un mapeo de VITELSA pendiente de revisar.
+- **Todo mapeo o baja sincroniza con el Cotizador** (2026-09-28). Antes, el primer mapeo de un
+  código nuevo no lo hacía (bug corregido): ver `docs/modulos/cotizador.md` → "Cómo llega el
+  costo desde Proveedores".
 - 🟠 **Un mismo código de proveedor que agrupa varios productos internos** (o al revés).
   Rompe el supuesto 1:1 del mapeo. Hay que ver si ocurre en la realidad del negocio.
 - 🟠 **Proveedores duplicados por tipeo** al migrar los 3 campos de texto libre existentes.

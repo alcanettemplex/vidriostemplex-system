@@ -199,15 +199,46 @@ El motor `lib/sincronizacionProveedores.ts` (enganchado en `actualizarPrecio`) m
 
 Ver `docs/modulos/compras.md` para las reglas del módulo del que vienen esos costos.
 
-### Cómo llega el costo al mapear en Proveedores (verificado en código el 2026-09-23)
+### Qué proveedor manda cuando hay varios: el MÁS ALTO (regla del usuario, 2026-09-28)
 
-Toda vía que mueve un precio en Proveedores —`vincularPendiente` (bandeja Por Mapear),
-`agregarPrecioManual`, `editarPrecio`, `importarListaPrecios` y `cargarFacturasLote`— pasa por
-`actualizarPrecio()` de `proveedor.controller.ts`, que tras el commit llama a
-`programarRecalculo(catalogo_producto_id)`. Ese recálculo toma el **proveedor más barato por costo
-normalizado** (perfilería: prefiere `TIRA_6M` ÷ 6), aplica el multiplicador de la categoría,
-escribe `costo_unitario` + PA/PM/PB, deja historial y **recarga la caché**: el precio nuevo llega a
-Cotizar sin reiniciar el backend.
+`elegirCandidato()` en `lib/sincronizacionProveedores.ts`, en este orden:
+1. **Vigencia:** compiten solo los precios de los **últimos 6 meses** (`MESES_VIGENCIA_PRECIO`). Si
+   ninguno entra, compiten todos, para no dejar el producto sin costo. Un precio sin fecha cuenta
+   como fuera de la ventana.
+2. **Modalidad preferida:** en perfilería, la tira de 6 m (`TIRA_6M` ÷ `metros_por_unidad`). El
+   precio por metro solo cuenta si no hay tiras. Con la regla del más alto esto pesa más: el metro
+   suelto es ~30 % más caro que tira ÷ 6 y ganaría siempre.
+3. Gana el **costo normalizado más alto**. Hasta el 2026-09-28 ganaba el más barato.
+
+Aplica a todo el catálogo. La vigencia va **antes** que la modalidad: una tira de hace 8 meses no le
+gana a un precio por metro de este mes. Pruebas: `sincronizacion.test.ts` (13, pura, sin BD).
+
+### Cómo llega el costo desde Proveedores (corregido 2026-09-28)
+
+Un cambio de precio pasa por `actualizarPrecio()` de `proveedor.controller.ts` (facturas, listas de
+precios, editar precio, reutilizar una equivalencia), que tras el commit llama a
+`programarRecalculo(catalogo_producto_id)`. El recálculo elige proveedor (sección de arriba),
+aplica el multiplicador, escribe `costo_unitario` + PA/PM/PB, deja historial y **recarga la caché**.
+
+⚠️ **Bug corregido el 2026-09-28:** el camino `creado` de `vincularPendiente` y de
+`agregarPrecioManual`, que es el caso **normal** al mapear un código nuevo, guardaba el precio **sin**
+pasar por `actualizarPrecio()`. El Cotizador nunca se enteraba del proveedor nuevo. Venía desde la
+conexión con Proveedores (`c52b7a4`, 2026-09-14). Ese día había 26 de 149 productos vinculados con
+un costo que no correspondía a la regla, entre ellos los 19 mapeos del día. Se recalcularon con
+`2026-09-28_cotizador_recalculo_precio_mas_alto.ts`.
+
+Desde entonces, `programarRecalculoTrasCommit()` / `programarRecalculoDeProveedores()` disparan
+también en todo camino que cambia **quién compite**, no solo el precio:
+
+| Camino | Recalcula |
+|---|---|
+| Mapear un código (`vincularPendiente`) o precio manual (`agregarPrecioManual`), nuevo o reactivado | el producto |
+| Cambiar la unidad de compra (`editarPrecio`) | el producto |
+| Desvincular o desactivar una equivalencia | el producto (baja al siguiente) |
+| Desactivar un proveedor, o cambiar su `activo` o su seguimiento (individual y masivo) | todos sus productos |
+
+La cola coalesce las llamadas repetidas y recarga la caché una sola vez. Un producto que se queda sin
+ningún proveedor conserva su último costo.
 
 Condiciones para que funcione — si falla una, el costo no se mueve y no hay aviso:
 1. El producto del Cotizador tiene `catalogo_producto_id` (hoy 459 de 470; los 11 sin vínculo nunca
@@ -267,7 +298,9 @@ cotización" de la ficha ODP — ver la sección "Integración con la ficha ODP"
 
 ## Pruebas
 
-`npm --prefix backend-api run test:cotizador` — **10 suites, 116 pruebas** desde el 2026-09-26 (2)
+`npm --prefix backend-api run test:cotizador` — **14 suites, 173 pruebas** desde el 2026-09-28 (entra
+`sincronizacion`, 13, pura: la regla del proveedor más alto). Antes, 13 suites / 160 pruebas el
+2026-09-27. Histórico: **10 suites, 116 pruebas** desde el 2026-09-26 (2)
 (`cargos` pasó de 18 a 21: salieron las 6 del SMO por tipo de obra y entraron 9 de mano de obra por
 producto, totales con AIU y elevadores del tablero). Antes, **10 suites, 113 pruebas** el 2026-09-26
 (+ `precioACotizar`, 8, y Glasvit en `piezaEntera`, que pasa a 10; 113/113 ese día, suite por suite
@@ -1317,6 +1350,38 @@ soporte lo pone el despiece y el campo se ignora:
   soportes $184.512 → **$205.075**. Había 0 cotizaciones de espejo guardadas.
 - ⚠️ `TUB0605` "TUBULAR T-76 NEGRO" cuesta $45.251/m, 7,5 veces el crudo. No se tocó: ver
   `TECH_DEBT.md` 2026-09-28.
+- **Actualización del mismo día:** el usuario mapeó `T76AC` de VENTANAS Y PUERTAS a TUB0302
+  ($8.302,52/m). El recálculo con la regla del más alto dejó el costo en ese valor, que reemplaza los
+  $50.000 ÷ 6 escritos a mano (PA $12.967/m).
+
+### Espejo BPB a precio fijo: $146.000/m² PA antes de IVA (2026-09-28)
+
+Regla comercial del usuario. **Solo el espejo BPB (`ES0001`)**: instalación, T-76 del flotante y
+biselado siguen aparte y como estaban.
+
+- **Override, no tabla base.** El costo de `ES0001` lo pone Proveedores (RAPI $55.200 / TODOVIDRIO
+  $62.400, seguidos) y cada factura recalcula PA/PM/PB en `cotizador.producto`: escribir ahí el precio
+  duraría hasta la próxima factura. Por eso vive en `cotizador.precio_override` con **solo** los tres
+  precios (`costo_unitario` NULL → sigue el de Proveedores). El sync sigue escribiendo la tabla base y
+  su motivo avisa "override activo". Se puede editar desde Configuración → precios.
+- **"Antes de IVA" = `subtotalConAiu`**: el motor divide la lista entre el AIU (0,96), así que se guarda
+  `146.000 × 0,96`:
+
+  | Segmento | Antes de IVA /m² | Lista guardada | Antes (antes de IVA) |
+  |---|---|---|---|
+  | PA | **$146.000** | $140.160 | $96.186 |
+  | PM | $138.475 (proporcional al multiplicador de VIDRIO) | $132.936 | $91.228 |
+  | PB | $130.950 | $125.712 | $86.271 |
+
+- **Área real con o sin diseño**: los paños de `ESP_FLOT_1`, `ESP_ELEV_1` y `ESP_MARCO_1`
+  (`diseno_vidrio` 216-218) pasaron de 5 % a 0 % de desperdicio. Consecuencia aceptada: el biselado
+  con diseño también se cobra por área real. Las cabinas conservan su 5 %.
+- Script `2026-09-28_cotizador_espejo_bpb_precio_fijo.ts` (**corrido** el 2026-09-28, idempotente,
+  simula sin `--aplicar`). `disenos.json` alineado; `catalogo.json` no cambia.
+- Verificado con el motor: 1 m² PA libre → $146.000 antes de IVA ($173.740 con IVA); 100 × 150
+  flotante → $219.000 del espejo + $37.012 del T-76. Había 0 ítems guardados con `ES0001`.
+- ⚠️ Mientras el override exista, **el precio no sigue al costo**: si el proveedor sube el espejo, el
+  margen se achica sin aviso en pantalla (solo en el historial del sync).
 
 ---
 

@@ -25,7 +25,11 @@ import {
   listarCodigos,
   normalizarCodigo,
 } from '../utils/proveedorCodigos';
-import { programarRecalculo } from '../cotizador/lib/sincronizacionProveedores';
+import {
+  programarRecalculo,
+  programarRecalculoTrasCommit,
+  programarRecalculoDeProveedores,
+} from '../cotizador/lib/sincronizacionProveedores';
 
 // ─── Constantes de dominio ────────────────────────────────────────────────────
 
@@ -485,7 +489,16 @@ export const editarProveedor = async (req: Request, res: Response) => {
     const datos = proveedorUpdateSchema.parse(req.body);
     const proveedor = await Proveedor.findByPk(req.params.id);
     if (!proveedor) return fallar(res, 404, 'El proveedor no existe o fue eliminado.');
+    const antes = { activo: proveedor.getDataValue('activo'), seguir: proveedor.getDataValue('seguir_precios') };
     await proveedor.update(datos);
+    // Activarlo, desactivarlo o cambiar su seguimiento cambia quién compite por
+    // el costo en el Cotizador (regla del más alto, 2026-09-28).
+    if (
+      (datos.activo !== undefined && datos.activo !== antes.activo) ||
+      (datos.seguir_precios !== undefined && datos.seguir_precios !== antes.seguir)
+    ) {
+      programarRecalculoDeProveedores([Number(proveedor.getDataValue('id'))]);
+    }
     res.json(proveedor);
   } catch (err: any) {
     if (err instanceof z.ZodError) return fallar(res, 400, mensajeZod(err));
@@ -500,6 +513,7 @@ export const desactivarProveedor = async (req: Request, res: Response) => {
     const proveedor = await Proveedor.findByPk(req.params.id);
     if (!proveedor) return fallar(res, 404, 'El proveedor no existe o fue eliminado.');
     await proveedor.update({ activo: false });
+    programarRecalculoDeProveedores([Number(proveedor.getDataValue('id'))]);
     res.json({ message: 'Proveedor desactivado' });
   } catch (err: any) {
     const { status, mensaje } = mensajeDeError(err, 'No se pudo desactivar el proveedor');
@@ -531,6 +545,9 @@ async function aplicarSeguimiento(
     { seguir_precios: seguir },
     { where: { id: { [Op.in]: ids } }, transaction: t, individualHooks: true }
   );
+  // Seguir o dejar de seguir a un proveedor lo mete o lo saca de la
+  // competencia por el costo en el Cotizador.
+  programarRecalculoDeProveedores(ids, t);
 
   let descartados = 0;
   let facturasReabiertas = 0;
@@ -1418,6 +1435,10 @@ export const agregarPrecioManual = async (req: Request, res: Response) => {
       });
     }
 
+    // Una equivalencia NUEVA (o reactivada con el mismo precio) no pasa por el
+    // disparador de `actualizarPrecio()`: sin esto el Cotizador no se enteraba
+    // del proveedor nuevo (bug 2026-09-28). La cola coalesce la llamada doble.
+    programarRecalculoTrasCommit([datos.catalogo_producto_id], t);
     await t.commit();
     res.status(creado ? 201 : 200).json({ message: creado ? 'Mapeo creado' : 'Precio actualizado', pp });
   } catch (err: any) {
@@ -1445,6 +1466,10 @@ export const editarPrecio = async (req: Request, res: Response) => {
     if (datos.descripcion_proveedor !== undefined) updates.descripcion_proveedor = datos.descripcion_proveedor;
     if (datos.unidad_compra !== undefined) updates.unidad_compra = datos.unidad_compra;
     if (Object.keys(updates).length) await pp.update(updates, { transaction: t });
+    // La unidad decide el costo normalizado (tira ÷ 6) y la modalidad preferida.
+    if (updates.unidad_compra !== undefined) {
+      programarRecalculoTrasCommit([Number(pp.getDataValue('catalogo_producto_id'))], t);
+    }
 
     // Editar el código desde aquí lo AGREGA y lo marca principal; los anteriores
     // se conservan para que las facturas viejas sigan enganchando. Para eliminar
@@ -1510,6 +1535,8 @@ export const desactivarMapeo = async (req: Request, res: Response) => {
     const pp = await ProveedorProducto.findByPk(req.params.pp_id);
     if (!pp) return fallar(res, 404, 'El mapeo ya no existe.');
     await pp.update({ activo: false });
+    // Si era el proveedor más caro, el costo baja al siguiente.
+    programarRecalculoTrasCommit([Number(pp.getDataValue('catalogo_producto_id'))]);
     res.json({ message: 'Mapeo desactivado' });
   } catch (err: any) {
     const { status, mensaje } = mensajeDeError(err, 'No se pudo desactivar el mapeo');
@@ -1735,6 +1762,10 @@ export const vincularPendiente = async (req: Request, res: Response) => {
 
     await pendiente.update({ estado: 'MAPEADO' }, { transaction: t });
 
+    // Equivalencia nueva o reactivada: el camino `creado` guarda el precio sin
+    // pasar por `actualizarPrecio()`, así que el Cotizador nunca se enteraba del
+    // proveedor nuevo (bug 2026-09-28: 19 mapeos de ese día sin sincronizar).
+    programarRecalculoTrasCommit([datos.catalogo_producto_id], t);
     await t.commit();
     res.json({
       message:
@@ -1967,6 +1998,8 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
     const unidad_compra = pp.getDataValue('unidad_compra');
 
     await pp.update({ activo: false }, { transaction: t });
+    // Si era el proveedor más caro, el costo del Cotizador baja al siguiente.
+    programarRecalculoTrasCommit([Number(pp.getDataValue('catalogo_producto_id'))], t);
 
     // Vuelven TODOS los códigos de la equivalencia, no solo el principal: si el
     // proveedor factura este producto con tres códigos, dejar dos fuera de la

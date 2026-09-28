@@ -211,8 +211,8 @@ export const guardarMultiplicador = async (req: Request, res: Response) => {
  *
  * Reutiliza `recalcularCostosDesdeProveedor()`, el mismo motor que corre solo
  * cuando Compras carga una factura: así la pantalla y el automático no pueden
- * divergir en el criterio (proveedor más barato entre los que siguen precios,
- * costo por metro si la compra es por tira, etc.).
+ * divergir en el criterio (proveedor de precio más alto de los últimos 6 meses
+ * entre los que siguen precios, costo por metro si la compra es por tira, etc.).
  *
  * Se llama UNA vez con todos los ids de la categoría, no una vez por id: la
  * versión por-id costaba ~896 viajes al pooler para PERFILERIA (96,7 s

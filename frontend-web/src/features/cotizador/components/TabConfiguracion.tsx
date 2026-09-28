@@ -29,7 +29,7 @@ import { BotonPrimario, BotonSecundario, Campo, Chip, Input, Tarjeta, claseContr
 //
 // "Recalcular" corre en dos fases y la previsualización las distingue, porque
 // no significan lo mismo (decisión del usuario, 2026-09-17):
-//   · proveedor     — el costo se deriva del proveedor más barato y de ahí sale
+//   · proveedor     — el costo se deriva del proveedor de precio más alto (últimos 6 meses) y de ahí sale
 //                     el precio de venta.
 //   · multiplicador — el producto no tiene proveedor del que derivar costo, así
 //                     que el costo se conserva y sólo se realinea PA/PM/PB.
@@ -60,7 +60,7 @@ const SeccionCatalogoGeneral: React.FC = () => {
         <Tarjeta
             titulo="Productos del catálogo general"
             icono={PackageSearch}
-            descripcion="Trae al Cotizador un producto que sólo existe en el catálogo del ERP. Queda vinculado: su precio sale del proveedor más barato × el multiplicador de su categoría, y se actualiza solo."
+            descripcion="Trae al Cotizador un producto que sólo existe en el catálogo del ERP. Queda vinculado: su precio sale del proveedor de precio más alto (últimos 6 meses) × el multiplicador de su categoría, y se actualiza solo."
             accion={
                 <BotonPrimario compacto icono={PackageSearch} className="shrink-0 whitespace-nowrap" onClick={() => setAbierto(true)}>
                     Traer del catálogo general
@@ -339,7 +339,7 @@ const SeccionMultiplicadores: React.FC = () => {
                                                     tono={c.fase === 'proveedor' ? 'marca' : 'ambar'}
                                                     title={
                                                         c.fase === 'proveedor'
-                                                            ? 'El costo se derivó del proveedor más barato'
+                                                            ? 'El costo se derivó del proveedor de precio más alto (últimos 6 meses)'
                                                             : 'Sin proveedor: se conserva el costo y sólo se realinea el precio de venta'
                                                     }
                                                 >

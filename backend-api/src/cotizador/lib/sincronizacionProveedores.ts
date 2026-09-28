@@ -51,6 +51,14 @@
 //    1,514500 sin forma de salir de ahí). Decisión del usuario 2026-09-17:
 //    todo producto de una categoría debe regirse por el multiplicador de esa
 //    categoría, tenga proveedor o no.
+//
+// ─── Qué proveedor manda cuando hay varios (decisión del usuario 2026-09-28) ─
+// El de COSTO NORMALIZADO MÁS ALTO entre los precios de los últimos 6 meses
+// (ver `elegirCandidato`). Hasta ese día ganaba el más barato. Todo camino de
+// Proveedores que cambie la lista de candidatos —mapear, dar de baja,
+// cambiar la unidad o el seguimiento del proveedor— tiene que llamar a
+// `programarRecalculo`: con "el más alto", quitar al caro también mueve el
+// precio.
 import { Op, Transaction } from 'sequelize';
 import { sequelize, CotizadorProducto, CotizadorPrecioHistorial, CotizadorMultiplicadorCategoria, ProveedorProducto, Proveedor } from '../../models';
 import { siguePrecios } from '../../utils/proveedorReglas';
@@ -91,7 +99,7 @@ interface Escritura {
 }
 
 /** Candidato de proveedor ya normalizado a costo por unidad de venta. */
-interface Candidato {
+export interface Candidato {
   proveedorProductoId: number;
   proveedorId: number;
   proveedorNombre: string;
@@ -99,6 +107,8 @@ interface Candidato {
   precio: number;
   /** Costo por la unidad en que vende el Cotizador: la tira se divide entre su largo. */
   costoNormalizado: number;
+  /** `fecha_precio_actual` (YYYY-MM-DD) o null: decide si entra en la ventana de vigencia. */
+  fechaPrecio: string | null;
 }
 
 // Tope de ids por sentencia `IN`. PERFILERIA, la categoría más grande, trae
@@ -123,6 +133,9 @@ const IDS_POR_CONSULTA = 400;
 // modalidades distintas por su número crudo es comparar cosas distintas; hoy
 // se compara `costoNormalizado`.
 //
+// Con la regla del más alto (2026-09-28) esta preferencia pesa todavía más:
+// sin ella, el precio por metro —~30 % más caro que tira÷6— ganaría siempre.
+//
 // Si un producto no tiene ninguna fila en la modalidad preferida, se cae a las
 // demás en vez de quedarse sin costo: 14 perfiles reales (5020 CABEZAL 144,
 // 744 SILLAR 387, 3831 JAMBA 174…) sólo tienen precio por metro, y dejarlos
@@ -137,18 +150,47 @@ function trozos<T>(xs: T[], tamano: number): T[][] {
   return out;
 }
 
+// Ventana de vigencia (decisión del usuario 2026-09-28): con la regla del más
+// alto, un proveedor al que ya no se le compra dejaría su precio viejo marcando
+// el costo para siempre. Sólo compiten los precios de los últimos N meses; si
+// ninguno entra, compiten todos, para no dejar el producto sin costo.
+export const MESES_VIGENCIA_PRECIO = 6;
+
+/** Fecha límite (YYYY-MM-DD) de la ventana de vigencia, contada desde `hoy`. */
+export function fechaLimiteVigencia(hoy: Date = new Date()): string {
+  const d = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() - MESES_VIGENCIA_PRECIO, hoy.getUTCDate()));
+  return d.toISOString().slice(0, 10);
+}
+
 /**
- * Elige el candidato de una lista para una categoría dada: primero filtra por
- * la modalidad preferida (si esa categoría tiene una y hay filas en ella), y
- * entre las que quedan toma la de MENOR COSTO NORMALIZADO — nunca el menor
- * precio crudo.
+ * Elige el candidato de una lista para una categoría dada (regla del usuario
+ * 2026-09-28; antes ganaba el más barato):
+ *   1. Vigencia: sólo los precios de los últimos `MESES_VIGENCIA_PRECIO` meses;
+ *      si ninguno entra, todos. Va ANTES que la modalidad para que una tira de
+ *      hace 8 meses no le gane a un precio por metro de este mes.
+ *   2. Modalidad preferida de la categoría (tira en perfilería), si hay filas
+ *      en ella.
+ *   3. Entre las que quedan, la de MAYOR COSTO NORMALIZADO — nunca el precio
+ *      crudo, que compara una tira contra un metro.
+ * Exportada para las pruebas: es una función pura.
  */
-function elegirCandidato(lista: Candidato[], categoria: string): Candidato | null {
+export function elegirCandidato(lista: Candidato[], categoria: string, hoy: Date = new Date()): Candidato | null {
   if (lista.length === 0) return null;
+  const limite = fechaLimiteVigencia(hoy);
+  const vigentes = lista.filter((c) => c.fechaPrecio !== null && c.fechaPrecio >= limite);
+  const base = vigentes.length > 0 ? vigentes : lista;
   const preferidas = MODALIDAD_PREFERIDA[categoria];
-  const enPreferida = preferidas ? lista.filter((c) => preferidas.includes(c.unidadCompra)) : [];
-  const pool = enPreferida.length > 0 ? enPreferida : lista;
-  return pool.reduce((mejor, c) => (c.costoNormalizado < mejor.costoNormalizado ? c : mejor), pool[0]);
+  const enPreferida = preferidas ? base.filter((c) => preferidas.includes(c.unidadCompra)) : [];
+  const pool = enPreferida.length > 0 ? enPreferida : base;
+  return pool.reduce((mejor, c) => (c.costoNormalizado > mejor.costoNormalizado ? c : mejor), pool[0]);
+}
+
+/** DATEONLY llega como 'YYYY-MM-DD'; se acepta también un Date por si el tipo cambia. */
+function aFechaIso(v: unknown): string | null {
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v.toISOString().slice(0, 10);
+  const s = String(v).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
 }
 
 /** Lee los multiplicadores vigentes: una fila por categoría, constantes durante la corrida. */
@@ -248,8 +290,9 @@ async function aplicarEscrituras(escrituras: Escritura[], por: string): Promise<
 /**
  * Recalcula costo_unitario/precio_pa/pm/pb de todos los productos del
  * Cotizador vinculados a cualquiera de `catalogoProductoIds`, a partir del
- * proveedor más barato entre los que pasan `siguePrecios` (activo=true Y
- * seguir_precios=true), respetando la modalidad preferida de la categoría.
+ * proveedor de costo más alto de los últimos 6 meses entre los que pasan
+ * `siguePrecios` (activo=true Y seguir_precios=true), respetando la modalidad
+ * preferida de la categoría (ver `elegirCandidato`).
  *
  * Devuelve un resultado por cada id que tenga AL MENOS un producto del
  * Cotizador vinculado. Los ids sin vínculo no aparecen en la respuesta — es el
@@ -306,6 +349,7 @@ export async function recalcularCostosDesdeProveedor(
       unidadCompra,
       precio,
       costoNormalizado: unidadCompra === 'TIRA_6M' && metros > 0 ? precio / metros : precio,
+      fechaPrecio: aFechaIso(pp.get('fecha_precio_actual')),
     };
     const id = pp.get('catalogo_producto_id') as number;
     const lista = candidatosPorId.get(id);
@@ -390,7 +434,10 @@ export async function recalcularCostosDesdeProveedor(
 
       if (sinCambio(antes, despues)) continue; // No ensuciar el histórico, mismo criterio que actualizarPrecio().
 
-      const alternativas = lista.length > 1 ? ` Elegido entre ${lista.length} candidato(s) por menor costo normalizado.` : '';
+      const alternativas =
+        lista.length > 1
+          ? ` Elegido entre ${lista.length} candidato(s) por mayor costo normalizado (últimos ${MESES_VIGENCIA_PRECIO} meses).`
+          : '';
       let motivo =
         `Sync automático — proveedor "${elegido.proveedorNombre}" (ProveedorProducto #${elegido.proveedorProductoId}), ` +
         `modalidad ${elegido.unidadCompra} a $${elegido.precio}. Costo derivado: $${despues.costo_unitario}.${alternativas}`;
@@ -536,4 +583,45 @@ export function programarRecalculo(catalogoProductoId: number): void {
     }
     if (huboCambios) await recargarPrecios();
   });
+}
+
+/**
+ * Programa el recálculo de varios productos DESPUÉS del commit de `transaction`
+ * (o ya, si no hay transacción): leer antes del commit vería la lista de
+ * candidatos vieja. Es el punto único que usan los caminos de Proveedores que
+ * cambian QUIÉN compite por el costo sin pasar por `actualizarPrecio()`.
+ */
+export function programarRecalculoTrasCommit(
+  catalogoProductoIds: Array<number | null | undefined>,
+  transaction?: Transaction | null
+): void {
+  const ids = [...new Set(catalogoProductoIds.filter((id): id is number => Number.isInteger(id) && Number(id) > 0))];
+  if (ids.length === 0) return;
+  const programar = () => ids.forEach((id) => programarRecalculo(id));
+  if (transaction) transaction.afterCommit(programar);
+  else programar();
+}
+
+/**
+ * Igual, para un cambio a nivel de PROVEEDOR (activo, seguimiento): recalcula
+ * todos los productos que tiene vinculados, activos o no. La lectura corre
+ * tras el commit, así que no alarga la transacción del llamador; si falla,
+ * sólo se registra —la decisión del usuario ya quedó guardada.
+ */
+export function programarRecalculoDeProveedores(proveedorIds: number[], transaction?: Transaction | null): void {
+  if (proveedorIds.length === 0) return;
+  const programar = async () => {
+    try {
+      const filas = await ProveedorProducto.findAll({
+        where: { proveedor_id: { [Op.in]: proveedorIds } },
+        attributes: ['catalogo_producto_id'],
+        raw: true,
+      });
+      programarRecalculoTrasCommit(filas.map((f) => (f as unknown as { catalogo_producto_id: number }).catalogo_producto_id));
+    } catch (e) {
+      console.error('[sync-proveedores] no se pudo programar el recálculo de los proveedores', proveedorIds, e);
+    }
+  };
+  if (transaction) transaction.afterCommit(() => void programar());
+  else void programar();
 }

@@ -5870,7 +5870,41 @@ ficha ODP y rediseño del tablero de Cotizaciones del Dashboard con Excel. Pregu
 - Script `2026-09-28_cotizador_espejo_flotante_t76.ts` CORRIDO (idempotente, verificado con 2ª corrida).
   `fichaProducto.ts` oculta `tubularCantidad` con diseño; cabecera de `espejo.ts`; `catalogo.json` y
   `disenos.json` actualizados.
-- Verificado: motor real antes/después, 13 suites / 186 pruebas (humo y accesorios repetidas por pool
+- Verificado: motor real antes/después, 13 suites / 160 pruebas (humo y accesorios repetidas por pool
   agotado con el backend dev arriba), build backend y tsc frontend.
 - Pendiente: al desplegar, `POST /api/cotizador/recargar` o reiniciar el backend de producción.
   `TUB0605` (T-76 negro) con costo sospechoso → TECH_DEBT 2026-09-28.
+
+### Cotizador — espejo BPB a $146.000/m² PA antes de IVA (2026-09-28)
+- Regla comercial del usuario. Decisiones: no incluye instalación; PM/PB proporcionales (PM $138.475,
+  PB $130.950 antes de IVA); área real con o sin diseño; el biselado no cambia de precio.
+- `precio_override` de ES0001 solo con PA/PM/PB (lista = antes de IVA × AIU 0,96); el costo sigue vivo
+  desde Proveedores. `diseno_vidrio` de los 3 espejos a 0 % de desperdicio.
+- Script `2026-09-28_cotizador_espejo_bpb_precio_fijo.ts` CORRIDO e idempotente; `disenos.json` alineado;
+  cabecera de `espejo.ts`; `cotizador.md`.
+- Verificado: motor real (1 m² PA = $146.000 antes de IVA), 13 suites / 160 pruebas, build backend.
+- Pendiente al desplegar: recargar caché del Cotizador en producción.
+
+### Proveedores → Cotizador: precio MÁS ALTO y bug del mapeo nuevo (2026-09-28)
+- Consulta del usuario (JAM0108 con dos proveedores) destapó un bug: el camino `creado` de
+  `vincularPendiente` y `agregarPrecioManual` (mapeo de un código NUEVO) no llamaba a `actualizarPrecio()`
+  y el Cotizador nunca se enteraba. Desde `c52b7a4` (2026-09-14). 26 de 149 productos vinculados tenían
+  un costo que no correspondía a la regla, incluidos los 19 mapeos de ese día.
+- Regla nueva del usuario: gana el costo normalizado MÁS ALTO (antes el más barato), en todo el catálogo,
+  entre los precios de los últimos 6 meses (si ninguno entra, todos); en perfilería se sigue prefiriendo
+  la tira de 6 m. La vigencia se aplica antes que la modalidad.
+- `sincronizacionProveedores.ts`: `elegirCandidato` exportada y pura, `MESES_VIGENCIA_PRECIO`,
+  `programarRecalculoTrasCommit`, `programarRecalculoDeProveedores`. `proveedor.controller.ts` dispara el
+  recálculo al mapear (nuevo o reactivado), en el precio manual, al cambiar la unidad de compra, al
+  desvincular o desactivar una equivalencia y al cambiar `activo`/seguimiento de un proveedor.
+- Suite nueva `sincronizacion.test.ts` (13). Textos del frontend (TabConfiguracion, types) y docs
+  (cotizador.md, compras.md) ya no dicen "más barato".
+- Script `2026-09-28_cotizador_recalculo_precio_mas_alto.ts` CORRIDO: 26 cambios aprobados por el
+  usuario (incluidos BPB05/BPB10 $2.200 → $17.000); 2ª corrida sin cambios. JAM0108 queda igual
+  (VENTANAS Y PUERTAS ya era el más alto). TUB0302 pasa a $8.302,52 (T76AC, VENTANAS Y PUERTAS).
+  ES0001 sube de costo a $62.400, pero su venta sigue fija en $146.000 por el override.
+- Verificado: 14 suites / 173 pruebas, build backend, tsc frontend, simulación antes/después.
+- Corrección: los dos reportes anteriores del día dijeron "186 pruebas"; el total real de 13 suites era 160.
+- Pendiente: DESPLEGAR el backend (producción sigue con "el más barato" y el bug) y volver a correr el
+  script tras el despliegue (idempotente); recargar la caché del Cotizador en producción. Revisar los
+  mapeos de BPB05/BPB10 (VITELSA $17.000) y GRE393NT "NATURAL" → JAM0108 "MATE".
