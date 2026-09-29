@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Users, HardHat, Truck, Clock, CheckCircle2, TrendingUp, FileText } from '../../ui/icons';
+import { Iniciales } from '../../charts';
 
 const fmtM = (n: number) => {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -11,17 +12,11 @@ const fmtM = (n: number) => {
 const fmtMin = (n: number | null) =>
   n == null ? '—' : n < 60 ? `${Math.round(n)}min` : `${Math.floor(n / 60)}h ${Math.round(n % 60)}m`;
 
-const Avatar: React.FC<{ nombre: string; size?: number }> = ({ nombre, size = 32 }) => {
-  const initials = (nombre || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const hue = (nombre || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
-  return (
-    <div
-      className="rounded-full flex items-center justify-center text-white font-bold shrink-0"
-      style={{ width: size, height: size, fontSize: size * 0.35, background: `hsl(${hue},55%,48%)` }}>
-      {initials}
-    </div>
-  );
-};
+// Iniciales neutras del kit: un tono por persona calculado del nombre competía con los colores
+// de estado de la tabla.
+const Avatar: React.FC<{ nombre: string; size?: number }> = ({ nombre, size = 32 }) => (
+  <Iniciales nombre={nombre || 'U'} tamano={size} />
+);
 
 const PctBadge: React.FC<{ pct: number }> = ({ pct }) => {
   const color = pct >= 100 ? 'bg-emerald-100 text-emerald-700'
@@ -35,7 +30,7 @@ const PctBadge: React.FC<{ pct: number }> = ({ pct }) => {
   );
 };
 
-const MiniBar: React.FC<{ pct: number; color?: string }> = ({ pct, color = 'bg-indigo-400' }) => (
+const MiniBar: React.FC<{ pct: number; color?: string }> = ({ pct, color = 'bg-templex-500' }) => (
   <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
     <motion.div
       className={`h-full rounded-full ${color}`}

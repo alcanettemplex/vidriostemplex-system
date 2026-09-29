@@ -1,8 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, TrendingUp, TrendingDown, CheckCircle2, XCircle, Clock, Trophy } from '../../../components/ui/icons';
+import {
+  RefreshCw, CheckCircle2, XCircle, Clock, Trophy, AlertTriangle, DollarSign, Target, Users, UserCheck, Activity,
+} from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import { apiGetCRMStats } from '../crmService';
-import { IconDollar, IconTarget, IconLeads, IconUserCheck, IconTrophy, IconCheck, IconClock, IconActivity } from './CRMIcons';
+import {
+  TarjetaKPI, ChartCard, BarraMagnitud, BarraApilada, Medidor, Iniciales, Ayuda,
+  CATEGORICA, ESTADO, tonoEtapa, colorPorEntidad,
+} from '../../../components/charts';
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const fmtCOP = (v: number, compact = false) =>
@@ -12,183 +17,71 @@ const fmtCOP = (v: number, compact = false) =>
   }).format(v);
 
 // ─── InfoTooltip ──────────────────────────────────────────────────────────────
-const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
-  <div className="relative group inline-flex ml-1.5 flex-shrink-0">
-    <button
-      type="button"
-      className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
-    >?</button>
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-800 text-white text-[11px] rounded-xl p-3 shadow-xl z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none leading-snug">
-      {text}
-      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-    </div>
-  </div>
-);
+// La copia local no mostraba el texto: solo el "?". Ahora es la ayuda común del kit.
+const InfoTooltip: React.FC<{ text: string }> = ({ text }) => <Ayuda texto={text} />;
 
-// ─── KPI principal (borde izquierdo de color) ─────────────────────────────────
-interface KPIStitchProps {
-  label: string; value: string; sub?: string; tooltip?: string;
-  icon: React.ReactNode; accentColor: string; borderColor: string;
-  trend?: number; trendLabel?: string;
-}
-const KPIStitch: React.FC<KPIStitchProps> = ({
-  label, value, sub, tooltip, icon, accentColor, borderColor, trend, trendLabel
-}) => (
-  <div className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm border-l-4 ${borderColor} hover:shadow-md transition-all duration-200 flex flex-col gap-2`}>
-    <div className="flex items-center justify-between">
-      <div className="flex items-center">
-        <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-widest">{label}</span>
-        {tooltip && <InfoTooltip text={tooltip} />}
-      </div>
-      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${accentColor}`}>
-        {icon}
-      </div>
-    </div>
-    <p className="text-2xl font-extrabold text-slate-900 leading-none">{value}</p>
-    {sub && <p className="text-[11px] text-slate-700 leading-snug">{sub}</p>}
-    {trend !== undefined && (
-      <div className={`flex items-center gap-1 text-[11px] font-bold mt-1 ${trend >= 20 ? 'text-emerald-700' : trend > 0 ? 'text-amber-700' : 'text-slate-700'}`}>
-        {trend >= 20 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-        <span>{trendLabel || `${trend}% conversión`}</span>
-      </div>
-    )}
-  </div>
-);
+// ─── Origen de negocio ────────────────────────────────────────────────────────
+// Los 3 canales suman el total de ODPs del período: es un reparto de un total, así que va en
+// barra apilada (antes, donut). Paleta categórica en su orden validado.
+const ORIGEN_COLORS = [CATEGORICA[0], CATEGORICA[1], CATEGORICA[2]];
 
-// ─── KPI secundario (mini) ────────────────────────────────────────────────────
-interface MiniKPIProps {
-  label: string; value: string; icon: React.ReactNode;
-  bg: string; desc?: string; tooltip?: string;
-}
-const MiniKPI: React.FC<MiniKPIProps> = ({ label, value, icon, bg, desc, tooltip }) => (
-  <div className={`${bg} rounded-xl p-4 flex items-center gap-3`}>
-    <div className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center flex-shrink-0 shadow-sm">
-      {icon}
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center">
-        <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wide">{label}</p>
-        {tooltip && <InfoTooltip text={tooltip} />}
-      </div>
-      <p className="text-lg font-bold text-slate-900">{value}</p>
-      {desc && <p className="text-[11px] text-slate-700 mt-0.5 leading-snug">{desc}</p>}
-    </div>
-  </div>
-);
-
-// ─── Origen de Negocio (donut de composición + lista) ─────────────────────────
-// Paleta categórica validada (orden fijo, slots 1-3 — 6 checks del skill de
-// dataviz). A diferencia de un donut decorativo, aquí las 3 categorías SÍ suman
-// el total de negocios del período (CRM + Prospectos + Recurrentes = total ODPs),
-// así que la composición proporcional real es la codificación correcta.
-const ORIGEN_COLORS = ['#2a78d6', '#1baf7a', '#eda100'];
-const OrigenDonut: React.FC<{ items: { pct: number }[] }> = ({ items }) => {
-  const r = 52, circ = 2 * Math.PI * r;
-  let offset = circ / 4;
-  return (
-    <svg width="130" height="130" viewBox="0 0 130 130">
-      <circle cx="65" cy="65" r={r} fill="none" stroke="#EEF0F8" strokeWidth="14" />
-      {items.map((item, i) => {
-        const dash = (item.pct / 100) * circ;
-        const seg = (
-          <circle key={i} cx="65" cy="65" r={r} fill="none"
-            stroke={ORIGEN_COLORS[i % ORIGEN_COLORS.length]} strokeWidth="14"
-            strokeDasharray={`${dash} ${circ - dash}`}
-            strokeDashoffset={-offset + circ / 4}
-            strokeLinecap="butt"
-            style={{ transition: 'stroke-dasharray 1s ease-in-out' }}
-          />
-        );
-        offset += dash;
-        return seg;
-      })}
-      <text x="65" y="58" textAnchor="middle" fontSize="9" fontWeight="700" fill="#3f4858" letterSpacing="1">TOTAL</text>
-      <text x="65" y="76" textAnchor="middle" fontSize="20" fontWeight="700" fill="#111620">100%</text>
-    </svg>
-  );
-};
-
-// ─── Barra de pipeline ────────────────────────────────────────────────────────
-const PipelineBar: React.FC<{
-  label: string; count: number; total: number;
-  color: string; pct: number; tooltip?: string;
-}> = ({ label, count, total, color, pct, tooltip }) => (
-  <div className="space-y-1.5">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center">
-        <span className="text-xs font-bold text-slate-900">{label}</span>
-        {tooltip && <InfoTooltip text={tooltip} />}
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-700">{count}</span>
-        <span className="text-[11px] text-slate-700">{pct.toFixed(1)}%</span>
-      </div>
-    </div>
-    <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
-      <div className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${color}`} style={{ width: `${pct}%` }} />
-    </div>
-  </div>
-);
+// ─── Resultado del pipeline ───────────────────────────────────────────────────
+// Aprobado / activo / frío / perdido SÍ son estados con significado de negocio: llevan el
+// semáforo, y siempre con su nombre escrito al lado.
+const PIPELINE_COLOR = {
+  aprobados: ESTADO.bien,
+  activos: CATEGORICA[0],
+  frios: '#6f7a8c',
+  perdidos: ESTADO.critico,
+} as const;
 
 // ─── Card de asesor ───────────────────────────────────────────────────────────
-const AVATAR_COLORS = [
-  'from-indigo-400 to-violet-500', 'from-emerald-400 to-teal-500',
-  'from-amber-400 to-orange-500',  'from-rose-400 to-pink-500',
-  'from-blue-400 to-cyan-500',
-];
-const ETAPA_COLORS: Record<string, string> = {
-  NUEVO: 'bg-slate-400', ASIGNADO: 'bg-blue-500', EN_CONTACTO: 'bg-violet-500',
-  COTIZANDO: 'bg-amber-500', SEGUIMIENTO: 'bg-teal-500', VISITA_TECNICA: 'bg-indigo-500',
-  FRIO: 'bg-sky-400', APROBADO: 'bg-emerald-500', PERDIDO: 'bg-rose-500',
-};
+// Etapas activas del lead en orden del proceso → rampa azul (más oscuro = primera etapa).
+const ETAPAS_ACTIVAS = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA', 'FRIO'];
 const ETAPA_LABELS: Record<string, string> = {
   NUEVO: 'Nuevo', ASIGNADO: 'Asig.', EN_CONTACTO: 'Contacto',
   COTIZANDO: 'Cotiz.', SEGUIMIENTO: 'Seguim.', VISITA_TECNICA: 'V.Tec.',
   FRIO: 'Frío', APROBADO: 'Apro.', PERDIDO: 'Perd.',
 };
+// Frío no es una etapa del avance (el cliente dejó de responder): va en gris.
+const colorEtapa = (etapa: string) => {
+  const i = ETAPAS_ACTIVAS.indexOf(etapa);
+  return i < 0 || etapa === 'FRIO' ? '#6f7a8c' : tonoEtapa(i, ETAPAS_ACTIVAS.length - 1);
+};
 
 const AsesorCard: React.FC<{
-  idx: number; nombre: string; total: number;
+  idx: number; id: number | string; nombre: string; total: number;
   aprobados: number; perdidos: number; tasa: number; monto: number;
   porEstado?: Record<string, number>; etapaCuello?: string | null;
-}> = ({ idx, nombre, total, aprobados, perdidos, tasa, monto, porEstado, etapaCuello }) => {
-  const initials = nombre.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-  const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
-
+}> = ({ idx, id, nombre, total, aprobados, perdidos, tasa, monto, porEstado, etapaCuello }) => {
   const etapasActivas = porEstado
-    ? Object.entries(porEstado).filter(([e, c]) => c > 0 && !['APROBADO', 'PERDIDO', 'NUEVO'].includes(e))
+    ? Object.entries(porEstado)
+      .filter(([e, c]) => c > 0 && !['APROBADO', 'PERDIDO', 'NUEVO'].includes(e))
+      .sort(([a], [b]) => ETAPAS_ACTIVAS.indexOf(a) - ETAPAS_ACTIVAS.indexOf(b))
     : [];
-  const totalActivos = etapasActivas.reduce((s, [, c]) => s + c, 0) || 1;
+  const tono = tasa >= 30 ? 'text-emerald-700' : tasa >= 15 ? 'text-amber-700' : 'text-rose-700';
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-4 hover:shadow-md transition-all duration-200">
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} flex items-center justify-center font-bold text-white text-sm flex-shrink-0 shadow-md`}>
-          {initials}
-        </div>
+    <div className="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-card-hover transition-shadow duration-200">
+      <div className="flex items-center gap-3">
+        <span className={`w-5 shrink-0 text-center text-[12px] font-bold tabular-nums ${idx < 3 ? 'text-templex-700' : 'text-slate-700'}`}>{idx + 1}</span>
+        <Iniciales nombre={nombre} tamano={40} color={colorPorEntidad(id)} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            {medal && <span className="text-sm">{medal}</span>}
-            <p className="font-bold text-slate-900 text-sm truncate">{nombre}</p>
-          </div>
-          <p className="text-[11px] text-slate-900 font-semibold uppercase tracking-wide mt-0.5">{total} leads gestionados</p>
+          <p className="font-semibold text-slate-900 text-sm truncate">{nombre}</p>
+          <p className="text-[12px] text-slate-700 mt-0.5">{total} leads gestionados</p>
           <div className="mt-2 flex items-center gap-2">
-            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-indigo-500 rounded-full transition-all duration-700" style={{ width: `${tasa}%` }} />
-            </div>
-            <span className={`text-[11px] font-bold ${tasa >= 30 ? 'text-emerald-700' : tasa >= 15 ? 'text-amber-700' : 'text-rose-700'}`}>
-              {tasa}% conv.
-            </span>
+            <Medidor pct={tasa} alto={6} className="flex-1" />
+            <span className={`text-[12px] font-bold tabular-nums ${tono}`}>{tasa}% conv.</span>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          <p className="text-sm font-semibold text-slate-900">{fmtCOP(monto, true)}</p>
+          <p className="text-sm font-semibold text-slate-900 tabular-nums">{fmtCOP(monto, true)}</p>
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-0.5 text-[11px] font-bold text-emerald-700">
-              <CheckCircle2 className="w-3 h-3" />{aprobados}
+            <span className="flex items-center gap-0.5 text-[12px] font-semibold text-emerald-700" title="Aprobados">
+              <CheckCircle2 className="w-3.5 h-3.5" />{aprobados}
             </span>
-            <span className="flex items-center gap-0.5 text-[11px] font-bold text-rose-700">
-              <XCircle className="w-3 h-3" />{perdidos}
+            <span className="flex items-center gap-0.5 text-[12px] font-semibold text-rose-700" title="Perdidos">
+              <XCircle className="w-3.5 h-3.5" />{perdidos}
             </span>
           </div>
         </div>
@@ -196,30 +89,23 @@ const AsesorCard: React.FC<{
 
       {/* Barra segmentada por etapa */}
       {etapasActivas.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-50">
-          <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-widest mb-1.5">Distribución de leads activos</p>
-          <div className="flex items-center gap-0.5 h-2 rounded-full overflow-hidden bg-slate-100">
-            {etapasActivas.map(([etapa, count]) => (
-              <div
-                key={etapa}
-                className={`h-full ${ETAPA_COLORS[etapa] || 'bg-slate-400'} transition-all duration-700`}
-                style={{ width: `${(count / totalActivos) * 100}%` }}
-                title={`${ETAPA_LABELS[etapa] || etapa}: ${count}`}
-              />
-            ))}
-          </div>
-          <div className="flex items-center justify-between mt-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              {etapasActivas.slice(0, 4).map(([etapa, count]) => (
-                <span key={etapa} className="flex items-center gap-0.5 text-[11px] text-slate-700">
-                  <span className={`w-1.5 h-1.5 rounded-full inline-block ${ETAPA_COLORS[etapa] || 'bg-slate-400'}`} />
-                  {ETAPA_LABELS[etapa]}: {count}
+        <div className="mt-3 pt-3 border-t border-slate-100">
+          <p className="text-[12px] font-semibold text-slate-900 mb-1.5">Leads activos por etapa</p>
+          <BarraApilada alto={8} conLeyenda={false} segmentos={etapasActivas.map(([etapa, count]) => ({
+            clave: etapa, label: ETAPA_LABELS[etapa] || etapa, valor: count, color: colorEtapa(etapa),
+          }))} />
+          <div className="flex items-center justify-between gap-2 mt-1.5">
+            <div className="flex items-center gap-x-2.5 gap-y-1 flex-wrap">
+              {etapasActivas.map(([etapa, count]) => (
+                <span key={etapa} className="flex items-center gap-1 text-[12px] text-slate-800">
+                  <span className="w-2 h-2 rounded-sm inline-block" style={{ background: colorEtapa(etapa) }} />
+                  {ETAPA_LABELS[etapa]}: <span className="font-semibold tabular-nums">{count}</span>
                 </span>
               ))}
             </div>
             {etapaCuello && (
-              <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-100 whitespace-nowrap">
-                ⚠ {ETAPA_LABELS[etapaCuello] || etapaCuello}
+              <span className="flex items-center gap-1 text-[12px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-full ring-1 ring-amber-200 whitespace-nowrap" title="Etapa donde más se acumulan sus leads">
+                <AlertTriangle className="w-3 h-3" /> {ETAPA_LABELS[etapaCuello] || etapaCuello}
               </span>
             )}
           </div>
@@ -297,17 +183,23 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha
   // Origen de negocio: los 3 canales suman el total de ODPs del período.
   const totalOrigen = nuevos_crm + nuevos_prospectos + clientes_recurrentes;
   const origenItems = [
-    { label: 'Vía CRM (Leads)', count: nuevos_crm, monto: monto_nuevos_crm, icon: <IconLeads size={13} className="text-white" /> },
-    { label: 'Prospectos directos', count: nuevos_prospectos, monto: monto_nuevos_prospectos, icon: <IconUserCheck size={13} className="text-white" /> },
-    { label: 'Clientes recurrentes', count: clientes_recurrentes, monto: monto_clientes_recurrentes, icon: <RefreshCw size={13} className="text-white" /> },
+    { label: 'Vía CRM (Leads)', count: nuevos_crm, monto: monto_nuevos_crm },
+    { label: 'Prospectos directos', count: nuevos_prospectos, monto: monto_nuevos_prospectos },
+    { label: 'Clientes recurrentes', count: clientes_recurrentes, monto: monto_clientes_recurrentes },
   ].map((o, i) => ({
     ...o,
     color: ORIGEN_COLORS[i % ORIGEN_COLORS.length],
     pct: totalOrigen > 0 ? Math.round((o.count / totalOrigen) * 100) : 0,
   }));
 
+  // La lista llega ordenada por conversión: el primero es el top de conversión. El de mayor
+  // pipeline se busca aparte — antes se mostraba el monto del primero bajo ese título.
+  const topConversion = stats_por_asesor[0];
+  const mayorPipeline = (stats_por_asesor as any[]).reduce(
+    (max, a) => (!max || (a.monto_gestionado || 0) > (max.monto_gestionado || 0) ? a : max), null as any);
+
   return (
-    <div className="space-y-5 pb-10">
+    <div className="space-y-4 pb-10">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
@@ -327,197 +219,105 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha
       </div>
 
       {/* ── KPIs principales ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPIStitch
-          label="Venta Proyectada"
-          value={fmtCOP(monto_total_proyectado, true)}
-          sub={`Suma de cotizaciones proyectadas de los ${total} leads del período`}
-          tooltip="Suma total del campo 'monto proyectado de cotización' de todos los leads del período. Representa el techo teórico de ingresos si todos los leads activos cerraran. Incluye leads en cualquier etapa, no solo aprobados."
-          icon={<IconDollar size={18} className="text-indigo-700" />}
-          accentColor="bg-indigo-50" borderColor="border-l-indigo-500"
-        />
-        <KPIStitch
-          label="Éxito Comercial"
-          value={`${tasa_conversion}%`}
-          sub="Incluye leads del CRM, prospectos directos y clientes recurrentes del período"
-          tooltip="Porcentaje de negocio cerrado sobre el total de oportunidades del período: leads del CRM, prospectos gestionados directo y clientes recurrentes. Verde ≥30%, amarillo ≥15%, azul <15%. Una tasa saludable para este sector es superior al 20%."
-          icon={<IconTarget size={18} className="text-emerald-700" />}
-          accentColor="bg-emerald-50" borderColor="border-l-emerald-500"
-          trend={tasa_conversion} trendLabel={`${tasa_conversion}% de conversión`}
-        />
-        <KPIStitch
-          label="Leads Ingresados"
-          value={String(total)}
-          sub="Total de leads del período seleccionado"
-          tooltip="Cantidad total de leads del período: incluye los que siguen activos en el pipeline (sin importar cuándo entraron) más los que se cerraron —aprobados, perdidos o enfriados— durante el período. Es el volumen bruto de oportunidades gestionadas."
-          icon={<IconLeads size={18} className="text-violet-700" />}
-          accentColor="bg-violet-50" borderColor="border-l-violet-500"
-        />
-        <KPIStitch
-          label="Clientes Nuevos"
-          value={String(nuevos_clientes + nuevos_prospectos)}
-          sub={`CRM: ${nuevos_clientes} · Prospectos: ${nuevos_prospectos} · Recurrentes: ${clientes_recurrentes}`}
-          tooltip={`Suma de clientes nuevos captados por dos vías: leads CRM aprobados (${nuevos_clientes}) y prospectos directos convertidos a ODP sin origen en el CRM (${nuevos_prospectos}). Un negocio que nació como lead se acredita a la vía CRM aunque haya usado visita técnica, para no contarlo dos veces. No incluye clientes recurrentes que ya existían en el sistema.`}
-          icon={<IconUserCheck size={18} className="text-rose-700" />}
-          accentColor="bg-rose-50" borderColor="border-l-rose-400"
-        />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <TarjetaKPI densa indice={0} rotulo="Venta Proyectada" icono={DollarSign} tono="indigo"
+          cifra={fmtCOP(monto_total_proyectado, true)}
+          descripcion={`Suma de cotizaciones proyectadas de los ${total} leads del período`}
+          ayuda="Suma total del campo 'monto proyectado de cotización' de todos los leads del período. Representa el techo teórico de ingresos si todos los leads activos cerraran. Incluye leads en cualquier etapa, no solo aprobados." />
+        <TarjetaKPI densa indice={1} rotulo="Éxito Comercial" icono={Target} tono="emerald"
+          cifra={`${tasa_conversion}%`}
+          descripcion="Incluye leads del CRM, prospectos directos y clientes recurrentes del período"
+          ayuda="Porcentaje de negocio cerrado sobre el total de oportunidades del período: leads del CRM, prospectos gestionados directo y clientes recurrentes. Verde ≥30%, ámbar ≥15%, rojo <15%. Una tasa saludable para este sector es superior al 20%.">
+          <div className="mt-3">
+            <Medidor pct={tasa_conversion} alto={6}
+              color={tasa_conversion >= 30 ? ESTADO.bien : tasa_conversion >= 15 ? ESTADO.atencion : ESTADO.critico} />
+          </div>
+        </TarjetaKPI>
+        <TarjetaKPI densa indice={2} rotulo="Leads Ingresados" icono={Users} tono="violet"
+          cifra={String(total)}
+          descripcion="Total de leads del período seleccionado"
+          ayuda="Cantidad total de leads del período: incluye los que siguen activos en el pipeline (sin importar cuándo entraron) más los que se cerraron —aprobados, perdidos o enfriados— durante el período. Es el volumen bruto de oportunidades gestionadas." />
+        <TarjetaKPI densa indice={3} rotulo="Clientes Nuevos" icono={UserCheck} tono="blue"
+          cifra={String(nuevos_clientes + nuevos_prospectos)}
+          descripcion={`CRM: ${nuevos_clientes} · Prospectos: ${nuevos_prospectos} · Recurrentes: ${clientes_recurrentes}`}
+          ayuda={`Suma de clientes nuevos captados por dos vías: leads CRM aprobados (${nuevos_clientes}) y prospectos directos convertidos a ODP sin origen en el CRM (${nuevos_prospectos}). Un negocio que nació como lead se acredita a la vía CRM aunque haya usado visita técnica, para no contarlo dos veces. No incluye clientes recurrentes que ya existían en el sistema.`} />
       </div>
 
       {/* ── KPIs secundarios ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MiniKPI
-          label="Venta Real Aprobados"
-          value={fmtCOP(monto_real_aprobados, true)}
-          icon={<IconCheck size={18} className="text-emerald-700" />}
-          bg="bg-emerald-50/60 border border-emerald-100"
-          tooltip="Suma del campo 'monto real de venta' de todos los leads que cerraron como APROBADO. A diferencia de la Venta Proyectada, este valor refleja el ingreso confirmado y actualizado por el asesor al momento del cierre."
-          desc={`Monto confirmado de los ${aprobados} leads aprobados`}
-        />
-        <MiniKPI
-          label="En Gestión Activa"
-          value={String(leadsEnGestion)}
-          icon={<IconActivity size={18} className="text-violet-700" />}
-          bg="bg-violet-50/60 border border-violet-100"
-          tooltip="Leads que el equipo está trabajando activamente ahora mismo: En Contacto, Cotizando, Seguimiento y Visita Técnica. Excluye leads sin asignar, fríos, perdidos y aprobados. Es el 'trabajo en curso' real del equipo."
-          desc={`Contacto: ${(por_estado as any)['EN_CONTACTO'] || 0} · Cotizando: ${(por_estado as any)['COTIZANDO'] || 0} · Seguim.: ${(por_estado as any)['SEGUIMIENTO'] || 0} · V.Técnica: ${(por_estado as any)['VISITA_TECNICA'] || 0}`}
-        />
-        <MiniKPI
-          label="Leads Perdidos"
-          value={String(perdidos)}
-          icon={<IconTarget size={18} className="text-rose-700" />}
-          bg="bg-rose-50/60 border border-rose-100"
-          tooltip="Leads cerrados como PERDIDO en el período. El asesor debe registrar un motivo oficial al marcarlos así. Revisar la tab Métricas → Razones de Pérdida para ver el detalle de por qué se pierden los negocios."
-          desc="Oportunidades cerradas sin conversión"
-        />
-        <MiniKPI
-          label="Días Prom. Cierre"
-          value={tiempo_promedio_cierre_dias > 0 ? `${tiempo_promedio_cierre_dias}d` : 'N/A'}
-          icon={<IconClock size={18} className="text-amber-700" />}
-          bg="bg-amber-50/60 border border-amber-100"
-          tooltip="Promedio de días transcurridos desde que se crea el lead hasta que se cierra como APROBADO. Solo se calcula sobre los leads que tienen fecha de cierre registrada. Un número bajo indica un ciclo de venta eficiente."
-          desc="Desde creación hasta aprobación del lead"
-        />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <TarjetaKPI densa indice={4} rotulo="Venta Real Aprobados" icono={CheckCircle2} tono="emerald"
+          cifra={fmtCOP(monto_real_aprobados, true)}
+          descripcion={`Monto confirmado de los ${aprobados} leads aprobados`}
+          ayuda="Suma del campo 'monto real de venta' de todos los leads que cerraron como APROBADO. A diferencia de la Venta Proyectada, este valor refleja el ingreso confirmado y actualizado por el asesor al momento del cierre." />
+        <TarjetaKPI densa indice={5} rotulo="En Gestión Activa" icono={Activity} tono="slate"
+          cifra={String(leadsEnGestion)}
+          descripcion={`Contacto: ${(por_estado as any)['EN_CONTACTO'] || 0} · Cotizando: ${(por_estado as any)['COTIZANDO'] || 0} · Seguim.: ${(por_estado as any)['SEGUIMIENTO'] || 0} · V.Técnica: ${(por_estado as any)['VISITA_TECNICA'] || 0}`}
+          ayuda="Leads que el equipo está trabajando activamente ahora mismo: En Contacto, Cotizando, Seguimiento y Visita Técnica. Excluye leads sin asignar, fríos, perdidos y aprobados. Es el 'trabajo en curso' real del equipo." />
+        <TarjetaKPI densa indice={6} rotulo="Leads Perdidos" icono={XCircle} tono="rose"
+          cifra={String(perdidos)}
+          descripcion="Oportunidades cerradas sin conversión"
+          ayuda="Leads cerrados como PERDIDO en el período. El asesor debe registrar un motivo oficial al marcarlos así. Revisar la tab Métricas → Razones de Pérdida para ver el detalle de por qué se pierden los negocios." />
+        <TarjetaKPI densa indice={7} rotulo="Días Prom. Cierre" icono={Clock} tono="amber"
+          cifra={tiempo_promedio_cierre_dias > 0 ? `${tiempo_promedio_cierre_dias} días` : 'N/A'}
+          descripcion="Desde creación hasta aprobación del lead"
+          ayuda="Promedio de días transcurridos desde que se crea el lead hasta que se cierra como APROBADO. Solo se calcula sobre los leads que tienen fecha de cierre registrada. Un número bajo indica un ciclo de venta eficiente." />
       </div>
 
       {/* ── Origen de negocio + Leads→ODP ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <ChartCard indice={8} className="md:col-span-2"
+          titulo={<span className="inline-flex items-center">Origen de negocio del período<InfoTooltip text="Clasifica los negocios del período en tres categorías: Nuevos captados por CRM (leads aprobados), Nuevos por Prospectos formales (con visita técnica convertidos a ODP), y Recurrentes (ODPs de clientes existentes sin prospecto previo). Muestra de dónde viene el volumen de trabajo." /></span>}
+          descripcion="Distribución entre CRM, prospectos formales y clientes recurrentes">
+          {(nuevos_clientes + nuevos_prospectos + clientes_recurrentes) === 0 ? (
+            <p className="text-sm text-slate-800 text-center py-2">Sin actividad registrada en este período</p>
+          ) : (
+            <BarraApilada alto={14} segmentos={[
+              { clave: 'crm', label: 'Nuevos vía CRM', valor: nuevos_clientes, color: ORIGEN_COLORS[0] },
+              { clave: 'prospectos', label: 'Nuevos vía Prospectos', valor: nuevos_prospectos, color: ORIGEN_COLORS[1] },
+              { clave: 'recurrentes', label: 'Recurrentes (directos)', valor: clientes_recurrentes, color: ORIGEN_COLORS[2] },
+            ]} />
+          )}
+        </ChartCard>
 
-        {/* Origen de negocio */}
-        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <div className="flex items-center mb-1">
-            <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-widest">Origen de Negocio del Período</p>
-            <InfoTooltip text="Clasifica los negocios del período en tres categorías: Nuevos captados por CRM (leads aprobados), Nuevos por Prospectos formales (con visita técnica convertidos a ODP), y Recurrentes (ODPs de clientes existentes sin prospecto previo). Muestra de dónde viene el volumen de trabajo." />
-          </div>
-          <p className="text-[11px] text-slate-700 mb-3">Distribución entre CRM, prospectos formales y clientes recurrentes</p>
-          {(() => {
-            const total3 = nuevos_clientes + nuevos_prospectos + clientes_recurrentes;
-            if (total3 === 0) return (
-              <p className="text-sm text-slate-800 text-center py-2">Sin actividad registrada en este período</p>
-            );
-            const pCRM  = Math.round((nuevos_clientes      / total3) * 100);
-            const pPros = Math.round((nuevos_prospectos     / total3) * 100);
-            const pRec  = Math.round((clientes_recurrentes  / total3) * 100);
-            return (
-              <>
-                <div className="flex items-center gap-0 h-3 rounded-full overflow-hidden mb-3 bg-slate-100">
-                  {nuevos_clientes > 0 && (
-                    <div className="h-full bg-emerald-500 transition-all duration-700" style={{ width: `${pCRM}%` }} />
-                  )}
-                  {nuevos_prospectos > 0 && (
-                    <div className="h-full bg-violet-500 transition-all duration-700" style={{ width: `${pPros}%` }} />
-                  )}
-                  {clientes_recurrentes > 0 && (
-                    <div className="h-full bg-blue-400 transition-all duration-700" style={{ width: `${pRec}%` }} />
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
-                  <span className="flex items-center gap-1.5 font-medium text-emerald-700">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block flex-shrink-0" />
-                    Nuevos vía CRM: <strong>{nuevos_clientes}</strong>
-                    <span className="text-slate-700 font-normal">({pCRM}%)</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 font-medium text-violet-700">
-                    <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block flex-shrink-0" />
-                    Nuevos vía Prospectos: <strong>{nuevos_prospectos}</strong>
-                    <span className="text-slate-700 font-normal">({pPros}%)</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 font-medium text-blue-700">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block flex-shrink-0" />
-                    Recurrentes (directos): <strong>{clientes_recurrentes}</strong>
-                    <span className="text-slate-700 font-normal">({pRec}%)</span>
-                  </span>
-                </div>
-              </>
-            );
-          })()}
-        </div>
-
-        {/* Leads → ODP */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col justify-between">
-          <div className="flex items-center">
-            <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-widest">Leads → ODP</p>
-            <InfoTooltip text="Cuántos leads aprobados ya tienen una Orden de Producción vinculada. Un lead aprobado sin ODP significa que el negocio se cerró comercialmente pero aún no se generó la ODP en el sistema productivo. Esa brecha requiere seguimiento." />
-          </div>
-          <p className="text-[11px] text-slate-700 mt-0.5 mb-2">Leads aprobados convertidos a Orden de Producción</p>
+        <ChartCard indice={9}
+          titulo={<span className="inline-flex items-center">Leads → ODP<InfoTooltip text="Cuántos leads aprobados ya tienen una Orden de Producción vinculada. Un lead aprobado sin ODP significa que el negocio se cerró comercialmente pero aún no se generó la ODP en el sistema productivo. Esa brecha requiere seguimiento." /></span>}
+          descripcion="Leads aprobados convertidos a Orden de Producción">
           <div className="flex items-end gap-2">
-            <p className="text-3xl font-extrabold text-slate-900">{leads_con_odp}</p>
+            <p className="text-[36px] font-extrabold text-slate-900 leading-none [font-variant-numeric:normal]">{leads_con_odp}</p>
             <p className="text-sm text-slate-700 mb-1">vinculados</p>
           </div>
           {leads_aprobados_sin_odp > 0 ? (
-            <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-100 rounded-xl">
-              <span className="text-amber-700 text-sm font-bold">⚠</span>
-              <p className="text-[11px] text-amber-700 font-bold">
-                {leads_aprobados_sin_odp} aprobado{leads_aprobados_sin_odp > 1 ? 's' : ''} sin ODP
-              </p>
-            </div>
+            <p className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 ring-1 ring-amber-200 rounded-xl text-[12px] text-amber-800 font-semibold">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {leads_aprobados_sin_odp} aprobado{leads_aprobados_sin_odp > 1 ? 's' : ''} sin ODP
+            </p>
           ) : (
-            <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl">
-              <span className="text-emerald-700 text-sm font-bold">✓</span>
-              <p className="text-[11px] text-emerald-700 font-bold">Todos vinculados</p>
-            </div>
+            <p className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 ring-1 ring-emerald-200 rounded-xl text-[12px] text-emerald-700 font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Todos vinculados
+            </p>
           )}
-        </div>
+        </ChartCard>
       </div>
 
-      {/* ── Estado del Pipeline + Eficiencia Global ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-        {/* Pipeline */}
-        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center">
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">Estado del Pipeline</h3>
-                <p className="text-[11px] text-slate-700 mt-0.5">Distribución de todos los leads del período por resultado</p>
-              </div>
-              <InfoTooltip text="Muestra cómo se distribuyen los leads del período entre sus cuatro posibles resultados: Aprobados (ganados), En Frío (sin respuesta tras 3 intentos), Perdidos (descartados con motivo) y Activos (en proceso, sin contar leads NUEVO sin asignar). El porcentaje es sobre el total del período." />
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-extrabold text-slate-900">{total}</p>
-              <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-widest">Total del período</p>
-            </div>
-          </div>
-          <div className="space-y-4">
-            <PipelineBar
-              label="Aprobados" count={aprobados} total={total} color="bg-emerald-500" pct={pctAprobados}
-              tooltip="Leads cerrados exitosamente como APROBADO. Son los negocios ganados del período."
-            />
-            <PipelineBar
-              label="Activos en proceso" count={activos} total={total} color="bg-amber-400" pct={pctActivos}
-              tooltip="Leads asignados que el equipo está trabajando (Asignado, En Contacto, Cotizando, Visita Técnica). No incluye leads NUEVO sin asignar ni terminales (Aprobado/Perdido/Frío)."
-            />
-            <PipelineBar
-              label="En Frío" count={frios} total={total} color="bg-indigo-400" pct={pctFrios}
-              tooltip="Leads pasados automáticamente a estado FRÍO tras 3 intentos fallidos de contacto. No se descartaron, pero el cliente dejó de responder. Pueden reactivarse."
-            />
-            <PipelineBar
-              label="Perdidos" count={perdidos} total={total} color="bg-rose-500" pct={pctPerdidos}
-              tooltip="Leads cerrados como PERDIDO con motivo registrado. Son oportunidades descartadas definitivamente en este período."
-            />
+      {/* ── Estado del Pipeline + Origen por canal ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <ChartCard indice={10} className="md:col-span-2"
+          titulo={<span className="inline-flex items-center">Estado del pipeline<InfoTooltip text="Muestra cómo se distribuyen los leads del período entre sus cuatro posibles resultados: Aprobados (ganados), En Frío (sin respuesta tras 3 intentos), Perdidos (descartados con motivo) y Activos (en proceso, sin contar leads NUEVO sin asignar). El porcentaje es sobre el total del período." /></span>}
+          descripcion={<>Resultado de los <span className="font-semibold text-slate-900 tabular-nums">{total}</span> leads del período</>}>
+          <div className="space-y-2.5">
+            {[
+              { label: 'Aprobados', n: aprobados, pct: pctAprobados, color: PIPELINE_COLOR.aprobados },
+              { label: 'Activos en proceso', n: activos, pct: pctActivos, color: PIPELINE_COLOR.activos },
+              { label: 'En frío', n: frios, pct: pctFrios, color: PIPELINE_COLOR.frios },
+              { label: 'Perdidos', n: perdidos, pct: pctPerdidos, color: PIPELINE_COLOR.perdidos },
+            ].map((r, i) => (
+              <BarraMagnitud key={r.label} indice={i} anchoLabel="w-36" label={r.label}
+                valor={r.pct} max={100} color={r.color} cifra={r.n} cifraSecundaria={`${r.pct.toFixed(1)}%`} />
+            ))}
           </div>
 
           {/* Desglose de etapas activas */}
-          <div className="mt-6 pt-5 border-t border-slate-50 grid grid-cols-4 gap-4 text-center">
+          <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             {[
               { label: 'En Contacto', val: (por_estado as any)['EN_CONTACTO']    || 0, tooltip: 'Leads en proceso de primer contacto con el cliente' },
               { label: 'Cotizando',   val: (por_estado as any)['COTIZANDO']      || 0, tooltip: 'Leads en etapa de cotización activa' },
@@ -525,70 +325,39 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha
               { label: 'V. Técnicas', val: (por_estado as any)['VISITA_TECNICA'] || 0, tooltip: 'Leads con visita técnica programada o en curso' },
             ].map(s => (
               <div key={s.label}>
-                <p className="text-xl font-bold text-slate-900">{s.val}</p>
+                <p className="text-xl font-bold text-slate-900 tabular-nums">{s.val}</p>
                 <div className="flex items-center justify-center">
-                  <p className="text-[11px] text-slate-900 font-semibold uppercase">{s.label}</p>
+                  <p className="text-[12px] text-slate-900 font-semibold">{s.label}</p>
                   <InfoTooltip text={s.tooltip} />
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </ChartCard>
 
-        {/* Origen de Negocio */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center justify-center gap-4">
-          <div className="w-full flex items-center justify-between mb-2">
-            <div className="flex items-center">
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">Origen de Negocio</h3>
-                <p className="text-[11px] text-slate-700 mt-0.5">Composición de ODPs del período por canal</p>
-              </div>
-              <InfoTooltip text="De dónde nacieron los negocios (ODPs) del período: leads que llegaron por el CRM, prospectos gestionados directo por un asesor, o clientes recurrentes que ya existían. Las 3 vías suman el 100% del negocio del período — mismos datos que 'Clientes Nuevos vs Recurrentes'." />
-            </div>
-            <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-slate-50 text-slate-700">
-              {totalOrigen} ODPs
-            </span>
-          </div>
-          <OrigenDonut items={origenItems} />
-          <div className="w-full space-y-1">
-            {origenItems.map(o => (
-              <div key={o.label} className="flex items-center gap-3 py-1.5 border-b border-slate-50 last:border-b-0">
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: o.color }}
-                >
-                  {o.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-900 truncate">{o.label}</p>
-                  <p className="text-[11px] text-slate-700">{o.count} · {fmtCOP(o.monto, true)}</p>
-                </div>
-                <span className="text-sm font-semibold text-slate-900">{o.pct}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ChartCard indice={11}
+          titulo={<span className="inline-flex items-center">Origen por canal<InfoTooltip text="De dónde nacieron los negocios (ODPs) del período: leads que llegaron por el CRM, prospectos gestionados directo por un asesor, o clientes recurrentes que ya existían. Las 3 vías suman el 100% del negocio del período — mismos datos que 'Clientes Nuevos vs Recurrentes'." /></span>}
+          descripcion={<>Composición de las <span className="font-semibold text-slate-900 tabular-nums">{totalOrigen}</span> ODPs del período</>}>
+          {totalOrigen === 0 ? (
+            <p className="text-sm text-slate-800 text-center py-2">Sin ODPs en este período</p>
+          ) : (
+            <BarraApilada alto={14} segmentos={origenItems.map((o, i) => ({
+              clave: String(i), label: o.label, valor: o.count, color: o.color,
+              cifra: `${o.count} · ${fmtCOP(o.monto, true)}`,
+            }))} />
+          )}
+        </ChartCard>
       </div>
 
       {/* ── Líderes del Período ── */}
       {stats_por_asesor.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
-              <IconTrophy size={20} className="text-amber-700" />
-            </div>
-            <div className="flex items-center">
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">Líderes del Período</h3>
-                <p className="text-[11px] text-slate-700">{periodoLabel} — Ranking por tasa de conversión</p>
-              </div>
-              <InfoTooltip text="Ranking de asesores ordenado por tasa de conversión (leads aprobados ÷ total leads asignados). El monto gestionado es la suma de cotizaciones proyectadas de todos sus leads. La barra de colores muestra cómo están distribuidos sus leads activos entre etapas. Verde ≥30%, naranja ≥15%, rojo <15%." />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <ChartCard indice={12}
+          titulo={<span className="inline-flex items-center"><Trophy weight="duotone" className="w-5 h-5 text-amber-600 mr-2" />Líderes del período<InfoTooltip text="Ranking de asesores ordenado por tasa de conversión (leads aprobados ÷ total leads asignados). El monto gestionado es la suma de cotizaciones proyectadas de todos sus leads. La barra segmentada muestra cómo están distribuidos sus leads activos entre etapas. Verde ≥30%, ámbar ≥15%, rojo <15%." /></span>}
+          descripcion={`${periodoLabel} — ranking por tasa de conversión`}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {stats_por_asesor.slice(0, 6).map((a: any, i: number) => (
               <AsesorCard
-                key={a.id} idx={i} nombre={a.nombre} total={a.total}
+                key={a.id} idx={i} id={a.id} nombre={a.nombre} total={a.total}
                 aprobados={a.aprobados} perdidos={a.perdidos}
                 tasa={a.tasa_conversion} monto={a.monto_gestionado}
                 porEstado={a.por_estado} etapaCuello={a.etapa_cuello}
@@ -596,38 +365,32 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha
             ))}
           </div>
 
-          {/* Resumen top asesor */}
-          <div className="mt-5 pt-5 border-t border-slate-50 grid grid-cols-2 gap-3">
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+          {/* Resumen: mejor conversión y mayor pipeline (pueden ser personas distintas) */}
+          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
               <div className="flex items-center">
-                <p className="text-[11px] font-semibold text-slate-900 uppercase mb-1">Top Conversión</p>
+                <p className="text-[12px] font-semibold text-slate-900 uppercase tracking-wide">Top Conversión</p>
                 <InfoTooltip text="Asesor con la mayor tasa de conversión en el período (aprobados ÷ total leads)." />
               </div>
-              <p className="text-sm font-bold text-slate-900 truncate">
-                {stats_por_asesor[0]?.nombre || '—'}
-              </p>
-              <p className="text-xs text-indigo-700 font-bold mt-0.5">
-                {stats_por_asesor[0]?.tasa_conversion || 0}% conversión
-              </p>
+              <p className="text-sm font-bold text-slate-900 truncate mt-1">{topConversion?.nombre || '—'}</p>
+              <p className="text-[12px] text-slate-800 mt-0.5 tabular-nums">{topConversion?.tasa_conversion || 0}% conversión</p>
             </div>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
               <div className="flex items-center">
-                <p className="text-[11px] font-semibold text-slate-900 uppercase mb-1">Mayor Pipeline</p>
+                <p className="text-[12px] font-semibold text-slate-900 uppercase tracking-wide">Mayor Pipeline</p>
                 <InfoTooltip text="Monto proyectado acumulado del asesor con más volumen gestionado en el período." />
               </div>
-              <p className="text-sm font-bold text-slate-900">
-                {fmtCOP(stats_por_asesor[0]?.monto_gestionado || 0, true)}
-              </p>
-              <p className="text-xs text-emerald-700 font-bold mt-0.5">
-                {stats_por_asesor[0]?.aprobados || 0} aprobados
+              <p className="text-sm font-bold text-slate-900 truncate mt-1">{mayorPipeline?.nombre || '—'}</p>
+              <p className="text-[12px] text-slate-800 mt-0.5 tabular-nums">
+                {fmtCOP(mayorPipeline?.monto_gestionado || 0, true)} · {mayorPipeline?.aprobados || 0} aprobados
               </p>
             </div>
           </div>
-        </div>
+        </ChartCard>
       )}
 
       {stats_por_asesor.length === 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-12 text-center">
           <Trophy className="w-10 h-10 text-slate-500 mx-auto mb-3" />
           <p className="text-slate-700 text-sm">Sin asesores con actividad en este período</p>
           <p className="text-slate-800 text-xs mt-1">Selecciona un período con actividad registrada</p>

@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import {
-  AlertCircle, TrendingUp, TrendingDown
-} from '../../../components/ui/icons';
+import { AlertCircle, CheckCircle2, DollarSign, Percent } from '../../../components/ui/icons';
 import { apiGetCRMStats } from '../crmService';
 import {
-  IconDollar, IconCheck, IconGlobe, IconBarChart,
-  IconPackage, IconPercent, IconActivity, IconTarget
-} from './CRMIcons';
+  TarjetaKPI, ChartCard, BarraMagnitud, BarraApilada, Medidor, Ayuda, CATEGORICA, tonoEtapa,
+} from '../../../components/charts';
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const fmtCOP = (v: number, compact = false) =>
@@ -26,110 +23,29 @@ const fmtDelta = (
 };
 
 // ─── InfoTooltip ──────────────────────────────────────────────────────────────
-const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
-  <div className="relative group inline-flex ml-1.5 flex-shrink-0">
-    <button
-      type="button"
-      className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[11px] font-semibold flex items-center justify-center hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
-    >?</button>
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-800 text-white text-[11px] rounded-xl p-3 shadow-xl z-50 hidden group-hover:block pointer-events-none leading-snug">
-      {text}
-      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-    </div>
-  </div>
+const InfoTooltip: React.FC<{ text: string }> = ({ text }) => <Ayuda texto={text} />;
+
+// ─── Tasa de conversión como etiqueta ─────────────────────────────────────────
+// Umbral de negocio: ≥20% es saludable para el sector (ver ayuda de la tarjeta de conversión).
+const PildoraConversion: React.FC<{ pct: number }> = ({ pct }) => (
+  <span className={`px-2 py-0.5 rounded-full text-[12px] font-semibold tabular-nums whitespace-nowrap ring-1 ${
+    pct >= 20 ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+      : pct > 0 ? 'bg-amber-50 text-amber-800 ring-amber-200'
+        : 'bg-slate-100 text-slate-700 ring-slate-200'}`}>
+    {pct}% conv.
+  </span>
 );
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-interface MetricKPIProps {
-  label: string; value: string; delta?: string; positivo?: boolean;
-  icon: React.ReactNode; borderColor: string; accentBg: string;
-  desc?: string; tooltip?: string; onClick?: () => void;
-}
-const MetricKPI: React.FC<MetricKPIProps> = ({
-  label, value, delta, positivo, icon, borderColor, accentBg, desc, tooltip, onClick
-}) => (
-  <div
-    onClick={onClick}
-    className={`bg-white rounded-xl p-5 border border-slate-200 border-l-4 ${borderColor} flex flex-col gap-2 hover:border-slate-300 transition-all duration-200 ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''}`}
-  >
-    <div className="flex items-center justify-between">
-      <div className="flex items-center">
-        <span className="text-xs font-semibold text-slate-900 uppercase tracking-widest">{label}</span>
-        {tooltip && <InfoTooltip text={tooltip} />}
-      </div>
-      <div className={`w-8 h-8 rounded-lg ${accentBg} flex items-center justify-center flex-shrink-0`}>{icon}</div>
-    </div>
-    <div className="flex items-end gap-3">
-      <p className="text-3xl font-extrabold text-slate-900 leading-none tracking-tight">{value}</p>
-      {delta && (
-        <span className={`flex items-center gap-0.5 text-xs font-semibold mb-0.5 ${positivo ? 'text-emerald-700' : 'text-rose-700'}`}>
-          {positivo ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-          {delta}
-          <span className="text-[11px] text-slate-700 ml-0.5">vs mes ant.</span>
-        </span>
-      )}
-    </div>
-    {desc && <p className="text-xs text-slate-700 leading-snug">{desc}</p>}
-  </div>
-);
-
-// ─── Barra horizontal por categoría (part-to-whole) ────────────────────────────
-// Paleta categórica validada (orden fijo, nunca ciclado — 6 checks del skill de
-// dataviz: CVD ΔE 24.2, muy por encima del mínimo de 12). Un donut no es la forma
-// correcta para comparar valores cercanos entre sí (28% vs 25% vs 21%…) — una
-// barra ordenada de mayor a menor sí permite esa comparación de un vistazo.
-const CATEGORICAL_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e34948', '#e87ba4', '#eb6834'];
-const BarraCategoria: React.FC<{ items: { label: string; pct: number }[] }> = ({ items }) => {
-  const total = items.reduce((s, i) => s + i.pct, 0) || 1;
-  const sorted = [...items].sort((a, b) => b.pct - a.pct);
-
-  return (
-    <div className="space-y-3">
-      {sorted.map((item, i) => {
-        const pct = Math.round((item.pct / total) * 100);
-        return (
-          <div key={item.label} className="flex items-center gap-3">
-            <span className="w-32 flex-shrink-0 text-xs text-slate-900 truncate">{item.label}</span>
-            <div className="flex-1 bg-slate-100 rounded-lg h-2 overflow-hidden">
-              <div
-                className="h-full transition-all duration-700"
-                style={{
-                  width: `${pct}%`,
-                  backgroundColor: CATEGORICAL_COLORS[i % CATEGORICAL_COLORS.length],
-                  borderRadius: '0 4px 4px 0',
-                }}
-              />
-            </div>
-            <span
-              className="w-10 flex-shrink-0 text-right text-xs text-slate-700"
-              style={{ fontVariantNumeric: 'tabular-nums' }}
-            >
-              {pct}%
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
 
 // ─── Config embudo ────────────────────────────────────────────────────────────
+// Etapas en orden del proceso: se pintan con la rampa azul (más oscuro = entrada del embudo).
 const ETAPAS_CONFIG = [
-  { id: 'ASIGNADO',       label: 'Asignados',      color: 'bg-blue-500' },
-  { id: 'EN_CONTACTO',    label: 'En Contacto',    color: 'bg-violet-500' },
-  { id: 'COTIZANDO',      label: 'Cotizando',      color: 'bg-amber-500' },
-  { id: 'SEGUIMIENTO',    label: 'Seguimiento',    color: 'bg-teal-500' },
-  { id: 'VISITA_TECNICA', label: 'Visita Técnica', color: 'bg-indigo-500' },
-  { id: 'APROBADO',       label: 'Aprobados',      color: 'bg-emerald-500' },
+  { id: 'ASIGNADO',       label: 'Asignados' },
+  { id: 'EN_CONTACTO',    label: 'En Contacto' },
+  { id: 'COTIZANDO',      label: 'Cotizando' },
+  { id: 'SEGUIMIENTO',    label: 'Seguimiento' },
+  { id: 'VISITA_TECNICA', label: 'Visita Técnica' },
+  { id: 'APROBADO',       label: 'Aprobados' },
 ];
-
-const SEGMENTOS_COLORS: Record<string, string> = {
-  'Arquitecto': 'bg-violet-100 text-violet-700',
-  'Cliente final': 'bg-blue-100 text-blue-700',
-  'Industrial': 'bg-amber-100 text-amber-700',
-  'Institucional': 'bg-emerald-100 text-emerald-700',
-  'Intervid': 'bg-fuchsia-100 text-fuchsia-700',
-};
 
 // ─── Modal: Leads Aprobados sin ODP ──────────────────────────────────────────
 interface LeadSinODP {
@@ -256,7 +172,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta, 
     <div className="flex flex-col items-center justify-center py-24 gap-4">
       <AlertCircle className="w-12 h-12 text-rose-300" />
       <p className="text-slate-800 text-sm font-medium">{error}</p>
-      <button onClick={cargar} className="px-5 py-2.5 bg-[#5e6ad2] hover:bg-[#4c58c0] text-white rounded-lg text-sm font-medium transition-colors">
+      <button onClick={cargar} className="px-5 py-2.5 bg-templex-600 hover:bg-templex-700 text-white rounded-lg text-sm font-medium transition-colors">
         Reintentar
       </button>
     </div>
@@ -297,7 +213,13 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta, 
     conv: d.total > 0 ? Math.round((d.aprobados / d.total) * 100) : 0,
   }));
 
-  const donutItems = productosList.slice(0, 5).map(p => ({ label: p.producto || 'Sin Definir', pct: p.count }));
+  // Participación: los 5 productos con más leads, en % sobre la suma de esos 5.
+  const top5Productos = [...productosList].sort((a, b) => b.count - a.count).slice(0, 5);
+  const sumaTop5      = top5Productos.reduce((acc, p) => acc + p.count, 0) || 1;
+  const participacion = top5Productos.map(p => ({
+    label: p.producto || 'Sin Definir', count: p.count, pct: Math.round((p.count / sumaTop5) * 100),
+  }));
+  const totalPerdidos = motivosList.reduce((acc, m) => acc + m.count, 0) || 1;
   const embudo     = ETAPAS_CONFIG.map(e => ({ ...e, count: (por_estado as any)[e.id] || 0 }));
   const topEtapa   = Math.max(...embudo.map(e => e.count), 1);
 
@@ -314,178 +236,98 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta, 
         <h2 className="text-lg font-bold text-slate-900 tracking-tight">Análisis de Métricas</h2>
         <p className="text-xs text-slate-700 mt-0.5">
           Monitoreo de eficiencia comercial y gestión CRM del período seleccionado.
-          {vs_anterior !== null && <span className="ml-1 text-indigo-700">Los deltas (↑↓) comparan vs el mes anterior.</span>}
+          {vs_anterior !== null && <span className="ml-1 text-slate-900 font-semibold">Los deltas (↑↓) comparan vs el mes anterior.</span>}
         </p>
       </div>
 
       {/* ── KPIs ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MetricKPI
-          label="Tasa de Conversión"
-          value={`${tasa_conversion}%`}
-          delta={deltaConversion?.label}
-          positivo={deltaConversion?.positivo}
-          icon={<IconPercent size={18} className="text-emerald-700" />}
-          borderColor="border-l-emerald-500" accentBg="bg-emerald-50"
-          tooltip="Porcentaje de leads que llegaron a estado APROBADO sobre el total del período. Una tasa saludable para este sector es superior al 20%. Si baja, revisar etapas con acumulación."
-          desc="Leads Aprobados ÷ Total de leads del período."
-        />
-        <MetricKPI
-          label="Aprobados sin ODP"
-          value={String(leads_aprobados_sin_odp)}
-          icon={<AlertCircle size={16} className="text-rose-700" />}
-          borderColor="border-l-rose-400" accentBg="bg-rose-50"
-          tooltip="Leads con estado APROBADO que todavía no tienen una Orden de Producción generada. El negocio se cerró comercialmente pero aún no arrancó en el sistema productivo. Haz clic para ver el detalle."
-          desc="Haz clic para ver el detalle y gestionar."
-          onClick={() => setSinOdpModal(true)}
-        />
-        <MetricKPI
-          label="Ticket Promedio"
-          value={fmtCOP(ticket_promedio_proyectado, true)}
-          delta={deltaTicket?.label}
-          positivo={deltaTicket?.positivo}
-          icon={<IconDollar size={18} className="text-violet-700" />}
-          borderColor="border-l-violet-500" accentBg="bg-violet-50"
-          tooltip="Valor promedio del monto proyectado de cotización por lead. Si baja, puede indicar que están llegando leads de menor volumen o que las cotizaciones no se están actualizando en el sistema."
-          desc="Suma de montos proyectados ÷ Total de leads."
-        />
-        <MetricKPI
-          label="Monto Real Aprobados"
-          value={fmtCOP(monto_real_aprobados, true)}
-          delta={deltaMontoReal?.label}
-          positivo={deltaMontoReal?.positivo}
-          icon={<IconCheck size={18} className="text-teal-700" />}
-          borderColor="border-l-teal-500" accentBg="bg-teal-50"
-          tooltip="Suma del monto real confirmado de todos los leads cerrados como APROBADO. Refleja los ingresos efectivamente captados por el equipo comercial en este período."
-          desc="Suma de monto_real de leads en estado Aprobado."
-        />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <TarjetaKPI densa indice={0} rotulo="Tasa de Conversión" icono={Percent} tono="emerald"
+          cifra={`${tasa_conversion}%`}
+          delta={deltaConversion ? { texto: deltaConversion.label, positivo: deltaConversion.positivo, contexto: 'vs mes ant.' } : null}
+          ayuda="Porcentaje de leads que llegaron a estado APROBADO sobre el total del período. Una tasa saludable para este sector es superior al 20%. Si baja, revisar etapas con acumulación."
+          descripcion="Leads Aprobados ÷ Total de leads del período." />
+        <TarjetaKPI densa indice={1} rotulo="Aprobados sin ODP" icono={AlertCircle} tono="rose"
+          cifra={String(leads_aprobados_sin_odp)}
+          cifraClassName={leads_aprobados_sin_odp > 0 ? 'text-rose-700' : 'text-slate-900'}
+          ayuda="Leads con estado APROBADO que todavía no tienen una Orden de Producción generada. El negocio se cerró comercialmente pero aún no arrancó en el sistema productivo. Haz clic para ver el detalle."
+          descripcion="Haz clic para ver el detalle y gestionar."
+          onClick={() => setSinOdpModal(true)} />
+        <TarjetaKPI densa indice={2} rotulo="Ticket Promedio" icono={DollarSign} tono="violet"
+          cifra={fmtCOP(ticket_promedio_proyectado, true)}
+          delta={deltaTicket ? { texto: deltaTicket.label, positivo: deltaTicket.positivo, contexto: 'vs mes ant.' } : null}
+          ayuda="Valor promedio del monto proyectado de cotización por lead. Si baja, puede indicar que están llegando leads de menor volumen o que las cotizaciones no se están actualizando en el sistema."
+          descripcion="Suma de montos proyectados ÷ Total de leads." />
+        <TarjetaKPI densa indice={3} rotulo="Monto Real Aprobados" icono={CheckCircle2} tono="blue"
+          cifra={fmtCOP(monto_real_aprobados, true)}
+          delta={deltaMontoReal ? { texto: deltaMontoReal.label, positivo: deltaMontoReal.positivo, contexto: 'vs mes ant.' } : null}
+          ayuda="Suma del monto real confirmado de todos los leads cerrados como APROBADO. Refleja los ingresos efectivamente captados por el equipo comercial en este período."
+          descripcion="Suma de monto_real de leads en estado Aprobado." />
       </div>
 
       {/* ── Participación por Producto ── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-            <IconBarChart size={18} className="text-indigo-700" />
+      <ChartCard indice={4}
+        titulo={<span className="inline-flex items-center">Participación por Producto<InfoTooltip text="Distribución de leads según el tipo de producto de interés registrado, ordenada de mayor a menor participación. No indica conversión, sino volumen de interés." /></span>}
+        descripcion="Los 5 productos con más leads del período">
+        {participacion.length > 0 ? (
+          <div className="space-y-2.5">
+            {participacion.map((p, i) => (
+              <BarraMagnitud key={p.label} indice={i} anchoLabel="w-36" label={p.label}
+                valor={p.count} max={participacion[0].count} color={CATEGORICA[0]}
+                cifra={p.count} cifraSecundaria={`${p.pct}%`} />
+            ))}
           </div>
-          <div className="flex items-center">
-            <h3 className="font-semibold text-slate-900 text-base tracking-tight">Participación por Producto</h3>
-            <InfoTooltip text="Distribución de leads según el tipo de producto de interés registrado, ordenada de mayor a menor participación. No indica conversión, sino volumen de interés." />
-          </div>
-        </div>
-        {donutItems.length > 0
-          ? <BarraCategoria items={donutItems} />
-          : <p className="text-center text-slate-700 text-sm py-8">Sin datos de productos</p>
-        }
-      </div>
+        ) : <p className="text-center text-slate-700 text-sm py-8">Sin datos de productos</p>}
+      </ChartCard>
 
       {/* ── Embudo + Fuentes ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <ChartCard indice={5}
+          titulo={<span className="inline-flex items-center">Embudo de Conversión<InfoTooltip text="Cuántos leads activos hay en cada etapa del proceso comercial (excluye leads sin respuesta). La barra más ancha es la etapa con más volumen. Si Cotizando o En Contacto superan ampliamente a Aprobados, hay un cuello de botella que revisar." /></span>}
+          descripcion={<>{embudo.reduce((s, e) => s + e.count, 0)} leads en etapas activas, de {total} totales en el período</>}>
+          <div className="space-y-2.5">
+            {embudo.map((e, i) => (
+              <BarraMagnitud key={e.id} indice={i} anchoLabel="w-28" label={e.label}
+                valor={e.count} max={topEtapa} color={tonoEtapa(i, embudo.length)} />
+            ))}
+          </div>
+        </ChartCard>
 
-        {/* Embudo de conversión */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-              <IconTarget size={18} className="text-amber-700" />
-            </div>
-            <div className="flex items-center">
-              <h3 className="font-semibold text-slate-900 text-base tracking-tight">Embudo de Conversión</h3>
-              <InfoTooltip text="Cuántos leads activos hay en cada etapa del proceso comercial (excluye leads sin respuesta). La barra más ancha es la etapa con más volumen. Si Cotizando o En Contacto superan ampliamente a Aprobados, hay un cuello de botella que revisar." />
-            </div>
-          </div>
-          <div className="space-y-3">
-            {embudo.map(e => {
-              const pct = topEtapa > 0 ? (e.count / topEtapa) * 100 : 0;
-              return (
-                <div key={e.id} className="flex items-center gap-3">
-                  <span className="text-xs text-slate-900 w-28 truncate">{e.label}</span>
-                  <div className="flex-1 bg-slate-50 rounded-lg h-7 overflow-hidden relative">
-                    <div
-                      className={`h-full rounded-lg ${e.color} opacity-90 transition-all duration-700 flex items-center px-2`}
-                      style={{ width: `${pct}%` }}
-                    >
-                      {pct > 15 && <span className="text-xs font-semibold text-white">{e.count}</span>}
-                    </div>
-                    {pct <= 15 && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-700">{e.count}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <p className="text-xs text-slate-700 text-center mt-4 italic">
-            {embudo.reduce((s, e) => s + e.count, 0)} leads en etapas activas
-            <span className="ml-1 text-slate-800">(de {total} totales en el período)</span>
-          </p>
-        </div>
-
-        {/* Distribución por Fuente */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                <IconGlobe size={18} className="text-blue-700" />
-              </div>
-              <div className="flex items-center">
-                <h3 className="font-semibold text-slate-900 text-base tracking-tight">Distribución por Fuente</h3>
-                <InfoTooltip text="Canal de origen de cada lead registrado (WhatsApp, referido, Instagram, presencial, etc.). Muestra qué canal trae más volumen y ayuda a decidir dónde enfocar esfuerzos de captación o inversión publicitaria." />
-              </div>
-            </div>
-            <span className="text-xs text-slate-700">Total: {total}</span>
-          </div>
-          <div className="space-y-3">
-            {fuentesList.map((f, i) => {
-              const pct = total > 0 ? Math.round((f.count / total) * 100) : 0;
-              const colors = ['bg-indigo-500', 'bg-violet-500', 'bg-blue-500', 'bg-sky-500', 'bg-cyan-500', 'bg-teal-500'];
-              return (
-                <div key={f.fuente} className="flex items-center gap-3">
-                  <span className="text-xs text-slate-900 w-24 truncate">{f.fuente}</span>
-                  <div className="flex-1 bg-slate-50 rounded-full h-2.5 overflow-hidden">
-                    <div className={`h-full rounded-full ${colors[i % colors.length]} transition-all duration-700`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="text-xs text-slate-700 w-16 text-right">{f.count} ({pct}%)</span>
-                </div>
-              );
-            })}
+        <ChartCard indice={6}
+          titulo={<span className="inline-flex items-center">Distribución por Fuente<InfoTooltip text="Canal de origen de cada lead registrado (WhatsApp, referido, Instagram, presencial, etc.). Muestra qué canal trae más volumen y ayuda a decidir dónde enfocar esfuerzos de captación o inversión publicitaria." /></span>}
+          descripcion={`Canal de origen de los ${total} leads del período`}>
+          <div className="space-y-2.5">
+            {fuentesList.map((f, i) => (
+              <BarraMagnitud key={f.fuente} indice={i} anchoLabel="w-28" label={f.fuente}
+                valor={f.count} max={fuentesList[0]?.count || 1} color={CATEGORICA[0]}
+                cifraSecundaria={`${total > 0 ? Math.round((f.count / total) * 100) : 0}%`} />
+            ))}
             {fuentesList.length === 0 && (
               <p className="text-center text-slate-700 text-sm py-6">Sin fuentes registradas</p>
             )}
           </div>
-        </div>
+        </ChartCard>
       </div>
 
       {/* ── Conversión por Producto + Segmentos ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-        {/* Tabla de productos */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
-              <IconPackage size={18} className="text-teal-700" />
-            </div>
-            <div className="flex items-center">
-              <h3 className="font-semibold text-slate-900 text-base tracking-tight">Conversión por Producto</h3>
-              <InfoTooltip text="Ranking de productos ordenado por monto proyectado acumulado. La barra interna muestra la frecuencia del producto (leads sobre el total). El badge de porcentaje es la tasa de conversión: verde ≥20%, naranja 1-19%, gris 0%." />
-            </div>
-          </div>
-          <div className="space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <ChartCard indice={7}
+          titulo={<span className="inline-flex items-center">Conversión por Producto<InfoTooltip text="Ranking de productos ordenado por monto proyectado acumulado. La barra interna muestra la frecuencia del producto (leads sobre el total). La etiqueta de porcentaje es la tasa de conversión: verde ≥20%, ámbar 1-19%, gris 0%." /></span>}
+          descripcion="Top 7 por monto proyectado. La barra es la frecuencia; la etiqueta, la tasa de conversión">
+          <div className="space-y-1">
             {productosList.slice(0, 7).map((p, idx) => (
-              <div key={p.producto} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
-                <span className="w-5 text-xs font-semibold text-slate-900 flex-shrink-0">{idx + 1}</span>
+              <div key={p.producto} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                <span className="w-5 text-[12px] font-bold text-slate-700 tabular-nums flex-shrink-0">{idx + 1}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-slate-900 truncate">{p.producto || 'Sin Definir'}</p>
+                  <p className="text-[12px] font-semibold text-slate-900 truncate">{p.producto || 'Sin Definir'}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                      <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${total > 0 ? (p.count / total) * 100 : 0}%` }} />
-                    </div>
-                    <span className="text-xs text-slate-700">{p.count} leads</span>
+                    <Medidor pct={total > 0 ? (p.count / total) * 100 : 0} alto={6} className="flex-1" />
+                    <span className="text-[12px] text-slate-700 tabular-nums whitespace-nowrap">{p.count} leads</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${p.rate >= 20 ? 'bg-emerald-100 text-emerald-700' : p.rate > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
-                    {p.rate}% conv.
-                  </span>
-                  <span className="text-xs font-semibold text-slate-900 w-14 text-right">{fmtCOP(p.monto, true)}</span>
+                  <PildoraConversion pct={p.rate} />
+                  <span className="text-[12px] font-semibold text-slate-900 w-16 text-right tabular-nums">{fmtCOP(p.monto, true)}</span>
                 </div>
               </div>
             ))}
@@ -493,195 +335,100 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta, 
               <p className="text-center text-slate-700 text-sm py-6">Sin datos de productos</p>
             )}
           </div>
-        </div>
+        </ChartCard>
 
-        {/* Segmentos */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
-              <IconBarChart size={18} className="text-violet-700" />
-            </div>
-            <div className="flex items-center">
-              <h3 className="font-semibold text-slate-900 text-base tracking-tight">Distribución por Segmento</h3>
-              <InfoTooltip text="Leads y monto proyectado agrupados por el perfil del cliente (arquitecto, industrial, etc.). El porcentaje en el círculo derecho es la tasa de conversión de ese segmento: verde ≥20%, naranja 1-19%. Identifica qué tipo de cliente convierte mejor." />
-            </div>
-          </div>
-          <div className="space-y-3">
-            {segmentosList.map(s => {
-              const color = SEGMENTOS_COLORS[s.segmento] || 'bg-slate-100 text-slate-700';
-              return (
-                <div key={s.segmento} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200 hover:border-slate-300 transition-all">
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${color}`}>{s.segmento}</span>
-                    <span className="text-xs text-slate-700">{s.total} leads</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-xs font-semibold text-slate-900">{fmtCOP(s.monto, true)}</p>
-                      <p className="text-[11px] text-slate-900 uppercase font-semibold">Monto proy.</p>
-                    </div>
-                    <div className={`w-11 h-11 rounded-lg flex items-center justify-center text-xs font-semibold ${s.conv >= 20 ? 'bg-emerald-500 text-white' : s.conv > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-800'}`}>
-                      {s.conv}%
-                    </div>
-                  </div>
+        <ChartCard indice={8}
+          titulo={<span className="inline-flex items-center">Distribución por Segmento<InfoTooltip text="Leads y monto proyectado agrupados por el perfil del cliente (arquitecto, industrial, etc.). La etiqueta de la derecha es la tasa de conversión de ese segmento: verde ≥20%, ámbar 1-19%. Identifica qué tipo de cliente convierte mejor." /></span>}
+          descripcion="Leads, monto proyectado y tasa de conversión por perfil de cliente">
+          <div className="divide-y divide-slate-100">
+            {segmentosList.map(s => (
+              <div key={s.segmento} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-slate-900 truncate">{s.segmento}</p>
+                  <p className="text-[12px] text-slate-700 tabular-nums">{s.total} leads · {fmtCOP(s.monto, true)} proy.</p>
                 </div>
-              );
-            })}
+                <PildoraConversion pct={s.conv} />
+              </div>
+            ))}
             {segmentosList.length === 0 && (
               <p className="text-center text-slate-700 text-sm py-6">Sin segmentos registrados</p>
             )}
           </div>
-        </div>
+        </ChartCard>
       </div>
 
       {/* ── Nuevos vs Recurrentes + Razones de Pérdida ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-        {/* Nuevos vs Recurrentes */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <IconActivity size={18} className="text-emerald-700" />
-            </div>
-            <div className="flex items-center">
-              <h3 className="font-semibold text-slate-900 text-base tracking-tight">Clientes Nuevos vs Recurrentes</h3>
-              <InfoTooltip text="'Nuevos' = ODPs del período de clientes nuevos captados por cualquier vía (leads del CRM o prospectos formales). 'Recurrentes' = ODPs de clientes que ya existían y volvieron a comprar. La suma cuadra con el total de ODPs del período." />
-            </div>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <ChartCard indice={9}
+          titulo={<span className="inline-flex items-center">Clientes Nuevos vs Recurrentes<InfoTooltip text="'Nuevos' = ODPs del período de clientes nuevos captados por cualquier vía (leads del CRM o prospectos formales). 'Recurrentes' = ODPs de clientes que ya existían y volvieron a comprar. La suma cuadra con el total de ODPs del período." /></span>}
+          descripcion="ODPs del período según si el cliente es nuevo o ya había comprado">
           {(nuevos_clientes + clientes_recurrentes) === 0 ? (
             <p className="text-center text-slate-700 text-sm py-8">Sin conversiones en este período</p>
           ) : (
             <div className="space-y-4">
-              <div className="h-4 rounded-full overflow-hidden flex bg-slate-100">
-                {nuevos_clientes > 0 && (
-                  <div
-                    className="h-full bg-emerald-500 flex items-center justify-center transition-all duration-700"
-                    style={{ width: `${(nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100}%` }}
-                  >
-                    {nuevos_clientes / (nuevos_clientes + clientes_recurrentes) > 0.15 && (
-                      <span className="text-[11px] font-semibold text-white">{nuevos_clientes}</span>
-                    )}
-                  </div>
-                )}
-                {clientes_recurrentes > 0 && (
-                  <div
-                    className="h-full bg-blue-400 flex items-center justify-center transition-all duration-700"
-                    style={{ width: `${(clientes_recurrentes / (nuevos_clientes + clientes_recurrentes)) * 100}%` }}
-                  >
-                    {clientes_recurrentes / (nuevos_clientes + clientes_recurrentes) > 0.15 && (
-                      <span className="text-[11px] font-semibold text-white">{clientes_recurrentes}</span>
-                    )}
-                  </div>
-                )}
-              </div>
+              <BarraApilada alto={14} conLeyenda={false} segmentos={[
+                { clave: 'nuevos', label: 'Nuevos', valor: nuevos_clientes, color: CATEGORICA[0] },
+                { clave: 'recurrentes', label: 'Recurrentes', valor: clientes_recurrentes, color: CATEGORICA[1] },
+              ]} />
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
-                  <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Nuevos</p>
-                  <p className="text-3xl font-extrabold text-slate-900 mt-1">{nuevos_clientes}</p>
-                  <p className="text-xs text-slate-700 mt-0.5">
-                    {Math.round((nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100)}% del total
-                  </p>
-                  {monto_nuevos_total > 0 && (
-                    <p className="text-xs font-bold text-emerald-700 mt-1">{fmtCOP(monto_nuevos_total, true)}</p>
-                  )}
-                  <p className="text-[11px] text-emerald-700 font-medium mt-1">Clientes nuevos (CRM + prospectos)</p>
-                </div>
-                <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
-                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Recurrentes</p>
-                  <p className="text-3xl font-extrabold text-slate-900 mt-1">{clientes_recurrentes}</p>
-                  <p className="text-xs text-slate-700 mt-0.5">
-                    {Math.round((clientes_recurrentes / (nuevos_clientes + clientes_recurrentes)) * 100)}% del total
-                  </p>
-                  {monto_clientes_recurrentes > 0 && (
-                    <p className="text-xs font-bold text-blue-700 mt-1">{fmtCOP(monto_clientes_recurrentes, true)}</p>
-                  )}
-                  <p className="text-[11px] text-blue-700 font-medium mt-1">Clientes que ya existían</p>
-                </div>
+                {[
+                  { k: 'Nuevos', n: nuevos_clientes, m: monto_nuevos_total, c: CATEGORICA[0], d: 'Clientes nuevos (CRM + prospectos)' },
+                  { k: 'Recurrentes', n: clientes_recurrentes, m: monto_clientes_recurrentes, c: CATEGORICA[1], d: 'Clientes que ya existían' },
+                ].map(x => (
+                  <div key={x.k} className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                    <p className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-900 uppercase tracking-wide">
+                      <span className="w-2.5 h-2.5 rounded-sm" style={{ background: x.c }} />{x.k}
+                    </p>
+                    <p className="text-[28px] font-extrabold text-slate-900 mt-1 leading-none [font-variant-numeric:normal]">{x.n}</p>
+                    <p className="text-[12px] text-slate-700 mt-1.5">
+                      {Math.round((x.n / (nuevos_clientes + clientes_recurrentes)) * 100)}% del total
+                    </p>
+                    {x.m > 0 && <p className="text-[12px] font-semibold text-slate-900 tabular-nums mt-0.5">{fmtCOP(x.m, true)}</p>}
+                    <p className="text-[12px] text-slate-700 mt-1">{x.d}</p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-        </div>
+        </ChartCard>
 
-        {/* Razones de Pérdida */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
-              <IconTarget size={18} className="text-rose-700" />
-            </div>
-            <div className="flex items-center">
-              <h3 className="font-semibold text-slate-900 text-base tracking-tight">Razones de Pérdida</h3>
-              <InfoTooltip text="Motivos registrados cuando un lead pasa a estado PERDIDO. El asesor debe seleccionar un motivo oficial al cerrar el lead. Identificar los motivos más frecuentes permite ajustar el discurso comercial y reducir fugas." />
-            </div>
-          </div>
-          <p className="text-xs text-slate-700 mb-4">
-            {(por_estado as any)['PERDIDO'] || 0} leads perdidos en el período
-          </p>
+        <ChartCard indice={10}
+          titulo={<span className="inline-flex items-center">Razones de Pérdida<InfoTooltip text="Motivos registrados cuando un lead pasa a estado PERDIDO. El asesor debe seleccionar un motivo oficial al cerrar el lead. Identificar los motivos más frecuentes permite ajustar el discurso comercial y reducir fugas." /></span>}
+          descripcion={`${(por_estado as any)['PERDIDO'] || 0} leads perdidos en el período`}>
           {motivosList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 gap-2">
-              <span className="text-3xl">🎯</span>
-              <p className="text-sm text-slate-700">Sin pérdidas registradas</p>
-              <p className="text-[11px] text-slate-800">¡Excelente período!</p>
+              <CheckCircle2 weight="duotone" className="w-9 h-9 text-emerald-600" />
+              <p className="text-sm text-slate-900 font-semibold">Sin pérdidas registradas</p>
+              <p className="text-[12px] text-slate-700">Ningún lead pasó a Perdido en el período.</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {motivosList.map((m, i) => {
-                const totalPerdidos = motivosList.reduce((s, x) => s + x.count, 0) || 1;
-                const pct = Math.round((m.count / totalPerdidos) * 100);
-                const colors = ['bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-slate-400', 'bg-violet-400'];
-                return (
-                  <div key={m.motivo} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-900 flex-1 mr-2">{m.motivo}</span>
-                      <span className="text-xs text-slate-700">{m.count} ({pct}%)</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${colors[i % colors.length]} transition-all duration-700`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="space-y-2.5">
+              {motivosList.map((m, i) => (
+                <BarraMagnitud key={m.motivo} indice={i} anchoLabel="w-40" label={m.motivo}
+                  valor={m.count} max={motivosList[0].count} color={CATEGORICA[0]}
+                  cifraSecundaria={`${Math.round((m.count / totalPerdidos) * 100)}%`} />
+              ))}
             </div>
           )}
-        </div>
+        </ChartCard>
       </div>
 
       {/* ── Negocios por Fuente (ODPs del período según la fuente del cliente) ── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <IconGlobe size={18} className="text-emerald-700" />
-            </div>
-            <div className="flex items-center">
-              <h3 className="font-semibold text-slate-900 text-base tracking-tight">Negocios por Fuente</h3>
-              <InfoTooltip text="Los negocios (ODPs) del período repartidos según el canal por el que llegó el cliente (WhatsApp, Facebook, Instagram, etc.). El total coincide con el de 'Clientes Nuevos vs Recurrentes'. Los negocios cuyo cliente aún no tiene fuente registrada aparecen como 'Sin especificar'." />
-            </div>
-          </div>
-          <span className="text-xs text-slate-700">Total: {negociosFuenteTotal} · {fmtCOP(negociosFuenteMontoTotal, true)}</span>
-        </div>
-        <div className="space-y-3">
-          {negociosFuenteList.map((f, i) => {
-            const pct = negociosFuenteTotal > 0 ? Math.round((f.count / negociosFuenteTotal) * 100) : 0;
-            const colors = ['bg-emerald-500', 'bg-teal-500', 'bg-green-500', 'bg-cyan-500', 'bg-lime-500', 'bg-sky-500'];
-            return (
-              <div key={f.fuente} className="flex items-center gap-3">
-                <span className="text-xs text-slate-900 w-24 truncate">{f.fuente}</span>
-                <div className="flex-1 bg-slate-50 rounded-full h-2.5 overflow-hidden">
-                  <div className={`h-full rounded-full ${colors[i % colors.length]} transition-all duration-700`} style={{ width: `${pct}%` }} />
-                </div>
-                <span className="text-xs text-slate-700 w-14 text-right">{f.count} ({pct}%)</span>
-                <span className="text-xs font-bold text-emerald-700 w-16 text-right">{fmtCOP(f.monto || 0, true)}</span>
-              </div>
-            );
-          })}
+      <ChartCard indice={11}
+        titulo={<span className="inline-flex items-center">Negocios por Fuente<InfoTooltip text="Los negocios (ODPs) del período repartidos según el canal por el que llegó el cliente (WhatsApp, Facebook, Instagram, etc.). El total coincide con el de 'Clientes Nuevos vs Recurrentes'. Los negocios cuyo cliente aún no tiene fuente registrada aparecen como 'Sin especificar'." /></span>}
+        descripcion={<>Total: <span className="font-semibold text-slate-900 tabular-nums">{negociosFuenteTotal}</span> negocios · <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(negociosFuenteMontoTotal, true)}</span></>}>
+        <div className="space-y-2.5">
+          {negociosFuenteList.map((f, i) => (
+            <BarraMagnitud key={f.fuente} indice={i} anchoLabel="w-28" label={f.fuente}
+              valor={f.count} max={negociosFuenteList[0]?.count || 1} color={CATEGORICA[0]}
+              cifra={`${f.count} · ${fmtCOP(f.monto || 0, true)}`}
+              cifraSecundaria={`${negociosFuenteTotal > 0 ? Math.round((f.count / negociosFuenteTotal) * 100) : 0}%`} />
+          ))}
           {negociosFuenteList.length === 0 && (
             <p className="text-center text-slate-700 text-sm py-6">Sin negocios en este período</p>
           )}
         </div>
-      </div>
+      </ChartCard>
 
       {/* ── Modal Leads Aprobados sin ODP ── */}
       {sinOdpModal && (

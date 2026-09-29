@@ -5,6 +5,7 @@ import {
   Activity, User, Clock, Circle, Loader2,
 } from '../../../components/ui/icons';
 import { apiGetMonitorAsesores, apiGetLeadById } from '../crmService';
+import { Iniciales, colorPorEntidad } from '../../../components/charts';
 import LeadDetalleModal from './LeadDetalleModal';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ const LeadFila: React.FC<{ lead: LeadResumen; onClick: (id: number) => void }> =
   >
     <SemaforoCircle dias={lead.dias_en_etapa} size="md" />
     <div className="flex-1 min-w-0">
-      <p className="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-700 transition-colors">
+      <p className="text-xs font-bold text-slate-900 truncate group-hover:text-templex-700 transition-colors">
         {lead.nombre}
       </p>
       <p className="text-[11px] text-slate-700 truncate">
@@ -85,7 +86,7 @@ const LeadFila: React.FC<{ lead: LeadResumen; onClick: (id: number) => void }> =
         {lead.intentos_seguimiento} seg.
       </span>
     )}
-    <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-400 transition-colors shrink-0" />
+    <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-templex-500 transition-colors shrink-0" />
   </button>
 );
 
@@ -152,10 +153,8 @@ const PanelAsesor: React.FC<{
   return (
     <div className="space-y-3">
       {/* Resumen del asesor */}
-      <div className="flex items-center gap-4 bg-white border border-slate-100 rounded-xl px-5 py-3 shadow-sm">
-        <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
-          <User className="w-4 h-4 text-indigo-700" />
-        </div>
+      <div className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-3 shadow-card">
+        <Iniciales nombre={asesor.asesor_nombre} tamano={36} color={colorPorEntidad(asesor.asesor_id)} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-900 truncate">{asesor.asesor_nombre}</p>
           <p className="text-[11px] text-slate-700">{asesor.total_activos} lead{asesor.total_activos !== 1 ? 's' : ''} activos</p>
@@ -261,7 +260,7 @@ const MonitorAsesores: React.FC<Props> = ({ rol, userId, asesor_id }) => {
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-700">
         <Activity className="w-10 h-10 text-slate-500" />
         <p className="text-sm font-bold">No hay leads activos en el pipeline</p>
-        <button onClick={cargar} className="text-xs font-bold text-indigo-700 hover:underline flex items-center gap-1">
+        <button onClick={cargar} className="text-xs font-bold text-templex-700 hover:underline flex items-center gap-1">
           <RefreshCw className="w-3.5 h-3.5" /> Actualizar
         </button>
       </div>
@@ -301,8 +300,8 @@ const MonitorAsesores: React.FC<Props> = ({ rol, userId, asesor_id }) => {
               onClick={() => setTabActivo(a.asesor_id)}
               className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all border ${
                 activo
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
-                  : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                  ? 'bg-templex-600 text-white border-templex-600 shadow-sm'
+                  : 'bg-white text-slate-800 border-slate-200 hover:border-templex-300 hover:text-templex-700'
               }`}
             >
               <User className="w-3.5 h-3.5 shrink-0" />
@@ -338,7 +337,7 @@ const MonitorAsesores: React.FC<Props> = ({ rol, userId, asesor_id }) => {
       {cargandoDetalle && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 flex items-center gap-3 shadow-xl">
-            <Loader2 className="w-5 h-5 animate-spin text-indigo-700" />
+            <Loader2 className="w-5 h-5 animate-spin text-templex-600" />
             <span className="text-sm text-slate-700">Cargando detalle...</span>
           </div>
         </div>

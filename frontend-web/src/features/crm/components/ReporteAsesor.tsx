@@ -1,56 +1,40 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { AlertCircle, RefreshCw, ChevronDown } from '../../../components/ui/icons';
+import {
+  AlertCircle, RefreshCw, ChevronDown, AlertTriangle, CheckCircle2, XCircle, Snowflake, Timer,
+  Users, PhoneCall, Target, DollarSign, Route,
+} from '../../../components/ui/icons';
+import type { IconComponent } from '../../../components/ui/icons';
 import { apiGetReporteAsesor } from '../crmService';
 import { useAsesoresCRM } from '../hooks/useAsesoresCRM';
-import { IconDollar, IconTarget, IconLeads, IconCheck, IconBarChart, IconActivity } from './CRMIcons';
+import {
+  TarjetaKPI, ChartCard, BarraMagnitud, Ayuda, CATEGORICA, tonoEtapa,
+} from '../../../components/charts';
+import type { TonoKPI } from '../../../components/charts';
 
 const fmtCOP = (v: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(v);
 
-const ETAPA_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  NUEVO:          { label: 'Bolsa Común',  color: 'bg-slate-400',   bg: 'bg-slate-50' },
-  ASIGNADO:       { label: 'Asignado',     color: 'bg-blue-500',    bg: 'bg-blue-50' },
-  EN_CONTACTO:    { label: 'En Contacto',  color: 'bg-violet-500',  bg: 'bg-violet-50' },
-  COTIZANDO:      { label: 'Cotizando',    color: 'bg-amber-500',   bg: 'bg-amber-50' },
-  SEGUIMIENTO:    { label: 'Seguimiento',  color: 'bg-teal-500',    bg: 'bg-teal-50' },
-  VISITA_TECNICA: { label: 'V. Técnica',   color: 'bg-indigo-500',  bg: 'bg-indigo-50' },
-  FRIO:           { label: 'Frío',         color: 'bg-sky-400',     bg: 'bg-sky-50' },
-  APROBADO:       { label: 'Aprobado',     color: 'bg-emerald-500', bg: 'bg-emerald-50' },
-  PERDIDO:        { label: 'Perdido',      color: 'bg-rose-500',    bg: 'bg-rose-50' },
+// Etapas activas en orden del proceso → rampa azul (más oscuro = primera etapa). Bolsa común y
+// Frío no son avance: van en gris.
+const ETAPA_CONFIG: Record<string, { label: string }> = {
+  NUEVO:          { label: 'Bolsa Común' },
+  ASIGNADO:       { label: 'Asignado' },
+  EN_CONTACTO:    { label: 'En Contacto' },
+  COTIZANDO:      { label: 'Cotizando' },
+  SEGUIMIENTO:    { label: 'Seguimiento' },
+  VISITA_TECNICA: { label: 'V. Técnica' },
+  FRIO:           { label: 'Frío' },
+  APROBADO:       { label: 'Aprobado' },
+  PERDIDO:        { label: 'Perdido' },
+};
+const ORDEN_ETAPAS = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA'];
+const colorEtapa = (etapa: string) => {
+  const i = ORDEN_ETAPAS.indexOf(etapa);
+  return i < 0 ? '#6f7a8c' : tonoEtapa(i, ORDEN_ETAPAS.length);
 };
 
 // ─── InfoTooltip ──────────────────────────────────────────────────────────────
-const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
-  <div className="relative group inline-flex ml-1.5 flex-shrink-0">
-    <button
-      type="button"
-      className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
-    >?</button>
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-800 text-white text-[11px] rounded-xl p-3 shadow-xl z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none leading-snug">
-      {text}
-      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-    </div>
-  </div>
-);
-
-// ─── KPI card ─────────────────────────────────────────────────────────────────
-interface KPIProps {
-  label: string; value: string; sub?: string;
-  icon: React.ReactNode; border: string; bg: string; tooltip?: string;
-}
-const KPI: React.FC<KPIProps> = ({ label, value, sub, icon, border, bg, tooltip }) => (
-  <div className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm border-l-4 ${border} flex flex-col gap-1.5`}>
-    <div className="flex items-center justify-between">
-      <div className="flex items-center">
-        <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-widest">{label}</span>
-        {tooltip && <InfoTooltip text={tooltip} />}
-      </div>
-      <div className={`w-8 h-8 rounded-xl ${bg} flex items-center justify-center`}>{icon}</div>
-    </div>
-    <p className="text-2xl font-extrabold text-slate-900 leading-none">{value}</p>
-    {sub && <p className="text-[11px] text-slate-700">{sub}</p>}
-  </div>
-);
+const InfoTooltip: React.FC<{ text: string }> = ({ text }) => <Ayuda texto={text} />;
 
 interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; }
 
@@ -93,7 +77,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
     <div className="flex flex-col items-center justify-center py-24 gap-4">
       <AlertCircle className="w-12 h-12 text-rose-300" />
       <p className="text-slate-900 text-sm font-semibold">{error || 'Sin datos'}</p>
-      <button onClick={cargar} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold">Reintentar</button>
+      <button onClick={cargar} className="px-5 py-2.5 bg-templex-600 hover:bg-templex-700 text-white rounded-xl text-sm font-bold">Reintentar</button>
     </div>
   );
 
@@ -117,31 +101,32 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
     .sort((a, b) => b.count - a.count);
 
   const maxEtapa = Math.max(...etapasActivas.map(([, c]) => c), 1);
+  const totalMotivos = motivosList.reduce((acc, m) => acc + m.count, 0) || 1;
 
   const KPIS_SECUNDARIOS = [
     {
       label: 'Aprobados', val: leads_aprobados,
       desc: 'Leads cerrados como ganados en el período',
-      color: 'bg-emerald-50 border-emerald-100', txt: 'text-emerald-700',
+      icono: CheckCircle2 as IconComponent, tono: 'emerald' as TonoKPI, txt: 'text-emerald-700',
       tooltip: 'Leads cerrados exitosamente como APROBADO. Es la métrica de resultado más importante del asesor: refleja cuántos negocios reales generó en el período.',
     },
     {
       label: 'Perdidos', val: leads_perdidos,
       desc: 'Leads cerrados sin conversión en el período',
-      color: 'bg-rose-50 border-rose-100', txt: 'text-rose-700',
+      icono: XCircle as IconComponent, tono: 'rose' as TonoKPI, txt: 'text-rose-700',
       tooltip: 'Leads cerrados como PERDIDO con motivo registrado. Ver la sección "Razones de Pérdida" para entender qué está fallando en el proceso.',
     },
     {
       label: 'Frío', val: (leads_por_etapa as any)['FRIO'] || 0,
       desc: 'Leads pausados por baja probabilidad de cierre',
-      color: 'bg-sky-50 border-sky-100', txt: 'text-sky-700',
+      icono: Snowflake as IconComponent, tono: 'slate' as TonoKPI, txt: 'text-slate-900',
       tooltip: 'Leads marcados como FRÍO: el cliente dejó de responder tras múltiples intentos. No están descartados definitivamente, pueden reactivarse si el cliente vuelve a tomar contacto.',
     },
     {
       label: 'T° 1ª Respuesta',
       val: `${tiempo_prom_primera_respuesta_h}h`,
       desc: 'Horas promedio hasta el primer contacto con el lead',
-      color: tiempo_prom_primera_respuesta_h > 4 ? 'bg-rose-50 border-rose-100' : 'bg-amber-50 border-amber-100',
+      icono: Timer as IconComponent, tono: (tiempo_prom_primera_respuesta_h > 4 ? 'rose' : 'amber') as TonoKPI,
       txt: tiempo_prom_primera_respuesta_h > 4 ? 'text-rose-700' : 'text-amber-700',
       tooltip: 'Horas promedio entre que se asigna el lead al asesor y su primer intento de contacto registrado. Más de 4 horas (rojo) indica demora en atender nuevas oportunidades. Lo ideal es contactar en menos de 2 horas.',
     },
@@ -149,25 +134,25 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
 
   const ACTIVIDAD_ITEMS = [
     {
-      label: 'Contactos', val: contactos_realizados, icon: '📞',
+      label: 'Contactos', val: contactos_realizados, Icono: PhoneCall as IconComponent,
       tooltip: 'Intentos de contacto con el cliente registrados en el período. Cada llamada, mensaje o reunión anotada en el sistema cuenta aquí.',
     },
     {
-      label: 'Seguimientos', val: seguimientos, icon: '🔄',
+      label: 'Seguimientos', val: seguimientos, Icono: RefreshCw as IconComponent,
       tooltip: 'Intentos de seguimiento adicionales tras el primer contacto. Cada toque de "seguimiento" que el asesor registra en el lead suma a este contador.',
     },
     {
-      label: 'Movimientos', val: cambios_estado, icon: '↔️',
+      label: 'Movimientos', val: cambios_estado, Icono: Route as IconComponent,
       tooltip: 'Cambios de etapa realizados por el asesor durante el período (ej: Asignado→En Contacto, Cotizando→Aprobado). Refleja la actividad de avance en el pipeline.',
     },
     {
-      label: 'T° Respuesta', val: `${tiempo_prom_primera_respuesta_h}h`, icon: '⏱',
+      label: 'T° Respuesta', val: `${tiempo_prom_primera_respuesta_h}h`, Icono: Timer as IconComponent,
       tooltip: 'Tiempo promedio en horas desde la asignación del lead hasta el primer contacto registrado. Mide la agilidad de respuesta del asesor ante nuevas oportunidades.',
     },
   ];
 
   return (
-    <div className="space-y-5 pb-10">
+    <div className="space-y-4 pb-10">
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -222,91 +207,53 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
       </div>
 
       {/* KPIs principales */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPI
-          label="Leads Asignados" value={String(leads_asignados)} sub={`${leads_activos} activos`}
-          icon={<IconLeads size={18} className="text-violet-700" />}
-          border="border-l-violet-500" bg="bg-violet-50"
-          tooltip="Total de leads que el asesor tiene o tuvo asignados en el período. Incluye todos los estados: activos, aprobados, perdidos y fríos. Es el volumen total de trabajo gestionado."
-        />
-        <KPI
-          label="Contactos" value={String(contactos_realizados)} sub={`${seguimientos} seguimientos`}
-          icon={<IconActivity size={18} className="text-blue-700" />}
-          border="border-l-blue-500" bg="bg-blue-50"
-          tooltip="Número de intentos de contacto registrados por el asesor. Los seguimientos son interacciones adicionales después del primer contacto (recordatorios, actualizaciones, re-consultas)."
-        />
-        <KPI
-          label="Tasa de Conversión" value={`${tasa_conversion}%`} sub={`${leads_aprobados} aprobados`}
-          icon={<IconTarget size={18} className="text-emerald-700" />}
-          border="border-l-emerald-500" bg="bg-emerald-50"
-          tooltip="Porcentaje de los leads del asesor que cerraron como APROBADO. Verde ≥30%, amarillo ≥15%, rojo <15%. Comparar con el promedio del equipo para evaluar rendimiento relativo."
-        />
-        <KPI
-          label="Monto Gestionado" value={fmtCOP(monto_gestionado)} sub={`${cambios_estado} movimientos`}
-          icon={<IconDollar size={18} className="text-indigo-700" />}
-          border="border-l-indigo-500" bg="bg-indigo-50"
-          tooltip="Suma de las cotizaciones proyectadas de todos los leads asignados al asesor. Refleja el valor total del pipeline que está gestionando, sin importar si ya cerraron o no."
-        />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <TarjetaKPI densa indice={0} rotulo="Leads Asignados" icono={Users} tono="violet"
+          cifra={String(leads_asignados)} descripcion={`${leads_activos} activos`}
+          ayuda="Total de leads que el asesor tiene o tuvo asignados en el período. Incluye todos los estados: activos, aprobados, perdidos y fríos. Es el volumen total de trabajo gestionado." />
+        <TarjetaKPI densa indice={1} rotulo="Contactos" icono={PhoneCall} tono="blue"
+          cifra={String(contactos_realizados)} descripcion={`${seguimientos} seguimientos`}
+          ayuda="Número de intentos de contacto registrados por el asesor. Los seguimientos son interacciones adicionales después del primer contacto (recordatorios, actualizaciones, re-consultas)." />
+        <TarjetaKPI densa indice={2} rotulo="Tasa de Conversión" icono={Target} tono="emerald"
+          cifra={`${tasa_conversion}%`} descripcion={`${leads_aprobados} aprobados`}
+          cifraClassName={tasa_conversion >= 30 ? 'text-emerald-700' : tasa_conversion >= 15 ? 'text-amber-700' : 'text-rose-700'}
+          ayuda="Porcentaje de los leads del asesor que cerraron como APROBADO. Verde ≥30%, ámbar ≥15%, rojo <15%. Comparar con el promedio del equipo para evaluar rendimiento relativo." />
+        <TarjetaKPI densa indice={3} rotulo="Monto Gestionado" icono={DollarSign} tono="indigo"
+          cifra={fmtCOP(monto_gestionado)} descripcion={`${cambios_estado} movimientos`}
+          ayuda="Suma de las cotizaciones proyectadas de todos los leads asignados al asesor. Refleja el valor total del pipeline que está gestionando, sin importar si ya cerraron o no." />
       </div>
 
       {/* KPIs secundarios */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {KPIS_SECUNDARIOS.map(k => (
-          <div key={k.label} className={`${k.color} border rounded-xl p-4 flex items-center gap-3`}>
-            <div>
-              <div className="flex items-center">
-                <p className="text-[11px] font-semibold text-slate-900 uppercase">{k.label}</p>
-                <InfoTooltip text={k.tooltip} />
-              </div>
-              <p className={`text-xl font-bold ${k.txt}`}>{k.val}</p>
-              <p className="text-[11px] text-slate-700 mt-0.5 leading-snug">{k.desc}</p>
-            </div>
-          </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {KPIS_SECUNDARIOS.map((k, i) => (
+          <TarjetaKPI key={k.label} densa indice={4 + i} rotulo={k.label} icono={k.icono} tono={k.tono}
+            cifra={String(k.val)} cifraClassName={k.txt} descripcion={k.desc} ayuda={k.tooltip} />
         ))}
       </div>
 
       {/* Embudo personal + Resultados */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
         {/* Embudo activo (cuello de botella) */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
-              <IconBarChart size={18} className="text-amber-700" />
-            </div>
-            <div className="flex items-center flex-1">
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">Embudo Personal</h3>
-                <p className="text-[11px] text-slate-700 mt-0.5">Leads activos por etapa</p>
-              </div>
-              <InfoTooltip text="Distribución de los leads activos del asesor entre las etapas del pipeline. El cuello de botella (⚠) es la etapa con mayor acumulación relativa, indicando dónde se están estancando los leads." />
-            </div>
-            {etapa_cuello && (
-              <span className="ml-auto text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full border border-amber-100 flex-shrink-0">
-                ⚠ Cuello: {ETAPA_CONFIG[etapa_cuello]?.label || etapa_cuello}
-              </span>
-            )}
-          </div>
+        <ChartCard indice={8}
+          titulo={<span className="inline-flex items-center">Embudo Personal<InfoTooltip text="Distribución de los leads activos del asesor entre las etapas del pipeline. El cuello de botella es la etapa con mayor acumulación relativa, indicando dónde se están estancando los leads." /></span>}
+          descripcion="Leads activos por etapa, de mayor a menor"
+          acciones={etapa_cuello ? (
+            <span className="flex items-center gap-1 text-[12px] font-semibold text-amber-800 bg-amber-50 px-2 py-1 rounded-full ring-1 ring-amber-200">
+              <AlertTriangle className="w-3.5 h-3.5" /> Cuello: {ETAPA_CONFIG[etapa_cuello]?.label || etapa_cuello}
+            </span>
+          ) : undefined}>
           {etapasActivas.length === 0 ? (
             <p className="text-center text-slate-700 text-sm py-6">Sin leads activos</p>
           ) : (
-            <div className="space-y-3">
-              {etapasActivas.map(([etapa, count]) => {
-                const cfg = ETAPA_CONFIG[etapa] || { label: etapa, color: 'bg-slate-400', bg: 'bg-slate-50' };
-                const pct = (count / maxEtapa) * 100;
+            <div className="space-y-1.5">
+              {etapasActivas.map(([etapa, count], i) => {
                 const esCuello = etapa === etapa_cuello;
                 return (
-                  <div key={etapa} className={`rounded-xl p-3 border ${esCuello ? 'border-amber-200 bg-amber-50/50' : 'border-slate-100 ' + cfg.bg}`}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs text-slate-700">{cfg.label}</span>
-                      <span className={`text-xs font-bold ${esCuello ? 'text-amber-700' : 'text-slate-900'}`}>{count} leads</span>
-                    </div>
-                    <div className="h-2 bg-white rounded-full overflow-hidden border border-slate-100">
-                      <div
-                        className={`h-full rounded-full ${cfg.color} transition-all duration-700`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
+                  <div key={etapa} className={`rounded-xl px-2 py-1.5 ${esCuello ? 'bg-amber-50 ring-1 ring-amber-200' : ''}`}>
+                    <BarraMagnitud indice={i} anchoLabel="w-28"
+                      label={<span className="inline-flex items-center gap-1">{esCuello && <AlertTriangle className="w-3 h-3 text-amber-700" />}{ETAPA_CONFIG[etapa]?.label || etapa}</span>}
+                      valor={count} max={maxEtapa} color={colorEtapa(etapa)} cifra={`${count} leads`} />
                   </div>
                 );
               })}
@@ -315,96 +262,60 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
 
           {/* Resultados (aprobados/perdidos/fríos) */}
           {etapasResultado.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-50">
+            <div className="mt-4 pt-4 border-t border-slate-100">
               <div className="flex items-center mb-2">
-                <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-widest">Resultados del período</p>
+                <p className="text-[12px] font-semibold text-slate-900">Resultados del período</p>
                 <InfoTooltip text="Leads cerrados en el período distribuidos por resultado: Aprobado (ganados), Perdido (descartados con motivo), Frío (sin respuesta del cliente)." />
               </div>
               <div className="grid grid-cols-3 gap-3 text-center">
-                {etapasResultado.map(([etapa, count]) => {
-                  const cfg = ETAPA_CONFIG[etapa];
-                  return (
-                    <div key={etapa}>
-                      <p className="text-lg font-bold text-slate-900">{count}</p>
-                      <p className="text-[11px] text-slate-900 font-semibold uppercase">{cfg?.label || etapa}</p>
-                    </div>
-                  );
-                })}
+                {etapasResultado.map(([etapa, count]) => (
+                  <div key={etapa}>
+                    <p className="text-lg font-bold text-slate-900 tabular-nums">{count}</p>
+                    <p className="text-[12px] text-slate-900 font-semibold">{ETAPA_CONFIG[etapa]?.label || etapa}</p>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-        </div>
+        </ChartCard>
 
         {/* Motivos de pérdida + Actividad */}
-        <div className="space-y-4">
-          {/* Motivos de pérdida */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center">
-                <IconTarget size={18} className="text-rose-700" />
-              </div>
-              <div className="flex items-center">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Razones de Pérdida</h3>
-                  <p className="text-[11px] text-slate-700 mt-0.5">Motivos registrados al cerrar un lead como PERDIDO</p>
-                </div>
-                <InfoTooltip text="Motivos que el asesor registró al cerrar leads como PERDIDO en el período. Cada barra es proporcional al total de pérdidas. Identificar los motivos más frecuentes permite ajustar la estrategia de ventas." />
-              </div>
-            </div>
+        <div className="space-y-3">
+          <ChartCard indice={9}
+            titulo={<span className="inline-flex items-center">Razones de Pérdida<InfoTooltip text="Motivos que el asesor registró al cerrar leads como PERDIDO en el período. Cada barra es proporcional al motivo más frecuente. Identificar los motivos más frecuentes permite ajustar la estrategia de ventas." /></span>}
+            descripcion="Motivos registrados al cerrar un lead como PERDIDO">
             {motivosList.length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-2xl mb-1">🎯</p>
-                <p className="text-sm text-slate-700">Sin pérdidas en este período</p>
+              <div className="flex flex-col items-center py-4 gap-1.5">
+                <CheckCircle2 weight="duotone" className="w-8 h-8 text-emerald-600" />
+                <p className="text-sm text-slate-900 font-semibold">Sin pérdidas en este período</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {motivosList.map((m, i) => {
-                  const total = motivosList.reduce((s, x) => s + x.count, 0) || 1;
-                  const pct = Math.round((m.count / total) * 100);
-                  const colors = ['bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-slate-400'];
-                  return (
-                    <div key={m.motivo}>
-                      <div className="flex justify-between mb-1">
-                        <span className="text-xs text-slate-900 flex-1 mr-2 truncate">{m.motivo}</span>
-                        <span className="text-[11px] text-slate-700 whitespace-nowrap">{m.count} ({pct}%)</span>
-                      </div>
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${colors[i % colors.length]} transition-all duration-700`} style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="space-y-2.5">
+                {motivosList.map((m, i) => (
+                  <BarraMagnitud key={m.motivo} indice={i} anchoLabel="w-40" label={m.motivo}
+                    valor={m.count} max={motivosList[0].count} color={CATEGORICA[0]}
+                    cifraSecundaria={`${Math.round((m.count / totalMotivos) * 100)}%`} />
+                ))}
               </div>
             )}
-          </div>
+          </ChartCard>
 
-          {/* Resumen actividad */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
-                <IconCheck size={18} className="text-blue-700" />
-              </div>
-              <div className="flex items-center">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Actividad Total</h3>
-                  <p className="text-[11px] text-slate-700 mt-0.5">Todas las interacciones registradas en el período</p>
-                </div>
-                <InfoTooltip text="Resumen cuantitativo de toda la actividad del asesor: contactos intentados, seguimientos realizados, cambios de etapa y velocidad de respuesta. Refleja el nivel de intensidad de trabajo, independientemente de los resultados." />
-              </div>
-            </div>
+          <ChartCard indice={10}
+            titulo={<span className="inline-flex items-center">Actividad Total<InfoTooltip text="Resumen cuantitativo de toda la actividad del asesor: contactos intentados, seguimientos realizados, cambios de etapa y velocidad de respuesta. Refleja el nivel de intensidad de trabajo, independientemente de los resultados." /></span>}
+            descripcion="Todas las interacciones registradas en el período">
             <div className="grid grid-cols-2 gap-3">
               {ACTIVIDAD_ITEMS.map(item => (
-                <div key={item.label} className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-center">
-                  <span className="text-lg">{item.icon}</span>
-                  <p className="text-lg font-bold text-slate-900 mt-0.5">{item.val}</p>
+                <div key={item.label} className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-center">
+                  <item.Icono weight="duotone" className="w-5 h-5 text-slate-700 mx-auto" />
+                  <p className="text-lg font-bold text-slate-900 mt-1 tabular-nums">{item.val}</p>
                   <div className="flex items-center justify-center">
-                    <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wide">{item.label}</p>
+                    <p className="text-[12px] font-semibold text-slate-900">{item.label}</p>
                     <InfoTooltip text={item.tooltip} />
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </ChartCard>
         </div>
       </div>
     </div>

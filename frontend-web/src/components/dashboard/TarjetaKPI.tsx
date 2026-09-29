@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { TrendingUp, TrendingDown } from '../ui/icons';
 import type { IconComponent } from '../ui/icons';
+import { Ayuda } from '../charts/Ayuda';
 
 /**
  * Anatomía única de las tarjetas de KPI del dashboard (Fase 3 del rediseño, 2026-09-25).
@@ -53,13 +55,19 @@ interface TarjetaKPIProps {
   onClick?: () => void;
   /** Barra de progreso de 3px al pie de la tarjeta. */
   barra?: React.ReactNode;
+  /** Variación contra el período anterior. Flecha + signo + texto: nunca solo el color. */
+  delta?: { texto: string; positivo: boolean; contexto?: string } | null;
+  /** Explicación del cálculo, en un "?" junto al rótulo. */
+  ayuda?: string;
+  /** Tarjeta compacta para grillas de 4+ indicadores (cifra de 24px, menos relleno). */
+  densa?: boolean;
   children?: React.ReactNode;
   className?: string;
 }
 
 export const TarjetaKPI: React.FC<TarjetaKPIProps> = ({
   rotulo, icono: Icono, tono = 'slate', cifra, cifraClassName = 'text-slate-900',
-  descripcion, accion, indice = 0, onClick, barra, children, className = '',
+  descripcion, accion, indice = 0, onClick, barra, delta, ayuda, densa = false, children, className = '',
 }) => {
   const t = TONOS[tono];
   return (
@@ -67,24 +75,34 @@ export const TarjetaKPI: React.FC<TarjetaKPIProps> = ({
       custom={indice} variants={entrada} initial="hidden" animate="visible"
       whileHover={{ y: -2, boxShadow: t.resplandor }}
       onClick={onClick}
-      className={`bg-white border border-slate-200 rounded-2xl shadow-card p-5 flex flex-col relative overflow-hidden min-w-0 ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      className={`bg-white border border-slate-200 rounded-2xl shadow-card ${densa ? 'p-4' : 'p-5'} flex flex-col relative overflow-hidden min-w-0 ${onClick ? 'cursor-pointer' : ''} ${className}`}
     >
       {/* Rótulo + icono: altura mínima de dos renglones para alinear las cifras */}
       <div className="flex items-start justify-between gap-3 min-h-[36px]">
         <p className="text-[12px] font-semibold text-slate-900 uppercase tracking-wide leading-[18px] min-w-0">
           {rotulo}
+          {ayuda && <Ayuda texto={ayuda} className="ml-1" />}
           {accion && <span className="inline-flex align-middle ml-1 -my-1">{accion}</span>}
         </p>
         <div className="flex items-center shrink-0">
-          <span className={`w-9 h-9 rounded-xl ring-1 flex items-center justify-center ${t.fondo}`}>
-            <Icono weight="duotone" className={`w-5 h-5 ${t.icono}`} />
+          <span className={`${densa ? 'w-8 h-8' : 'w-9 h-9'} rounded-xl ring-1 flex items-center justify-center ${t.fondo}`}>
+            <Icono weight="duotone" className={`${densa ? 'w-[18px] h-[18px]' : 'w-5 h-5'} ${t.icono}`} />
           </span>
         </div>
       </div>
 
-      <p className={`mt-3 text-[26px] sm:text-[30px] leading-none font-extrabold tracking-tight tabular-nums whitespace-nowrap ${cifraClassName}`}>
+      {/* Cifras proporcionales: en tamaño de titular, las tabulares separan los dígitos. */}
+      <p className={`${densa ? 'mt-2 text-[24px]' : 'mt-3 text-[26px] sm:text-[30px]'} leading-none font-extrabold tracking-tight [font-variant-numeric:normal] whitespace-nowrap ${cifraClassName}`}>
         {cifra}
       </p>
+
+      {delta && (
+        <p className={`mt-2 flex items-center gap-1 text-[12px] font-semibold ${delta.positivo ? 'text-emerald-700' : 'text-rose-700'}`}>
+          {delta.positivo ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+          {delta.texto}
+          <span className="font-normal text-slate-700">{delta.contexto ?? 'vs período anterior'}</span>
+        </p>
+      )}
 
       {descripcion && (
         <p className="mt-2 text-[12px] text-slate-700 font-normal leading-snug">{descripcion}</p>

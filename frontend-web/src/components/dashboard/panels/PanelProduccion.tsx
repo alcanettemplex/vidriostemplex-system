@@ -4,8 +4,7 @@ import { motion } from 'framer-motion';
 // Nombres de estado: `utils/estadosODP` es la fuente única. Aquí se usa la variante
 // corta porque van dentro de tarjetas densas.
 import { ESTADO_LABELS_CORTOS as ESTADO_LABEL } from '../../../utils/estadosODP';
-
-const SERVICIO_COLORS = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#555f71','#06b6d4'];
+import { BarraMagnitud, CATEGORICA } from '../../charts';
 
 // Renombres y fusiones para el dashboard (sin tocar la BD)
 const SERVICIO_LABEL: Record<string, string> = {
@@ -111,32 +110,15 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
                 Cuántas de las <span className="font-semibold text-slate-900">{checks[0]?.total ?? 0} ODPs activas</span> completaron cada etapa de taller — ordenadas de menor a mayor avance
               </p>
             </div>
+            {/* Un solo tono: es avance de la misma medida en cada etapa, no categorías distintas.
+                Antes cada barra se pintaba en verde/ámbar/rojo según umbrales que no estaban
+                explicados en pantalla. */}
             <div className="space-y-2.5">
-              {checks.map((c: any, i: number) => {
-                const color = c.pct >= 67 ? '#10b981' : c.pct >= 34 ? '#f59e0b' : '#ef4444';
-                const wPct  = Math.max(c.pct, c.total > 0 ? 1.5 : 0);
-                return (
-                  <div key={c.campo} className="flex items-center gap-3 text-[12px]">
-                    <span className="w-[118px] shrink-0 text-slate-800 truncate">{c.label}</span>
-                    <div className="flex-1 h-5 bg-slate-100 rounded-lg overflow-hidden relative">
-                      <motion.div className="absolute inset-y-0 left-0 rounded-lg"
-                        style={{ background: color + '33' }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${wPct}%` }}
-                        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.05 + i * 0.06 }} />
-                      <motion.div className="absolute inset-y-1 left-1 rounded"
-                        style={{ background: color }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.max(wPct - 3, 0)}%` }}
-                        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.1 + i * 0.06 }} />
-                    </div>
-                    <span className="shrink-0 tabular-nums text-slate-800 w-[84px] text-right text-[12px] whitespace-nowrap">
-                      {c.completadas}/{c.total}&nbsp;
-                      <span style={{ color }} className="font-semibold">({c.pct}%)</span>
-                    </span>
-                  </div>
-                );
-              })}
+              {checks.map((c: any, i: number) => (
+                <BarraMagnitud key={c.campo} indice={i} anchoLabel="w-[118px]"
+                  label={c.label} valor={c.pct} max={100} color={CATEGORICA[0]}
+                  cifra={`${c.completadas}/${c.total}`} cifraSecundaria={`${c.pct}%`} />
+              ))}
               {checks.length === 0 && (
                 <p className="text-slate-700 text-[12px] text-center py-6">Sin ODPs activas en producción</p>
               )}
@@ -150,32 +132,14 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
               <p className="text-[15px] font-semibold text-slate-900">ODPs por Servicio</p>
               <p className="text-[12px] text-slate-700 mt-1">Distribución del período ({totalServicios} total)</p>
             </div>
+            {/* Categorías sin orden natural: un solo color para todas (el largo de la barra ya
+                dice cuál pesa más). Un color por fila no agregaba información. */}
             <div className="flex-1 space-y-2.5 overflow-y-auto">
-              {servicios.map((s: any, i: number) => {
-                const maxCant = servicios[0]?.cantidad || 1;
-                const barPct  = (s.cantidad / maxCant) * 100;
-                return (
-                  <div key={i} className="space-y-1">
-                    <div className="flex items-center justify-between text-[12px]">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="w-2 h-2 rounded-sm shrink-0"
-                          style={{ background: SERVICIO_COLORS[i % SERVICIO_COLORS.length] }} />
-                        <span className="text-slate-800 truncate">{s.label}</span>
-                      </div>
-                      <span className="shrink-0 ml-2 tabular-nums text-slate-900 font-semibold">
-                        {s.cantidad} <span className="text-slate-700 font-normal">({s.pct}%)</span>
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <motion.div className="h-full rounded-full"
-                        style={{ background: SERVICIO_COLORS[i % SERVICIO_COLORS.length] }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${barPct}%` }}
-                        transition={{ duration: 0.7, delay: 0.1 + i * 0.06 }} />
-                    </div>
-                  </div>
-                );
-              })}
+              {servicios.map((s: any, i: number) => (
+                <BarraMagnitud key={s.label} indice={i} alto="fina" anchoLabel="w-[112px]"
+                  label={s.label} valor={s.cantidad} max={servicios[0]?.cantidad || 1}
+                  color={CATEGORICA[0]} cifraSecundaria={`${s.pct}%`} />
+              ))}
             </div>
           </motion.div>
         </div>

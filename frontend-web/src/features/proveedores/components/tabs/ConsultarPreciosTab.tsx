@@ -8,6 +8,7 @@ import {
 import API from '../../../../services/config';
 import { useBusquedaModulo, MIN_CARACTERES, ProductoSugerido } from '../../hooks/useBusquedaModulo';
 import { RADIUS, FONT } from '../../styleTokens';
+import { Sparkline, ESTADO, CATEGORICA } from '../../../../components/charts';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -81,12 +82,12 @@ const formatFecha = (val: string | null): string => {
 };
 
 const VariacionBadge: React.FC<{ pct: number | null; anomalo: boolean; umbral: number }> = ({ pct, anomalo, umbral }) => {
-  if (pct === null) return <span style={{ color: 'var(--text-muted)', fontSize: FONT.sm }}>—</span>;
+  if (pct === null) return <span style={{ color: 'var(--text-muted)', fontSize: FONT.sm }} title="Sin precio anterior con qué comparar">—</span>;
   const Icon = pct > 0 ? TrendingUp : pct < 0 ? TrendingDown : Minus;
   const color = anomalo ? '#b91c1c' : pct > 0 ? '#b45309' : '#15803d';
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 3,
+    <span title={anomalo ? `Variación anómala: supera el umbral de ±${umbral}%` : 'Variación contra el precio anterior'} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
       color, fontWeight: 600, fontSize: FONT.sm,
       background: `${color}18`, borderRadius: RADIUS.sm, padding: '2px 7px',
     }}>
@@ -96,6 +97,17 @@ const VariacionBadge: React.FC<{ pct: number | null; anomalo: boolean; umbral: n
     </span>
   );
 };
+
+/** Los precios que ya trae la fila, del más antiguo al vigente. Sin consulta adicional. */
+const serieTendencia = (p: PrecioProveedor): number[] =>
+  [p.precio_anterior_2, p.precio_anterior_1, p.precio_sin_iva].filter((v): v is number => v !== null && v !== undefined);
+
+/** Color del último punto de la tendencia: la dirección del cambio, con el mismo criterio del badge. */
+const colorTendencia = (p: PrecioProveedor): string =>
+  p.precio_anomalo ? ESTADO.critico
+    : (p.variacion_pct ?? 0) > 0 ? ESTADO.atencion
+      : (p.variacion_pct ?? 0) < 0 ? ESTADO.bien
+        : CATEGORICA[0];
 
 // ─── Componente principal ──────────────────────────────────────────────────────
 
@@ -487,12 +499,12 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                 {/* Encabezado de tabla */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
+                  gridTemplateColumns: '2fr 1fr 1fr 1fr 1.4fr 0.9fr',
                   background: 'var(--surface)',
                   padding: '10px 20px', gap: 8,
                   borderBottom: '1px solid var(--border)',
                 }}>
-                  {['PROVEEDOR', 'MODALIDAD', 'SIN IVA', `+${resultado.producto.porcentaje_iva}% IVA`, 'VARIACIÓN', 'FECHA'].map(h => (
+                  {['PROVEEDOR', 'MODALIDAD', 'SIN IVA', `+${resultado.producto.porcentaje_iva}% IVA`, 'TENDENCIA · VARIACIÓN', 'FECHA'].map(h => (
                     <div key={h} style={{ fontSize: FONT.xs, fontWeight: 600, color: 'var(--text)', letterSpacing: .5 }}>{h}</div>
                   ))}
                 </div>
@@ -510,7 +522,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                       onClick={() => setExpandido(expandido === p.proveedor_producto_id ? null : p.proveedor_producto_id)}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr',
+                        gridTemplateColumns: '2fr 1fr 1fr 1fr 1.4fr 0.9fr',
                         padding: '13px 20px', gap: 8,
                         borderBottom: '1px solid var(--border)',
                         cursor: 'pointer',
@@ -561,9 +573,24 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                         {ETIQUETA_MODALIDAD[p.unidad_compra] ?? p.unidad_compra}
                       </div>
 
-                      {/* Precio sin IVA */}
-                      <div style={{ fontWeight: 700, color: 'var(--text)', alignSelf: 'center', fontSize: FONT.lg }}>
-                        {formatCOP(p.precio_sin_iva)}
+                      {/* Precio sin IVA — y cuánto más caro que el más bajo, solo si es la misma
+                          modalidad: comparar un precio por tira con uno por metro engaña. */}
+                      <div style={{ alignSelf: 'center' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: FONT.lg }}>
+                          {formatCOP(p.precio_sin_iva)}
+                        </div>
+                        {(() => {
+                          const base = resultado.precios[0];
+                          if (idx === 0 || !base || base.unidad_compra !== p.unidad_compra) return null;
+                          if (!base.precio_sin_iva || !p.precio_sin_iva) return null;
+                          const dif = ((p.precio_sin_iva - base.precio_sin_iva) / base.precio_sin_iva) * 100;
+                          if (dif <= 0) return null;
+                          return (
+                            <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', marginTop: 1 }} title={`Contra ${base.proveedor.nombre_comercial}, el más bajo en la misma modalidad`}>
+                              +{dif.toFixed(1)}% vs más bajo
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Precio con IVA */}
@@ -571,8 +598,10 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                         {formatCOP(p.precio_con_iva)}
                       </div>
 
-                      {/* Variación */}
-                      <div style={{ alignSelf: 'center' }}>
+                      {/* Variación + tendencia de los últimos precios registrados */}
+                      <div style={{ alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <Sparkline valores={serieTendencia(p)} ancho={46} alto={20} colorFinal={colorTendencia(p)}
+                          titulo={`Últimos precios: ${serieTendencia(p).map((v) => formatCOP(v)).join(' → ')}`} />
                         <VariacionBadge pct={p.variacion_pct} anomalo={p.precio_anomalo} umbral={resultado.umbral_variacion_pct} />
                       </div>
 

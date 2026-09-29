@@ -3,6 +3,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Filter, TrendingUp } from '../../../ui/icons';
 import type { DatosPanelCotizaciones } from './tipos';
 import { COLOR } from './tipos';
+import { ejeX, ejeY, rejilla, cursorBarra, puntaVertical } from '../../../charts';
 import { Bloque, BarraH, Leyenda, Vacio } from './Piezas';
 import { fmtCompacto, fmtCOP, fmtEntero, fmtMes, fmtPct, mesesEntre } from './formato';
 
@@ -90,12 +91,12 @@ export const BloqueEmbudo: React.FC<{ datos: DatosPanelCotizaciones }> = ({ dato
             <div className="h-[240px] -ml-2">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={mensual} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2} barCategoryGap="22%">
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e1e5eb" />
-                  <XAxis dataKey="mes" tickFormatter={fmtMes} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#2f3746' }} interval="preserveStartEnd" />
-                  <YAxis tickFormatter={fmtCompacto} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#3f4858' }} width={56} />
-                  <Tooltip content={<TooltipMensual />} cursor={{ fill: '#f6f7f9' }} />
-                  <Bar dataKey="valor" name="Cotizado" fill={COLOR.cotizado} radius={[4, 4, 0, 0]} maxBarSize={28} />
-                  <Bar dataKey="valor_aprobado" name="Aprobado" fill={COLOR.aprobado} radius={[4, 4, 0, 0]} maxBarSize={28} />
+                  <CartesianGrid {...rejilla} />
+                  <XAxis dataKey="mes" tickFormatter={fmtMes} {...ejeX} interval="preserveStartEnd" />
+                  <YAxis tickFormatter={fmtCompacto} {...ejeY} width={56} />
+                  <Tooltip content={<TooltipMensual />} cursor={cursorBarra} />
+                  <Bar dataKey="valor" name="Cotizado" fill={COLOR.cotizado} radius={puntaVertical} maxBarSize={28} />
+                  <Bar dataKey="valor_aprobado" name="Aprobado" fill={COLOR.aprobado} radius={puntaVertical} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

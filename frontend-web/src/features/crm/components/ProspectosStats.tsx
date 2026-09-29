@@ -1,51 +1,33 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { AlertCircle, RefreshCw, AlertTriangle, CheckCircle2, Clock, TrendingUp } from '../../../components/ui/icons';
+import { AlertCircle, RefreshCw, AlertTriangle, CheckCircle2, Clock, TrendingUp, Users, Target, Timer } from '../../../components/ui/icons';
+import type { IconComponent } from '../../../components/ui/icons';
 import { apiGetStatsProspectos } from '../crmService';
-import { IconLeads, IconTarget, IconCheck, IconClock, IconBarChart } from './CRMIcons';
+import { TarjetaKPI, ChartCard, Medidor, Iniciales, Ayuda, tonoEtapa, colorPorEntidad } from '../../../components/charts';
+import type { TonoKPI } from '../../../components/charts';
 
 interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; asesor_id?: number; }
 
 // ─── InfoTooltip ──────────────────────────────────────────────────────────────
-const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
-  <div className="relative group inline-flex ml-1.5 flex-shrink-0">
-    <button
-      type="button"
-      className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
-    >?</button>
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-800 text-white text-[11px] rounded-xl p-3 shadow-xl z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none leading-snug">
-      {text}
-      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-    </div>
-  </div>
-);
+const InfoTooltip: React.FC<{ text: string }> = ({ text }) => <Ayuda texto={text} />;
 
 // ─── Paso del embudo ──────────────────────────────────────────────────────────
+// Rampa azul por etapa (más oscuro = boca del embudo). El valor va en tinta, fuera de la
+// barra: dentro de una barra corta el número se recortaba.
 const EmbudoStep: React.FC<{
   label: string; value: number; total: number;
-  color: string; isLast?: boolean; tooltip?: string;
-}> = ({ label, value, total, color, isLast, tooltip }) => {
+  color: string; tooltip?: string;
+}> = ({ label, value, total, color, tooltip }) => {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-  const width = total > 0 ? `${Math.max((value / total) * 100, 8)}%` : '8%';
   return (
-    <div className="flex items-center gap-4">
-      <div className="flex-1">
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center">
-            <span className="text-xs font-medium text-slate-900">{label}</span>
-            {tooltip && <InfoTooltip text={tooltip} />}
-          </div>
-          <span className="text-xs text-slate-700">{value} <span className="text-slate-700 font-normal">({pct}%)</span></span>
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center">
+          <span className="text-[12px] font-semibold text-slate-900">{label}</span>
+          {tooltip && <InfoTooltip text={tooltip} />}
         </div>
-        <div className="h-6 bg-slate-100 rounded-lg overflow-hidden relative">
-          <div className={`h-full ${color} rounded-lg transition-all duration-700 flex items-center px-2`} style={{ width }}>
-            {pct > 12 && <span className="text-[11px] font-bold text-white">{value}</span>}
-          </div>
-          {pct <= 12 && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-slate-700">{value}</span>
-          )}
-        </div>
+        <span className="text-[12px] text-slate-900 font-semibold tabular-nums">{value} <span className="text-slate-700 font-normal">({pct}%)</span></span>
       </div>
-      {!isLast && <span className="text-slate-400 font-bold text-lg flex-shrink-0">→</span>}
+      <Medidor pct={total > 0 ? (value / total) * 100 : 0} color={color} alto={10} />
     </div>
   );
 };
@@ -86,7 +68,7 @@ const ProspectosStats: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_ha
     <div className="flex flex-col items-center justify-center py-24 gap-4">
       <AlertCircle className="w-12 h-12 text-rose-300" />
       <p className="text-slate-900 text-sm font-semibold">{error || 'Sin datos'}</p>
-      <button onClick={cargar} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold">Reintentar</button>
+      <button onClick={cargar} className="px-5 py-2.5 bg-templex-600 hover:bg-templex-700 text-white rounded-xl text-sm font-bold">Reintentar</button>
     </div>
   );
 
@@ -104,38 +86,34 @@ const ProspectosStats: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_ha
       label: 'Total Prospectos',
       value: String(total),
       sub: periodoLabel,
-      icon: <IconLeads size={18} className="text-violet-700" />,
-      border: 'border-l-violet-500', bg: 'bg-violet-50',
+      icono: Users as IconComponent, tono: 'violet' as TonoKPI,
       tooltip: 'Cantidad total de prospectos registrados en el período. Un prospecto es un proyecto concreto con alta probabilidad de convertirse en ODP, distinto de un lead CRM: ya existe un contexto de proyecto definido (cliente, producto, ubicación).',
     },
     {
       label: 'Activos (en gestión)',
       value: String(activos),
       sub: `${no_aprobados} no aprobados`,
-      icon: <IconClock size={18} className="text-amber-700" />,
-      border: 'border-l-amber-500', bg: 'bg-amber-50',
+      icono: Clock as IconComponent, tono: 'amber' as TonoKPI,
       tooltip: 'Prospectos que siguen en proceso: tienen asesor asignado y no han sido cerrados. Los "no aprobados" son prospectos que el cliente rechazó o no prosperaron, pero que también se cerraron en el período.',
     },
     {
       label: 'Tasa Conversión',
       value: `${tasa_conversion}%`,
       sub: `${aprobados} aprobados`,
-      icon: <IconTarget size={18} className="text-emerald-700" />,
-      border: 'border-l-emerald-500', bg: 'bg-emerald-50',
+      icono: Target as IconComponent, tono: 'emerald' as TonoKPI,
       tooltip: 'Porcentaje de prospectos del período que culminaron como APROBADO. Verde ≥30% (excelente), amarillo ≥15% (aceptable), rojo <15% (requiere revisión). Una tasa alta indica buena calificación inicial de los proyectos.',
     },
     {
       label: 'T° Prom. Aprobación',
       value: `${tiempo_prom_aprobacion_dias}d`,
       sub: 'creación → aprobación',
-      icon: <IconCheck size={18} className="text-indigo-700" />,
-      border: 'border-l-indigo-500', bg: 'bg-indigo-50',
+      icono: Timer as IconComponent, tono: 'blue' as TonoKPI,
       tooltip: 'Días promedio entre la creación del prospecto y su aprobación formal. Solo se calcula sobre los que tienen fecha de aprobación registrada. Cuanto menor, más ágil es el ciclo de cierre de proyectos.',
     },
   ];
 
   return (
-    <div className="space-y-5 pb-10">
+    <div className="space-y-4 pb-10">
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -177,54 +155,35 @@ const ProspectosStats: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_ha
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {KPIS.map(k => (
-          <div key={k.label} className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm border-l-4 ${k.border} flex flex-col gap-1.5`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-widest">{k.label}</span>
-                <InfoTooltip text={k.tooltip} />
-              </div>
-              <div className={`w-8 h-8 rounded-xl ${k.bg} flex items-center justify-center`}>{k.icon}</div>
-            </div>
-            <p className="text-2xl font-extrabold text-slate-900 leading-none">{k.value}</p>
-            <p className="text-[11px] text-slate-700">{k.sub}</p>
-          </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {KPIS.map((k, i) => (
+          <TarjetaKPI key={k.label} densa indice={i} rotulo={k.label} icono={k.icono} tono={k.tono}
+            cifra={k.value} descripcion={k.sub} ayuda={k.tooltip} />
         ))}
       </div>
 
       {/* Embudo + Por Asesor */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
         {/* Embudo visual */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
-              <IconBarChart size={18} className="text-indigo-700" />
-            </div>
-            <div className="flex items-center">
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">Embudo Prospecto → ODP</h3>
-                <p className="text-[11px] text-slate-700 mt-0.5">Flujo completo de conversión</p>
-              </div>
-              <InfoTooltip text="Muestra cuántos prospectos superan cada etapa del proceso. Los porcentajes son sobre el total de prospectos creados. Una caída brusca entre etapas señala el punto de fricción más crítico en el ciclo de proyectos." />
-            </div>
-          </div>
+        <ChartCard indice={4}
+          titulo={<span className="inline-flex items-center">Embudo Prospecto → ODP<InfoTooltip text="Muestra cuántos prospectos superan cada etapa del proceso. Los porcentajes son sobre el total de prospectos creados. Una caída brusca entre etapas señala el punto de fricción más crítico en el ciclo de proyectos." /></span>}
+          descripcion="Flujo completo de conversión; el % es sobre los prospectos creados">
           <div className="space-y-4">
             <EmbudoStep
-              label="Prospectos Creados" value={embudo.creados || 0} total={embudo.creados || 1} color="bg-violet-500"
+              label="Prospectos Creados" value={embudo.creados || 0} total={embudo.creados || 1} color={tonoEtapa(0, 4)}
               tooltip="Total de prospectos registrados en el período. Es la boca del embudo: el volumen bruto de proyectos captados."
             />
             <EmbudoStep
-              label="Con Toma de Medidas" value={embudo.con_tm || 0} total={embudo.creados || 1} color="bg-indigo-500"
+              label="Con Toma de Medidas" value={embudo.con_tm || 0} total={embudo.creados || 1} color={tonoEtapa(1, 4)}
               tooltip="Prospectos que ya tienen al menos una visita técnica (TM) programada o realizada. Sin TM no se puede generar una ODP."
             />
             <EmbudoStep
-              label="Aprobados" value={embudo.aprobados || 0} total={embudo.creados || 1} color="bg-emerald-500"
+              label="Aprobados" value={embudo.aprobados || 0} total={embudo.creados || 1} color={tonoEtapa(2, 4)}
               tooltip="Prospectos que el cliente o jefe de producción aprobó formalmente. Están listos para convertirse en Orden de Producción."
             />
             <EmbudoStep
-              label="Convertidos a ODP" value={embudo.convertidos_odp || 0} total={embudo.creados || 1} color="bg-teal-500" isLast
+              label="Convertidos a ODP" value={embudo.convertidos_odp || 0} total={embudo.creados || 1} color={tonoEtapa(3, 4)}
               tooltip="Prospectos aprobados cuya aprobación ya generó una Orden de Producción vinculada en el sistema productivo. Es el resultado final del embudo."
             />
           </div>
@@ -253,106 +212,80 @@ const ProspectosStats: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_ha
               </div>
             </div>
           </div>
-        </div>
+        </ChartCard>
 
         {/* Por asesor */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-amber-700" />
-            </div>
-            <div className="flex items-center">
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">Ranking por Asesor</h3>
-                <p className="text-[11px] text-slate-700 mt-0.5">Tasa de aprobación y volumen por asesor</p>
-              </div>
-              <InfoTooltip text="Asesores ordenados por tasa de aprobación de prospectos (aprobados ÷ total gestionados). La barra de progreso refleja visualmente la tasa. Verde ≥30%, naranja ≥15%, rojo <15%." />
-            </div>
-          </div>
+        <ChartCard indice={5}
+          titulo={<span className="inline-flex items-center"><TrendingUp className="w-4 h-4 text-slate-700 mr-2" />Ranking por Asesor<InfoTooltip text="Asesores ordenados por tasa de aprobación de prospectos (aprobados ÷ total gestionados). La barra de progreso refleja visualmente la tasa. Verde ≥30%, ámbar ≥15%, rojo <15%." /></span>}
+          descripcion="Tasa de aprobación y volumen por asesor">
           {por_asesor.length === 0 ? (
             <p className="text-center text-slate-700 text-sm py-6">Sin datos de asesores</p>
           ) : (
             <div className="space-y-3">
-              {(por_asesor as any[]).slice(0, 8).map((a: any, i: number) => {
-                const initials = a.nombre.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
-                const avColors = ['from-indigo-400 to-violet-500','from-emerald-400 to-teal-500','from-amber-400 to-orange-500','from-rose-400 to-pink-500','from-blue-400 to-cyan-500'];
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
-                return (
-                  <div key={a.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avColors[i % avColors.length]} flex items-center justify-center font-bold text-white text-xs flex-shrink-0 shadow-sm`}>
-                      {initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        {medal && <span className="text-xs">{medal}</span>}
-                        <p className="text-sm font-bold text-slate-900 truncate">{a.nombre}</p>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-500 rounded-full transition-all duration-700" style={{ width: `${a.tasa}%` }} />
-                        </div>
-                        <span className={`text-[11px] font-bold ${a.tasa >= 30 ? 'text-emerald-700' : a.tasa >= 15 ? 'text-amber-700' : 'text-rose-700'}`}>{a.tasa}%</span>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs text-slate-700">{a.total} total</p>
-                      <div className="flex items-center gap-1.5 justify-end mt-0.5">
-                        <span className="text-[11px] font-bold text-emerald-700">{a.aprobados}✓</span>
-                      </div>
+              {(por_asesor as any[]).slice(0, 8).map((a: any, i: number) => (
+                <div key={a.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                  <span className={`w-5 shrink-0 text-center text-[12px] font-bold tabular-nums ${i < 3 ? 'text-templex-700' : 'text-slate-700'}`}>{i + 1}</span>
+                  <Iniciales nombre={a.nombre} tamano={34} color={colorPorEntidad(a.id ?? a.nombre)} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{a.nombre}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Medidor pct={a.tasa} alto={6} className="flex-1" />
+                      <span className={`text-[12px] font-bold tabular-nums ${a.tasa >= 30 ? 'text-emerald-700' : a.tasa >= 15 ? 'text-amber-700' : 'text-rose-700'}`}>{a.tasa}%</span>
                     </div>
                   </div>
-                );
-              })}
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-[12px] text-slate-700 tabular-nums">{a.total} total</p>
+                    <p className="flex items-center gap-1 justify-end mt-0.5 text-[12px] font-semibold text-emerald-700 tabular-nums">
+                      <CheckCircle2 className="w-3.5 h-3.5" />{a.aprobados}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-        </div>
+        </ChartCard>
       </div>
 
       {/* Estado general */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-        <div className="mb-4 flex items-center">
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm">Estado General de Prospectos</h3>
-            <p className="text-[11px] text-slate-700 mt-0.5">Distribución de todos los prospectos según su resultado en el sistema</p>
-          </div>
-          <InfoTooltip text="Resumen del estado actual de todos los prospectos del período. 'En Gestión' son los que siguen activos, 'Aprobados' los que el cliente aceptó, 'No Aprobados' los rechazados, y 'Con ODP' los que ya generaron una Orden de Producción." />
-        </div>
+      <ChartCard indice={6}
+        titulo={<span className="inline-flex items-center">Estado General de Prospectos<InfoTooltip text="Resumen del estado actual de todos los prospectos del período. 'En Gestión' son los que siguen activos, 'Aprobados' los que el cliente aceptó, 'No Aprobados' los rechazados, y 'Con ODP' los que ya generaron una Orden de Producción." /></span>}
+        descripcion="Distribución de todos los prospectos según su resultado en el sistema">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             {
               label: 'En Gestión', val: activos,
-              icon: <Clock className="w-5 h-5 text-amber-700" />, bg: 'bg-amber-50 border-amber-100',
+              icon: <Clock className="w-5 h-5 text-amber-700" />, bg: 'bg-white border-slate-200',
               tooltip: 'Prospectos activos que tienen un asesor trabajando en ellos y no han sido cerrados aún.',
             },
             {
               label: 'Aprobados', val: aprobados,
-              icon: <CheckCircle2 className="w-5 h-5 text-emerald-700" />, bg: 'bg-emerald-50 border-emerald-100',
+              icon: <CheckCircle2 className="w-5 h-5 text-emerald-700" />, bg: 'bg-white border-slate-200',
               tooltip: 'Prospectos que el cliente aprobó. Están listos para convertirse en ODP si aún no la tienen vinculada.',
             },
             {
               label: 'No Aprobados', val: no_aprobados,
-              icon: <AlertCircle className="w-5 h-5 text-rose-700" />, bg: 'bg-rose-50 border-rose-100',
+              icon: <AlertCircle className="w-5 h-5 text-rose-700" />, bg: 'bg-white border-slate-200',
               tooltip: 'Prospectos cerrados sin aprobación: el cliente rechazó la propuesta o el proyecto no prosperó.',
             },
             {
               label: 'Con ODP', val: embudo.convertidos_odp || 0,
-              icon: <CheckCircle2 className="w-5 h-5 text-indigo-700" />, bg: 'bg-indigo-50 border-indigo-100',
+              icon: <CheckCircle2 className="w-5 h-5 text-templex-700" />, bg: 'bg-white border-slate-200',
               tooltip: 'Prospectos aprobados que ya tienen una Orden de Producción vinculada en el sistema productivo. Es el resultado final exitoso.',
             },
           ].map(item => (
             <div key={item.label} className={`${item.bg} border rounded-xl p-4 flex items-center gap-3`}>
               {item.icon}
               <div>
-                <p className="text-xl font-bold text-slate-900">{item.val}</p>
+                <p className="text-xl font-bold text-slate-900 tabular-nums">{item.val}</p>
                 <div className="flex items-center">
-                  <p className="text-[11px] font-semibold text-slate-900 uppercase">{item.label}</p>
+                  <p className="text-[12px] font-semibold text-slate-900">{item.label}</p>
                   <InfoTooltip text={item.tooltip} />
                 </div>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </ChartCard>
     </div>
   );
 };

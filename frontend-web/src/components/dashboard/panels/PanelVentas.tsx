@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
+import { CheckCircle2, AlertTriangle, TrendingUp } from '../../ui/icons';
+import { Iniciales, Medidor, ESTADO, ORDINAL_AZUL, colorPorEntidad } from '../../charts';
 
 const fmtM = (n: number) => {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -7,85 +9,47 @@ const fmtM = (n: number) => {
   return `$${n}`;
 };
 
-const useCountUp = (target: number, duration = 1400) => {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (!target) { setValue(0); return; }
-    let raf: number;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const p = Math.min((now - start) / duration, 1);
-      const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
-      setValue(Math.floor(eased * target));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, duration]);
-  return value;
-};
+/** Semáforo del avance contra la meta. Siempre con icono y texto: el color no va solo. */
+const estadoMeta = (pct: number) =>
+  pct >= 100 ? { color: ESTADO.bien,     cls: 'text-emerald-700', texto: 'Meta cumplida', Icono: CheckCircle2 }
+  : pct >= 60 ? { color: ESTADO.atencion, cls: 'text-amber-700',   texto: 'En camino',     Icono: TrendingUp }
+  :             { color: ESTADO.critico,  cls: 'text-rose-700',    texto: 'Rezagado',      Icono: AlertTriangle };
 
-// ─── Gauge circular ───────────────────────────────────────────────────────────
-const GaugeMeta: React.FC<{ real: number; meta: number }> = ({ real, meta }) => {
-  const pct       = meta > 0 ? Math.min((real / meta) * 100, 100) : 0;
-  const SIZE      = 220;
-  const cx        = SIZE / 2; const cy = SIZE / 2;
-  const R         = 84; const SW = 13;
-  const GAP       = 52;
-  const TOTAL_DEG = 360 - GAP;
-  const C         = (TOTAL_DEG / 360) * 2 * Math.PI * R;
-  const fullC     = 2 * Math.PI * R;
-  const ROT       = 90 + GAP / 2;
-  const filled    = (pct / 100) * C;
-  const empty     = C - filled;
-  const color     = pct >= 100 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#ef4444';
-  const animPct   = useCountUp(Math.round(pct));
-
-  return (
-    <div className="relative flex-shrink-0" style={{ width: SIZE, height: SIZE }}>
-      <svg width={SIZE} height={SIZE} className="overflow-visible">
-        <circle cx={cx} cy={cy} r={R} fill="none"
-          stroke="#eef0f4" strokeWidth={SW}
-          strokeDasharray={`${C} ${fullC - C}`}
-          transform={`rotate(${ROT} ${cx} ${cy})`} strokeLinecap="round" />
-        <motion.circle cx={cx} cy={cy} r={R} fill="none"
-          stroke={color} strokeWidth={SW + 10} opacity={0.1}
-          strokeDasharray={`${C} ${fullC - C}`}
-          initial={{ strokeDashoffset: C }}
-          animate={{ strokeDashoffset: empty }}
-          transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-          transform={`rotate(${ROT} ${cx} ${cy})`} strokeLinecap="round" />
-        <motion.circle cx={cx} cy={cy} r={R} fill="none"
-          stroke={color} strokeWidth={SW}
-          strokeDasharray={`${C} ${fullC - C}`}
-          initial={{ strokeDashoffset: C }}
-          animate={{ strokeDashoffset: empty }}
-          transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-          transform={`rotate(${ROT} ${cx} ${cy})`} strokeLinecap="round" />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <motion.p className="text-[46px] font-extrabold tracking-tight leading-none tabular-nums" style={{ color }}
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.6, duration: 0.5 }}>
-          {animPct}%
-        </motion.p>
-        <p className="text-[12px] text-slate-700 mt-1">de la meta</p>
-        <p className="text-[15px] text-slate-900 font-bold mt-1 tabular-nums whitespace-nowrap">{fmtM(real)}</p>
-        <p className="text-[12px] text-slate-700 mt-0.5 tabular-nums whitespace-nowrap">meta: {fmtM(meta)}</p>
+// ─── Avance contra la meta ────────────────────────────────────────────────────
+// Antes era un anillo de 220px. Un anillo obliga a estimar un ángulo; una cifra grande con una
+// barra horizontal y un estado en palabras se lee en un segundo, y ocupa la mitad.
+const AvanceMeta: React.FC<{ real: number; meta: number }> = ({ real, meta }) => {
+  if (meta <= 0) {
+    return (
+      <div className="w-full">
+        <p className="text-[28px] font-extrabold tracking-tight leading-none text-slate-900 [font-variant-numeric:normal]">{fmtM(real)}</p>
+        <p className="mt-2 text-[12px] text-slate-700">Facturado del período. No hay meta configurada: se define en Configuración.</p>
       </div>
-    </div>
-  );
-};
-
-// ─── Avatar ───────────────────────────────────────────────────────────────────
-const Avatar: React.FC<{ nombre: string; size?: number }> = ({ nombre, size = 28 }) => {
-  const initials = (nombre || 'U').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-  const hue = (nombre || '').split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0) % 360;
+    );
+  }
+  const pctReal = (real / meta) * 100;
+  const est     = estadoMeta(pctReal);
+  const falta   = Math.max(meta - real, 0);
   return (
-    <div className="rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-      style={{ width: size, height: size, fontSize: size * 0.36, background: `hsl(${hue},60%,48%)` }}>
-      {initials}
+    <div className="w-full">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[44px] font-extrabold tracking-tight leading-none text-slate-900 [font-variant-numeric:normal]">
+            {Math.round(pctReal)}%
+          </p>
+          <p className={`mt-1.5 flex items-center gap-1 text-[12px] font-semibold ${est.cls}`}>
+            <est.Icono className="w-3.5 h-3.5" /> {est.texto}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[17px] font-bold text-slate-900 tabular-nums whitespace-nowrap">{fmtM(real)}</p>
+          <p className="text-[12px] text-slate-700 tabular-nums whitespace-nowrap">de {fmtM(meta)}</p>
+        </div>
+      </div>
+      <Medidor pct={pctReal} color={est.color} alto={10} className="mt-3" />
+      <p className="mt-1.5 text-[12px] text-slate-700">
+        {falta > 0 ? <>Faltan <span className="font-semibold text-slate-900 tabular-nums">{fmtM(falta)}</span> para la meta</> : 'La meta del período ya se alcanzó'}
+      </p>
     </div>
   );
 };
@@ -114,7 +78,8 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
   if (!data) return <div className="p-10 text-center text-slate-700 text-sm">Sin datos disponibles</div>;
 
   const totalFacturado = data.total_facturado_mes || 0;
-  const meta           = data.meta_facturacion_actual || 120_000_000;
+  // La meta vive en configuracion_global: sin fila configurada no se inventa un valor.
+  const meta           = data.meta_facturacion_actual || 0;
   const asesores       = (data.meta_vs_real_asesores || []).slice().sort((a: any, b: any) => b.real - a.real);
 
   const IVA_RATE = 0.19;
@@ -147,10 +112,12 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
 
         {/* Gauge */}
         <motion.div custom={0} variants={cardVar} initial="hidden" animate="visible"
-          className="col-span-12 lg:col-span-5 bg-white border border-slate-200 rounded-2xl shadow-card p-5 flex flex-col items-center gap-3">
-          <p className="text-[15px] font-semibold text-slate-900 self-start">Meta mensual de facturación</p>
-          <p className="text-[12px] text-slate-700 leading-snug self-start -mt-2">Avance del período sobre la meta total de todos los asesores</p>
-          <GaugeMeta real={totalFacturado} meta={meta} />
+          className="col-span-12 lg:col-span-5 bg-white border border-slate-200 rounded-2xl shadow-card p-5 flex flex-col gap-4">
+          <div>
+            <p className="text-[15px] font-semibold text-slate-900">Meta mensual de facturación</p>
+            <p className="text-[12px] text-slate-700 leading-snug mt-1">Avance del período sobre la meta total de todos los asesores</p>
+          </div>
+          <AvanceMeta real={totalFacturado} meta={meta} />
           <div className="grid grid-cols-2 gap-2 w-full">
             {[
               { label: 'Recaudado',    desc: 'Abonos cobrados',       raw: data.total_abonado   || 0, oa: data.total_abonado_oa   || 0, color: 'text-emerald-700', ivaColor: 'text-emerald-700' },
@@ -179,7 +146,12 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         <motion.div custom={1} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-2xl shadow-card p-5 flex flex-col">
           <p className="text-[15px] font-semibold text-slate-900">Ranking — meta vs real por asesor</p>
-          <p className="text-[12px] text-slate-700 leading-snug mt-1 mb-3">Facturado y recaudado del período vs la meta asignada a cada asesor</p>
+          <p className="text-[12px] text-slate-700 leading-snug mt-1">Facturado y recaudado del período vs la meta asignada a cada asesor</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 mb-3 text-[12px] text-slate-800">
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: ORDINAL_AZUL[0] }} />Facturado</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: ORDINAL_AZUL[3] }} />Recaudado</span>
+            <span className="text-slate-700">La barra completa es la meta del asesor</span>
+          </div>
           {/* Header cols */}
           <div className="flex items-center gap-2 mb-2 px-1">
             <div className="flex-1" />
@@ -204,9 +176,8 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
               {asesores.map((as: any, i: number) => {
                 const pct       = as.meta > 0 ? Math.min((as.real / as.meta) * 100, 100) : 0;
                 const pctLabel  = as.meta > 0 ? Math.round((as.real / as.meta) * 100) : 0;
-                const color     = pct >= 100 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#ef4444';
+                const est       = estadoMeta(pctLabel);
                 const pctRec    = as.meta > 0 ? Math.min((as.recaudado / as.meta) * 100, 100) : 0;
-                const medals    = ['🥇','🥈','🥉'];
                 const rolBadge: Record<string, { label: string; cls: string }> = {
                   asesor_comercial: { label: 'Asesor', cls: 'bg-indigo-50 text-indigo-700' },
                   gerencia:         { label: 'Gerencia', cls: 'bg-purple-50 text-purple-700' },
@@ -216,8 +187,8 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                 return (
                   <div key={as.asesor_id}>
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[13px] w-4 shrink-0">{medals[i] || `#${i+1}`}</span>
-                      <Avatar nombre={as.nombre || 'U'} />
+                      <span className={`w-5 shrink-0 text-center text-[12px] font-bold tabular-nums ${i < 3 ? 'text-templex-700' : 'text-slate-700'}`}>{i + 1}</span>
+                      <Iniciales nombre={as.nombre || 'U'} tamano={28} color={colorPorEntidad(as.asesor_id ?? as.nombre)} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[13px] font-semibold text-slate-900 truncate">{as.nombre}</span>
@@ -227,30 +198,20 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                       <MontoCol n={as.meta}      colorCls="text-slate-800" />
                       <MontoCol n={as.real}      oa={as.real_oa}      colorCls="text-slate-900" />
                       <MontoCol n={as.recaudado} oa={as.recaudado_oa} colorCls="text-emerald-700" />
-                      <span className="text-[12px] font-bold tabular-nums w-9 text-right" style={{ color }}>{pctLabel}%</span>
+                      <span className={`text-[12px] font-bold tabular-nums w-9 text-right ${est.cls}`} title={est.texto}>{pctLabel}%</span>
                     </div>
-                    {/* Barra facturado */}
-                    <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden ml-6">
-                      <motion.div className="absolute inset-y-0 left-0 rounded-full opacity-30"
-                        style={{ background: color }}
+                    {/* Facturado (claro) y recaudado (oscuro) sobre la misma pista = meta del asesor */}
+                    <div className="relative h-2 rounded-full overflow-hidden ml-7 bg-slate-100">
+                      <motion.div className="absolute inset-y-0 left-0 rounded-full"
+                        style={{ background: ORDINAL_AZUL[0] }}
                         initial={{ width: 0 }}
                         animate={{ width: `${pct}%` }}
-                        transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1], delay: 0.2 + i * 0.08 }} />
+                        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.1 + i * 0.05 }} />
                       <motion.div className="absolute inset-y-0 left-0 rounded-full"
-                        style={{ background: color }}
+                        style={{ background: ORDINAL_AZUL[3] }}
                         initial={{ width: 0 }}
                         animate={{ width: `${pctRec}%` }}
-                        transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1], delay: 0.3 + i * 0.08 }} />
-                    </div>
-                    <div className="flex items-center gap-3 ml-6 mt-0.5">
-                      <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full opacity-40" style={{ background: color }} />
-                        <span className="text-[12px] text-slate-700">Facturado</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-                        <span className="text-[12px] text-slate-700">Recaudado</span>
-                      </div>
+                        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 + i * 0.05 }} />
                     </div>
                   </div>
                 );

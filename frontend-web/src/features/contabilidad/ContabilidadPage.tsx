@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
 import FolderTabs from '../../components/FolderTabs';
+import { TarjetaKPI } from '../../components/charts';
 import {
   Calculator, DollarSign, FileCheck, AlertCircle,
   CreditCard, Plus, X, Receipt, Clock, Banknote, TrendingDown,
@@ -331,24 +332,20 @@ const ContabilidadPage: React.FC = () => {
       </div>
 
       {/* KPIs — solo para roles con acceso al resumen financiero */}
-      {!isAsistenteAdmin && <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        {[
-          { label: 'Recaudado',     value: totalAbonado,   icon: <DollarSign className="w-6 h-6" />,   color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
-          { label: 'Por Cobrar',    value: totalPorCobrar,  icon: <CreditCard className="w-6 h-6" />,   color: 'text-rose-700 bg-rose-50 border-rose-200' },
-          { label: 'Cartera Vencida', value: carteraVencida, icon: <TrendingDown className="w-6 h-6" />, color: 'text-orange-700 bg-orange-50 border-orange-200' },
-          { label: 'Facturadas',    value: totalFacturadas, icon: <FileCheck className="w-6 h-6" />,    color: 'text-blue-700 bg-blue-50 border-blue-200' },
-          { label: 'Sin Factura',   value: pendFactura,     icon: <AlertCircle className="w-6 h-6" />,  color: 'text-amber-700 bg-amber-50 border-amber-200' },
-        ].map((kpi, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-            className={`border rounded-2xl p-4 xl:p-5 flex flex-col gap-3 min-w-0 ${kpi.color}`}>
-            {/* El monto va en su propia fila, a todo el ancho de la tarjeta: al lado del
-                icono, "$ 41.535.000" no cabía en las 5 columnas de 1440px y perdía dígitos. */}
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-white/60 rounded-lg shrink-0 [&>svg]:w-5 [&>svg]:h-5">{kpi.icon}</div>
-              <p className="text-xs font-semibold text-slate-900 truncate">{kpi.label}</p>
-            </div>
-            <p className="text-[clamp(1.125rem,1.55vw,1.5rem)] font-extrabold leading-none tracking-tight whitespace-nowrap [font-variant-numeric:normal]" title={String(kpi.value)}>{kpi.value}</p>
-          </motion.div>
+      {!isAsistenteAdmin && <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* Anatomía común de KPI (TarjetaKPI). La cifra conserva su tamaño fluido: "$ 41.535.000"
+            no cabía en 5 columnas a 1440px con un tamaño fijo y perdía dígitos. */}
+        {([
+          { label: 'Recaudado',       value: totalAbonado,    icono: DollarSign,   tono: 'emerald', cifra: 'text-emerald-700', desc: 'Abonos recibidos' },
+          { label: 'Por Cobrar',      value: totalPorCobrar,  icono: CreditCard,   tono: 'rose',    cifra: 'text-rose-700',    desc: 'Saldo pendiente de las ODPs' },
+          { label: 'Cartera Vencida', value: carteraVencida,  icono: TrendingDown, tono: 'amber',   cifra: 'text-amber-700',   desc: 'Créditos que superaron el plazo' },
+          { label: 'Facturadas',      value: totalFacturadas, icono: FileCheck,    tono: 'blue',    cifra: 'text-slate-900',   desc: 'ODPs con factura electrónica' },
+          { label: 'Sin Factura',     value: pendFactura,     icono: AlertCircle,  tono: 'amber',   cifra: 'text-slate-900',   desc: 'Pendientes de facturar' },
+        ] as const).map((kpi, i) => (
+          <TarjetaKPI key={kpi.label} densa indice={i} rotulo={kpi.label} icono={kpi.icono} tono={kpi.tono}
+            cifra={<span title={String(kpi.value)}>{kpi.value}</span>}
+            cifraClassName={`${kpi.cifra} !text-[clamp(1.125rem,1.55vw,1.5rem)]`}
+            descripcion={kpi.desc} />
         ))}
       </div>}
 
