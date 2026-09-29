@@ -3,7 +3,7 @@ import {
     Plus, ChevronDown, Check, Pencil, Loader2, CheckCircle2, FilePlus2, Copy, Layers, AlertTriangle, UserPlus,
 } from '../../../components/ui/icons';
 
-import { fmtCOP } from '../format';
+import { fmtCOP, numeroCotizacion } from '../format';
 import { EstadoCotizacion, Propuesta, SegmentoCliente } from '../types';
 import { colorPropuesta } from '../propuestaColor';
 import { Chip, ChipEstadoCotizacion } from './ui';
@@ -170,7 +170,7 @@ const SelectorCotizacion: React.FC<{
                         {nombre || 'Cliente sin nombre'}
                     </span>
                     <span className="flex items-center gap-1.5 text-[12px] text-slate-700 tabular-nums">
-                        {numero !== null ? `N.° ${numero}` : 'Cotización nueva'}
+                        {numero !== null ? numeroCotizacion(numero) : 'Cotización nueva'}
                         {numero !== null && <ChipEstadoCotizacion estado={estado} />}
                     </span>
                 </span>
@@ -193,7 +193,7 @@ const SelectorCotizacion: React.FC<{
                                 className={`w-full rounded-lg px-2.5 py-2 text-left hover:bg-templex-50 ${esAbierta ? 'bg-slate-100' : ''}`}
                             >
                                 <span className="block truncate text-[13px] font-semibold text-slate-900">{r.cliente.trim() || 'Cliente sin nombre'}</span>
-                                <span className="block text-[12px] text-slate-700 tabular-nums">N.° {r.numero}{esAbierta ? ' · abierta' : ''}</span>
+                                <span className="block text-[12px] text-slate-700 tabular-nums">{numeroCotizacion(r.numero)}{esAbierta ? ' · abierta' : ''}</span>
                             </button>
                         );
                     })}

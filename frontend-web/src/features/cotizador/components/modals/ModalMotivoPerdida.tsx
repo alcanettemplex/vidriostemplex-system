@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { XCircle } from '../../../../components/ui/icons';
 
 import { MotivoPerdida } from '../../types';
+import { numeroCotizacion } from '../../format';
 import { MOTIVOS_PERDIDA } from '../../vinculo';
 import { BotonPeligro, BotonSecundario, CONTROL_LABEL_CLASS, ModalShell } from '../ui';
 
@@ -43,7 +44,7 @@ const ModalMotivoPerdida: React.FC<Props> = ({ numero, leadNombre, onCancelar, o
     return (
         <ModalShell
             titulo="¿Por qué se perdió?"
-            subtitulo={numero ? `Cotización N.° ${numero}` : undefined}
+            subtitulo={numero ? `Cotización ${numeroCotizacion(numero)}` : undefined}
             anchoMaximo="max-w-lg"
             onClose={onCancelar}
             pie={

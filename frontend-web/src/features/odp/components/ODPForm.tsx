@@ -11,6 +11,7 @@ import { getClientesCached, getCatalogoCached } from '../../../services/listasCa
 import API from '../../../services/config';
 import PartirDeCotizacion, { DatosDeCotizacion } from '../../cotizador/components/PartirDeCotizacion';
 import { apiActualizarCotizacion } from '../../cotizador/services/cotizadorApi';
+import { numeroCotizacion } from '../../cotizador/format';
 
 const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Gris', 'Azul', 'Verde', 'Mate', 'Otro'];
 
@@ -422,7 +423,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                     try {
                         await apiActualizarCotizacion(deCotizacion.cotizacionId, { odpId: Number(creada.id) });
                     } catch (e: any) {
-                        toast.warn(`La ODP se creó, pero no se pudo vincular la cotización N.° ${deCotizacion.numero}: `
+                        toast.warn(`La ODP se creó, pero no se pudo vincular la cotización ${numeroCotizacion(deCotizacion.numero)}: `
                             + (e?.response?.data?.error || 'vincúlala desde la ficha de la ODP.'));
                     }
                 }

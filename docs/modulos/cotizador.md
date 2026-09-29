@@ -398,6 +398,27 @@ señal verde.
 
 ---
 
+## Numeración: COT-17000 en adelante (2026-09-28)
+
+- **Contador:** fila `nombre = 'cotizacion'` de `cotizador.consecutivo`; `crear` hace
+  `UPDATE … SET valor = valor + 1 RETURNING valor` (seguro con dos altas simultáneas). `numero` es
+  `UNIQUE`: bajar el contador sin borrar las cotizaciones con esos números haría fallar el alta al
+  llegar a ellos. Un número consumido no se reutiliza aunque la cotización se borre.
+- **Reinicio del 2026-09-28** (`scripts/2026-09-28_reiniciar_consecutivo_cotizador.ts`, ya corrido):
+  se borraron las 3 cotizaciones de prueba (COT-87, 90, 91), con auditoría de cada fila, y el contador
+  quedó en 16999. **La primera cotización real es la COT-17000.** Se eligió 17000 porque la serie del
+  talonario/sistema anterior, que las ODP guardan a mano en `odp.numero_cotizacion`, llegó a 16808:
+  una "16xxx" es de la serie vieja y una "COT-17xxx" es del Cotizador. (En ese campo hay dos valores
+  mal digitados, `166364` y `24226`; no chocan con nada, son texto libre.)
+- **Formato único "COT-17000":** backend `folioCotizacion()` (PDF y nombre de archivo) y frontend
+  `numeroCotizacion()` en `features/cotizador/format.ts`, usado en todas las pantallas (Cotizador,
+  ficha ODP, Dashboard, Hoja de Trabajo, toasts). No escribir "N.° {numero}" a mano. El buscador
+  (`listar`, filtro `q`) acepta "COT-17000", "cot 17000" o "17000".
+- ⚠️ La COT-87 de prueba había creado la **ODP-24381** y los `sap_items` 2213-2215 en la **SAP 405**.
+  Siguen en la BD (el FK `origen_cotizacion_id` es `ON DELETE SET NULL`); su borrado se analiza aparte.
+
+---
+
 ## PDF de cotización (2026-09-21)
 
 `GET /api/cotizador/cotizaciones/:id/propuestas/:pid/pdf` — el documento que el asesor envía al
@@ -429,8 +450,16 @@ a mano, el asesor marca `APROBADA` en el sistema). Botón "Descargar PDF" en
   cargos" más arriba); sumar esos `total` no cuadraría con `total_productos`. El PDF pone un solo
   IVA agrupado al final, como cualquier factura — matemáticamente consistente con el contrato de
   `calcularTotalesPropuesta`, que es de donde salen los 5 totales que el PDF sólo lee (no recalcula).
-- **"Otras propuestas presentadas"**: sólo si la cotización tiene más de una — nombre + total, nunca
-  su detalle completo (ya lo fija `cotizador-vision.md`).
+- **"Otras opciones cotizadas (alternativas, se elige una)"** (antes "Otras propuestas presentadas";
+  rehecho el 2026-09-28 tras la COT-91): sólo si la cotización tiene más de una propuesta. Por cada
+  otra opción: letra, nombre (si lo tiene) y **resumen de contenido** ("Ventanas (2) · Tablero (1)",
+  `resumenPropuesta()`) + total, nunca su detalle completo (ya lo fija `cotizador-vision.md`). Una
+  nota aclara que su valor **no se suma** al total impreso. El resumen sale solo de columnas del modo
+  ligero (`modulo_id`, `descripcion_item`, `cantidad_piezas`): las otras propuestas no traen blobs.
+  Motivo: en la COT-91 la opción B era un espejo suelto (un producto adicional, no una alternativa a
+  las ventanas) y salía como "B — $304.492", sin nombre ni contenido: el cliente no sabía si sumarla.
+  ⚠️ **Una propuesta es una alternativa excluyente, no un complemento**: un producto adicional va
+  como ítem de la misma propuesta. El PDF lo explica, pero el cotizador no lo impide al crear la B.
 - **Paleta estimada del logo real** (`frontend-web/public/assets/images/logotemplex.png`), no un
   código de marca confirmado — navy `#1B3A63` / azul `#2E75B6`. Es el único punto a tocar si el
   usuario da los códigos exactos.
@@ -444,6 +473,7 @@ a mano, el asesor marca `APROBADA` en el sistema). Botón "Descargar PDF" en
   sin Z; incluye W") desde `resultado.personalizacion` (`personalizacionComercial`). Pruebas:
   `detalleComercial.test.ts` (9).
 - **Nombre de la opción en el encabezado** ("Opción C: Templado 5 mm con película") bajo el folio.
+  Sin nombre y con varias propuestas: "Opción A de 2" (2026-09-28), para que la letra no quede sola.
 - **Columna VR. UNIT.** = `subtotalConAiu ÷ piezas`, solo presentación (redondeado × piezas puede
   diferir en $1 del subtotal, que sigue siendo el del motor).
 - **"IVA (19%)"**: el controlador pasa `ivaPct` desde `getParametros().iva`; solo rotula.
@@ -451,7 +481,7 @@ a mano, el asesor marca `APROBADA` en el sistema). Botón "Descargar PDF" en
   `unbreakable`, y términos y condiciones en un bloque con `id` que `pageBreakBefore` pasa entero a
   la hoja siguiente si no cabe (antes la cláusula 11 caía sola en la página 2).
 - **Pendiente, no hecho:** un PDF único comparativo con todas las opciones (hoy es un PDF por
-  propuesta con "Otras propuestas presentadas" en total).
+  propuesta con las demás opciones en resumen + total).
 
 ---
 

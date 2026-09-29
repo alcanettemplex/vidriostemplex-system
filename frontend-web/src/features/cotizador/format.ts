@@ -25,6 +25,15 @@ export const ETIQUETA_CARGO_CORTA: Record<TipoCargo, string> = {
     INSTALACION: 'Instalación',
 };
 
+/**
+ * Referencia de una cotización del Cotizador: "COT-17000". Es la misma que
+ * imprime el PDF y que da nombre al archivo (`folioCotizacion` en el backend),
+ * para que pantalla, papel y WhatsApp digan lo mismo. La serie arranca en 17000
+ * (2026-09-28) para no cruzarse con la del talonario, que llegó a 16808.
+ */
+export const numeroCotizacion = (numero: number | string | null | undefined) =>
+    numero === null || numero === undefined || numero === '' ? 'COT-—' : `COT-${numero}`;
+
 export const fmtCOP = (v: number | null | undefined) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(v) || 0);
 

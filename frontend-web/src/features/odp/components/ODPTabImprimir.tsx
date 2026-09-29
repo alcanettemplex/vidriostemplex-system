@@ -20,6 +20,7 @@ import { fmtFecha, puedeGestionarCobros } from '../../contabilidad/components/co
 import { abrirVentanaImpresion } from '../../../utils/printWindow';
 import { ESTILOS_IMPRESION_ODP } from './printStyles';
 import API from '../../../services/config';
+import { numeroCotizacion } from '../../cotizador/format';
 
 type FormatId = 'compra' | 'op' | 'tecnico' | 'det_sap' | 'garantia' | 'noconformidad' | 'sap' | 'hoja_trabajo';
 
@@ -91,7 +92,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
       // Misma impresión que en el Cotizador: la hoja trae su propio <style> y
       // su @page; los estilos de la ODP no aplican.
       abrirVentanaImpresion({
-        titulo: `Hoja de Trabajo — ODP ${odp?.numero_odp || ''}${cotHojaActiva ? ` · Cotización ${cotHojaActiva.numero}` : ''}`,
+        titulo: `Hoja de Trabajo — ODP ${odp?.numero_odp || ''}${cotHojaActiva ? ` · ${numeroCotizacion(cotHojaActiva.numero)}` : ''}`,
         contenidoHtml: area.innerHTML,
       });
       return;
@@ -165,7 +166,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
                 <span className="text-[11px] font-semibold text-slate-900 uppercase">COTIZACIÓN:</span>
                 <select className="bg-transparent text-xs font-bold outline-none" value={cotHojaActiva?.id ?? ''} onChange={e => setCotHojaId(Number(e.target.value))}>
                     {cotsHoja.map(c => (
-                        <option key={c.id} value={c.id}>N.° {c.numero}{c.cliente?.nombre ? ` · ${c.cliente.nombre}` : ''}</option>
+                        <option key={c.id} value={c.id}>{numeroCotizacion(c.numero)}{c.cliente?.nombre ? ` · ${c.cliente.nombre}` : ''}</option>
                     ))}
                 </select>
             </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calculator, ExternalLink, Search, X } from '../../../components/ui/icons';
 
-import { fmtCOP } from '../format';
+import { fmtCOP, numeroCotizacion } from '../format';
 import { usePermisosCotizador } from '../permisos';
 import { apiListarCotizaciones, apiObtenerVinculo } from '../services/cotizadorApi';
 import { CotizacionLigera } from '../types';
@@ -124,7 +124,7 @@ const PartirDeCotizacion: React.FC<Props> = ({ onAplicar }) => {
             </label>
             {elegida ? (
                 <div className="flex h-10 items-center gap-2 rounded-lg border border-templex-300 bg-white px-3">
-                    <span className="text-sm font-bold text-slate-900 tabular-nums">COT-{elegida.numero}</span>
+                    <span className="text-sm font-bold text-slate-900 tabular-nums">{numeroCotizacion(elegida.numero)}</span>
                     <span className="flex-1 min-w-0 truncate text-sm text-slate-800">
                         {elegida.cliente?.nombre || 'Sin nombre'} · {fmtCOP(elegida.totales?.total ?? 0)} · {elegida.asesor}
                     </span>
@@ -155,7 +155,7 @@ const PartirDeCotizacion: React.FC<Props> = ({ onAplicar }) => {
                                 <li key={c.id}>
                                     <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => { setAbierto(false); elegir(c.id); }}
                                         className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-blue-50">
-                                        <span className="font-bold text-slate-900 tabular-nums">COT-{c.numero}</span>
+                                        <span className="font-bold text-slate-900 tabular-nums">{numeroCotizacion(c.numero)}</span>
                                         <span className="flex-1 min-w-0 truncate text-slate-800">{c.cliente?.nombre || 'Sin nombre'}</span>
                                         <span className="text-slate-700 truncate max-w-[140px]">{c.asesor}</span>
                                         <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(c.totales?.total ?? 0)}</span>
@@ -168,7 +168,7 @@ const PartirDeCotizacion: React.FC<Props> = ({ onAplicar }) => {
             )}
             {elegida && !aviso && (
                 <p className="text-xs text-slate-800">
-                    Se llenaron cliente, asesor y valor. Al crear la ODP queda vinculada a la cotización COT-{elegida.numero}.
+                    Se llenaron cliente, asesor y valor. Al crear la ODP queda vinculada a la cotización {numeroCotizacion(elegida.numero)}.
                 </p>
             )}
             {aviso && elegida && (

@@ -4,7 +4,7 @@ import { Loader2, CheckCircle2, Scale, RefreshCw } from '../../../components/ui/
 
 import { apiCompararPropuestas } from '../services/cotizadorApi';
 import { ComparativaPropuestas, PropuestaComparada, TIPOS_MANO_OBRA } from '../types';
-import { ETIQUETA_CARGO_CORTA, fmtCOP, fmtPct } from '../format';
+import { ETIQUETA_CARGO_CORTA, fmtCOP, fmtPct, numeroCotizacion } from '../format';
 import { colorPropuesta } from '../propuestaColor';
 import { Chip } from './ui';
 
@@ -103,7 +103,7 @@ const ComparadorPropuestas: React.FC<Props> = ({ cotizacionId, recargarToken, on
                     <Scale className="w-4 h-4 text-templex-600" />
                     Comparar propuestas
                     <span className="text-[12px] font-normal text-slate-700 tabular-nums">
-                        Cotización N.° {datos.numero}
+                        Cotización {numeroCotizacion(datos.numero)}
                     </span>
                 </h3>
                 <button

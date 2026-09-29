@@ -5,6 +5,7 @@ import { X, Loader2, AlertTriangle, Info, Package, CheckCircle2 } from '../../..
 import {
     FilaTraerSap, ModoTraerSap, RespuestaTraerSap, CotizacionAprobadaResumen, traerItemsCotizacionASap,
 } from './odpCotizador.api';
+import { numeroCotizacion } from '../../cotizador/format';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "Traer ítems de la cotización" a la SAP (2026-09-27).
@@ -99,7 +100,7 @@ const TraerItemsCotizacionModal: React.FC<Props> = ({ odpId, onClose, onHecho })
                 modo: datos.modo ?? undefined,
                 dry_run: false,
             });
-            toast.success(`${data.filas.length} ítems de la cotización N.° ${data.cotizacion.numero} quedaron en ${data.destino.numero_sap}. Revísalos y ajústalos en "Ver SAP".`);
+            toast.success(`${data.filas.length} ítems de la cotización ${numeroCotizacion(data.cotizacion.numero)} quedaron en ${data.destino.numero_sap}. Revísalos y ajústalos en "Ver SAP".`);
             onHecho();
             onClose();
         } catch (e) {
@@ -120,7 +121,7 @@ const TraerItemsCotizacionModal: React.FC<Props> = ({ odpId, onClose, onHecho })
                         </h2>
                         <p className="text-[13px] text-slate-800 mt-0.5">
                             {datos
-                                ? <>Cotización <b>N.° {datos.cotizacion.numero}</b>{datos.cotizacion.cliente ? ` · ${datos.cotizacion.cliente}` : ''} · opción elegida <b>{datos.cotizacion.propuesta.etiqueta}</b>. Perfilería, accesorios y película; el vidrio va al Pedido PV.</>
+                                ? <>Cotización <b>{numeroCotizacion(datos.cotizacion.numero)}</b>{datos.cotizacion.cliente ? ` · ${datos.cotizacion.cliente}` : ''} · opción elegida <b>{datos.cotizacion.propuesta.etiqueta}</b>. Perfilería, accesorios y película; el vidrio va al Pedido PV.</>
                                 : 'Perfilería, accesorios y película de la opción elegida. El vidrio va al Pedido PV.'}
                         </p>
                     </div>
@@ -139,7 +140,7 @@ const TraerItemsCotizacionModal: React.FC<Props> = ({ odpId, onClose, onHecho })
                                     onChange={e => { setCotizacionId(e.target.value ? Number(e.target.value) : undefined); setModo(undefined); }}
                                 >
                                     {!datos && <option value="">Elige una…</option>}
-                                    {opcionesCot.map(c => <option key={c.id} value={c.id}>N.° {c.numero}{c.cliente ? ` · ${c.cliente}` : ''}</option>)}
+                                    {opcionesCot.map(c => <option key={c.id} value={c.id}>{numeroCotizacion(c.numero)}{c.cliente ? ` · ${c.cliente}` : ''}</option>)}
                                 </select>
                             </label>
                         )}

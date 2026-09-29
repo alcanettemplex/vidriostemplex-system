@@ -184,6 +184,28 @@ export function valoresConManoObra(items: ItemPdf[], totalManoObra: number): num
   return pisos;
 }
 
+/**
+ * Qué trae una propuesta, en una línea: "Ventanas (2) · Tablero (1)".
+ *
+ * Sale solo de columnas que las propuestas NO impresas también traen en modo
+ * ligero (`modulo_id`, `descripcion_item`, `cantidad_piezas`): `descripcionComercial`
+ * necesita los blobs `input`/`resultado`, que solo viajan con la propuesta que se
+ * imprime. Agrupa por producto y suma piezas; más de 4 grupos se resumen en "y N más".
+ */
+export function resumenPropuesta(items: ItemPdf[] | undefined): string {
+  const grupos = new Map<string, number>();
+  for (const it of (items ?? []).slice().sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))) {
+    const nombre = it.descripcionItem?.trim() || getModulo(it.moduloId ?? "")?.meta?.nombre || "Producto";
+    const piezas = Number(it.cantidadPiezas) > 0 ? Number(it.cantidadPiezas) : 1;
+    grupos.set(nombre, (grupos.get(nombre) ?? 0) + piezas);
+  }
+  const partes = [...grupos].map(([nombre, piezas]) => `${nombre} (${piezas})`);
+  const MAX = 4;
+  return partes.length > MAX
+    ? `${partes.slice(0, MAX).join(" · ")} y ${partes.length - MAX} más`
+    : partes.join(" · ");
+}
+
 /** Condición con negrillas marcadas `**así**` (Configuración las escribe así). */
 function textoConNegrilla(texto: string): Array<{ text: string; bold?: boolean }> {
   return texto
@@ -257,7 +279,8 @@ export async function generarPdfCotizacion({
     month: "long",
     year: "numeric",
   });
-  const folio = folioCotizacion(cotizacion.numero, propuesta.etiqueta, otrasPropuestas.length > 0);
+  const variasOpciones = otrasPropuestas.length > 0;
+  const folio = folioCotizacion(cotizacion.numero, propuesta.etiqueta, variasOpciones);
 
   const manoObra = cargos.filter((c) => esCargoManoObra(c.tipo));
   const otrosCargos = cargos.filter((c) => !esCargoManoObra(c.tipo));
@@ -336,9 +359,12 @@ export async function generarPdfCotizacion({
               : null,
             // El nombre de la opción (2026-09-26): con varias propuestas, la
             // letra sola no le dice al cliente cuál de las tres está leyendo.
+            // Sin nombre (2026-09-28, COT-91): "Opción A de 2", nunca la letra sola.
             propuesta.nombre?.trim()
               ? { text: `Opción ${propuesta.etiqueta}: ${propuesta.nombre.trim()}`, style: "opcionDocumento", alignment: "right" }
-              : null,
+              : variasOpciones
+                ? { text: `Opción ${propuesta.etiqueta} de ${otrasPropuestas.length + 1}`, style: "opcionDocumento", alignment: "right" }
+                : null,
           ].filter(Boolean),
           width: "*",
         },
@@ -416,22 +442,44 @@ export async function generarPdfCotizacion({
     },
   ].filter(Boolean) as Record<string, unknown>[];
 
-  if (otrasPropuestas.length > 0) {
-    content.push({ text: "OTRAS PROPUESTAS PRESENTADAS", style: "etiquetaSeccion", margin: [0, 0, 0, 6] });
+  // Las propuestas son ALTERNATIVAS excluyentes de la misma obra, no
+  // complementos: el título y la nota lo dicen para que nadie las sume
+  // (2026-09-28, COT-91). Cada una lleva su contenido resumido debajo del
+  // nombre; sin nombre, el resumen hace de nombre en vez de un "—".
+  if (variasOpciones) {
+    content.push({ text: "OTRAS OPCIONES COTIZADAS (ALTERNATIVAS, SE ELIGE UNA)", style: "etiquetaSeccion", margin: [0, 0, 0, 2] });
+    content.push({
+      text: `Cada opción se cotiza por separado: su valor no se suma al total de la opción ${propuesta.etiqueta}.`,
+      style: "nota",
+      margin: [0, 0, 0, 6],
+    });
     content.push({
       table: {
         widths: ["auto", "*", 100],
+        dontBreakRows: true,
         body: [
           [
-            { text: "PROP.", style: "tablaEncabezadoClara" },
-            { text: "NOMBRE", style: "tablaEncabezadoClara" },
+            { text: "OPCIÓN", style: "tablaEncabezadoClara" },
+            { text: "CONTENIDO", style: "tablaEncabezadoClara" },
             { text: "TOTAL", style: "tablaEncabezadoClara", alignment: "right" },
           ],
-          ...otrasPropuestas.map((p) => [
-            { text: p.etiqueta, style: "tablaCelda" },
-            { text: p.nombre?.trim() || "—", style: "tablaCelda" },
-            { text: moneda(p.totales.total), style: "tablaCelda", alignment: "right" },
-          ]),
+          ...otrasPropuestas.map((p) => {
+            const nombre = p.nombre?.trim();
+            const resumen = resumenPropuesta(p.items);
+            return [
+              { text: p.etiqueta, style: "tablaCelda", bold: true },
+              {
+                stack: [
+                  nombre ? { text: nombre, bold: true } : null,
+                  resumen
+                    ? { text: resumen, style: nombre ? "detalleItem" : undefined }
+                    : nombre ? null : { text: "Sin productos" },
+                ].filter(Boolean),
+                style: "tablaCelda",
+              },
+              { text: moneda(p.totales.total), style: "tablaCelda", alignment: "right" },
+            ];
+          }),
         ],
       },
       layout: { hLineWidth: () => 0.5, vLineWidth: () => 0, hLineColor: () => COLOR.grayBorder },

@@ -5952,3 +5952,36 @@ ficha ODP y rediseño del tablero de Cotizaciones del Dashboard con Excel. Pregu
   pide el endpoint y si se muestra la pestaña "Pendientes de cierre"; carga con `Promise.allSettled` y aviso
   que nombra lo que no cargó.
 - Verificado: tsc y eslint limpios. Pendiente: probar en pantalla con Alejandro y con un jefe de producción.
+
+### Cotizador: PDF con varias propuestas, "otras opciones" legibles (2026-09-28)
+- Consulta del usuario sobre la COT-91: la propuesta A (2 ventanas + tablero, $1.028.304) salía con
+  "OTRAS PROPUESTAS PRESENTADAS · B · — · $304.492" y no se entendía. En la BD, B era **un espejo suelto**:
+  un producto adicional cargado como propuesta, cuando el diseño las trata como alternativas excluyentes.
+  Ninguna de las dos tenía nombre.
+- Opción elegida por el usuario: ajustar el imprimible, sin tocar los datos de la COT-91 ni la BD.
+  `generadorPdfCotizacion.ts`: sección "OTRAS OPCIONES COTIZADAS (ALTERNATIVAS, SE ELIGE UNA)" + nota "su
+  valor no se suma al total de la opción X"; columna CONTENIDO con nombre (si hay) + `resumenPropuesta()`
+  ("Ventanas (2) · Tablero (1)", desde las columnas del modo ligero); encabezado "Opción A de 2" cuando la
+  propuesta no tiene nombre. El controlador no cambió.
+- Verificado: `tsc --noEmit` limpio; PDFs A y B de la COT-91 generados con el código nuevo contra la BD
+  (solo lectura) y revisados visualmente.
+- Pendiente/decisión abierta: el cotizador no avisa al crear una propuesta B de que es una alternativa
+  y no un complemento; la COT-91 conserva el espejo como opción B.
+
+### Cotizador: numeración reiniciada, la primera real será la COT-17000 (2026-09-28)
+- Pedido del usuario: las cotizaciones existentes eran pruebas; reiniciar el consecutivo. Pidió primero
+  COT-0001 y, al señalarle que la serie del talonario (`odp.numero_cotizacion`) llega a 16808, eligió
+  **COT-17000** para no cruzar series.
+- BD: `2026-09-28_reiniciar_consecutivo_cotizador.ts` **ya corrido con --aplicar**. Borró COT-87/90/91
+  (3 cotizaciones, 5 propuestas, 8 ítems, 3 cargos; auditados fila por fila en `auditoria_log`) y dejó
+  `cotizador.consecutivo` en 16999. Verificado: 0 filas restantes, 19 DELETE en auditoría, un
+  incremento simulado con ROLLBACK devolvió 17000 y el contador volvió a 16999.
+- Efecto colateral anotado: `sap_items` **2213, 2214, 2215** (SAP 405, ODP-24381) quedaron con
+  `origen_cotizacion_id = NULL`. La ODP-24381 (EN_ESPERA) y la SAP 405 siguen intactas.
+- Código: formato único "COT-17000" — `numeroCotizacion()` en `features/cotizador/format.ts` reemplaza
+  los "N.° {numero}" en 15 componentes (Cotizador, ficha ODP, Dashboard, Hoja de Trabajo, toasts); el
+  PDF ya usaba `COT-{n}`. El buscador del backend acepta "COT-17000"/"cot 17000"/"17000".
+- Verificado: tsc backend y frontend limpios, eslint sin advertencias nuevas.
+- **Pendiente:** análisis aparte del borrado de la ODP-24381 y la SAP 405 (pedido del usuario). Desplegar
+  backend + frontend; hasta entonces producción muestra "N.° 17000" (solo cambia la presentación, el
+  número ya lo asigna la BD).

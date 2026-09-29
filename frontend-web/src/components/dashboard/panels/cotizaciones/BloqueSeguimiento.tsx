@@ -4,6 +4,7 @@ import type { DatosPanelCotizaciones, PendienteValidez } from './tipos';
 import { COLOR } from './tipos';
 import { Bloque, BarraH, Vacio } from './Piezas';
 import { fmtCompacto, fmtCOP, fmtEntero, fmtFecha } from './formato';
+import { numeroCotizacion } from '../../../../features/cotizador/format';
 
 const TRAMOS = ['0 a 7 días', '8 a 15 días', '16 a 30 días', 'Más de 30 días'];
 const TONO_TRAMO = ['#1f5ad6', '#5997fb', '#d97706', '#be123c'];
@@ -83,7 +84,7 @@ export const BloqueSeguimiento: React.FC<{ datos: DatosPanelCotizaciones }> = ({
               <tbody className="divide-y divide-slate-100 text-[13px] text-slate-800">
                 {lista.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/70">
-                    <td className="px-3 py-2 font-semibold text-slate-900 tabular-nums">{p.numero}</td>
+                    <td className="px-3 py-2 font-semibold text-slate-900 tabular-nums">{numeroCotizacion(p.numero)}</td>
                     <td className="px-3 py-2 font-semibold text-slate-900 max-w-[220px] truncate" title={p.cliente}>{p.cliente}</td>
                     <td className="px-3 py-2 max-w-[160px] truncate" title={p.asesor}>{p.asesor}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{fmtFecha(p.fecha)} <span className="text-slate-700">· {p.dias} d</span></td>
@@ -120,7 +121,7 @@ export const BloqueSeguimiento: React.FC<{ datos: DatosPanelCotizaciones }> = ({
               {s.perdidas_recientes.map((p) => (
                 <li key={p.id} className="py-2">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[13px] font-semibold text-slate-900 truncate" title={p.cliente}>N.° {p.numero} · {p.cliente}</span>
+                    <span className="text-[13px] font-semibold text-slate-900 truncate" title={p.cliente}>{numeroCotizacion(p.numero)} · {p.cliente}</span>
                     <span className="text-[12px] font-semibold text-slate-900 tabular-nums shrink-0">{fmtCompacto(p.total)}</span>
                   </div>
                   <p className="text-[12px] text-slate-700">

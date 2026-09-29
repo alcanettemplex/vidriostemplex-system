@@ -8,7 +8,7 @@ import { apiListarCotizaciones, apiObtenerCotizacion, apiEliminarCotizacion, api
 import { usePermisosCotizador } from '../permisos';
 import { AsesorCotizador } from '../vinculo';
 import { Cotizacion, CotizacionLigera, EstadoCotizacion, FiltrosListado, RotuloVinculo } from '../types';
-import { fmtCOP, fmtCOPCorto, fmtFecha } from '../format';
+import { fmtCOP, fmtCOPCorto, fmtFecha, numeroCotizacion } from '../format';
 import ModalDetalleCotizacion from './modals/ModalDetalleCotizacion';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
 import { Campo, ChipEstadoCotizacion, Input, Select, Tarjeta } from './ui';
@@ -263,11 +263,11 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
     };
 
     const eliminar = async (cot: CotizacionLigera) => {
-        if (!window.confirm(`¿Eliminar la cotización N.° ${cot.numero}? Esta acción no se puede deshacer.`)) return;
+        if (!window.confirm(`¿Eliminar la cotización ${numeroCotizacion(cot.numero)}? Esta acción no se puede deshacer.`)) return;
         setEliminandoId(cot.id);
         try {
             await apiEliminarCotizacion(cot.id);
-            toast.success(`Cotización N.° ${cot.numero} eliminada.`);
+            toast.success(`Cotización ${numeroCotizacion(cot.numero)} eliminada.`);
             await cargar();
         } catch (e: any) {
             toast.error(e?.response?.data?.error || 'No se pudo eliminar la cotización.');
@@ -349,7 +349,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                                     className="hover:bg-templex-50/60 cursor-pointer transition"
                                 >
                                     <td className="px-4 py-3 font-bold text-slate-900 tabular-nums whitespace-nowrap">
-                                        {c.numero}
+                                        {numeroCotizacion(c.numero)}
                                         {(c.propuestas?.length ?? 0) > 1 && (
                                             <span
                                                 className="ml-1.5 px-1.5 py-0.5 rounded-full bg-templex-50 ring-1 ring-templex-200 text-[11px] font-semibold text-templex-800 align-middle"

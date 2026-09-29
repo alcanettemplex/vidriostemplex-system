@@ -453,7 +453,9 @@ export async function listar(filtros: FiltrosListado = {}) {
     ];
     // `numero` es INTEGER: sólo se compara si la búsqueda es numérica, para
     // no pedirle a Postgres un cast que fallaría con texto libre.
-    const comoNumero = Number(filtros.q);
+    // Acepta la referencia tal como se ve en pantalla y en el PDF: "COT-17000",
+    // "cot 17000" o "17000" (2026-09-28).
+    const comoNumero = Number(filtros.q.trim().replace(/^cot[\s-]*/i, ''));
     if (Number.isInteger(comoNumero)) condiciones.push({ numero: comoNumero });
     // También por lo vinculado (2026-09-27): "ODP-24381", "PR-0250" o el nombre
     // del lead. Subconsultas por índice, con el texto como parámetro escapado.

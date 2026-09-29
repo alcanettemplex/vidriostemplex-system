@@ -6,7 +6,7 @@ import {
 
 import { apiObtenerCotizacion, apiAptitudCotizacion, apiPlanoDeItem, apiDespieceDeItem, apiDescargarPdfPropuesta, apiGetModulos } from '../../services/cotizadorApi';
 import { Aptitud, Cotizacion, DespieceItem, ItemCotizacion, ModuloMeta, Plano, Propuesta } from '../../types';
-import { ETIQUETA_CARGO, fmtCOP, fmtFecha, fmtPct } from '../../format';
+import { ETIQUETA_CARGO, fmtCOP, fmtFecha, fmtPct, numeroCotizacion } from '../../format';
 import { descripcionDeItem } from '../../fichaProducto';
 import { abrirVentanaImpresion } from '../../../../utils/printWindow';
 import DiagramaProducto from '../DiagramaProducto';
@@ -237,7 +237,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
             const a = document.createElement('a');
             a.href = url;
             // "COT-87 B, ODP-24381 Cliente.pdf": el nombre lo arma el backend.
-            a.download = nombreDeContentDisposition(headers?.['content-disposition']) ?? `COT-${cot.numero}.pdf`;
+            a.download = nombreDeContentDisposition(headers?.['content-disposition']) ?? `${numeroCotizacion(cot.numero)}.pdf`;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -256,7 +256,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
         const area = document.getElementById('hoja-trabajo-area');
         if (!cot || !area) return;
         abrirVentanaImpresion({
-            titulo: `Hoja de Trabajo — Cotización ${cot.numero}`,
+            titulo: `Hoja de Trabajo — ${numeroCotizacion(cot.numero)}`,
             contenidoHtml: area.innerHTML,
         });
     };
@@ -296,7 +296,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
 
     return (
         <ModalShell
-            titulo={<>Cotización {cot ? <span className="tabular-nums">{`N.° ${cot.numero}`}</span> : ''}</>}
+            titulo={<>Cotización {cot ? <span className="tabular-nums">{numeroCotizacion(cot.numero)}</span> : ''}</>}
             subtitulo={cot ? (cot.cliente?.nombre || 'Sin cliente asignado') : undefined}
             anchoMaximo="max-w-4xl"
             onClose={onClose}

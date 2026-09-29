@@ -2,7 +2,7 @@ import React from 'react';
 
 import { TemplexLogo } from '../../../components/ui/TemplexLogo';
 import { Cotizacion, DespieceItem, ItemCotizacion, ModuloMeta, Plano, Propuesta } from '../types';
-import { fmtFecha } from '../format';
+import { fmtFecha, numeroCotizacion } from '../format';
 import { especificaciones, leerFicha } from '../fichaProducto';
 import DiagramaProducto from './DiagramaProducto';
 
@@ -149,7 +149,7 @@ const PrintableHojaTrabajo: React.FC<Props> = ({ cot, propuesta, modulos, planos
                                         <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{fmtFecha(cot.creadaEn)}</span></td>
                                         <td className="w-[40%] font-bold">CLIENTE: <span className="font-normal uppercase ml-1">{cot.cliente?.nombre || '—'}</span></td>
                                         <td className="w-[30%] font-bold">
-                                            COTIZACIÓN: <span className="font-normal uppercase ml-1">N.° {cot.numero}{propuesta ? ` · Prop. ${propuesta.etiqueta}` : ''}</span>
+                                            COTIZACIÓN: <span className="font-normal uppercase ml-1">{numeroCotizacion(cot.numero)}{propuesta ? ` · Prop. ${propuesta.etiqueta}` : ''}</span>
                                         </td>
                                     </tr>
                                     <tr>

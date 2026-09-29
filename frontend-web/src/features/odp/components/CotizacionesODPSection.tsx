@@ -12,6 +12,7 @@ import { usePermisosCotizador } from '../../cotizador/permisos';
 import { fmt } from './ODPFichaModal.utils';
 import { listarCotizacionesAprobadas, vincularCotizacionAOdp } from './odpCotizador.api';
 import { CotizacionesDeOdp } from './useCotizacionesDeOdp';
+import { numeroCotizacion } from '../../cotizador/format';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sección "Cotizaciones (COT)" de la pestaña Comercial (2026-09-27).
@@ -60,7 +61,7 @@ async function descargarPdf(cot: { id: number; numero: number }, propuesta: { id
         const url = URL.createObjectURL(data);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Cotizacion-${cot.numero}-${propuesta.etiqueta}.pdf`;
+        a.download = `${numeroCotizacion(cot.numero)} ${propuesta.etiqueta}.pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -95,7 +96,7 @@ const DetalleCotizacionModal: React.FC<{
                 <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-200">
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                            <h2 className="text-lg font-bold text-slate-900">Cotización N.° {cot.numero}</h2>
+                            <h2 className="text-lg font-bold text-slate-900">Cotización {numeroCotizacion(cot.numero)}</h2>
                             <ChipEstado estado={cot.estado} />
                             {activa && <span className="text-[12px] font-semibold text-slate-800">Opción {activa.etiqueta}{activa.elegida ? ' (elegida)' : ''}</span>}
                         </div>
@@ -240,7 +241,7 @@ const VincularCotizacionModal: React.FC<{
             return Boolean(cliente) && Boolean(nombre) && (nombre.includes(cliente) || cliente.includes(nombre));
         };
         return candidatas
-            .filter(c => !q || normalizar(`${c.numero} ${c.cliente?.nombre ?? ''} ${c.cliente?.obra ?? ''} ${c.asesor ?? ''}`).includes(q))
+            .filter(c => !q || normalizar(`${numeroCotizacion(c.numero)} ${c.cliente?.nombre ?? ''} ${c.cliente?.obra ?? ''} ${c.asesor ?? ''}`).includes(q))
             .map(c => ({ c, sugerida: coincide(c) }))
             .sort((a, b) => Number(b.sugerida) - Number(a.sugerida) || b.c.numero - a.c.numero);
     }, [candidatas, busqueda, clienteOdp]);
@@ -249,7 +250,7 @@ const VincularCotizacionModal: React.FC<{
         setVinculando(c.id);
         try {
             await vincularCotizacionAOdp(c.id, odpId);
-            toast.success(`Cotización N.° ${c.numero} vinculada a la ODP.`);
+            toast.success(`Cotización ${numeroCotizacion(c.numero)} vinculada a la ODP.`);
             onVinculada();
             onClose();
         } catch (e) {
@@ -296,7 +297,7 @@ const VincularCotizacionModal: React.FC<{
                             <div key={c.id} className={`flex items-center justify-between gap-3 border rounded-xl px-3 py-2 ${sugerida ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200'}`}>
                                 <div className="min-w-0">
                                     <p className="text-[13px] font-bold text-slate-900">
-                                        N.° {c.numero} · {c.cliente?.nombre || 'Sin cliente'}
+                                        {numeroCotizacion(c.numero)} · {c.cliente?.nombre || 'Sin cliente'}
                                         {sugerida && <span className="ml-2 text-[11px] font-semibold text-emerald-800">Mismo cliente</span>}
                                     </p>
                                     <p className="text-[12px] text-slate-800">
@@ -401,7 +402,7 @@ const CotizacionesODPSection: React.FC<Props> = ({ odp, cotizaciones }) => {
                         <div className="flex justify-between items-start gap-4">
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                    <span className="font-bold text-blue-700 text-lg">COT N.° {c.numero}</span>
+                                    <span className="font-bold text-blue-700 text-lg">{numeroCotizacion(c.numero)}</span>
                                     <ChipEstado estado={c.estado} />
                                     {(elegida || elegidaLigera) && (
                                         <span className="text-[12px] font-semibold text-slate-800 flex items-center gap-1">
@@ -449,7 +450,7 @@ const CotizacionesODPSection: React.FC<Props> = ({ odp, cotizaciones }) => {
                 // Pasó del tope de detalles o el detalle falló: se ofrece abrirla en el Cotizador.
                 <div className="fixed inset-0 z-[1500] flex items-center justify-center bg-slate-900/60 p-3" onClick={() => setAbierta(null)}>
                     <div className="bg-white rounded-2xl p-6 max-w-md text-sm text-slate-900 space-y-3" onClick={e => e.stopPropagation()}>
-                        <p>No se pudo cargar el detalle de la cotización N.° {ligeraAbierta?.numero} aquí.</p>
+                        <p>No se pudo cargar el detalle de la cotización {numeroCotizacion(ligeraAbierta?.numero)} aquí.</p>
                         <div className="flex justify-end gap-2">
                             <button onClick={() => setAbierta(null)} className="px-3 py-1.5 border border-slate-300 rounded-lg">Cerrar</button>
                             <button onClick={() => navigate(`/cotizador?abrir=${abierta}`)} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg font-bold">Abrir en el Cotizador</button>

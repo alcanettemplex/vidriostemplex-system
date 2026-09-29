@@ -33,6 +33,7 @@ import ModalMotivoPerdida, { CierrePerdida } from './components/modals/ModalMoti
 import ModalCrearODP from './components/modals/ModalCrearODP';
 import BarraVinculo from './components/BarraVinculo';
 import { AsesorCotizador, FichaVinculo, leadSePuedePerder, leerVinculoDeUrl } from './vinculo';
+import { numeroCotizacion } from './format';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Módulo Cotizador — /cotizador, solo root/admin.
@@ -646,7 +647,7 @@ const CotizadorPage: React.FC = () => {
                     }],
                 });
                 aplicarCotizacion(data);
-                toast.success(`Cotización N.° ${data.numero} creada y guardada.`);
+                toast.success(`Cotización ${numeroCotizacion(data.numero)} creada y guardada.`);
                 mostrarAvisosCRM(data);
                 return data;
             }
@@ -1091,7 +1092,7 @@ const CotizadorPage: React.FC = () => {
         : permisos.puedeCrear ? null : 'Tu rol puede ver las cotizaciones, pero no crearlas ni modificarlas.';
 
     const bloqueoEdicion = sinPermiso ?? (edicion?.estado === 'APROBADA' && cabecera.estado === 'APROBADA' && propuestaActiva?.elegida
-        ? `La cotización N.° ${edicion.numero} está aprobada y la Opción ${propuestaActiva.etiqueta} es la elegida: ` +
+        ? `La cotización ${numeroCotizacion(edicion.numero)} está aprobada y la Opción ${propuestaActiva.etiqueta} es la elegida: ` +
           'no se pueden cambiar sus ítems, descuento, cargos ni segmento porque puede haber material cortado. ' +
           'Para editarla, cambia el estado a Pendiente.'
         : null);

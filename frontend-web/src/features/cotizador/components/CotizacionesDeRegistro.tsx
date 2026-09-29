@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calculator, ExternalLink, Loader2 } from '../../../components/ui/icons';
 
-import { fmtCOP } from '../format';
+import { fmtCOP, numeroCotizacion } from '../format';
 import { usePermisosCotizador } from '../permisos';
 import { apiCotizacionesDe } from '../services/cotizadorApi';
 import { CotizacionLigera } from '../types';
@@ -74,7 +74,7 @@ const CotizacionesDeRegistro: React.FC<Props> = ({ tipo, id, titulo = 'Cotizacio
                                     onClick={() => navigate(enlaceCotizador({ abrir: c.id }))}
                                     className="w-full flex items-center gap-2 py-2 text-left hover:bg-slate-50 rounded-lg px-1"
                                 >
-                                    <span className="text-[12.5px] font-bold text-slate-900 tabular-nums">N.° {c.numero}</span>
+                                    <span className="text-[12.5px] font-bold text-slate-900 tabular-nums">{numeroCotizacion(c.numero)}</span>
                                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${e.clase}`}>{e.rotulo}</span>
                                     <span className="flex-1 text-[12px] text-slate-700 truncate">{c.asesor}</span>
                                     <span className="text-[12.5px] font-bold text-slate-900 tabular-nums">{fmtCOP(c.totales?.total ?? 0)}</span>

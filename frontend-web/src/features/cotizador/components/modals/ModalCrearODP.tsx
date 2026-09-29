@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { AlertTriangle, CheckCircle2, Link2, Loader2, FileCheck, UserPlus } from '../../../../components/ui/icons';
 
-import { fmtCOP } from '../../format';
+import { fmtCOP, numeroCotizacion } from '../../format';
 import { apiCrearCliente, apiCrearOdpDesdeCotizacion, apiPreviaCrearOdp } from '../../services/cotizadorApi';
 import { FichaVinculo, FORMAS_PAGO_ODP, FormaPagoODP, PlanCrearODP } from '../../vinculo';
 import BuscadorVinculo, { ChipVinculo } from '../BuscadorVinculo';
@@ -125,7 +125,7 @@ const ModalCrearODP: React.FC<Props> = ({ cotizacionId, clienteNombre, clienteTe
     return (
         <ModalShell
             titulo="Crear ODP"
-            subtitulo={plan ? `Desde la cotización N.° ${plan.cotizacion.numero}${plan.cotizacion.etiqueta ? ` · Opción ${plan.cotizacion.etiqueta}` : ''}` : undefined}
+            subtitulo={plan ? `Desde la cotización ${numeroCotizacion(plan.cotizacion.numero)}${plan.cotizacion.etiqueta ? ` · Opción ${plan.cotizacion.etiqueta}` : ''}` : undefined}
             anchoMaximo="max-w-xl"
             onClose={onCerrar}
             pie={
