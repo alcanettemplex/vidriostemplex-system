@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../store/store';
 import { toast } from 'react-toastify';
 import {
   CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar,
@@ -298,6 +300,12 @@ const RutaCard: React.FC<{
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
+/** Roles que el backend admite en /api/rutas/atascadas (rutas.routes.ts, requireRole; root pasa
+ *  siempre). Los roles de solo lectura (asesor, compras, asistente, marketing) abren esta vista
+ *  pero no ese endpoint: pedírselo devolvía 403 y, dentro del Promise.all, vaciaba toda la carga
+ *  ("Error al cargar datos"). Si el backend cambia esa lista, cambiarla aquí también. */
+const ROLES_PENDIENTES_CIERRE = ['root', 'admin', 'gerencia', 'jefe_produccion', 'produccion'];
+
 type MainTab = 'agenda' | 'listos' | 'pago' | 'factura' | 'produccion' | 'programados' | 'completados' | 'instaladores' | 'atascadas';
 type SubTabProg = 'programada' | 'en_curso';
 type SubTabComp = 'completadas' | 'canceladas';
@@ -305,6 +313,8 @@ type SubTabComp = 'completadas' | 'canceladas';
 const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
+  const rol = useSelector((state: RootState) => ((state as any).auth.user?.rol || '') as string);
+  const puedeVerPendientesCierre = ROLES_PENDIENTES_CIERRE.includes(rol);
 
   // State
   const [mainTab, setMainTab] = useState<MainTab>('agenda');
@@ -337,18 +347,22 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   // Carga datos principales
   const cargar = useCallback(async () => {
     setLoading(true);
-    try {
-      const [gestion, rutasRes, atascadasRes] = await Promise.all([
-        axios.get(`${API}/api/rutas/odps-para-gestion`, { headers }),
-        axios.get(`${API}/api/rutas`, { headers }),
-        axios.get(`${API}/api/rutas/atascadas`, { headers }),
-      ]);
-      setOdps(gestion.data);
-      setRutas(rutasRes.data);
-      setAtascadas(atascadasRes.data);
-    } catch { toast.error('Error al cargar datos'); }
-    finally { setLoading(false); }
-  }, []); // eslint-disable-line
+    // Cada bloque carga por su cuenta: si uno falla, los demás se muestran igual y el aviso dice
+    // cuál no cargó. Antes un solo error (Promise.all) dejaba la pantalla vacía.
+    const [gestion, rutasRes, atascadasRes] = await Promise.allSettled([
+      axios.get(`${API}/api/rutas/odps-para-gestion`, { headers }),
+      axios.get(`${API}/api/rutas`, { headers }),
+      puedeVerPendientesCierre ? axios.get(`${API}/api/rutas/atascadas`, { headers }) : Promise.resolve({ data: [] }),
+    ]);
+    const fallidos: string[] = [];
+    if (gestion.status === 'fulfilled') setOdps(gestion.value.data); else fallidos.push('ODPs por instalar');
+    if (rutasRes.status === 'fulfilled') setRutas(rutasRes.value.data); else fallidos.push('rutas programadas');
+    if (atascadasRes.status === 'fulfilled') setAtascadas(atascadasRes.value.data); else fallidos.push('pendientes de cierre');
+    if (fallidos.length) {
+      toast.error(`No se pudieron cargar: ${fallidos.join(', ')}. Lo demás está actualizado; pulsa el botón Recargar (↻) para reintentar.`);
+    }
+    setLoading(false);
+  }, [puedeVerPendientesCierre]); // eslint-disable-line react-hooks/exhaustive-deps -- headers se recrea en cada render
 
   // Carga historial (lazy)
   const cargarHistorial = useCallback(async (desde: string, hasta: string) => {
@@ -545,6 +559,8 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             // al llegar a cero y el jefe no encontraba dónde cerrar una instalación cuando
             // volvía a aparecer una. Se comporta como las demás tabs.
             .filter(t => !t.soloEscritura || !readOnly)
+            // Pendientes de cierre solo para los roles que el backend deja consultarla.
+            .filter(t => t.key !== 'atascadas' || puedeVerPendientesCierre)
             .map(t => ({ key: t.key, label: t.label, icon: React.createElement(t.icon, { className: 'w-4 h-4' }), badge: t.count ?? undefined }))}
           activeKey={mainTab}
           onChange={(k) => setMainTab(k as MainTab)}
