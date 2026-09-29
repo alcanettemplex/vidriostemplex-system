@@ -89,27 +89,45 @@ acentos sobre el menú oscuro. Disponible en Tailwind como `bg-templex-*`, `text
 - Peso por defecto **`bold`** (vía `IconContext` en `app/App.tsx`): el ERP pinta casi todos sus
   iconos a 12–16px, donde el trazo `regular` de Phosphor (1px) se pierde. Tamaño por defecto 24px,
   igual que lucide, para que ningún icono sin tamaño declarado mueva su layout.
-- `weight="duotone"` para iconos protagonistas: menú lateral, indicador de página en la barra
+- `weight="duotone"` para iconos protagonistas: paneles de áreas, indicador de página en la barra
   superior, tarjetas de KPI, estados vacíos.
 - Los iconos de `@mui/icons-material` de las pantallas activas también pasaron al registro. La
   dependencia sigue instalada solo porque la usa el módulo huérfano `features/cotizaciones/`.
 
 ---
 
-## Shell
+## Shell — navegación superior (2026-09-28)
 
-- **Menú lateral** (`components/common/Sidebar.tsx`): panel azul noche de altura completa, logo en
-  blanco (`<TemplexLogo tono="blanco">`), iconos en duotono, indicador de página activa con
-  resplandor de marca.
-- **Barra superior** (`components/common/Navbar.tsx`): solo sobre el área de trabajo; muestra
-  *sección › página*, la fecha, las notificaciones y el menú de usuario (nombre, rol legible, cerrar
-  sesión).
-- El mapa de ítems, el filtro por rol y las etiquetas de rol viven en
-  `components/common/navegacion.ts`, compartido por los dos. **Agregar un módulo al menú es agregar
-  una entrada ahí.** Recordar que `allowedRoles` solo decide la visibilidad en el menú; la protección
-  de la ruta sigue en `<RoleRoute>` y en el backend.
-- Las medidas que las páginas descuentan no cambiaron: menú `w-64`, barra `h-16`
-  (`md:pl-64`/`pt-16` en `AppShell`).
+Reemplazó al menú lateral fijo de la Fase 1. El contenido usa todo el ancho (256px más para
+tablas y formularios).
+
+- **Barra superior** (`components/common/Navbar.tsx`), azul noche, 64px, a todo el ancho:
+  logo · áreas · buscador de módulos · favoritos · notificaciones · usuario (con la fecha y el
+  cierre de sesión).
+- **Áreas**: Dashboard, Comercial, Producción, Logística, Finanzas, Administración
+  (`AREAS` en `navegacion.ts`). Cada una abre un panel (`MenuArea.tsx`) con sus módulos: icono,
+  nombre, una línea de para qué sirve y una ★ de favorito. Un área sin módulos para el rol no
+  aparece; con **un solo módulo**, la barra muestra el nombre del módulo como enlace directo (un
+  instalador ve "Dashboard · Cotizador · Instalaciones · Manuales").
+- **Ubicación**: el área activa se marca y muestra debajo el módulo actual ("Comercial / CRM &
+  Leads"); en tablet/celular aparece junto al logo. No hay una segunda fila de migas.
+- **Buscador de módulos** (`LanzadorModulos.tsx`), Ctrl+K / ⌘K desde cualquier pantalla: busca
+  entre los módulos del rol por nombre, área, descripción y palabras clave, sin tildes. No consulta
+  la BD ni busca registros (eso sería conectar `/api/search`).
+- **Favoritos** (`useFavoritos.ts`): por usuario, en `localStorage` de ese navegador. Botón ★ de la
+  barra, arriba del buscador y arriba del menú móvil.
+- **Responsive**: ≥1280px áreas completas; 1024–1279px rótulos compactos (sin flecha, nombre de
+  módulo más corto); <1024px las áreas pasan a un panel lateral (`MenuMovil.tsx`). El buscador
+  se muestra como caja solo desde 1536px; debajo, como icono.
+- **Alto de 64px a propósito**: siete pantallas calculan su alto con `calc(100vh - Npx)` y los
+  filtros del tablero de Cotizaciones usan `sticky top-16`. Cambiar el alto obliga a revisarlas.
+- **`navegacion.ts` es la fuente única de módulos, áreas y roles por ruta.** `AppRoutes.tsx`
+  toma los roles de cada `<RoleRoute>` con `rolesDeRuta(path)`, y el menú filtra con la misma
+  lista: un módulo nuevo se agrega ahí (ruta + área + descripción + roles). Antes eran dos listas
+  que se desincronizaron — `gerencia` veía Toma de Medidas, Inventario y Usuarios y la ruta lo
+  devolvía al Dashboard. Al unificar se conservaron los valores de las rutas (acceso real
+  idéntico en las 19 rutas protegidas). Root entra a todo, pero su menú solo muestra los módulos
+  con `paraRoot`. El backend sigue siendo la autoridad.
 
 ---
 
@@ -256,3 +274,76 @@ maqueta interactiva, con recálculo automático y cargos editables.
   cifras en Cotizar.
 - **Sin cambios de lógica:** estado de `CotizadorPage`, validación y llamada al motor, totales,
   backend y BD. Verificado con Playwright contra el backend local (18 comprobaciones, sin guardar).
+
+---
+
+## Gráficas y KPI (2026-09-28)
+
+Pedido del usuario: que dashboards, KPI y gráficas **no se vean genéricos**, sin tocar la lógica.
+Alcance: Dashboard gerencial (6 pestañas), CRM (Métricas, Dashboard Gerencial, Prospectos, Monitor,
+Embudo, Reportes), Proveedores (comparador de precios) y Contabilidad (KPI). Método: skill `dataviz`.
+
+### El kit — `frontend-web/src/components/charts/`
+
+Toda gráfica, embudo, ranking y tarjeta de KPI se arma con estas piezas. **No escribir hex a mano ni
+crear otra tarjeta de KPI.**
+
+| Pieza | Para qué |
+|---|---|
+| `vizTokens.ts` | Colores: `CATEGORICA` (identidad), `ORDINAL_AZUL` + `tonoEtapa()` (embudos), `ESTADO` (bien/atención/grave/crítico), `CAJA_HEX` (semáforo de caja), `TINTA` (ejes, rejilla), `colorPorEntidad()` |
+| `rechartsBase.ts` | `ejeX`, `ejeY`, `rejilla`, cursores, `puntaVertical`/`puntaHorizontal` para Recharts |
+| `ChartCard` + `TablaDatos` | Tarjeta con título, descripción y conmutador Gráfica/Tabla |
+| `ChartTooltip`, `Leyenda` | Tooltip y leyenda únicos |
+| `BarraMagnitud` | Fila de ranking/embudo: rótulo, barra, cifra y % |
+| `BarraApilada` | Reparto de un total. **Reemplaza a los donuts** |
+| `Medidor` | Avance contra meta; `marca` dibuja una referencia (p. ej. promedio del equipo) |
+| `Sparkline` | Tendencia mínima junto a una cifra |
+| `Iniciales` | Avatar neutro; anillo opcional con el color fijo de la entidad |
+| `Ayuda` | "?" con la explicación de un indicador (mouse y teclado) |
+| `TarjetaKPI` (en `dashboard/`, re-exportada) | Única tarjeta de KPI. `densa` para grillas de 4+, `delta`, `ayuda` |
+
+### Paletas validadas (script `validate_palette.js` del skill, sobre blanco)
+
+- **Categórica**, azul Templex primero: `#1f5ad6 #eb6834 #1baf7a #eda100 #e87ba4 #008300 #4a3aa7 #e34948`.
+  Pasa todo (CVD ΔE adyacente mín. 9,1; visión normal 19,6). Los tonos 3, 4 y 5 quedan bajo 3:1:
+  al usarlos, rotular el valor. Cambiar un valor obliga a revalidar.
+- **Ordinal** azul: `#7eaefc #4f8bf7 #1f5ad6 #1a47ad #142f73` (validada con `--ordinal`).
+
+### Reglas
+
+1. **Nunca doble eje Y.** Dos medidas de escala distinta → dos gráficas alineadas (así quedó
+   "Evolución mensual" del Dashboard: montos arriba, cantidad de ODPs abajo).
+2. **El color sigue a la entidad, no a la posición.** Nada de `colors[i % colors.length]`: un filtro
+   no debe repintar a nadie. Categorías sin orden (productos, fuentes, motivos) → **un solo color**;
+   el largo de la barra ya dice cuál pesa más.
+3. **Etapas ordenadas → rampa azul** (`tonoEtapa`), la entrada del embudo más oscura.
+4. **Los colores de estado son reservados** y van siempre con icono o texto. Los estados de ODP
+   (`utils/estadosODP`) y de caja (`CAJA_HEX`) conservan su semáforo.
+5. Rejilla sólida y tenue, sin punteado; barras finas con punta de 4px; el valor en tinta, nunca en
+   el color de la barra.
+6. Sin degradados en barras ni avatares, sin emojis como iconos (🥇🎯📞), sin cifras que cuentan
+   desde 0: el número aparece directo.
+7. Cifras grandes (KPI, titulares) con dígitos proporcionales; `tabular-nums` solo en columnas.
+
+### Qué cambió visiblemente
+
+- Dashboard: doble eje partido en dos; Estado de Caja de donut a barra apilada; el anillo de la meta
+  pasó a cifra grande + barra + estado en palabras ("Meta cumplida / En camino / Rezagado"); embudo
+  con rampa azul; checks y servicios en un solo tono; avatares neutros; vista en tabla en las
+  gráficas principales.
+- CRM: una sola tarjeta de KPI (antes 4 variantes con iconos SVG animados de `CRMIcons.tsx`, que se
+  retiró); donut de origen → barra apilada; asesores con color fijo; ranking con número, no medallas.
+  El mini-embudo de cada asesor ahora muestra la tasa real con la marca del promedio del equipo
+  (antes: tasa ×2,5, escala no explicada).
+- Proveedores: en el comparador, tendencia de los 3 últimos precios (datos que ya venían) y
+  "+X% vs más bajo" solo cuando la modalidad coincide.
+- Contabilidad: los 5 KPI pasan a `TarjetaKPI`.
+
+### Correcciones que salieron en el camino
+
+- CRM › Dashboard Gerencial: el `InfoTooltip` local no mostraba el texto (solo el "?").
+- CRM › "Mayor Pipeline" mostraba el monto del asesor con mejor **conversión**; ahora busca el de
+  mayor monto gestionado y muestra su nombre.
+- Dashboard › Ventas: la meta caía a `120_000_000` fijo si no había configuración; ahora dice que no
+  hay meta configurada.
+- Código muerto retirado: `dashboard/charts/*` (4 componentes sin uso tras el cambio), `dashboard/KPICard.tsx`.

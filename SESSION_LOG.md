@@ -5908,3 +5908,47 @@ ficha ODP y rediseño del tablero de Cotizaciones del Dashboard con Excel. Pregu
 - Pendiente: DESPLEGAR el backend (producción sigue con "el más barato" y el bug) y volver a correr el
   script tras el despliegue (idempotente); recargar la caché del Cotizador en producción. Revisar los
   mapeos de BPB05/BPB10 (VITELSA $17.000) y GRE393NT "NATURAL" → JAM0108 "MATE".
+
+### Dashboards, KPI y gráficas con el skill dataviz (2026-09-28)
+- Pedido del usuario: que no se vean genéricos, sin perder lógica. Alcance: Dashboard gerencial (6 tabs),
+  CRM (Métricas, Dashboard Gerencial, Prospectos, Monitor, Embudo, Reportes), Proveedores (comparador) y
+  Contabilidad (KPI). El usuario delegó las decisiones de UX/UI.
+- Kit nuevo `frontend-web/src/components/charts/` (tokens validados con el script del skill, ChartCard,
+  BarraMagnitud, BarraApilada, Medidor, Sparkline, Iniciales, Ayuda, config Recharts). `TarjetaKPI` como
+  tarjeta única (+`densa`, `delta`, `ayuda`). Reglas y paletas en `design/sistema-visual/README.md` §
+  "Gráficas y KPI".
+- Decisiones: doble eje partido en dos gráficas; donuts → barra apilada; sin count-up; tendencia de precio
+  en Proveedores con los 3 precios que ya trae la respuesta (sin egress nuevo).
+- Bugs corregidos de paso: InfoTooltip sin texto en CRM Dashboard Gerencial; "Mayor Pipeline" mostraba al
+  top de conversión; meta fija 120M en PanelVentas.
+- Retirados: `dashboard/charts/*`, `dashboard/KPICard.tsx`, `crm/components/CRMIcons.tsx` (sin uso).
+- Verificado: `tsc --noEmit` limpio, build de producción OK (con GENERATE_SOURCEMAP=false: sin eso el build
+  se queda sin memoria en esta máquina), ESLint de los archivos tocados sin advertencias nuevas.
+- Pendiente: revisión visual del usuario en el navegador (no hubo navegador automatizado). Sin BD ni
+  backend: nada que migrar ni desplegar aparte del frontend.
+
+### Navegación global superior por áreas (2026-09-28)
+- Pedido del usuario: reemplazar el menú lateral por navegación superior organizada por áreas, sin tocar
+  rutas, permisos, auth ni módulos. Decisiones (recomendaciones aceptadas): reparto de áreas propuesto,
+  permisos del menú = los de las rutas en una sola lista, buscador de módulos sin conectar /api/search.
+- `navegacion.ts` fuente única (área, descripción, roles por ruta, `paraRoot`); `AppRoutes.tsx` usa
+  `rolesDeRuta()`. Verificado mecánicamente: las 19 rutas protegidas con roles idénticos a HEAD; simulación
+  de 15 roles sin enlaces muertos ni módulos accesibles ocultos. Efecto: `gerencia` deja de ver 3 enlaces
+  que lo devolvían al Dashboard (Toma de Medidas, Inventario, Usuarios); `gerente` ve Dashboard y Manuales.
+- Nuevos: `MenuArea.tsx`, `LanzadorModulos.tsx` (Ctrl+K), `MenuMovil.tsx` (<1024px), `useFavoritos.ts`
+  (localStorage por usuario). `Navbar.tsx` rehecho; `AppShell` sin `md:pl-64`; `Sidebar.tsx` retirado;
+  `ResumenPropuesta.tsx` (Cotizador) pierde `md:left-64`. Barra de 64px para no mover los `calc(100vh-N)`.
+- También: `Ayuda` (charts) ahora dibuja el texto en un portal — `TarjetaKPI` (overflow-hidden) lo tapaba.
+- Verificado: tsc limpio, eslint limpio en lo tocado, dev server "No issues found". El build de producción
+  se queda sin memoria si el dev server está corriendo (antes compiló con él caído).
+- Pendiente: revisión visual del usuario en 1440/1280/1024/768/390 y con un rol no admin.
+
+### Instalaciones: "Error al cargar datos" para roles de solo lectura (2026-09-28)
+- Reporte del usuario con Alejandro Ardila (`asesor_comercial`). Causa: `JefeView` cargaba 3 endpoints con
+  `Promise.all` y `/api/rutas/atascadas` solo admite admin/gerencia/jefe_produccion/produccion (+root): 403 →
+  se vaciaba toda la carga. Afectaba a asesor_comercial, compras, asistente_administrativo y marketing, en
+  producción también, desde `355938c` (2026-06-19). No lo causaron los cambios del día.
+- Arreglo solo frontend, sin tocar permisos: `ROLES_PENDIENTES_CIERRE` (espejo del backend) decide si se
+  pide el endpoint y si se muestra la pestaña "Pendientes de cierre"; carga con `Promise.allSettled` y aviso
+  que nombra lo que no cargó.
+- Verificado: tsc y eslint limpios. Pendiente: probar en pantalla con Alejandro y con un jefe de producción.
