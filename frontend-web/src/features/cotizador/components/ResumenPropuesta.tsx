@@ -512,7 +512,7 @@ const ResumenPropuesta: React.FC<Props> = ({
 
             {/* Barra fija para tablet y teléfono: el resumen queda al final de la
                 página y aquí se mantienen el total y la acción principal. */}
-            <div className="xl:hidden fixed inset-x-0 md:left-64 bottom-0 z-30 bg-white border-t border-slate-200 shadow-[0_-10px_28px_-14px_rgba(17,22,32,0.35)] px-4 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom,0px))] flex items-center gap-3">
+            <div className="xl:hidden fixed inset-x-0 bottom-0 z-30 bg-white border-t border-slate-200 shadow-[0_-10px_28px_-14px_rgba(17,22,32,0.35)] px-4 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom,0px))] flex items-center gap-3">
                 <div className="min-w-0 leading-tight">
                     <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Total Opción {etiquetaPropuesta}</span>
                     <span className="block text-[20px] font-extrabold text-slate-900 tabular-nums">{fmtCOP(totales.total)}</span>
