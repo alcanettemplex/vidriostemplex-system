@@ -1,15 +1,28 @@
 # Módulo Cotizador
 
 Cotizador de ventanas, puertas, cabinas y espejos de aluminio/vidrio. Portado desde un proyecto
-standalone como módulo `/cotizador` del ERP, **aislado del flujo**: no genera ODP, no lee clientes
-ni el catálogo del módulo Proveedores por su cuenta (sí toma costos de ahí, ver más abajo).
+standalone como módulo `/cotizador` del ERP. **Integrado al ERP desde el 2026-09-27**: toda
+cotización nueva exige vínculo (lead, prospecto, cliente u ODP), mueve el CRM, crea la ODP, trae
+ítems a la SAP y tiene sección en la ficha ODP y tablero en el Dashboard (ver las secciones de la
+integración al final). Hasta ese día estuvo aislado y solo para `root` / `admin`.
 
-Solo `root` / `admin`.
+**Acceso** (`cotizador/lib/permisos.ts`, espejo en `features/cotizador/permisos.ts`):
+- **Control total** (root, admin, gerencia, gerente, jefe_produccion): todo, incluidas
+  Configuración y Calibración.
+- **Propias** (asesor_comercial, asistente_administrativo): ven todo y crean, pero editan solo las
+  suyas.
+- **Lectura**: el resto de roles.
+
+**Costos de compra: solo control total** (2026-09-29). `GET /catalogo` omite `costo_unitario` para
+los demás roles y `GET /catalogo-general` (que devuelve proveedor y precio de compra) exige
+`soloControlTotal`. Antes cualquier rol autenticado —instalador, conductor, marketing— los leía por
+la API aunque la pantalla no los mostrara. Una lectura nueva que devuelva costos o precios de
+proveedor debe filtrarlos igual.
 
 > **Para qué se está construyendo:** el destino del módulo —integrar el Excel de cotización, traer
 > el despiece a la SAP, cargar el plano en el Det. Técnico y tener estadística comercial— está en
-> [`cotizador-vision.md`](cotizador-vision.md). Ese documento es **destino, no pendiente**: el
-> aislamiento descrito arriba sigue vigente y nada de allí se implementa sin orden explícita.
+> [`cotizador-vision.md`](cotizador-vision.md). Buena parte ya se integró el 2026-09-27; lo que
+> falta sigue sin implementarse hasta que haya orden explícita.
 
 ---
 
@@ -37,9 +50,8 @@ Verificación en vivo (2026-09-19): Sistema5020, 1000×1500 mm, mate, vidrio cla
   de producto más `itemLibre`, ver "Ítem libre" más abajo),
   `lib/` (cálculo, despiece, plano, aptitud, calibración, sincronización con Proveedores)
 - `backend-api/src/controllers/cotizador_*.controller.ts` — 9 controladores
-- `backend-api/src/routes/cotizador.routes.ts` — **54 endpoints** bajo `/api/cotizador` (51 contados
-  el 2026-09-21; el 2026-09-23 se sumaron `PATCH /cotizaciones/:id/segmento`,
-  `GET /catalogo-general` y `POST /catalogo-general/importar`)
+- `backend-api/src/routes/cotizador.routes.ts` — **59 endpoints** bajo `/api/cotizador` (contados el
+  2026-09-29; la integración del 2026-09-27 sumó los de vínculos y "Crear ODP")
 - `backend-api/src/scripts/pruebas_cotizador/` — 7 suites, `npm run test:cotizador`
 
 **Frontend** — `frontend-web/src/features/cotizador/`, 5 pestañas:
@@ -848,8 +860,13 @@ vidrio miniboreal o un pedazo de perfil de más. Dos piezas:
 ### Traer productos del catálogo general
 `controllers/cotizador_catalogo_general.controller.ts` — `GET /catalogo-general?q=` busca en
 `public.catalogo_productos` lo que **no** está en el Cotizador (ni por código ni por vínculo), con el
-mejor proveedor (mismo filtro que la sincronización: proveedor activo y `seguir_precios = true`,
-costo por metro si se compra `TIRA_6M`). `POST /catalogo-general/importar` lo da de alta con origen
+proveedor que **mandará en su costo**, elegido con la misma `elegirCandidato()` de la sincronización
+(el más alto de los últimos 6 meses, tira primero en perfilería; mismo filtro: proveedor activo y
+`seguir_precios = true`). Hasta el 2026-09-29 la búsqueda mostraba el **más barato** y el precio que
+se veía al importar no era el que la sincronización fijaba un segundo después (BSE1202: mostraba AVQ
+$29.412, el costo quedaba con ACVICOL $36.455). En la búsqueda la categoría aún no existe y se deduce
+como `sugerir()` (tira → perfilería); al importar se usa la elegida. Ambos endpoints son **solo
+control total**: devuelven precios de compra. `POST /catalogo-general/importar` lo da de alta con origen
 `ALTA`, `catalogo_producto_id` enlazado, historial `dar-de-alta`, y corre
 `recalcularCostoDesdeProveedor` para fijar costo y precios (costo × multiplicador de la categoría).
 Sin proveedor con precio exige `costoManual`, que Proveedores reemplazará solo. 409 si ya está; 400
@@ -861,7 +878,9 @@ M2, TIRA_6M → PERFILERIA/X METRO, UNIDAD → ACCESORIO/UND). Avisa si la unida
 la de compra.
 
 Frontend: `modals/ModalCatalogoGeneral.tsx`, desde Configuración ("Productos del catálogo
-general") y desde el buscador de componentes ("¿No aparece? Tráelo del catálogo general").
+general") y desde el buscador de componentes ("¿No aparece? Tráelo del catálogo general"). En el
+buscador, quien no tiene control total ve en su lugar "Pide a administración que lo traiga…"
+(`permisos.administra`, 2026-09-29).
 
 **Primera alta real:** VMINIBOR (vidrio miniboreal), proveedor TODOVIDRIO Y ALUMINIO $31.932,76/m²
 → PA $53.417,12 · PM $50.663,94 · PB $47.910,76.
@@ -1103,11 +1122,11 @@ Claude. El orden va de lo que desbloquea cotizar hoy a lo que conecta con el ERP
    cotización").
 5. **Red de pruebas** — las 3 suites faltantes (`aptitudOrden`, `hojaTrabajo`, `pdf`) y regenerar el
    golden master, antes de tocar el flujo del ERP.
-6. **Identidad y acceso de asesores** — `cliente_id`, `asesor_usuario_id`, rol asesor con sus
-   cotizaciones y sin Configuración/Calibración, cliente y asesor obligatorios. Rompe el aislamiento:
-   **requiere orden explícita**.
-7. **Destino** (`cotizador-vision.md`) — ODP desde cotización, generador de perfilería al
-   `SAPModal`, plano al Det. Técnico, estadísticas, enlace público. Requiere orden explícita.
+6. ~~**Identidad y acceso de asesores**~~ — **cerrado el 2026-09-27** con la integración al ERP
+   (vínculo obligatorio, asesor dueño, permisos por rol).
+7. **Destino** (`cotizador-vision.md`) — ya hecho el 2026-09-27: ODP desde la cotización, ítems a
+   la SAP, estadísticas en el Dashboard. **Falta:** plano al Det. Técnico y enlace público. Requieren
+   orden explícita.
 
 Fuera de la fila:
 - **Campos del formato VR09 en el PDF** — en pausa por decisión del usuario (ver "El Excel de los
@@ -1618,6 +1637,16 @@ Parte de la integración del Cotizador al ERP (permisos y migración: fase A del
   `POST /api/odp` (admin, gerencia, asesor_comercial, jefe_produccion); prospecto: su asesor o admin/gerencia.
   Los cuatro handlers (`createLead`, `crearODPDesdeLead`, `aprobarProspecto`, `createODP`) se partieron en
   handler + función exportable **sin cambiar su comportamiento**.
+- **Candado contra la doble ODP** (2026-09-29, `crearODPDesdeCotizacion`): antes era "comprobar y
+  luego crear" sin bloqueo, así que dos pestañas, o un reintento tras un corte de red, podían crear
+  dos ODP de la misma cotización. Los tres flujos abren su propia transacción y no se pueden
+  envolver, así que se bloquea la fila con `SELECT … FOR UPDATE` en una transacción que dura toda la
+  operación y el enlace `odp_id` se escribe dentro de ella. El segundo espera y el plan lo rechaza
+  con 409. **Ninguno de los tres flujos escribe en `cotizador.cotizacion`**; si alguno llegara a
+  hacerlo, se bloquearía contra el candado. El evento del lead y el aviso por socket van después del
+  commit. Verificado con 3 peticiones simultáneas sobre la COT-17000 (ya enlazada): salieron en fila
+  (2,1 s, 2,9 s, 3,2 s), las tres con 409, sin escritura. Límite que queda: si la ODP se crea y el
+  enlace falla, la ODP queda sin enlazar (igual que antes), pero un reintento ya no crea otra.
 - **Contrato de enlaces** (`enlaceCotizador` en `features/cotizador/vinculo.ts`):
   `/cotizador?abrir=<id>` y `/cotizador?nuevo=1&vinculo=<tipo>:<id>`; se consumen una vez y se limpian.
 - **Entradas:** detalle del lead (CRM, `CotizacionesDeRegistro`), botón "Cotizar" en tarjetas de la columna
@@ -1765,9 +1794,9 @@ Detalles que el usuario encontró recorriendo el módulo. Decisiones suyas, no v
 - Clonar propuesta acepta `pelicula` como código (o el booleano viejo) y `costoPelicula`.
 - `itemsParaSap.clasificar()` reconoce `^(PEL|MATI)` (antes `PELI|PEL0|MATI`, que dejaba PEL1020/PEL1030
   como proceso del vidrio).
-- ⚠️ **Heredado, sin tocar:** la película se cobra con el ÁREA del vidrio (m²) como cantidad, pero su
-  unidad y el costo del proveedor son **por metro** de rollo. Es lo que hacía `PELI31` desde el Excel.
-  Si el rollo no mide 1 m de ancho, el precio no es exacto: pendiente de confirmar con el usuario.
+- **Película cobrada por área — decidido, no reabrir** (usuario, 2026-09-27): se cobra con el ÁREA
+  del vidrio (m²) como cantidad aunque la unidad y el costo del proveedor son **por metro** de rollo
+  (1,5 m de ancho). Es lo que hacía `PELI31` desde el Excel.
 
 ### Código del ERP en pantalla y en el buscador
 - 170 productos del Cotizador tienen un código distinto al del ERP: 44 del catálogo (`CPTOR` ↔

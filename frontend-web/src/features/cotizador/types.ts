@@ -192,7 +192,9 @@ export interface ProductoCatalogo {
     descripcion: string;
     categoria: string;
     unidad: string;
-    costo_unitario: number;
+    /** Costo de compra. Solo llega a control total (`GET /catalogo` lo omite
+     * para el resto de roles, 2026-09-29). */
+    costo_unitario?: number;
     precio_pa: number;
     precio_pm: number;
     precio_pb: number;

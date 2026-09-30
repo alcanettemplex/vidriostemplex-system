@@ -24,7 +24,11 @@ import {
   Usuario,
 } from '../models';
 import { getProducto, recargarPrecios } from '../cotizador/lib/catalogo';
-import { recalcularCostoDesdeProveedor } from '../cotizador/lib/sincronizacionProveedores';
+import {
+  type Candidato,
+  elegirCandidato,
+  recalcularCostoDesdeProveedor,
+} from '../cotizador/lib/sincronizacionProveedores';
 import { claseDeUnidad } from '../cotizador/modules/itemLibre';
 import { round2 } from '../cotizador/lib/motorCalculo';
 
@@ -54,29 +58,67 @@ function claseCompra(unidadCompra: string | null): 'area' | 'lineal' | 'unidad' 
   return null;
 }
 
-/** Mejor proveedor de un producto del catálogo general, con el mismo filtro
- * que la sincronización (proveedor activo y con seguimiento de precios) y el
- * costo normalizado por metro cuando se compra la tira de 6 m. */
-const SQL_MEJOR_PROVEEDOR = `
-  SELECT DISTINCT ON (pp.catalogo_producto_id)
-         pp.catalogo_producto_id, pr.nombre_comercial AS proveedor, pp.unidad_compra, pp.precio_actual,
-         pp.fecha_precio_actual,
+/** Todos los precios de proveedor de estos productos, con el mismo filtro que
+ * la sincronización (equivalencia y proveedor activos, con seguimiento de
+ * precios) y el costo normalizado por metro cuando se compra la tira de 6 m. */
+const SQL_CANDIDATOS_PROVEEDOR = `
+  SELECT pp.id, pp.proveedor_id, pp.catalogo_producto_id, pr.nombre_comercial AS proveedor,
+         pp.unidad_compra, pp.precio_actual, pp.fecha_precio_actual,
          CASE WHEN pp.unidad_compra = 'TIRA_6M' AND COALESCE(pp.metros_por_unidad, 6) > 0
               THEN pp.precio_actual / COALESCE(pp.metros_por_unidad, 6)
               ELSE pp.precio_actual END AS costo_normalizado
   FROM public.proveedor_producto pp
   JOIN public.proveedores pr ON pr.id = pp.proveedor_id
   WHERE pp.activo AND pp.precio_actual IS NOT NULL AND pr.activo AND pr.seguir_precios = true
-    AND pp.catalogo_producto_id IN (:ids)
-  ORDER BY pp.catalogo_producto_id, costo_normalizado ASC`;
+    AND pp.catalogo_producto_id IN (:ids)`;
 
-async function mejoresProveedores(ids: number[]): Promise<Map<number, Fila>> {
+const fechaIso = (v: unknown): string | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const s = v instanceof Date ? v.toISOString() : String(v);
+  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
+};
+
+/**
+ * Proveedor que MANDA en el costo de cada producto, elegido con la misma
+ * `elegirCandidato()` de la sincronización (regla del usuario 2026-09-28: el
+ * más alto de los últimos 6 meses, tira de 6 m primero en perfilería). Hasta el
+ * 2026-09-29 esta consulta mostraba el MÁS BARATO, así que el precio que se veía
+ * al traer un producto no era el que le ponía la sincronización un segundo
+ * después.
+ *
+ * `categoria`: la elegida al importar. En la búsqueda todavía no hay, y se
+ * deduce como `sugerir()`: si algún proveedor lo vende en tira, es perfilería.
+ */
+async function mejoresProveedores(ids: number[], categoria?: string): Promise<Map<number, Fila>> {
   if (ids.length === 0) return new Map();
-  const filas = (await sequelize.query(SQL_MEJOR_PROVEEDOR, {
+  const filas = (await sequelize.query(SQL_CANDIDATOS_PROVEEDOR, {
     type: QueryTypes.SELECT,
     replacements: { ids },
   })) as Fila[];
-  return new Map(filas.map((f) => [Number(f.catalogo_producto_id), f]));
+
+  const porProducto = new Map<number, Fila[]>();
+  for (const f of filas) {
+    const id = Number(f.catalogo_producto_id);
+    porProducto.set(id, [...(porProducto.get(id) ?? []), f]);
+  }
+
+  const elegidos = new Map<number, Fila>();
+  for (const [id, lista] of porProducto) {
+    const candidatos: Candidato[] = lista.map((f) => ({
+      proveedorProductoId: Number(f.id),
+      proveedorId: Number(f.proveedor_id),
+      proveedorNombre: String(f.proveedor),
+      unidadCompra: String(f.unidad_compra),
+      precio: Number(f.precio_actual),
+      costoNormalizado: Number(f.costo_normalizado),
+      fechaPrecio: fechaIso(f.fecha_precio_actual),
+    }));
+    const cat = categoria ?? (candidatos.some((c) => c.unidadCompra === 'TIRA_6M') ? 'PERFILERIA' : '');
+    const ganador = elegirCandidato(candidatos, cat);
+    const fila = ganador && lista.find((f) => Number(f.id) === ganador.proveedorProductoId);
+    if (fila) elegidos.set(id, fila);
+  }
+  return elegidos;
 }
 
 async function actorDesdeRequest(req: Request): Promise<string> {
@@ -88,8 +130,8 @@ async function actorDesdeRequest(req: Request): Promise<string> {
 
 /**
  * GET /catalogo-general?q= — productos del catálogo general que TODAVÍA no
- * están en el Cotizador (ni por código ni por vínculo), con su mejor precio de
- * proveedor y la categoría/unidad sugeridas. Mínimo 2 caracteres, 30 filas.
+ * están en el Cotizador (ni por código ni por vínculo), con el precio del
+ * proveedor que mandará en su costo y la categoría/unidad sugeridas. Mínimo 2 caracteres, 30 filas.
  */
 export const buscarCatalogoGeneral = async (req: Request, res: Response) => {
   const q = String(req.query.q ?? '').trim();
@@ -186,7 +228,7 @@ export const importarDesdeCatalogoGeneral = async (req: Request, res: Response) 
       });
     }
 
-    const proveedor = (await mejoresProveedores([Number(cp.id)])).get(Number(cp.id)) ?? null;
+    const proveedor = (await mejoresProveedores([Number(cp.id)], datos.categoria)).get(Number(cp.id)) ?? null;
     if (!proveedor && !datos.costoManual) {
       return res.status(400).json({
         error: 'Este producto no tiene precio de ningún proveedor activo. Escribe un costo para darlo de alta.',

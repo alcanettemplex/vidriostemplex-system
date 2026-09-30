@@ -118,7 +118,9 @@ router.get('/precios', soloControlTotal, listarPrecios);
 router.post('/precios', soloControlTotal, crearPrecio);
 
 // Traer productos del catálogo general del ERP, vinculados a Proveedores (2026-09-23).
-router.get('/catalogo-general', buscarCatalogoGeneral);
+// La búsqueda devuelve proveedor y precio de compra: solo control total, como la
+// importación (2026-09-29; antes la leía cualquier autenticado).
+router.get('/catalogo-general', soloControlTotal, buscarCatalogoGeneral);
 router.post('/catalogo-general/importar', soloControlTotal, importarDesdeCatalogoGeneral);
 
 // Vínculo con el ERP (2026-09-27): "¿Para quién es esta cotización?". Buscar y

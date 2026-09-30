@@ -7,6 +7,7 @@ import { ExtraComponente, LineaBOM, ProductoCatalogo, SegmentoCliente } from '..
 import { fmtCOP } from '../../format';
 import { buscarEnCatalogo, claseDeUnidad, MIN_BUSQUEDA, precioDe, rotuloCantidad } from '../../catalogoUtil';
 import { BotonPrimario, Campo, Input, ModalShell } from '../ui';
+import { usePermisosCotizador } from '../../permisos';
 import ModalCatalogoGeneral from './ModalCatalogoGeneral';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,6 +56,8 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
     const [piezas, setPiezas] = useState('1');
     const [costo, setCosto] = useState('');
     const [traerGeneral, setTraerGeneral] = useState(false);
+    // Traer del catálogo general muestra precios de compra: solo administración.
+    const { administra } = usePermisosCotizador();
 
     const cargarCatalogo = () =>
         apiGetCatalogo()
@@ -247,14 +250,20 @@ const ModalComponente: React.FC<Props> = ({ modo, linea, segmento, onClose, onCo
                     </p>
                 )}
 
-                <button
-                    type="button"
-                    onClick={() => setTraerGeneral(true)}
-                    className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-templex-700 hover:text-templex-800 hover:underline"
-                >
-                    <PackageSearch className="w-3.5 h-3.5" />
-                    ¿No aparece? Tráelo del catálogo general
-                </button>
+                {administra ? (
+                    <button
+                        type="button"
+                        onClick={() => setTraerGeneral(true)}
+                        className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-templex-700 hover:text-templex-800 hover:underline"
+                    >
+                        <PackageSearch className="w-3.5 h-3.5" />
+                        ¿No aparece? Tráelo del catálogo general
+                    </button>
+                ) : (
+                    <p className="text-[12px] text-slate-700">
+                        ¿No aparece? Pide a administración que lo traiga del catálogo general.
+                    </p>
+                )}
             </div>
         </ModalShell>
     );

@@ -5985,3 +5985,42 @@ ficha ODP y rediseño del tablero de Cotizaciones del Dashboard con Excel. Pregu
 - **Pendiente:** análisis aparte del borrado de la ODP-24381 y la SAP 405 (pedido del usuario). Desplegar
   backend + frontend; hasta entonces producción muestra "N.° 17000" (solo cambia la presentación, el
   número ya lo asigna la BD).
+
+## 2026-09-29 — Cotizador: análisis del módulo y tres correcciones
+
+### Cambios realizados
+- **Costos de compra expuestos por la API (seguridad).** `GET /api/cotizador/catalogo` devolvía
+  `costo_unitario` de los 504 productos a cualquier rol autenticado, y `GET /catalogo-general`
+  devolvía proveedor y precio de compra sin guarda de rol. Ahora `getCatalogo` omite el costo salvo a
+  control total, y la búsqueda del catálogo general lleva `soloControlTotal`. En el frontend,
+  `ProductoCatalogo.costo_unitario` pasó a ser opcional, y el enlace "Tráelo del catálogo general"
+  de `ModalComponente` solo se muestra con `permisos.administra` (antes el asesor podía buscar, pero
+  la importación le respondía 403).
+- **Doble ODP desde una cotización.** `crearODPDesdeCotizacion` (`cotizador/lib/vinculos.ts`) bloquea
+  la fila de la cotización con `SELECT … FOR UPDATE` durante toda la operación y escribe el enlace
+  `odp_id` dentro de esa transacción. El evento del lead y el aviso por socket van después del
+  commit.
+- **Proveedor mostrado en el catálogo general.** La búsqueda y la importación eligen el proveedor
+  con `elegirCandidato()` (el más alto de los últimos 6 meses, tira primero en perfilería), igual
+  que la sincronización. Antes mostraban el más barato.
+- **Documentación:** encabezado de `docs/modulos/cotizador.md` (ya no dice "aislado, solo
+  root/admin"), conteo de endpoints (59), la película cobrada por área como decisión cerrada, hoja
+  de ruta (pasos 6 y 7) y notas del candado y del catálogo general.
+
+### Verificación
+- tsc de backend y frontend sin errores; pruebas puras `itemsParaSap` + `sincronizacion` 29/29.
+- En vivo contra el backend dev (base de producción, sin escrituras), con tokens firmados por rol:
+  - `/catalogo`: root recibe 504 productos con costo; asesor, instalador y marketing, 504 sin costo.
+  - `/catalogo-general`: 403 para asesor e instalador, 200 para root.
+  - Proveedor mostrado: BSE1202 → ACVICOL $36.455 (antes AVQ $29.412) y SIL0004 → Ventanas y Puertas
+    $23.550,42 (antes Caucho Vidrios $10.303); ambos coinciden con la consulta directa a la base.
+  - Crear ODP: 3 peticiones simultáneas sobre la COT-17000 (ya enlazada a la ODP-24388) salieron en
+    fila (2,1 s / 2,9 s / 3,2 s), las tres con 409, y la cotización quedó con la misma versión.
+
+### Pendientes
+- El camino exitoso de "Crear ODP" con el candado no se probó con escritura real: es el que queda
+  para la prueba coordinada con el usuario.
+- Desplegar backend y frontend.
+- Hallazgos del análisis sin corregir: `cotizacionStore.ts` (1.983 líneas) y `CotizadorPage.tsx`
+  (1.480) grandes; 43 `any`; suites faltantes (aptitud, hoja de trabajo, PDF) y golden master
+  obsoleto.

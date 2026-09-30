@@ -7,6 +7,7 @@ import { Request, Response } from 'express';
 import { listarCatalogo, getParametros } from '../cotizador/lib/catalogo';
 import { listarModulos } from '../cotizador/modules/registry';
 import { listarDisenos } from '../cotizador/lib/motorDespiece';
+import { nivelCotizador } from '../cotizador/lib/permisos';
 
 /**
  * Diseños con despiece real disponibles para un módulo (OX, XOX, OXXO...).
@@ -23,10 +24,18 @@ export const getDisenos = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Productos con su precio de venta (PA/PM/PB). El costo de compra
+ * (`costo_unitario`) solo se entrega a control total: es la misma información
+ * sensible que el módulo Proveedores reserva a administración, y cualquier rol
+ * autenticado puede leer este endpoint (2026-09-29).
+ */
 export const getCatalogo = async (req: Request, res: Response) => {
   try {
     const categoria = typeof req.query.categoria === 'string' ? req.query.categoria : undefined;
-    res.json(listarCatalogo({ categoria }));
+    const productos = listarCatalogo({ categoria });
+    if (nivelCotizador(req.user?.rol) === 'total') return res.json(productos);
+    res.json(productos.map(({ costo_unitario: _costo, ...sinCosto }) => sinCosto));
   } catch (e) {
     console.error('getCatalogo:', e instanceof Error ? e.message : e);
     res.status(500).json({ error: 'No se pudo leer el catálogo de productos.' });

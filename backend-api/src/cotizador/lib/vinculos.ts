@@ -639,12 +639,58 @@ export const FORMAS_PAGO = ['contado', 'credito', '50_50'] as const;
 /**
  * Ejecuta "Crear ODP". Vuelve a calcular el plan (nada de lo que dijo la
  * previsualización se da por bueno) y llama al flujo existente que corresponda.
+ *
+ * Candado contra la doble ODP (2026-09-29): los tres flujos que crean la ODP
+ * abren su propia transacción, así que no se pueden envolver en una sola. En
+ * su lugar se bloquea la fila de la cotización (`FOR UPDATE`) durante toda la
+ * operación y se enlaza la ODP dentro de esa misma transacción. Un segundo
+ * "Crear ODP" sobre la misma cotización (otra pestaña, un reintento tras un
+ * corte de red) espera al primero y, al entrar, el plan ya ve `odp_id` y lo
+ * rechaza. Ninguno de los tres flujos escribe en `cotizador.cotizacion`, por
+ * eso el candado no puede bloquearse contra sí mismo.
  */
 export async function crearODPDesdeCotizacion(
   cotizacionId: number,
   datos: { clienteId?: number; nombre?: string; telefono?: string; formaPago: (typeof FORMAS_PAGO)[number] },
   user: NonNullable<Express.Request['user']>
 ): Promise<{ odpId: number; numeroOdp: string; camino: CaminoODP }> {
+  const t = await sequelize.transaction();
+  let resultado: { odpId: number; numeroOdp: string; camino: CaminoODP; leadId: number | null; numeroCot: number };
+  try {
+    await sequelize.query('SELECT id FROM cotizador.cotizacion WHERE id = :id FOR UPDATE', {
+      replacements: { id: cotizacionId },
+      type: QueryTypes.SELECT,
+      transaction: t,
+    });
+    resultado = await crearODPBajoCandado(cotizacionId, datos, user, t);
+    await t.commit();
+  } catch (e) {
+    await t.rollback().catch(() => {});
+    throw e;
+  }
+
+  const { leadId, numeroCot, ...respuesta } = resultado;
+  if (leadId) {
+    await LeadEvento.create({
+      tipo: 'SEGUIMIENTO',
+      detalle_texto: `${respuesta.numeroOdp} creada desde la cotización N.° ${numeroCot} del Cotizador.`,
+      lead_id: leadId,
+      creado_por: user.id,
+    });
+    // El "Crear ODP" del CRM no avisa al módulo ODP; desde aquí sí.
+    import('../../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(respuesta.odpId, 'create')).catch(() => {});
+  }
+  return respuesta;
+}
+
+async function crearODPBajoCandado(
+  cotizacionId: number,
+  datos: { clienteId?: number; nombre?: string; telefono?: string; formaPago: (typeof FORMAS_PAGO)[number] },
+  user: NonNullable<Express.Request['user']>,
+  t: Transaction
+): Promise<{ odpId: number; numeroOdp: string; camino: CaminoODP; leadId: number | null; numeroCot: number }> {
+  // El plan lee fuera de `t`: el candado ya se tiene, y lo que escribió un
+  // "Crear ODP" anterior ya está confirmado.
   const plan = await planCrearODP(cotizacionId, user);
   if (!plan.puede || !plan.camino) throw new ErrorVinculo(409, plan.motivo ?? 'No se puede crear la ODP.');
 
@@ -727,7 +773,7 @@ export async function crearODPDesdeCotizacion(
   // eligió o se creó en este paso—, para que el PDF y los listados muestren el
   // registrado y el filtro por cliente la encuentre. El lead / prospecto de
   // origen se conservan: sigue viéndose de dónde vino.
-  const fila = await CotizadorCotizacion.findByPk(cotizacionId);
+  const fila = await CotizadorCotizacion.findByPk(cotizacionId, { transaction: t });
   if (fila) {
     const odpFila = await ODP.findByPk(odpId, { attributes: ['cliente_id'] });
     const clienteOdpId = (odpFila?.getDataValue('cliente_id') as number | null | undefined) ?? null;
@@ -750,18 +796,14 @@ export async function crearODPDesdeCotizacion(
             ...(cliente.direccion ? { cliente_direccion: String(cliente.direccion).slice(0, 200) } : {}),
           }
         : {}),
-    });
+    }, { transaction: t });
   }
 
-  if (plan.camino === 'lead') {
-    await LeadEvento.create({
-      tipo: 'SEGUIMIENTO',
-      detalle_texto: `${numeroOdp} creada desde la cotización N.° ${plan.cotizacion.numero} del Cotizador.`,
-      lead_id: plan.lead!.id,
-      creado_por: user.id,
-    });
-    // El "Crear ODP" del CRM no avisa al módulo ODP; desde aquí sí.
-    import('../../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'create')).catch(() => {});
-  }
-  return { odpId, numeroOdp, camino: plan.camino };
+  return {
+    odpId,
+    numeroOdp,
+    camino: plan.camino,
+    leadId: plan.camino === 'lead' ? plan.lead!.id : null,
+    numeroCot: plan.cotizacion.numero,
+  };
 }
