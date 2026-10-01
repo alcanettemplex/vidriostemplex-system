@@ -37,8 +37,9 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
 
   const items: any[] = odp?.items || [];
 
-  // Cuando se selecciona un ítem dañado, pre-llenar el formulario de solución
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Cuando se selecciona un ítem dañado, pre-llenar el formulario de solución.
+  // Depende solo del índice elegido, a propósito: si `items` cambiara con el formulario
+  // abierto, volver a pre-llenarlo borraría lo que el usuario ya corrigió a mano.
   useEffect(() => {
     if (selectedItemIndex !== null && items[selectedItemIndex]) {
       const src = items[selectedItemIndex];
@@ -64,6 +65,7 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
         mts_pt_h: src.mts_pt_h || ''
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedItemIndex]);
 
   const handleSubmit = async (incluirItems: boolean = true) => {

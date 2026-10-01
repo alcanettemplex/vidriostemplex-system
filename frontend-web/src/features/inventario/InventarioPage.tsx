@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
@@ -45,7 +45,11 @@ const InventarioPage: React.FC = () => {
   const [catalogoMap, setCatalogoMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('lista');
+  // `search` es lo que se escribe; `busquedaAplicada` lo que se consulta, 400 ms después
+  // de la última tecla. Antes `loadItems` dependía de `search` y el efecto de carga
+  // disparaba una consulta POR TECLA (más otra del debounce): "TUB0103" eran 8 consultas.
   const [search, setSearch] = useState('');
+  const [busquedaAplicada, setBusquedaAplicada] = useState('');
   const [filterUbicacion, setFilterUbicacion] = useState('');
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -60,8 +64,12 @@ const InventarioPage: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<{ ubicacion: string; mm: string; codigo: string }>({ ubicacion: '', mm: '', codigo: '' });
 
-  const token = sessionStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
+  // El token lo pone el interceptor global (services/httpInterceptors.ts) en cada
+  // petición a la API: no hace falta armar la cabecera a mano.
+
+  // Solo se aplica la respuesta de la consulta más reciente: con la red lenta, una
+  // respuesta vieja podía llegar después y dejar en pantalla otra búsqueda.
+  const consultaVigente = useRef(0);
 
   useEffect(() => {
     getCatalogoCached()
@@ -74,26 +82,28 @@ const InventarioPage: React.FC = () => {
   }, []);
 
   const loadItems = useCallback(async () => {
+    const id = ++consultaVigente.current;
     setLoading(true);
     try {
       const params: any = { page, limit: LIMIT };
-      if (search) params.search = search;
+      if (busquedaAplicada) params.search = busquedaAplicada;
       if (filterUbicacion) params.ubicacion = filterUbicacion;
-      const { data } = await axios.get(`${API}/api/inventario-perfileria`, { headers, params });
+      const { data } = await axios.get(`${API}/api/inventario-perfileria`, { params });
+      if (id !== consultaVigente.current) return;
       setItems(data.items);
       setTotal(data.total);
       if (data.ultima_entrada) setUltimaEntrada(data.ultima_entrada);
     } catch {
-      toast.error('Error al cargar inventario');
+      if (id === consultaVigente.current) toast.error('Error al cargar inventario');
     } finally {
-      setLoading(false);
+      if (id === consultaVigente.current) setLoading(false);
     }
-  }, [search, filterUbicacion, page]);
+  }, [busquedaAplicada, filterUbicacion, page]);
 
   const loadStats = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await axios.get(`${API}/api/inventario-perfileria/stats`, { headers });
+      const { data } = await axios.get(`${API}/api/inventario-perfileria/stats`);
       setStats(data);
     } catch {
       toast.error('Error al cargar estadísticas');
@@ -136,16 +146,20 @@ const InventarioPage: React.FC = () => {
     XLSX.writeFile(wb, `reporte_mm_perfileria_${fecha}.xlsx`);
   };
 
-  // Debounce de búsqueda
+  // Debounce de búsqueda: solo traslada el texto a `busquedaAplicada` y vuelve a la
+  // página 1. La consulta la hace el efecto de carga de arriba, una sola vez, porque
+  // `loadItems` cambia con `busquedaAplicada`. (Antes este efecto llamaba a `loadItems`
+  // además del efecto de carga, y también se disparaba con el filtro de ubicación,
+  // que ya reinicia la página en su propio onChange.)
   useEffect(() => {
+    const aplicada = search.trim();
+    if (aplicada === busquedaAplicada) return;
     const t = setTimeout(() => {
-      if (viewMode === 'lista') {
-        setPage(1);
-        loadItems();
-      }
+      setBusquedaAplicada(aplicada);
+      setPage(1);
     }, 400);
     return () => clearTimeout(t);
-  }, [search, filterUbicacion]);
+  }, [search, busquedaAplicada]);
 
   const startEdit = (item: PerfilItem) => {
     setEditingId(item.id);
@@ -160,7 +174,7 @@ const InventarioPage: React.FC = () => {
         ubicacion: editValues.ubicacion || null,
         mm: parseFloat(editValues.mm),
         codigo: editValues.codigo.trim().toUpperCase() || null,
-      }, { headers });
+      });
       setEditingId(null);
       loadItems();
       toast.success('Perfil actualizado');
@@ -172,7 +186,7 @@ const InventarioPage: React.FC = () => {
   const handleDelete = async (id: number, consecutivo: number) => {
     if (!window.confirm(`¿Eliminar perfil #${consecutivo}? Esta acción no se puede deshacer.`)) return;
     try {
-      await axios.delete(`${API}/api/inventario-perfileria/${id}`, { headers });
+      await axios.delete(`${API}/api/inventario-perfileria/${id}`);
       loadItems();
       toast.success('Perfil eliminado');
     } catch {
@@ -182,10 +196,7 @@ const InventarioPage: React.FC = () => {
 
   const handleExport = async () => {
     try {
-      const token = sessionStorage.getItem('token');
-      const { data } = await axios.get(`${API}/api/inventario-perfileria/export`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { data } = await axios.get(`${API}/api/inventario-perfileria/export`);
 
       const filas = data.map((row: any) => ({
         CONSECUTIVO: row.consecutivo,

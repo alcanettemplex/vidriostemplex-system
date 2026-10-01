@@ -23,8 +23,6 @@ import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 import API from '../../../services/config';
 
 const InstaladorView: React.FC = () => {
-  const token = sessionStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
   const currentUser = useSelector((state: any) => state.auth.user);
 
   const [asignacion, setAsignacion] = useState<any[]>([]);
@@ -41,7 +39,7 @@ const InstaladorView: React.FC = () => {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await axios.get(`${API}/api/rutas/mi-asignacion`, { headers });
+      const { data } = await axios.get(`${API}/api/rutas/mi-asignacion`);
       setAsignacion(data);
     } catch { toast.error('Error al cargar asignación'); }
     finally { setLoading(false); }
@@ -77,7 +75,7 @@ const InstaladorView: React.FC = () => {
   const handleIniciar = async (rutaODPId: number) => {
     setIniciando(rutaODPId);
     try {
-      await axios.post(`${API}/api/rutas/ruta-odp/${rutaODPId}/iniciar`, {}, { headers });
+      await axios.post(`${API}/api/rutas/ruta-odp/${rutaODPId}/iniciar`, {});
       toast.success('¡Instalación iniciada! Registra tus progresos.');
       cargar();
     } catch (e: any) {
@@ -120,8 +118,7 @@ const InstaladorView: React.FC = () => {
     setPausando(pauseModal.rutaODPId);
     try {
       await axios.post(`${API}/api/rutas/ruta-odp/${pauseModal.rutaODPId}/pausar`,
-        { motivo_pausa: pauseMotivo.trim() },
-        { headers }
+        { motivo_pausa: pauseMotivo.trim() }
       );
       toast.success('Instalación pausada. La ODP quedó disponible para continuar mañana.');
       setPauseModal(null);

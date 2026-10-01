@@ -6024,3 +6024,72 @@ ficha ODP y rediseño del tablero de Cotizaciones del Dashboard con Excel. Pregu
 - Hallazgos del análisis sin corregir: `cotizacionStore.ts` (1.983 líneas) y `CotizadorPage.tsx`
   (1.480) grandes; 43 `any`; suites faltantes (aptitud, hoja de trabajo, PDF) y golden master
   obsoleto.
+
+## 2026-09-30 — Informe de septiembre y reglas de código por proveedor
+
+### Informe de gestión de septiembre (solo lectura)
+- CRM, facturación, ODPs y servicios de septiembre, con consultas de solo lectura y scripts en el
+  scratchpad (no en el repo). Cifras clave: 524 leads (124 perdidos; 330 sin asesor ni contacto, todos
+  "No responde"); 21 aprobados; facturado **$148,2 M sin IVA** (74 FE, 74,7 % de la meta de $198,3 M);
+  93 ODPs de venta (29 vía CRM, 11 prospecto directo, 53 recurrentes); Web es el único canal que
+  convierte (15/31 gestionados), Facebook/Instagram 0 ventas sobre 206 leads.
+
+### Reglas de código por proveedor (Proveedores)
+- **Problema:** el mismo producto facturado con otro código (`ALU175NG` vs `GRE175NG`) volvía a Por
+  Mapear. Se midió en los 5 proveedores que nombró el usuario cuál regla acierta sin errores contra los
+  250 códigos ya mapeados. Detalle completo en `docs/modulos/compras.md` § "Reglas de código".
+- **BD:** `proveedores.regla_codigo`, `proveedores.regla_codigo_modo`,
+  `proveedor_codigo_pendiente.regla_rechazada` (script `2026-09-30_reglas_codigo_proveedor.ts`, ya corrido).
+- **Backend:** `utils/proveedorReglasCodigo.ts` (4 reglas, prueba contra mapeos, resolución);
+  ingesta con paso previo que vincula y se integra al camino normal de precios;
+  `GET /reglas-codigo`, `POST /:id/regla-codigo`; sugerencias en la bandeja; deshacer al quitar un
+  código `REGLA`.
+- **Frontend:** modal "Regla de códigos" en Proveedores, chip de sugerencia en Por Mapear, producto
+  preseleccionado en Vincular, marca "· regla" en Equivalencias.
+- **Activado (decisión del usuario):** Roldán AUTO (4 vinculados), Ventanas y Puertas AUTO (1), VEA
+  SUGERENCIA (4 sugerencias). HI-TECH sin regla, pendiente de decidir si se unen anchos de rollo.
+- **Datos:** ACVICOL `ICCCB-8` movido de CCE1101 (acero) a CCE0601 (negro) con su histórico; vigentes sin
+  cambio (script `2026-09-30_acvicol_iccc_b8_a_negro.ts`, ya corrido; sus `UPDATE` son SQL directo y no
+  pasan por los hooks de auditoría).
+
+### Bugs encontrados y corregidos al pasar
+- `CargarFacturasTab`: 4 tipos de aviso del backend no estaban en el frontend y se rotulaban "Nota
+  crédito/débito" (una bonificación se leía como nota crédito).
+- `quitarCodigoEquivalencia`: quitar un código adicional decía "la equivalencia se queda sin código".
+  Además el código quitado no volvía a la bandeja y quedaba invisible hasta la siguiente factura.
+- Comentario desactualizado de `proveedor.model.ts` sobre `seguir_precios = NULL` (desde el 12-sep no
+  bloquea la bandeja).
+- En el propio desarrollo: con tira y metro, el motor copiaba la modalidad del retal gemelo a un perfil
+  entero (lo detectó la prueba, corregido antes de activar); el recálculo de ICCCB-8 habría bajado el
+  vigente del negro por ignorar una confirmación sin fila (corregido antes de aplicar).
+
+### Verificación
+- tsc backend y frontend limpios; `test:proveedores` 17/17 (nuevo), `test:cotizador` 173/173.
+- Endpoints en vivo contra el backend dev; ciclo de deshacer probado sobre GRP705NG y restaurado.
+- Simulacro de ingesta con factura sintética en transacción revertida: vínculo automático, umbral y
+  color verificados; nada escrito, tampoco en `auditoria_log`.
+
+### Pendientes
+- Decidir HI-TECH (unir anchos de rollo o separar CLEAR y TITANIO en el catálogo).
+- Revisar con ACVICOL la FE-AC55241 (chapeta negra cobrada a precio de acero).
+- Desplegar backend y frontend. Hasta entonces producción no aplica las reglas (las columnas ya
+  existen y el backend viejo las ignora).
+- La primera factura real de Roldán o Ventanas y Puertas con un código nuevo es la prueba definitiva
+  del modo automático: revisar el resumen del lote ("Vinculados por regla").
+
+### Revisión de las 22 advertencias de ESLint del frontend (mismo día)
+- **Bug real corregido — Inventario:** el buscador consultaba la BD por cada tecla (el efecto de carga
+  dependía de `search` y además había un debounce que volvía a cargar): "TUB0103" eran ~8 consultas.
+  Ahora `search` → `busquedaAplicada` a los 400 ms, una sola consulta, y un guardia descarta respuestas
+  viejas que lleguen tarde.
+- **LeadDetalleModal:** `puedeEditar` mezclaba `&&`/`||` sin paréntesis y la exclusión de marketing no
+  alcanzaba a la vía "es su lead". Decisión del usuario: marketing nunca edita. Paréntesis explícitos.
+- **Cabeceras de token manuales** quitadas en los 6 archivos con advertencias (el interceptor global
+  ya pone el token). El resto (~140 en ~55 archivos) queda en `TECH_DEBT.md` 2026-09-30: no se hizo a
+  ciegas porque el interceptor no cubre `fetch` y hay servicios con helper propio.
+- Intención explícita (sin cambio de comportamiento): `canSeeOA` en dependencias (Contabilidad),
+  efecto de montaje documentado (ODPForm), carga por `odp.id` (COTModal), `modalEnviarAbierto`
+  (Pedidos PV), comentario de por qué solo el `id` (Producción), `eslint-disable` movido a la línea
+  correcta (ReportarProblemaForm), `API` fuera de dependencias (Configuración).
+- Verificación: tsc limpio; ESLint del proyecto sobre los 14 archivos: 0 advertencias (comprobado que
+  la regla sí se aplica con un fragmento de prueba).

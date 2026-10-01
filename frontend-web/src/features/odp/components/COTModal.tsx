@@ -44,16 +44,13 @@ const COTModal: React.FC<Props> = ({ odp, onClose }) => {
   const [mode, setMode] = useState<'list' | 'view'>('list');
   const [selected, setSelected] = useState<COT | null>(null);
 
-  const token = sessionStorage.getItem('token');
-
-  useEffect(() => { fetchCOTs(); }, []);
-
-  const fetchCOTs = async () => {
-    try {
-      const res = await axios.get(`${API}/api/documentos/cotizacion/odp/${odp.id}`, { headers: { Authorization: `Bearer ${token}` } });
-      setCots(res.data);
-    } catch { setCots([]); }
-  };
+  // Las COT de la ODP abierta. Se recargan si el modal pasa a otra ODP. El token lo pone
+  // el interceptor global (services/httpInterceptors.ts).
+  useEffect(() => {
+    axios.get(`${API}/api/documentos/cotizacion/odp/${odp.id}`)
+      .then((res) => setCots(res.data))
+      .catch(() => setCots([]));
+  }, [odp.id]);
 
   const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 

@@ -102,11 +102,12 @@ const ContabilidadPage: React.FC = () => {
         console.error('Respuesta de ODPs no tiene rows:', data);
         setOdps([]);
       }
-    } catch (err) { 
+    } catch (err) {
       console.error('Error fetching ODPs:', err);
-      setOdps([]); 
+      setOdps([]);
     } finally { setLoadingOdps(false); }
-  }, []);
+    // canSeeOA sale del rol, que no cambia en la sesión: declararla no altera cuándo se recarga
+  }, [canSeeOA]);
 
   const fetchResumen = useCallback(async () => {
     try {

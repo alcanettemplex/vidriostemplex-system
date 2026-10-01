@@ -28,29 +28,25 @@ const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightb
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const token = sessionStorage.getItem('token');
-
+  // El token lo pone el interceptor global (services/httpInterceptors.ts).
   const fetchImagenes = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/api/detalle-sap-imagenes?odp_id=${odpId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { data } = await axios.get(`${API}/api/detalle-sap-imagenes?odp_id=${odpId}`);
       setImagenes(data);
     } catch { }
   }, [odpId]);
 
   useEffect(() => { fetchImagenes(); }, [fetchImagenes]);
 
-  const handleFile = async (file: File) => {
+  // useCallback para que el listener de "pegar" (abajo) siempre use la versión vigente
+  const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) { toast.error('Solo se permiten imágenes'); return; }
     try {
       setUploading(true);
       const formData = new FormData();
       formData.append('imagen', file);
       formData.append('odp_id', String(odpId));
-      await axios.post(`${API}/api/detalle-sap-imagenes`, formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.post(`${API}/api/detalle-sap-imagenes`, formData);
       await fetchImagenes();
       toast.success('Imagen subida correctamente');
     } catch {
@@ -58,7 +54,7 @@ const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightb
     } finally {
       setUploading(false);
     }
-  };
+  }, [odpId, fetchImagenes]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -75,7 +71,7 @@ const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightb
         if (file) { handleFile(file); break; }
       }
     }
-  }, [odpId]);
+  }, [handleFile]);
 
   useEffect(() => {
     document.addEventListener('paste', handlePaste);
@@ -84,9 +80,7 @@ const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightb
 
   const handleDelete = async (id: number) => {
     try {
-      await axios.delete(`${API}/api/detalle-sap-imagenes/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.delete(`${API}/api/detalle-sap-imagenes/${id}`);
       await fetchImagenes();
       toast.success('Imagen eliminada');
     } catch {
@@ -164,15 +158,13 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
     if (!window.confirm(`¿Solicitar toma de medidas para ${odp.numero_odp}? La ODP pasará a estado VISITA TÉCNICA.`)) return;
     try {
       setSolicitandoTM(true);
-      const token = sessionStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
       await axios.post(`${API}/api/documentos/tm`, {
         odp_id: odp.id,
         direccion: odp.direccion_instalacion || odp.cliente?.direccion || '',
         nombre_contacto: odp.nombre_recibe || odp.cliente?.nombre_razon_social || '',
         telefono_contacto: odp.telefono_recibe || odp.cliente?.telefono || '',
-      }, { headers });
-      await axios.put(`${API}/api/odp/${odp.id}`, { estado_produccion: 'VISITA_TECNICA' }, { headers });
+      });
+      await axios.put(`${API}/api/odp/${odp.id}`, { estado_produccion: 'VISITA_TECNICA' });
       toast.success('Toma de medidas solicitada');
       if (onUpdate) onUpdate();
     } catch {
@@ -186,10 +178,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
     setRelacionarOpen(true);
     setLoadingTmsSinODP(true);
     try {
-      const token = sessionStorage.getItem('token');
-      const { data } = await axios.get(`${API}/api/documentos/tm/sin-odp`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { data } = await axios.get(`${API}/api/documentos/tm/sin-odp`);
       setTmsSinODP(data);
     } catch {
       toast.error('Error al cargar TMs disponibles');
@@ -202,10 +191,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
     if (!window.confirm(`¿Vincular ${numeroTM} a ${odp.numero_odp}?`)) return;
     try {
       setVinculando(true);
-      const token = sessionStorage.getItem('token');
-      await axios.patch(`${API}/api/documentos/tm/${tmId}/vincular-odp`, { odp_id: odp.id }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.patch(`${API}/api/documentos/tm/${tmId}/vincular-odp`, { odp_id: odp.id });
       toast.success(`${numeroTM} vinculada correctamente`);
       setRelacionarOpen(false);
       if (onUpdate) onUpdate();
@@ -222,10 +208,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
       setUploading(true);
       const formData = new FormData();
       formData.append('croquis', file);
-      const token = sessionStorage.getItem('token');
-      await axios.post(`${API}/api/odp/${odp.id}/croquis`, formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.post(`${API}/api/odp/${odp.id}/croquis`, formData);
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error('Error uploading croquis:', error);

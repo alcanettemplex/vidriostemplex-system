@@ -363,14 +363,16 @@ const PedidosPVPage: React.FC = () => {
   const [formEnviar, setFormEnviar] = useState({ fecha_entrega_prometida: '', confirmado_proveedor: false });
   const [horaActual, setHoraActual] = useState('');
 
-  // Reloj en vivo: se activa solo cuando el modal de enviar está abierto
+  // Reloj en vivo: se activa solo cuando el modal de enviar está abierto. Depende de
+  // "abierto / cerrado" y no del pedido, para no reiniciar el intervalo al cambiar de pedido.
+  const modalEnviarAbierto = !!modalEnviar;
   useEffect(() => {
-    if (!modalEnviar) return;
+    if (!modalEnviarAbierto) return;
     const tick = () => setHoraActual(new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [!!modalEnviar]);
+  }, [modalEnviarAbierto]);
 
   const [modalLlegada, setModalLlegada] = useState<PedidoPV | null>(null);
   const [fechaLlegada, setFechaLlegada] = useState('');

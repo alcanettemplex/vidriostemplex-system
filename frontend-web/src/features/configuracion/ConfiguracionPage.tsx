@@ -80,7 +80,8 @@ export const ConfiguracionPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth, selectedYear, API, token]);
+  // `API` es una constante del módulo: no va en las dependencias
+  }, [selectedMonth, selectedYear, token]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

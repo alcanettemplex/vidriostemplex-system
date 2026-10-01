@@ -653,6 +653,9 @@ const ProduccionPage: React.FC = () => {
             socket.off('odp_patch', handler);
             if (debounceTimer) clearTimeout(debounceTimer);
         };
+        // Solo el `id`, a propósito: con `panelOdp` completo se re-suscribiría al socket
+        // cada vez que llega el detalle, y el handler solo necesita saber qué ODP está abierta.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [panelOdp?.id]);
 
     const handleSelectOdp = (odp: ODP) => {

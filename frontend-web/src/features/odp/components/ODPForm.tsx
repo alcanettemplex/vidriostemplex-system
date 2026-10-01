@@ -300,20 +300,22 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
         return () => { if (clienteSearchRef.current) clearTimeout(clienteSearchRef.current); };
     }, [clienteBusqueda]);
 
+    // Carga única al montar. `odpToEdit` no va en las dependencias a propósito: el
+    // formulario se monta de nuevo cada vez que se abre (ODPListPage lo renderiza solo
+    // con `isFormOpen || editingOdp`), así que no puede cambiar de ODP estando abierto.
     useEffect(() => {
-        const token = sessionStorage.getItem('token');
-        const headers = { Authorization: `Bearer ${token}` };
-
         getCatalogoCached().then(data => {
             setCatalogo(data);
             const cats = Array.from(new Set<string>(data.map((i: CatalogoItem) => i.categoria)));
             setCategorias(cats);
         }).catch(() => {});
         if (!odpToEdit) {
-            axios.get(`${API}/api/pedidos-pv/siguiente-numero`, { headers })
+            // El token lo pone el interceptor global (services/httpInterceptors.ts)
+            axios.get(`${API}/api/pedidos-pv/siguiente-numero`)
                 .then(r => setSiguienteNumeroPV(r.data.siguiente))
                 .catch(() => {});
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const nextStep = async () => {

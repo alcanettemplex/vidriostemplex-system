@@ -21,8 +21,6 @@ interface Props {
 }
 
 const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, instaladorPreseleccionado, odpsPreseleccionadas, fechaPreseleccion, onClose, onSaved }) => {
-  const token = sessionStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
 
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [personal, setPersonal] = useState<Personal[]>([]);
@@ -55,8 +53,8 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
 
   useEffect(() => {
     Promise.all([
-      axios.get(`${API}/api/rutas/vehiculos`, { headers }),
-      axios.get(`${API}/api/rutas/personal`, { headers }),
+      axios.get(`${API}/api/rutas/vehiculos`),
+      axios.get(`${API}/api/rutas/personal`),
     ]).then(([v, p]) => { setVehiculos(v.data); setPersonal(p.data); })
       .catch(() => toast.error('Error al cargar datos'));
   }, []);
@@ -107,10 +105,10 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
         odps: entries.map(e => ({ odp_id: e.odp.id, orden: e.orden, fecha_programada: e.fecha_programada })),
       };
       if (rutaExistente) {
-        await axios.put(`${API}/api/rutas/${rutaExistente.id}`, payload, { headers });
+        await axios.put(`${API}/api/rutas/${rutaExistente.id}`, payload);
         toast.success('Ruta actualizada');
       } else {
-        await axios.post(`${API}/api/rutas`, payload, { headers });
+        await axios.post(`${API}/api/rutas`, payload);
         toast.success('Ruta creada');
       }
       onSaved();

@@ -24,8 +24,6 @@ const ESTADO_STYLES: Record<string, string> = {
 };
 
 const ConductorView: React.FC = () => {
-  const token = sessionStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
 
   // Rutas ACTIVAS (payload completo: de aquí salen los imprimibles OP/Técnico/SAP).
   // El histórico ya no viene en esta carga — un conductor con 161 rutas completadas
@@ -46,7 +44,7 @@ const ConductorView: React.FC = () => {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await axios.get(`${API}/api/rutas/mi-ruta-conductor`, { headers });
+      const { data } = await axios.get(`${API}/api/rutas/mi-ruta-conductor`);
       setRutas(Array.isArray(data?.activas) ? data.activas : []);
       setMetricas(data?.metricas ?? null);
       // Una ruta recién finalizada pasa al histórico: se invalida para que el tab lo
@@ -65,7 +63,7 @@ const ConductorView: React.FC = () => {
   const cargarHistorial = useCallback(async () => {
     setCargandoHistorial(true);
     try {
-      const { data } = await axios.get(`${API}/api/rutas/mi-ruta-conductor/historial`, { headers });
+      const { data } = await axios.get(`${API}/api/rutas/mi-ruta-conductor/historial`);
       setHistorial(Array.isArray(data) ? data : []);
     } catch {
       toast.error('Error al cargar el historial de rutas');
@@ -105,7 +103,7 @@ const ConductorView: React.FC = () => {
   const handleIniciarRuta = async (rutaId: number) => {
     setIniciando(rutaId);
     try {
-      await axios.post(`${API}/api/rutas/${rutaId}/iniciar-ruta`, {}, { headers });
+      await axios.post(`${API}/api/rutas/${rutaId}/iniciar-ruta`, {});
       toast.success('Ruta iniciada. ¡Buen viaje!');
       cargar();
     } catch (e: any) {
@@ -116,7 +114,7 @@ const ConductorView: React.FC = () => {
   const handleTerminarRuta = async (rutaId: number) => {
     setFinalizando(rutaId);
     try {
-      await axios.post(`${API}/api/rutas/${rutaId}/terminar-ruta`, {}, { headers });
+      await axios.post(`${API}/api/rutas/${rutaId}/terminar-ruta`, {});
       toast.success('¡Ruta completada con éxito!');
       cargar();
     } catch (e: any) {
@@ -127,7 +125,7 @@ const ConductorView: React.FC = () => {
   const registrarLlegada = async (rutaODPId: number) => {
     setRegistrandoLlegada(rutaODPId);
     try {
-      await axios.post(`${API}/api/rutas/ruta-odp/${rutaODPId}/llegada`, {}, { headers });
+      await axios.post(`${API}/api/rutas/ruta-odp/${rutaODPId}/llegada`, {});
       toast.success('Llegada registrada exitosamente');
       cargar();
     } catch (e: any) {

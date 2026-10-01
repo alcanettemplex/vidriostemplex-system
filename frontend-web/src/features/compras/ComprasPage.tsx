@@ -1230,14 +1230,12 @@ const ComprasPage: React.FC = () => {
   // ── Auto-impresión silenciosa de SAPs completadas al 100% (Modo Kiosk) ──
   const autoImprimirSAPs = useCallback(async (sapsCompletadas: Array<{ sap_id: number; odp_id: number; numero_sap: string; numero_odp: string }>) => {
     if (!sapsCompletadas || sapsCompletadas.length === 0) return;
-    const token = sessionStorage.getItem('token');
-    const headers = { Authorization: `Bearer ${token}` };
 
     for (const item of sapsCompletadas) {
       try {
         toast.info(`🖨️ SAP ${item.numero_sap} completada al 100%. Imprimiendo automáticamente...`, { autoClose: 3000 });
         dispatch(clearODPCache(item.odp_id));
-        const res = await axios.get(`${API}/api/odp/${item.odp_id}`, { headers });
+        const res = await axios.get(`${API}/api/odp/${item.odp_id}`);
         const odpData = res.data;
         if (!odpData) continue;
 
@@ -1255,15 +1253,13 @@ const ComprasPage: React.FC = () => {
     }
   }, [dispatch]);
 
-  const token = sessionStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const fetchTab = useCallback(async (t: string, page: number = 1, append: boolean = false) => {
     setLoading(true);
     try {
       if (t === 'pendientes') {
-        const res = await axios.get(`${API}/api/compras/panel`, { headers, params: { page, limit: 50 } });
+        const res = await axios.get(`${API}/api/compras/panel`, { params: { page, limit: 50 } });
         if (append) {
           setItemsPendientes(prev => [...prev, ...res.data.rows]);
         } else {
@@ -1273,16 +1269,16 @@ const ComprasPage: React.FC = () => {
         }
         setSeleccionados(new Set());
       } else if (t === 'seguimiento') {
-        const res = await axios.get(`${API}/api/compras/seguimiento`, { headers });
+        const res = await axios.get(`${API}/api/compras/seguimiento`);
         setOdcsSeguimiento(res.data);
       } else if (t === 'vidrios') {
-        const res = await axios.get(`${API}/api/compras/vidrios/panel`, { headers });
+        const res = await axios.get(`${API}/api/compras/vidrios/panel`);
         setVidriosFlat(res.data);
         setSeleccionadosVidrios(new Set());
       } else if (t === 'existencia') {
         const [resV, resP] = await Promise.all([
-          axios.get(`${API}/api/compras/vidrios/existencia`, { headers }),
-          axios.get(`${API}/api/compras/perfileria/existencia`, { headers }),
+          axios.get(`${API}/api/compras/vidrios/existencia`),
+          axios.get(`${API}/api/compras/perfileria/existencia`),
         ]);
         setVidriosExistencia(resV.data);
         setPerfileriaExistencia(resP.data);
@@ -1296,7 +1292,7 @@ const ComprasPage: React.FC = () => {
 
   // Cargar códigos de perfilería con existencia para la columna EXIS. PERF.
   useEffect(() => {
-    axios.get(`${API}/api/compras/codigos-perfileria`, { headers })
+    axios.get(`${API}/api/compras/codigos-perfileria`)
       .then(res => setCodigosConStock(new Set(res.data)))
       .catch(() => {});
   }, []);
@@ -1307,7 +1303,7 @@ const ComprasPage: React.FC = () => {
     if (!q.trim()) { setOdcsRecibidas([]); return; }
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/api/compras/recibidas`, { headers, params: { q: q.trim() } });
+      const res = await axios.get(`${API}/api/compras/recibidas`, { params: { q: q.trim() } });
       setOdcsRecibidas(res.data);
     } catch (err) { console.error('Error buscando recibidas:', err); }
     finally { setLoading(false); }
@@ -1335,7 +1331,7 @@ const ComprasPage: React.FC = () => {
     setPendientesLoadingMore(true);
     try {
       const nextPage = pendientesPage + 1;
-      const res = await axios.get(`${API}/api/compras/panel`, { headers, params: { page: nextPage, limit: 50 } });
+      const res = await axios.get(`${API}/api/compras/panel`, { params: { page: nextPage, limit: 50 } });
       const { rows, totalPages } = res.data;
       setItemsPendientes(prev => [...prev, ...rows]);
       setPendientesPage(nextPage);
@@ -1394,7 +1390,7 @@ const ComprasPage: React.FC = () => {
   // Carga (o refresca) las piezas del código en cache
   const cargarPiezasCodigo = async (codigo: string): Promise<PiezaPerfil[]> => {
     try {
-      const res = await axios.get(`${API}/api/compras/inventario-perfileria/${encodeURIComponent(codigo)}`, { headers });
+      const res = await axios.get(`${API}/api/compras/inventario-perfileria/${encodeURIComponent(codigo)}`);
       setStockPorCodigo(prev => ({ ...prev, [codigo]: res.data }));
       return res.data;
     } catch {
@@ -1457,7 +1453,7 @@ const ComprasPage: React.FC = () => {
         exist_perf: formatExistPerf(piezas),
         consecutivos: piezas.map(p => p.consecutivo),
         piezas: piezas.map(p => ({ consecutivo: p.consecutivo, codigo: p.codigo ?? null, mm: p.mm ?? null, ubicacion: p.ubicacion ?? null, fecha_corte: p.fecha_corte ?? null })),
-      }, { headers });
+      });
       toast.success('Ítem cubierto por existencia');
       setItemsPendientes(prev => prev.filter(i => i.id !== item.id));
       cerrarGestion();
@@ -1484,7 +1480,7 @@ const ComprasPage: React.FC = () => {
         consecutivos: piezas.map(p => p.consecutivo),
         piezas: piezas.map(p => ({ consecutivo: p.consecutivo, codigo: p.codigo ?? null, mm: p.mm ?? null, ubicacion: p.ubicacion ?? null, fecha_corte: p.fecha_corte ?? null })),
         faltante: { cantidad: Number(faltanteCant) || 0, dimension: faltanteDim.trim() },
-      }, { headers });
+      });
       toast.success('Faltante registrado y enviado a Pendientes');
       cerrarGestion();
       await invalidarStockCodigo(item.codigo);
@@ -1502,7 +1498,7 @@ const ComprasPage: React.FC = () => {
   const revertirPerfileriaExistencia = async (itemId: number) => {
     setRevirtiendoExist(itemId);
     try {
-      await axios.post(`${API}/api/compras/sap-item/${itemId}/revertir-existencia`, {}, { headers });
+      await axios.post(`${API}/api/compras/sap-item/${itemId}/revertir-existencia`, {});
       setPerfileriaExistencia(prev => prev.filter(it => it.id !== itemId));
       toast.success('Devuelto a Pendientes');
     } catch (e: any) {
@@ -1539,7 +1535,7 @@ const ComprasPage: React.FC = () => {
   // Desmarcar ítem de existencia → vuelve a pendiente
   const desmarcaExistencia = async (itemId: number) => {
     try {
-      await axios.patch(`${API}/api/compras/vidrios/item/${itemId}/estado`, { estado_compra: 'pendiente' }, { headers });
+      await axios.patch(`${API}/api/compras/vidrios/item/${itemId}/estado`, { estado_compra: 'pendiente' });
       setVidriosExistencia(prev => prev.filter(it => it.id !== itemId));
     } catch (err) { console.error('Error al desmarcar existencia:', err); }
   };
@@ -1548,7 +1544,7 @@ const ComprasPage: React.FC = () => {
   const toggleEstadoItemVidrio = async (itemId: number, estadoActual: string) => {
     const nuevoEstado = estadoActual === 'en_existencia' ? 'pendiente' : 'en_existencia';
     try {
-      await axios.patch(`${API}/api/compras/vidrios/item/${itemId}/estado`, { estado_compra: nuevoEstado }, { headers });
+      await axios.patch(`${API}/api/compras/vidrios/item/${itemId}/estado`, { estado_compra: nuevoEstado });
       if (nuevoEstado === 'en_existencia') {
         // Sale de vidrios pendientes
         const itemMovido = vidriosFlat.find(it => it.id === itemId);
@@ -1802,7 +1798,7 @@ const ComprasPage: React.FC = () => {
                                       onClick={async (e) => {
                                         e.stopPropagation();
                                         try {
-                                          const res = await axios.patch(`${API}/api/compras/sap-item/${item.id}/existencia`, {}, { headers });
+                                          const res = await axios.patch(`${API}/api/compras/sap-item/${item.id}/existencia`, {});
                                           setItemsPendientes(prev => prev.filter(i => i.id !== item.id));
                                           if (item.SAP?.ODP?.id) dispatch(clearODPCache(item.SAP.ODP.id));
                                           if (res.data?.saps_completadas?.length > 0) {

@@ -4,6 +4,33 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-30 — Frontend: cabeceras de token armadas a mano (migración al interceptor a medias)
+
+**Severidad:** Baja · **Estimación:** ~2-3 h en una pasada dedicada, o 5 min por archivo al tocarlo
+
+`services/httpInterceptors.ts` pone `Authorization: Bearer <token>` en **toda** petición Axios a la API
+propia, y su comentario dice que las cabeceras manuales siguen "mientras se van migrando". La migración
+nunca se hizo: quedan **~140 cabeceras en ~55 archivos** (`const headers = { Authorization: … }`,
+`headers: { Authorization: … }` inline y helpers como `headers()`/`authHeaders()`).
+
+Por qué importa: (1) el interceptor **respeta** la cabecera que ya viene, así que la manual manda; si no
+hay token en `sessionStorage` se envía `Bearer null` y el interceptor no lo corrige (él también lee
+`localStorage`); (2) dentro de `useCallback(..., [])` la cabecera queda congelada con el token del primer
+render, que es el origen de 8 de las 22 advertencias de ESLint revisadas el 2026-09-30.
+
+Ya migrados el 2026-09-30 (los que generaban advertencias): `InventarioPage`, `ComprasPage` (componente
+principal, desde la línea ~1225), `ConductorView`, `InstaladorView`, `ProgramarRutaModal`,
+`ODPTabProduccion`, el efecto de montaje de `ODPForm` y `COTModal`.
+
+**Antes de migrar el resto, ojo:** el interceptor solo cubre **Axios**. `ConfiguracionPage` (y cualquier
+otro que use `fetch`) necesita pasar primero a Axios —convención del proyecto—, cuidando que `fetch` no
+lanza error en 4xx/5xx y Axios sí. Revisar también descargas con `window.open`/`<a href>` que lleven el
+token en la URL, y los servicios con helper propio (`services/listasCache.ts`, `crm/crmService.ts`,
+`supervision-crm/supervisionService.ts`, `contabilidad/components/contabilidad.utils.ts`). Regla para
+quitar una cabecera: la URL debe empezar con `${API}` o `/api` y el objeto no debe llevar otras cabeceras.
+
+---
+
 ## 2026-09-28 — Cotizador: costo de `TUB0605` "TUBULAR T-76 NEGRO" sospechoso
 
 **Severidad:** Baja (ningún diseño lo usa hoy) · **Estimación:** ~15 min una vez se conozca el precio real
