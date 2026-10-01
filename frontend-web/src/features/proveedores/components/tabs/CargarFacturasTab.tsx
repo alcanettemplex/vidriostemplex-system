@@ -44,8 +44,13 @@ interface PrecioActualizadoItem {
   retroactivo: boolean;
 }
 
+/** Debe listar TODOS los tipos que emite `cargarFacturasLote` (interface AvisoLote del
+ *  controlador). Faltaban cuatro y caían en el estilo de respaldo, que los rotulaba
+ *  "Nota crédito/débito": una bonificación se leía como si fuera una nota crédito. */
 interface AvisoLote {
-  tipo: 'UNIDAD_DISTINTA' | 'IVA_DISTINTO' | 'MONEDA' | 'NOTA_CREDITO' | 'PROVEEDOR_NUEVO';
+  tipo: 'UNIDAD_DISTINTA' | 'IVA_DISTINTO' | 'MONEDA' | 'NOTA_CREDITO' | 'PROVEEDOR_NUEVO'
+    | 'BONIFICACION' | 'DESCUENTO_ALTO' | 'DESCUENTO_GLOBAL' | 'CODIGOS_ALIAS_MISMA_FACTURA'
+    | 'VINCULADO_POR_REGLA';
   proveedor_nombre: string;
   detalle: string;
 }
@@ -67,6 +72,8 @@ interface ResumenLote {
   precios_actualizados: PrecioActualizadoItem[];
   codigos_nuevos_pendientes: number;
   lineas_omitidas_proveedor: number;
+  /** Códigos que la regla del proveedor reconoció y vinculó sola (2026-09-30) */
+  vinculados_por_regla?: number;
   proveedores_por_decidir?: ProveedorPorDecidir[];
   avisos: AvisoLote[];
   errores: string[];
@@ -78,6 +85,11 @@ const ETIQUETA_AVISO: Record<AvisoLote['tipo'], { texto: string; color: string; 
   MONEDA: { texto: 'Moneda extranjera', color: '#b45309', fondo: 'rgba(245, 158, 11, 0.1)' },
   NOTA_CREDITO: { texto: 'Nota crédito/débito', color: '#2f3746', fondo: 'rgba(100, 116, 139, 0.1)' },
   PROVEEDOR_NUEVO: { texto: 'Proveedor nuevo', color: '#047857', fondo: 'rgba(5, 150, 105, 0.1)' },
+  BONIFICACION: { texto: 'Bonificación (100 % desc.)', color: '#047857', fondo: 'rgba(5, 150, 105, 0.1)' },
+  DESCUENTO_ALTO: { texto: 'Descuento mayor al 90 %', color: '#b91c1c', fondo: 'rgba(220, 38, 38, 0.08)' },
+  DESCUENTO_GLOBAL: { texto: 'Descuento de documento', color: '#2f3746', fondo: 'rgba(100, 116, 139, 0.1)' },
+  CODIGOS_ALIAS_MISMA_FACTURA: { texto: 'Dos códigos, un producto', color: '#4338ca', fondo: 'rgba(99, 102, 241, 0.1)' },
+  VINCULADO_POR_REGLA: { texto: 'Vinculado por regla', color: '#4338ca', fondo: 'rgba(99, 102, 241, 0.1)' },
 };
 
 const formatBytes = (bytes: number): string => {
@@ -577,6 +589,18 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                 {resumen.codigos_nuevos_pendientes}
               </div>
             </div>
+
+            {(resumen.vinculados_por_regla ?? 0) > 0 && (
+              <div style={{ background: 'rgba(99, 102, 241, 0.06)', padding: 14, borderRadius: RADIUS.xl, border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                <div style={{ fontSize: FONT.sm, color: 'var(--primary-strong, #4338ca)', fontWeight: 600 }}>Vinculados por regla</div>
+                <div style={{ fontSize: FONT.title, fontWeight: 800, color: 'var(--primary-strong, #4338ca)', marginTop: 4 }}>
+                  {resumen.vinculados_por_regla}
+                </div>
+                <div style={{ fontSize: FONT.tiny, color: 'var(--text-muted, #2f3746)', marginTop: 2 }}>
+                  Otro código de un producto ya mapeado
+                </div>
+              </div>
+            )}
 
             {resumen.notas_credito > 0 && (
               <div style={{ background: 'var(--surface-subtle, #f6f7f9)', padding: 14, borderRadius: RADIUS.xl, border: '1px solid var(--border, #e1e5eb)' }}>

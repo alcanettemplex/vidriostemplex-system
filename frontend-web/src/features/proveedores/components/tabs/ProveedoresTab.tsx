@@ -3,12 +3,13 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2, Plus, Search, RefreshCw, CheckCircle2,
-  XCircle, AlertTriangle, FileSpreadsheet, HelpCircle,
+  XCircle, AlertTriangle, FileSpreadsheet, HelpCircle, Wand2,
 } from '../../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 import NuevoProveedorModal from '../modals/NuevoProveedorModal';
 import AgregarPrecioModal from '../modals/AgregarPrecioModal';
+import ReglaCodigoModal from '../modals/ReglaCodigoModal';
 import { RADIUS, FONT } from '../../styleTokens';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -26,6 +27,9 @@ interface Proveedor {
   /** null = sin decidir (lo descubrió la ingesta y nadie lo ha resuelto) */
   seguir_precios: boolean | null;
   origen_registro: string;
+  /** Regla que reconoce sus códigos inconsistentes (2026-09-30). null = sin regla */
+  regla_codigo?: string | null;
+  regla_codigo_modo?: 'AUTO' | 'SUGERENCIA' | null;
 }
 
 /**
@@ -115,6 +119,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
   const [aplicandoLote, setAplicandoLote] = useState(false);
   const [modalNuevo, setModalNuevo] = useState(false);
   const [modalPrecio, setModalPrecio] = useState<{ proveedor: Proveedor } | null>(null);
+  const [modalRegla, setModalRegla] = useState<Proveedor | null>(null);
   const [importando, setImportando] = useState(false);
   const [resultadoImport, setResultadoImport] = useState<ResultadoImport | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -607,6 +612,23 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
                       <Plus size={11} /> Precio
                     </button>
 
+                    {/* Regla de códigos: reconoce el mismo producto facturado con otro código */}
+                    <button
+                      title={p.regla_codigo
+                        ? `Regla de códigos activa (${p.regla_codigo_modo === 'AUTO' ? 'vincula sola' : 'solo sugiere'}). Clic para revisarla.`
+                        : 'Configurar una regla si este proveedor factura el mismo producto con códigos distintos'}
+                      onClick={() => setModalRegla(p)}
+                      style={{
+                        background: p.regla_codigo ? 'rgba(99, 102, 241, 0.08)' : 'none',
+                        border: `1px solid ${p.regla_codigo ? 'rgba(99, 102, 241, 0.35)' : 'var(--border)'}`,
+                        borderRadius: RADIUS.sm, padding: '4px 8px', cursor: 'pointer',
+                        color: p.regla_codigo ? 'var(--primary-strong, #4338ca)' : 'var(--text-muted)',
+                        fontSize: FONT.xs, fontWeight: p.regla_codigo ? 600 : 400, display: 'flex', alignItems: 'center', gap: 4,
+                      }}
+                    >
+                      <Wand2 size={11} /> {p.regla_codigo ? (p.regla_codigo_modo === 'AUTO' ? 'Regla · auto' : 'Regla · sugiere') : 'Regla'}
+                    </button>
+
                     {p.activo && (
                       <button
                         title="Dar de baja del maestro. También deja de alimentar la bandeja."
@@ -667,6 +689,13 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
           proveedor={modalPrecio.proveedor}
           onClose={() => setModalPrecio(null)}
           onGuardado={() => { setModalPrecio(null); toast.success('Precio registrado'); }}
+        />
+      )}
+      {modalRegla && (
+        <ReglaCodigoModal
+          proveedor={modalRegla}
+          onClose={() => setModalRegla(null)}
+          onGuardado={() => { setModalRegla(null); cargar(); onCambio?.(); }}
         />
       )}
     </div>

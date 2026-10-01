@@ -58,7 +58,9 @@ ProveedorProductoCodigo.init({
   // Hay exactamente uno por equivalencia mientras quede al menos un código.
   principal: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 
-  // BACKFILL | BANDEJA | MANUAL | LISTA — de dónde salió el código
+  // BACKFILL | BANDEJA | MANUAL | LISTA | REGLA — de dónde salió el código.
+  // REGLA = lo vinculó sola la regla del proveedor (utils/proveedorReglasCodigo.ts);
+  // quitarlo marca el pendiente como `regla_rechazada` para que no vuelva solo.
   origen: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'MANUAL' },
 
   fecha_alta: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },

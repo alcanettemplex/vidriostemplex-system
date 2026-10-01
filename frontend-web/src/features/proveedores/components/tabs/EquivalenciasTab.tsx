@@ -417,16 +417,20 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                         .map((c) => (
                           <span
                             key={c.id}
-                            title="Código adicional: también actualiza este precio"
+                            title={c.origen === 'REGLA'
+                              ? 'Lo vinculó sola la regla de códigos del proveedor. Si no es el mismo producto, quítalo: vuelve a Por Mapear y la regla no lo repite.'
+                              : 'Código adicional: también actualiza este precio'}
                             style={{
                               fontFamily: 'monospace', fontSize: FONT.tiny, fontWeight: 600,
-                              color: 'var(--text-muted, #2f3746)', background: 'var(--surface-sunken, #eef0f4)',
-                              border: '1px solid var(--border-subtle, #e1e5eb)',
+                              color: c.origen === 'REGLA' ? 'var(--primary-strong, #4338ca)' : 'var(--text-muted, #2f3746)',
+                              background: c.origen === 'REGLA' ? 'rgba(99, 102, 241, 0.08)' : 'var(--surface-sunken, #eef0f4)',
+                              border: `1px solid ${c.origen === 'REGLA' ? 'rgba(99, 102, 241, 0.3)' : 'var(--border-subtle, #e1e5eb)'}`,
                               padding: '1px 6px', borderRadius: RADIUS.xs,
                               display: 'inline-flex', alignItems: 'center', gap: 4,
                             }}
                           >
                             {c.codigo_proveedor}
+                            {c.origen === 'REGLA' && <span style={{ fontFamily: 'inherit', fontWeight: 700 }}>· regla</span>}
                             <button
                               onClick={() => handleQuitarCodigo(item, c)}
                               title={`Quitar ${c.codigo_proveedor} de esta equivalencia`}

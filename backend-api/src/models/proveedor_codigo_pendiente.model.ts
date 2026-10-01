@@ -64,6 +64,11 @@ ProveedorCodigoPendiente.init({
   },
 
   fecha_deteccion: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+
+  // El usuario deshizo un vínculo que hizo la regla del proveedor (2026-09-30). Sin
+  // esta marca, la siguiente factura con este código lo revincularía solo y el
+  // "deshacer" no tendría efecto. Solo lo escribe quien quita un código REGLA.
+  regla_rechazada: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 }, {
   sequelize,
   modelName: 'ProveedorCodigoPendiente',

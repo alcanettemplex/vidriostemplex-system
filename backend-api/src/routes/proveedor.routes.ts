@@ -36,6 +36,8 @@ import {
   listarFacturasProcesadas,
   importarListaPrecios,
   buscarEnModulo,
+  listarReglasCodigo,
+  configurarReglaCodigo,
 } from '../controllers/proveedor.controller';
 
 const router = Router();
@@ -72,6 +74,9 @@ router.post('/', crearProveedor);
 
 // ─── Buscador transversal del módulo (barra única + autocompletado) ──────────
 router.get('/buscar', buscarEnModulo);
+
+// ─── Reglas de código por proveedor: lista cerrada para el selector ──────────
+router.get('/reglas-codigo', listarReglasCodigo);
 
 // ─── Contadores de las sub-pestañas (Activos / Pendientes / Ignorados) ───────
 router.get('/resumen-seguimiento', resumenSeguimiento);
@@ -126,6 +131,8 @@ router.post('/:id/productos', agregarPrecioManual);
 // Lista de precios en Excel (Fase 3). Sin `dry_run: false` explícito solo previsualiza.
 router.post('/:id/importar-precios', manejarErroresCarga(uploadExcel), importarListaPrecios);
 router.patch('/:id/seguimiento', cambiarSeguimiento);
+// Regla de código (2026-09-30). Sin `dry_run: false` explícito solo previsualiza.
+router.post('/:id/regla-codigo', configurarReglaCodigo);
 router.patch('/:id', editarProveedor);
 router.delete('/:id', desactivarProveedor);
 

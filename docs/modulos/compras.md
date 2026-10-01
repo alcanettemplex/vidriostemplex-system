@@ -1439,3 +1439,112 @@ así que hay que vincularlos desde "Por Mapear" al mismo producto del catálogo.
 código se suma y el precio de agosto entra como **retroactivo** (12-ago es anterior al vigente de
 14-sep), sin desplazar el vigente. Ojo al dato que queda abierto: los pesos de la tira difieren
 entre 9 % y 15 % entre ambas referencias.
+
+---
+
+## Reglas de código por proveedor (2026-09-30)
+
+### El problema
+
+Los códigos múltiples (sección anterior) resolvieron que dos códigos **ya mapeados** muevan el mismo
+precio, pero cada código **nuevo** seguía cayendo en Por Mapear aunque el producto ya estuviera
+vinculado. El usuario lo vio con `ALU175NG`: el adaptador 3831 negro que ya tenía como `GRE175NG`.
+"Me toca mapear varias veces el mismo producto del mismo proveedor."
+
+### De dónde sale la lógica de cada proveedor
+
+De tres fuentes, en este orden de confianza: (1) **los mapeos ya hechos por el usuario** —la verdad:
+dos códigos al mismo producto dicen qué considera igual ese proveedor, a productos distintos dicen
+qué no se puede unir—; (2) la estructura de los códigos y descripciones de sus facturas; (3) el
+catálogo, que dice qué diferencias importan (Roldán distingue color; las películas de HI-TECH no
+distinguen porcentaje ni ancho).
+
+Medido en producción el 2026-09-30, probando cada regla contra los 250 códigos mapeados:
+
+| Proveedor | Estructura | Regla | Prueba | Resolvía hoy |
+|---|---|---|---|---|
+| GRUPO ROLDAN | `GRE`/`GRP`/`ALU` + referencia + color (`NG`, `NT`, `CR`) | `QUITAR_PREFIJO_LINEA` | 3 ✓ 0 ✗ | 4 pendientes + 3 pares |
+| VENTANAS Y PUERTAS | `392EC` y su retal `392ECMT` "… RETAL" | `SUFIJO_RETAL` | 5 ✓ 0 ✗ | 1 (387EC) |
+| VEA | consecutivo numérico distinto para IZQ y DER | `IGNORAR_MANO` (por descripción) | 0 ✓ 0 ✗ | 4 + 1 par |
+| HI-TECH | familia + % + ancho de rollo (`SV1590-15`) | `FAMILIA_POR_PREFIJO` | 4 ✓ 0 ✗ | 0 |
+| ACVICOL | `I` + modelo + `-8` (= negro) + `CO`/`IM` | **ninguna** | quitar letras: 22 ✗ | — |
+
+Tres conclusiones que fijaron el diseño:
+
+- **Una regla nunca es global.** Quitar el prefijo acierta 3 de 3 en Roldán y comete 22 errores en
+  ACVICOL, donde las letras que cambian sí son productos distintos.
+- **"Ignorar el color" no se puede parametrizar por proveedor.** Que el catálogo no distinga color es
+  propiedad de algunos productos (CISM/CISN, TM2G/TM2NEG de Ventanas y Puertas), no del proveedor:
+  ese mismo proveedor tiene 21 productos que sí lo distinguen. Esos casos siguen siendo un mapeo a
+  mano, una sola vez.
+- **La descripción no sirve como regla general.** Falla donde los productos difieren en un número (el
+  espesor de Vitelsa, las medidas de ángulos y tubos) o una letra (el acabado de ACVICOL). Solo se usa
+  en `IGNORAR_MANO`, con igualdad exacta salvo IZQ/DER.
+
+### Cómo funciona
+
+- **Lista cerrada** en `utils/proveedorReglasCodigo.ts` (no expresiones escritas por el usuario).
+  Cada regla traduce código + descripción a una **llave**; dos códigos del mismo proveedor con la
+  misma llave son el mismo producto. `QUITAR_PREFIJO_LINEA` incluye el **tipo de pieza** (primera
+  palabra) para no unir una jamba 393 con un cabezal 393.
+- `proveedores.regla_codigo` + `regla_codigo_modo` (`AUTO` | `SUGERENCIA`). Migración
+  `2026-09-30_reglas_codigo_proveedor.ts` (ya corrida).
+- **La evidencia habilita la regla** (`probarRegla`): con un solo error contra los mapeos humanos no
+  se activa (409); `AUTO` exige al menos un acierto. VEA, sin ningún par mapeado todavía, solo puede
+  sugerir.
+- **Condiciones para vincular sola** (`resolverConRegla`), estrictas porque nadie revisa antes de que
+  se mueva un precio: un único producto con esa llave; modalidad decidida sin adivinar (unidad
+  confiable de la factura → la que dicta la regla, retal = METRO → la única equivalencia del
+  producto); la equivalencia en esa modalidad **ya existe** (la regla no abre filas de precio); y el
+  precio no se aleja del vigente más que `umbral_variacion_precio_pct`. Si algo falla, el código va a
+  Por Mapear **con la sugerencia y el motivo**.
+- **En la ingesta**, el código reconocido se registra (`origen = 'REGLA'`) y se inyecta en
+  `equivPorCodigo` antes del cálculo de precios: desde ahí sigue el mismo camino que un código
+  mapeado (precio mayor entre alias, modalidad, retroactividad, IVA, Cotizador). No se duplicó esa
+  lógica. Aviso `VINCULADO_POR_REGLA` y contador `vinculados_por_regla` en el resumen del lote.
+- **No aprende alias**: un sinónimo lo confirma un humano.
+- **Deshacer**: quitar un código `REGLA` en Equivalencias lo devuelve a Por Mapear con
+  `regla_rechazada = true`, y la regla no lo vuelve a vincular ni a sugerir. Desvincular la
+  equivalencia completa hace lo mismo con sus códigos `REGLA`. (De paso, quitar cualquier código que
+  vino de una factura lo devuelve a la bandeja: antes quedaba `MAPEADO` sin equivalencia, invisible
+  hasta la siguiente factura, salvo que el mismo código siga vivo en otra modalidad.)
+- **Endpoints:** `GET /api/proveedores/reglas-codigo` y `POST /api/proveedores/:id/regla-codigo`
+  (previsualiza salvo `dry_run: false`; `aplicar_bandeja` resuelve también lo ya pendiente).
+- **Pantallas:** botón "Regla" en cada proveedor (modal que se prueba solo al elegir y muestra
+  aciertos, errores y qué hará con la bandeja); chip "Sugerido: …" en Por Mapear y producto
+  preseleccionado en el modal de vinculación; marca "· regla" en los códigos de Equivalencias.
+
+### Estado activado el 2026-09-30 (decisión del usuario)
+
+| Proveedor | Regla | Modo | Efecto inmediato |
+|---|---|---|---|
+| GRUPO ROLDAN | `QUITAR_PREFIJO_LINEA` | AUTO | ALU175NG→ADA0606 (nuevo vigente $34.720, −2,6 %); GRP700/703/705NG → retroactivos |
+| VENTANAS Y PUERTAS | `SUFIJO_RETAL` | AUTO | 387EC→SIL0304 por METRO (mismo precio) |
+| VEA | `IGNORAR_MANO` | SUGERENCIA | 4 sugerencias en Por Mapear (el catálogo no distingue la mano) |
+| HI-TECH | — | — | **Pendiente de decisión**: el código trae el ancho del rollo (60″, 72″, 32″) y unir anchos mezcla precios por metro distintos |
+
+El Cotizador no cambió: ADA0606 no está en el Cotizador y los demás entraron retroactivos o sin
+cambio. Script: `2026-09-30_activar_reglas_codigo.ts` (invoca el handler del endpoint, no reimplementa).
+
+### Corrección de ACVICOL `ICCCB-8` (mismo día)
+
+`ICCCB-8` ("… con bloque **negro** micro texturizado") estaba en CCE1101 (acero); se movió a CCE0601
+(negro), donde ya estaba `ICCC-8` con la misma descripción. Su histórico viajó con él (FE-AC54393
+$20.090 del 04-ago y FE-AC55241 $17.290 del 08-sep). Los vigentes **no cambiaron**: el negro conserva
+$20.090, confirmado por ICCC-8 el 16-sep (esa confirmación no deja fila, y el recálculo tuvo que
+sumarla para no bajar el negro a $17.290), y el acero conserva $17.290 de ICCC (FE-AC55550). ⚠️ Queda
+por revisar con ACVICOL la FE-AC55241: cobró la chapeta negra al precio de la de acero. Script:
+`2026-09-30_acvicol_iccc_b8_a_negro.ts`.
+
+### Verificación
+
+- `npm run test:proveedores`: 17 pruebas con códigos reales de los cinco proveedores (incluye que
+  ninguna regla pueda ir en automático en ACVICOL). `test:cotizador` 173/173 sin regresión.
+- Endpoints en vivo: lista de reglas, previsualización, 409 al intentar AUTO en ACVICOL, validación
+  `.strict()`, sugerencias en la bandeja de VEA, y el ciclo quitar → bandeja con `regla_rechazada` →
+  la regla deja de proponerlo → restaurar.
+- **Simulacro de ingesta** (`scripts/pruebas_proveedores/simulacro_ingesta_regla.ts`): factura
+  sintética de Roldán procesada con el handler real dentro de una transacción revertida, con la
+  auditoría anulada en ese proceso (el hook escribe fuera de la transacción). ALU701NG se vinculó solo
+  a SIL0601 (+3 %), ALU703NG con precio ×3 quedó en la bandeja, GRX700NT (natural) no se unió al
+  negro. Nada quedó escrito, tampoco en `auditoria_log`.

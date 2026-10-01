@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import axios from 'axios';
 import {
   Link2, Search, RefreshCw, Trash2, CheckCircle2,
-  Building2, Loader2, BellOff, AlertTriangle, Ruler, Undo2,
+  Building2, Loader2, BellOff, AlertTriangle, Ruler, Undo2, Sparkles,
 } from '../../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
@@ -583,6 +583,29 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                           {item.documento_ref && (
                             <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #2f3746)', marginTop: 2 }}>
                               Ref: {item.documento_ref}
+                            </div>
+                          )}
+                          {/* Regla de códigos del proveedor: ya sabe a qué producto corresponde */}
+                          {item.sugerencia && (
+                            <div
+                              title={`Regla «${item.sugerencia.regla_titulo}»: es el mismo producto que ${item.sugerencia.via_codigo}.` +
+                                (item.sugerencia.motivo ? ` ${item.sugerencia.motivo}` : ' Abre Vincular para confirmarlo.')}
+                              style={{
+                                fontSize: FONT.xs, marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4,
+                                color: item.sugerencia.motivo ? '#b45309' : 'var(--primary-strong, #4338ca)',
+                                background: item.sugerencia.motivo ? 'rgba(245, 158, 11, 0.1)' : 'rgba(99, 102, 241, 0.08)',
+                                padding: '2px 7px', borderRadius: RADIUS.xs, fontWeight: 600, maxWidth: '100%',
+                              }}
+                            >
+                              <Sparkles size={10} />
+                              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                Sugerido: {item.sugerencia.producto.codigo} (como {item.sugerencia.via_codigo})
+                              </span>
+                            </div>
+                          )}
+                          {item.regla_rechazada && (
+                            <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #2f3746)', marginTop: 3 }}>
+                              Deshiciste el vínculo de la regla: este código se mapea a mano.
                             </div>
                           )}
                         </td>

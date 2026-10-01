@@ -30,6 +30,22 @@ import {
   programarRecalculoTrasCommit,
   programarRecalculoDeProveedores,
 } from '../cotizador/lib/sincronizacionProveedores';
+import {
+  REGLAS_CODIGO,
+  MODOS_REGLA,
+  NOMBRES_REGLAS,
+  IndiceRegla,
+  Resolucion,
+  catalogoReglas,
+  construirIndiceRegla,
+  indexar,
+  leerMapeosProveedor,
+  modosPermitidos,
+  probarRegla,
+  reglaDe,
+  resolverConRegla,
+  sumarAlIndice,
+} from '../utils/proveedorReglasCodigo';
 
 // ─── Constantes de dominio ────────────────────────────────────────────────────
 
@@ -245,6 +261,63 @@ async function actualizarPrecio(
   return { cambio: !esRetroactivo, anomalo, variacionPct, retroactivo: esRetroactivo };
 }
 
+/**
+ * Vincula un código de la bandeja con la equivalencia que identificó la regla del
+ * proveedor (2026-09-30). Es el mismo camino que el vínculo manual cuando la
+ * equivalencia ya existe —registrar el código y aplicar su precio por
+ * `actualizarPrecio()`, con fecha de factura, retroactividad y Cotizador incluidos—,
+ * para que un precio no signifique cosas distintas según quién lo vinculó.
+ *
+ * No guarda alias: un sinónimo es conocimiento que confirma un humano, y aprenderlo
+ * de una deducción automática contaminaría las sugerencias de los demás proveedores.
+ *
+ * Devuelve null si al momento de escribir la situación cambió (equivalencia dada de
+ * baja, código tomado por otro producto): en ese caso el código queda en la bandeja.
+ */
+async function vincularPendientePorRegla(
+  pendiente: any,
+  resolucion: Extract<Resolucion, { tipo: 'VINCULAR' }>,
+  userId: number | null,
+  transaction: Transaction
+): Promise<ResultadoPrecio | null> {
+  const pp = await ProveedorProducto.findByPk(resolucion.ppId, { transaction });
+  if (!pp || pp.getDataValue('activo') !== true) return null;
+
+  const proveedorId = Number(pendiente.getDataValue('proveedor_id'));
+  const codigo = String(pendiente.getDataValue('codigo_proveedor'));
+  if (await codigoEnOtroProducto(proveedorId, codigo, resolucion.catalogoProductoId, transaction)) return null;
+
+  await registrarCodigo(pp, codigo, {
+    descripcion: pendiente.getDataValue('descripcion_proveedor') || null,
+    origen: 'REGLA',
+    transaction,
+  });
+
+  const aNumero = (v: any) => (v === null || v === undefined ? null : parseFloat(v));
+  const precio = aNumero(pendiente.getDataValue('precio_detectado'));
+  let resultado: ResultadoPrecio = { cambio: false, anomalo: false, variacionPct: null, retroactivo: false };
+  if (precio !== null && precio > 0) {
+    const fecha = aFechaISO(pendiente.getDataValue('fecha_deteccion')) || new Date().toISOString().split('T')[0];
+    resultado = await actualizarPrecio(pp, precio, fecha, {
+      origen: 'FACTURA',
+      registradoPor: userId,
+      documentoRef: pendiente.getDataValue('documento_ref'),
+      porcentajeIva: pendiente.getDataValue('porcentaje_iva_detectado'),
+      desglose: {
+        precioBruto: aNumero(pendiente.getDataValue('precio_bruto_detectado')),
+        descuentoPct: aNumero(pendiente.getDataValue('descuento_pct_detectado')),
+        descuentoValor: aNumero(pendiente.getDataValue('descuento_valor_detectado')),
+        cantidad: aNumero(pendiente.getDataValue('cantidad_detectada')),
+        totalLinea: aNumero(pendiente.getDataValue('total_linea_detectado')),
+      },
+      transaction,
+    });
+  }
+
+  await pendiente.update({ estado: 'MAPEADO' }, { transaction });
+  return resultado;
+}
+
 /** Respuesta de error uniforme: mensaje accionable para el usuario, detalle técnico al log. */
 function fallar(res: Response, status: number, mensaje: string, err?: any) {
   if (err) console.error(`[proveedores] ${mensaje}:`, err?.message ?? err);
@@ -407,7 +480,8 @@ export const listarProveedores = async (req: Request, res: Response) => {
     const attributes = compacto === 'true'
       ? ['id', 'nombre_comercial', 'seguir_precios']
       : ['id', 'nit', 'nombre_comercial', 'razon_social', 'telefono', 'email', 'activo',
-         'tipo_identificacion', 'numero_identificacion', 'seguir_precios', 'origen_registro'];
+         'tipo_identificacion', 'numero_identificacion', 'seguir_precios', 'origen_registro',
+         'regla_codigo', 'regla_codigo_modo'];
 
     // La vista de tabla se pagina; el modo compacto no, porque alimenta selectores que
     // necesitan el maestro entero y ya viaja con tres columnas. Sin esto, la pestaña
@@ -1580,19 +1654,92 @@ export const listarPendientes = async (req: Request, res: Response) => {
         'documento_ref', 'veces_visto', 'estado', 'fecha_deteccion',
         'unidad_detectada', 'porcentaje_iva_detectado', 'codigo_derivado',
         'precio_bruto_detectado', 'descuento_pct_detectado', 'descuento_valor_detectado',
-        'cantidad_detectada', 'total_linea_detectado',
+        'cantidad_detectada', 'total_linea_detectado', 'regla_rechazada',
       ],
       order,
       limit,
       offset,
     });
 
-    res.json({ items: rows, total: count, limit, offset });
+    const items = rows.map((r: any) => r.toJSON());
+    if (estadoPedido === 'PENDIENTE') await adjuntarSugerenciasDeRegla(items);
+
+    res.json({ items, total: count, limit, offset });
   } catch (err: any) {
     const { status, mensaje } = mensajeDeError(err, 'No se pudo cargar la bandeja de códigos');
     fallar(res, status, mensaje, err);
   }
 };
+
+/**
+ * Agrega `sugerencia` a los pendientes cuyo proveedor tiene una regla de código
+ * (2026-09-30). Se calcula al listar y no se guarda: la sugerencia depende de lo que
+ * esté mapeado HOY, y una columna se quedaría vieja con el primer mapeo nuevo.
+ *
+ * En un proveedor en modo AUTO, lo que llega aquí es lo que la regla no se atrevió a
+ * vincular sola (precio fuera de umbral, modalidad ambigua): la sugerencia explica
+ * por qué. Un código cuyo vínculo por regla deshizo el usuario no se vuelve a sugerir.
+ */
+async function adjuntarSugerenciasDeRegla(items: any[]): Promise<void> {
+  const idsProveedor = Array.from(new Set(items.map((i) => Number(i.proveedor_id))));
+  if (idsProveedor.length === 0) return;
+
+  const conRegla = await Proveedor.findAll({
+    // Op.not → IS NOT NULL. Con Op.ne saldría "!= NULL", que en SQL nunca es verdadero.
+    where: { id: { [Op.in]: idsProveedor }, regla_codigo: { [Op.not]: null } },
+    attributes: ['id', 'regla_codigo', 'regla_codigo_modo'],
+  });
+  if (conRegla.length === 0) return;
+
+  const umbral = await obtenerUmbral();
+  const sugeridas: Array<{ item: any; r: Exclude<Resolucion, { tipo: 'SIN_COINCIDENCIA' }>; regla: string }> = [];
+
+  for (const proveedor of conRegla) {
+    const config = reglaDe(proveedor);
+    if (!config) continue;
+    const proveedorId = Number(proveedor.getDataValue('id'));
+    const indice = await construirIndiceRegla(proveedorId, config.regla);
+    for (const item of items) {
+      if (Number(item.proveedor_id) !== proveedorId || item.regla_rechazada) continue;
+      const precio = item.precio_detectado === null || item.precio_detectado === undefined ? null : parseFloat(item.precio_detectado);
+      const r = resolverConRegla(
+        indice,
+        {
+          codigo: item.codigo_proveedor,
+          descripcion: item.descripcion_proveedor,
+          unidad: item.unidad_detectada ?? null,
+          unidadConfiable: !!item.unidad_detectada,
+          precio,
+        },
+        umbral
+      );
+      if (r.tipo !== 'SIN_COINCIDENCIA') sugeridas.push({ item, r, regla: config.regla });
+    }
+  }
+  if (sugeridas.length === 0) return;
+
+  const productos = await CatalogoProducto.findAll({
+    where: { id: { [Op.in]: Array.from(new Set(sugeridas.map((s) => s.r.catalogoProductoId))) } },
+    attributes: ['id', 'codigo', 'nombre', 'es_aluminio', 'porcentaje_iva'],
+  });
+  const porId = new Map(productos.map((p: any) => [Number(p.getDataValue('id')), p.toJSON()]));
+
+  for (const { item, r, regla } of sugeridas) {
+    const producto = porId.get(r.catalogoProductoId);
+    if (!producto) continue;
+    item.sugerencia = {
+      regla,
+      regla_titulo: REGLAS_CODIGO[regla as keyof typeof REGLAS_CODIGO]?.titulo ?? regla,
+      producto,
+      unidad_compra: r.unidadCompra,
+      via_codigo: r.viaCodigo,
+      // VINCULAR en la bandeja = la regla está en modo SUGERENCIA, o el código llegó
+      // antes de activarla: se puede confirmar sin más revisión.
+      listo_para_vincular: r.tipo === 'VINCULAR',
+      motivo: r.tipo === 'SUGERIR' ? r.motivo : null,
+    };
+  }
+}
 
 // ─── GET /api/proveedores/codigos-pendientes/count ───────────────────────────
 /** Solo el número para el badge: antes se descargaba la bandeja entera para contarla. */
@@ -2005,9 +2152,11 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
     // proveedor factura este producto con tres códigos, dejar dos fuera de la
     // bandeja los volvería invisibles y sin capturar precio.
     const codigosEquivalencia = await listarCodigos(Number(pp.getDataValue('id')), t);
-    const codigos: Array<{ codigo: string; descripcion: string | null }> = codigosEquivalencia.map((c) => ({
+    const codigos: Array<{ codigo: string; descripcion: string | null; deRegla?: boolean }> = codigosEquivalencia.map((c) => ({
       codigo: String(c.getDataValue('codigo_proveedor')),
       descripcion: (c.getDataValue('descripcion_proveedor') as string | null) ?? descripcion_proveedor ?? null,
+      // Lo vinculó la regla del proveedor: al devolverlo, que la regla no lo revincule
+      deRegla: c.getDataValue('origen') === 'REGLA',
     }));
 
     // Respaldo para las equivalencias anteriores al registro de códigos que no
@@ -2019,7 +2168,7 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
       });
     }
 
-    for (const { codigo, descripcion } of codigos) {
+    for (const { codigo, descripcion, deRegla } of codigos) {
       const pendiente = await ProveedorCodigoPendiente.findOne({
         where: { proveedor_id, codigo_proveedor: codigo },
         transaction: t,
@@ -2029,6 +2178,7 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
         await pendiente.update(
           {
             estado: 'PENDIENTE',
+            ...(deRegla ? { regla_rechazada: true } : {}),
             precio_detectado: precio_actual ?? pendiente.getDataValue('precio_detectado'),
             fecha_deteccion: fecha_precio_actual ?? pendiente.getDataValue('fecha_deteccion'),
             unidad_detectada: pendiente.getDataValue('unidad_detectada') ?? unidad_compra,
@@ -2054,6 +2204,7 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
             veces_visto: 1,
             estado: 'PENDIENTE',
             fecha_deteccion: fecha_precio_actual || new Date(),
+            regla_rechazada: !!deRegla,
           },
           { transaction: t }
         );
@@ -2198,22 +2349,218 @@ export const quitarCodigoEquivalencia = async (req: Request, res: Response) => {
       return fallar(res, 404, 'La equivalencia ya no existe. Refresca la lista.');
     }
 
-    const { eliminado, nuevoPrincipal } = await quitarCodigo(
-      pp,
-      parseInt(req.params.codigo_id, 10),
-      t
+    const codigoId = parseInt(req.params.codigo_id, 10);
+    const filaCodigo = await ProveedorProductoCodigo.findOne({
+      where: { id: codigoId, proveedor_producto_id: pp.getDataValue('id') },
+      attributes: ['origen', 'principal'],
+      transaction: t,
+    });
+    const eraDeRegla = filaCodigo?.getDataValue('origen') === 'REGLA';
+    const eraPrincipal = filaCodigo?.getDataValue('principal') === true;
+
+    const { eliminado, nuevoPrincipal } = await quitarCodigo(pp, codigoId, t);
+
+    // El código vuelve a Por Mapear si vino de una factura (hay fila en la bandeja):
+    // antes quedaba MAPEADO sin equivalencia y desaparecía hasta la próxima factura.
+    // Si lo había vinculado la regla del proveedor, este es su "deshacer": queda
+    // marcado para que la siguiente factura no lo revincule solo.
+    // Excepción: el mismo código puede seguir vivo en otra modalidad del producto
+    // (proveedor 1029: `3` en UNIDAD y en M2); entonces sigue mapeado y no se toca.
+    const proveedorIdPp = Number(pp.getDataValue('proveedor_id'));
+    const sigueMapeado = (await resolverEquivalenciasPorCodigo(proveedorIdPp, [eliminado], t)).size > 0;
+    const [devueltos] = sigueMapeado ? [0] : await ProveedorCodigoPendiente.update(
+      { estado: 'PENDIENTE', ...(eraDeRegla ? { regla_rechazada: true } : {}) },
+      {
+        where: {
+          proveedor_id: pp.getDataValue('proveedor_id'),
+          codigo_proveedor: normalizarCodigo(eliminado),
+          estado: 'MAPEADO',
+        },
+        transaction: t,
+        individualHooks: true, // auditoría: los hooks de instancia no disparan en bulk
+      }
     );
 
     await t.commit();
-    res.json({
-      message: nuevoPrincipal
+    const vuelta = devueltos > 0
+      ? eraDeRegla
+        ? ' Volvió a Por Mapear y la regla del proveedor ya no lo vinculará sola.'
+        : ' Volvió a Por Mapear.'
+      : '';
+    // `quitarCodigo` solo informa un principal nuevo cuando se quitó el principal: antes,
+    // quitar un código ADICIONAL decía "la equivalencia se queda sin código" sin ser cierto.
+    const resumen = !eraPrincipal
+      ? `Código ${eliminado} eliminado.`
+      : nuevoPrincipal
         ? `Código ${eliminado} eliminado. ${nuevoPrincipal} pasa a ser el principal.`
-        : `Código ${eliminado} eliminado. La equivalencia se queda sin código hasta que registres otro.`,
+        : `Código ${eliminado} eliminado. La equivalencia se queda sin código hasta que registres otro.`;
+    res.json({
+      message: resumen + vuelta,
       codigos: await listarCodigos(Number(pp.getDataValue('id'))),
     });
   } catch (err: any) {
     await t.rollback();
     const { status, mensaje } = mensajeDeError(err, 'No se pudo eliminar el código');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── Reglas de código por proveedor (2026-09-30) ─────────────────────────────
+
+/** GET /api/proveedores/reglas-codigo — la lista cerrada, para el selector de la pantalla. */
+export const listarReglasCodigo = async (_req: Request, res: Response) => {
+  res.json({ reglas: catalogoReglas(), modos: MODOS_REGLA });
+};
+
+const reglaCodigoSchema = z.object({
+  regla: z.enum(NOMBRES_REGLAS as [string, ...string[]], { message: 'Esa regla no existe. Elige una de la lista' }).nullable(),
+  modo: z.enum(MODOS_REGLA, { message: 'El modo debe ser automático o solo sugerir' }).optional(),
+  aplicar_bandeja: z.boolean().default(false),
+  // Igual que la importación de listas: sin `false` explícito, solo previsualiza
+  dry_run: z.boolean().default(true),
+}).strict();
+
+/**
+ * POST /api/proveedores/:id/regla-codigo
+ *
+ * Prueba, asigna o quita la regla de código de un proveedor. Por defecto solo
+ * previsualiza: devuelve la evidencia (aciertos y errores contra los mapeos que ya
+ * hizo un humano), qué modos admite y qué haría con cada pendiente de la bandeja.
+ *
+ * Una regla con un solo error no se puede activar: ese error es un precio que caería
+ * en el producto equivocado. Y AUTO exige al menos un acierto; sin evidencia, la
+ * regla solo sugiere.
+ */
+export const configurarReglaCodigo = async (req: Request, res: Response) => {
+  let t: Transaction | null = null;
+  try {
+    const datos = reglaCodigoSchema.parse(req.body);
+    const proveedor = await Proveedor.findByPk(req.params.id, {
+      attributes: ['id', 'nombre_comercial', 'regla_codigo', 'regla_codigo_modo'],
+    });
+    if (!proveedor) return fallar(res, 404, 'El proveedor ya no existe. Refresca la lista.');
+    const proveedorId = Number(proveedor.getDataValue('id'));
+    const nombre = proveedor.getDataValue('nombre_comercial');
+
+    // Quitar la regla: no hay nada que probar
+    if (datos.regla === null) {
+      if (!datos.dry_run) await proveedor.update({ regla_codigo: null, regla_codigo_modo: null });
+      return res.json({
+        message: datos.dry_run ? 'Sin regla: la ingesta funcionará como siempre.' : `${nombre} quedó sin regla de código.`,
+        aplicado: !datos.dry_run,
+      });
+    }
+
+    const regla = datos.regla as keyof typeof REGLAS_CODIGO;
+    const { codigos, equivalencias } = await leerMapeosProveedor(proveedorId);
+    const prueba = probarRegla(regla, codigos);
+    const permitidos = modosPermitidos(prueba);
+    const modo = datos.modo ?? (permitidos.includes('AUTO') ? 'AUTO' : 'SUGERENCIA');
+
+    // Qué haría con la bandeja actual de este proveedor
+    const indice = indexar(regla, codigos, equivalencias);
+    const umbral = await obtenerUmbral();
+    const pendientes = await ProveedorCodigoPendiente.findAll({
+      where: { proveedor_id: proveedorId, estado: 'PENDIENTE', regla_rechazada: false },
+      order: [['codigo_proveedor', 'ASC']],
+    });
+    const resoluciones = pendientes.map((p: any) => {
+      const precio = p.getDataValue('precio_detectado');
+      return {
+        pendiente: p,
+        r: resolverConRegla(
+          indice,
+          {
+            codigo: p.getDataValue('codigo_proveedor'),
+            descripcion: p.getDataValue('descripcion_proveedor'),
+            unidad: p.getDataValue('unidad_detectada'),
+            unidadConfiable: !!p.getDataValue('unidad_detectada'),
+            precio: precio === null || precio === undefined ? null : parseFloat(precio),
+          },
+          umbral
+        ),
+      };
+    }).filter((x) => x.r.tipo !== 'SIN_COINCIDENCIA');
+
+    const idsProducto = new Set<number>();
+    for (const x of resoluciones) if (x.r.tipo !== 'SIN_COINCIDENCIA') idsProducto.add(x.r.catalogoProductoId);
+    for (const e of prueba.errores) { idsProducto.add(e.producto_a); idsProducto.add(e.producto_b); }
+    for (const a of prueba.aciertos) idsProducto.add(a.catalogo_producto_id);
+    const productos = idsProducto.size
+      ? await CatalogoProducto.findAll({ where: { id: { [Op.in]: Array.from(idsProducto) } }, attributes: ['id', 'codigo', 'nombre'] })
+      : [];
+    const prod = new Map(productos.map((p: any) => [Number(p.getDataValue('id')), { codigo: p.getDataValue('codigo'), nombre: p.getDataValue('nombre') }]));
+
+    const evidencia = {
+      aciertos: prueba.aciertos.map((a) => ({ ...a, producto: prod.get(a.catalogo_producto_id) ?? null })),
+      errores: prueba.errores.map((e) => ({ ...e, producto_a: prod.get(e.producto_a) ?? null, producto_b: prod.get(e.producto_b) ?? null })),
+    };
+    const previsualizacion = resoluciones.map(({ pendiente, r }) => ({
+      pendiente_id: pendiente.getDataValue('id'),
+      codigo: pendiente.getDataValue('codigo_proveedor'),
+      descripcion: pendiente.getDataValue('descripcion_proveedor'),
+      precio: pendiente.getDataValue('precio_detectado'),
+      accion: modo === 'AUTO' && r.tipo === 'VINCULAR' ? 'VINCULAR' : 'SUGERIR',
+      producto: r.tipo !== 'SIN_COINCIDENCIA' ? prod.get(r.catalogoProductoId) ?? null : null,
+      unidad_compra: r.tipo !== 'SIN_COINCIDENCIA' ? r.unidadCompra : null,
+      via_codigo: r.tipo !== 'SIN_COINCIDENCIA' ? r.viaCodigo : null,
+      variacion_pct: r.tipo === 'VINCULAR' ? r.variacionPct : null,
+      motivo: r.tipo === 'SUGERIR' ? r.motivo : null,
+    }));
+
+    const respuestaBase = {
+      proveedor: { id: proveedorId, nombre },
+      regla,
+      regla_titulo: REGLAS_CODIGO[regla].titulo,
+      modo,
+      modos_permitidos: permitidos,
+      evidencia,
+      previsualizacion,
+    };
+
+    if (!permitidos.includes(modo)) {
+      const motivo = prueba.errores.length > 0
+        ? `La regla une ${prueba.errores.length} par(es) de códigos que tú mapeaste a productos distintos. Aplicada sola, pondría precios en el producto equivocado.`
+        : 'La regla todavía no tiene ningún acierto contra tus mapeos: solo puede sugerir hasta que vincules a mano al menos un par.';
+      if (datos.dry_run) return res.json({ ...respuestaBase, aplicado: false, bloqueo: motivo });
+      return fallar(res, 409, `No se puede activar en modo ${modo === 'AUTO' ? 'automático' : 'sugerencia'}. ${motivo}`);
+    }
+
+    if (datos.dry_run) return res.json({ ...respuestaBase, aplicado: false });
+
+    // ── Escribir ──
+    t = await sequelize.transaction();
+    await proveedor.update({ regla_codigo: regla, regla_codigo_modo: modo }, { transaction: t });
+
+    const vinculados: Array<{ codigo: string; producto: string | null; retroactivo: boolean; variacion_pct: number | null }> = [];
+    if (datos.aplicar_bandeja && modo === 'AUTO') {
+      for (const { pendiente, r } of resoluciones) {
+        if (r.tipo !== 'VINCULAR') continue;
+        const res2 = await vincularPendientePorRegla(pendiente, r, req.user?.id ?? null, t);
+        if (!res2) continue;
+        vinculados.push({
+          codigo: pendiente.getDataValue('codigo_proveedor'),
+          producto: prod.get(r.catalogoProductoId)?.codigo ?? null,
+          retroactivo: res2.retroactivo,
+          variacion_pct: res2.variacionPct,
+        });
+      }
+    }
+    await t.commit();
+    t = null; // ya confirmada: un error al responder no debe intentar revertirla
+
+    res.json({
+      ...respuestaBase,
+      aplicado: true,
+      vinculados,
+      message:
+        `Regla «${REGLAS_CODIGO[regla].titulo}» activa para ${nombre} en modo ${modo === 'AUTO' ? 'automático' : 'sugerencia'}.` +
+        (vinculados.length ? ` Se vincularon ${vinculados.length} código(s) de la bandeja.` : ''),
+    });
+  } catch (err: any) {
+    if (t) await t.rollback();
+    if (err instanceof z.ZodError) return fallar(res, 400, mensajeZod(err));
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo configurar la regla de código');
     fallar(res, status, mensaje, err);
   }
 };
@@ -2734,7 +3081,7 @@ interface PrecioActualizadoItem {
 interface AvisoLote {
   tipo: 'UNIDAD_DISTINTA' | 'IVA_DISTINTO' | 'MONEDA' | 'NOTA_CREDITO' | 'PROVEEDOR_NUEVO'
       | 'BONIFICACION' | 'DESCUENTO_ALTO' | 'DESCUENTO_GLOBAL'
-      | 'CODIGOS_ALIAS_MISMA_FACTURA';
+      | 'CODIGOS_ALIAS_MISMA_FACTURA' | 'VINCULADO_POR_REGLA';
   proveedor_nombre: string;
   detalle: string;
 }
@@ -2814,7 +3161,10 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
     // `activo` es imprescindible: `siguePrecios()` lo lee, y sin traerlo en el
     // attributes valdría undefined y se omitirían las líneas de todo el lote.
     const maestro = await Proveedor.findAll({
-      attributes: ['id', 'nit', 'numero_identificacion', 'nombre_comercial', 'razon_social', 'seguir_precios', 'activo'],
+      attributes: [
+        'id', 'nit', 'numero_identificacion', 'nombre_comercial', 'razon_social', 'seguir_precios', 'activo',
+        'regla_codigo', 'regla_codigo_modo',
+      ],
     });
 
     /** Emisores que quedaron "sin decidir" en esta carga, para pedir la decisión al final */
@@ -2875,13 +3225,22 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
     let notasCredito = 0;
     let lineasOmitidasProveedor = 0;
     let bonificaciones = 0;
+    let vinculadosPorRegla = 0;
     const preciosActualizados: PrecioActualizadoItem[] = [];
+
+    // Índice de lo ya mapeado por proveedor, para su regla de código. Se arma una vez
+    // por lote y se le suman los códigos que la regla va vinculando, para que la
+    // factura siguiente del mismo lote los vea.
+    const indicesRegla = new Map<number, IndiceRegla>();
+    const umbralRegla = await obtenerUmbral();
 
     for (const fac of pendientesDeProcesar) {
       const t = await sequelize.transaction();
+      let proveedorIdFactura: number | null = null;
       try {
         const proveedor = await resolverProveedor(fac);
         const proveedorId = proveedor.getDataValue('id');
+        proveedorIdFactura = Number(proveedorId);
         const proveedorNombre = proveedor.getDataValue('nombre_comercial');
         const docRef = `${fac.tipo_documento === 'FACTURA' ? 'FE' : 'NC'}-${fac.numero}`.slice(0, 100);
 
@@ -3052,9 +3411,87 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
           }),
         ]);
 
-        const equivalencias = Array.from(new Set(Array.from(equivPorCodigo.values()).flat()));
         const bandejaPorCodigo = new Map<string, any>();
         for (const b of bandeja) bandejaPorCodigo.set(b.getDataValue('codigo_proveedor'), b);
+
+        // ── Regla de código del proveedor (2026-09-30) ──
+        // Antes de mandar a la bandeja un código desconocido, se le pregunta a la regla
+        // si ya lo conoce con otro nombre (GRP175NG = GRE175NG). Si lo vincula, el código
+        // se registra y se inyecta en `equivPorCodigo`: desde ahí sigue EXACTAMENTE el
+        // camino de un código mapeado —precio mayor entre alias, modalidad, retroactividad,
+        // IVA y Cotizador—, en vez de duplicar esa lógica para el caso automático.
+        const vinculadosEnFactura: Array<{ codigo: string; via: string; catalogoProductoId: number }> = [];
+        const configRegla = reglaDe(proveedor);
+        if (configRegla?.modo === 'AUTO') {
+          // Un código que viene en dos unidades en la misma factura es ambiguo: a la bandeja
+          const unidadesPorCodigo = new Map<string, number>();
+          for (const k of agrupadas.keys()) {
+            const c = k.split('|')[0];
+            unidadesPorCodigo.set(c, (unidadesPorCodigo.get(c) ?? 0) + 1);
+          }
+
+          for (const [clave, info] of agrupadas.entries()) {
+            const cod = clave.split('|')[0];
+            if (equivPorCodigo.has(cod) || cod === 'SIN_CODIGO' || (unidadesPorCodigo.get(cod) ?? 0) > 1) continue;
+            // Las decisiones humanas mandan: un descarte o un "deshacer" no se pisan
+            const enBandeja = bandejaPorCodigo.get(cod);
+            if (enBandeja && (enBandeja.getDataValue('estado') === 'DESCARTADO' || enBandeja.getDataValue('regla_rechazada'))) continue;
+
+            let indice = indicesRegla.get(proveedorId);
+            if (!indice) {
+              indice = await construirIndiceRegla(proveedorId, configRegla.regla, t);
+              indicesRegla.set(proveedorId, indice);
+            }
+            const r = resolverConRegla(
+              indice,
+              { codigo: cod, descripcion: info.descripcion, unidad: info.unidad, unidadConfiable: info.unidadConfiable, precio: info.maxPrecio },
+              umbralRegla
+            );
+            if (r.tipo !== 'VINCULAR') continue;
+
+            const pp = await ProveedorProducto.findByPk(r.ppId, { transaction: t });
+            if (!pp || pp.getDataValue('activo') !== true) continue;
+            if (await codigoEnOtroProducto(proveedorId, cod, r.catalogoProductoId, t)) continue;
+
+            await registrarCodigo(pp, cod, { descripcion: info.descripcion, origen: 'REGLA', transaction: t });
+            equivPorCodigo.set(cod, [pp]);
+            sumarAlIndice(indice, {
+              codigo: cod, descripcion: info.descripcion, ppId: r.ppId,
+              catalogoProductoId: r.catalogoProductoId, unidadCompra: r.unidadCompra,
+            });
+
+            // La bandeja guarda constancia del código, ya MAPEADO: si mañana se
+            // desvincula, vuelve a Por Mapear con sus datos de factura.
+            const datosBandeja = {
+              descripcion_proveedor: info.descripcion,
+              precio_detectado: info.maxPrecio,
+              precio_bruto_detectado: info.precioBruto,
+              descuento_pct_detectado: info.descuentoPct,
+              descuento_valor_detectado: info.descuentoValor,
+              cantidad_detectada: info.cantidad,
+              total_linea_detectado: info.totalLinea,
+              documento_ref: docRef,
+              fecha_deteccion: fac.fecha_emision,
+              unidad_detectada: info.unidadConfiable ? info.unidad : null,
+              porcentaje_iva_detectado: info.porcentajeIva,
+              codigo_derivado: info.codigoDerivado,
+              estado: 'MAPEADO',
+            };
+            if (enBandeja) {
+              await enBandeja.update(datosBandeja, { transaction: t });
+            } else {
+              const fila = await ProveedorCodigoPendiente.create(
+                { proveedor_id: proveedorId, codigo_proveedor: cod, veces_visto: 1, ...datosBandeja },
+                { transaction: t }
+              );
+              bandejaPorCodigo.set(cod, fila);
+            }
+
+            vinculadosEnFactura.push({ codigo: cod, via: r.viaCodigo, catalogoProductoId: r.catalogoProductoId });
+          }
+        }
+
+        const equivalencias = Array.from(new Set(Array.from(equivPorCodigo.values()).flat()));
 
         // Productos del catálogo de las equivalencias tocadas por esta factura.
         // El contraste de IVA hacía un findByPk por línea actualizada: en una factura
@@ -3070,6 +3507,19 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
             transaction: t,
           });
           for (const prod of productosFactura) productosPorId.set(prod.getDataValue('id'), prod);
+        }
+
+        for (const v of vinculadosEnFactura) {
+          vinculadosPorRegla++;
+          const producto = productosPorId.get(v.catalogoProductoId);
+          avisos.push({
+            tipo: 'VINCULADO_POR_REGLA',
+            proveedor_nombre: proveedorNombre,
+            detalle:
+              `${v.codigo} se vinculó solo a ${producto ? producto.getDataValue('codigo') : 'su producto'} ` +
+              `(igual que ${v.via}) por la regla del proveedor. Si no es el mismo producto, quítalo ` +
+              'en Equivalencias: vuelve a Por Mapear y la regla no lo repite.',
+          });
         }
 
         let actualizadas = 0;
@@ -3305,6 +3755,8 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
         facturasProcesadas++;
       } catch (facErr: any) {
         await t.rollback();
+        // El índice pudo haber sumado códigos de esta factura que ya no existen
+        if (proveedorIdFactura !== null) indicesRegla.delete(proveedorIdFactura);
         errores.push(`${fac.archivo} (factura ${fac.numero}): ${facErr.message}`);
       }
     }
@@ -3319,6 +3771,7 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
       codigos_nuevos_pendientes: codigosNuevosPendientes,
       lineas_omitidas_proveedor: lineasOmitidasProveedor,
       bonificaciones,
+      vinculados_por_regla: vinculadosPorRegla,
       // Emisores sin decidir de esta carga: la pantalla los pinta con casillas para
       // que el usuario resuelva ahí mismo cuáles seguir, sin ir a otra pestaña.
       proveedores_por_decidir: Array.from(proveedoresPorDecidir.values()).sort((a, b) => b.lineas - a.lineas),

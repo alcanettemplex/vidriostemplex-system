@@ -32,6 +32,22 @@ export interface CodigoPendienteItem {
   unidad_detectada?: string | null;
   porcentaje_iva_detectado?: number | null;
   codigo_derivado?: boolean;
+  /** Ya lo había vinculado la regla del proveedor y el usuario lo deshizo */
+  regla_rechazada?: boolean;
+  /** Producto que propone la regla de códigos del proveedor (2026-09-30) */
+  sugerencia?: SugerenciaRegla | null;
+}
+
+export interface SugerenciaRegla {
+  regla: string;
+  regla_titulo: string;
+  producto: { id: number; codigo: string; nombre: string; es_aluminio: boolean; porcentaje_iva: number };
+  unidad_compra: string | null;
+  /** El código ya mapeado con el que la regla lo emparejó */
+  via_codigo: string;
+  /** true = nada impide vincular; false = hay algo que revisar (ver motivo) */
+  listo_para_vincular: boolean;
+  motivo: string | null;
 }
 
 interface ProductoCatalogo {
@@ -81,7 +97,9 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
 
   // La unidad que venía en el XML manda como sugerencia: es el dato del proveedor,
   // no una suposición. Solo se guarda cuando el unitCode era informativo.
-  const [unidadCompra, setUnidadCompra] = useState(pendiente.unidad_detectada || 'UNIDAD');
+  // Sin unidad en el XML, la modalidad que propone la regla del proveedor es la del
+  // código gemelo ya mapeado: más informada que el 'UNIDAD' por defecto.
+  const [unidadCompra, setUnidadCompra] = useState(pendiente.unidad_detectada || pendiente.sugerencia?.unidad_compra || 'UNIDAD');
   const [precio, setPrecio] = useState(pendiente.precio_detectado ? String(pendiente.precio_detectado) : '');
   const [guardarAlias, setGuardarAlias] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -178,6 +196,15 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
       setLoadingPreciosComp(false);
     }
   };
+
+  // Con sugerencia de la regla, el producto llega preseleccionado y con su comparador
+  // cargado: el usuario solo revisa y confirma, que es justo el trabajo que ahorra la regla.
+  useEffect(() => {
+    if (!pendiente.sugerencia) return;
+    setBusqueda(pendiente.sugerencia.producto.codigo);
+    handleSelectProducto(pendiente.sugerencia.producto as ProductoCatalogo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendiente.id]);
 
   const handleCrearProducto = async () => {
     if (!nuevoProducto.nombre.trim()) {
@@ -552,6 +579,27 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                   </div>
                 ) : (
                   <>
+                    {/* Lo que propone la regla de códigos del proveedor (2026-09-30) */}
+                    {pendiente.sugerencia && (
+                      <div
+                        style={{
+                          background: 'rgba(99, 102, 241, 0.06)', border: '1px solid rgba(99, 102, 241, 0.25)',
+                          borderRadius: RADIUS.lg, padding: '9px 12px', fontSize: FONT.sm, color: 'var(--text, #111620)', lineHeight: 1.45,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--primary-strong, #4338ca)' }}>
+                          <Sparkles size={13} /> Sugerido por la regla «{pendiente.sugerencia.regla_titulo}»
+                        </div>
+                        Es el mismo producto que <strong style={{ fontFamily: 'monospace' }}>{pendiente.sugerencia.via_codigo}</strong>,
+                        que ya tienes vinculado a <strong>{pendiente.sugerencia.producto.codigo}</strong>. Quedó preseleccionado: revisa y confirma.
+                        {pendiente.sugerencia.motivo && (
+                          <div style={{ color: '#b45309', marginTop: 3, display: 'flex', gap: 5 }}>
+                            <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 2 }} /> {pendiente.sugerencia.motivo}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Buscador */}
                     <div style={{ position: 'relative' }}>
                       <Search size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-subtle, #555f71)' }} />
