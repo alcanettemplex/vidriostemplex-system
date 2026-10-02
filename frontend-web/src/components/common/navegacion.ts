@@ -161,9 +161,10 @@ export const MENU_ITEMS_CONFIG: ItemMenu[] = [
     claves: 'sap odc orden de compra',
   },
   {
-    // Precios de compra — información comercialmente sensible (margen/negociación)
+    // Precios de compra — información comercialmente sensible (margen/negociación).
+    // compras con el mismo acceso que admin desde el 2026-10-02.
     text: 'Proveedores', descripcion: 'Precios de compra, facturas electrónicas y equivalencias',
-    icon: Building2, path: '/proveedores', area: 'logistica', roles: ['root', 'admin'], paraRoot: true,
+    icon: Building2, path: '/proveedores', area: 'logistica', roles: ['root', 'admin', 'compras'], paraRoot: true,
     claves: 'precios facturas dian comparador',
   },
   {

@@ -43,9 +43,10 @@ import {
 const router = Router();
 
 // Todas las rutas del módulo de proveedores requieren autenticación
-// y solo son accesibles para root y admin (precios de compra = info sensible).
+// y solo son accesibles para root, admin y compras (precios de compra = info sensible).
+// compras tiene el mismo acceso que admin desde el 2026-10-02 (decisión del usuario).
 router.use(authMiddleware);
-router.use(requireRole('root', 'admin'));
+router.use(requireRole('root', 'admin', 'compras'));
 
 /**
  * Traduce los errores de multer a mensajes que expliquen qué corregir.

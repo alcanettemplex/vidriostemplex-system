@@ -6242,3 +6242,12 @@ consigna de simplicidad y pocos pasos.
   ficha (`odp.matizado` / `odp.carton`), esté hecho o no — no "pendientes".
 - Sin cambios de backend ni BD: la vista `produccion` de `GET /api/odp` ya entrega ambos campos.
 - **Verificación:** `tsc` y ESLint limpios; en BD, de 32 ODPs activas, 2 llevan matizado y 1 cartón.
+
+### Proveedores: rol compras con el mismo acceso que admin (2026-10-02)
+- **Backend:** `proveedor.routes.ts` → `requireRole('root', 'admin', 'compras')`. El controlador no
+  filtra por rol, así que compras queda igual que admin en todo el módulo.
+- **Frontend:** `navegacion.ts` → `roles: ['root', 'admin', 'compras']` (menú + `RoleRoute`).
+- **BD:** sin cambios (`compras` ya existía en ENUM y CHECK).
+- **Decisión por defecto (el usuario no respondió las preguntas):** acceso completo, solo módulo
+  Proveedores; los precios de compra del Cotizador siguen fuera del alcance de compras.
+- **Docs:** CLAUDE.md y `docs/modulos/compras.md` §8 actualizados.
