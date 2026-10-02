@@ -10,12 +10,19 @@ interface Vehiculo { id: number; placa: string; tipo: string; }
 interface Personal { id: number; nombre_completo: string; rol: string; }
 interface RutaODPEntry { odp: ODPItem; orden: number; fecha_programada: string; }
 
+// Fecha de hoy en hora local. toISOString() da la fecha UTC: en Colombia, desde las 7 p. m.
+// proponía el día siguiente como fecha programada.
+const hoyLocal = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 interface Props {
   odpsDisponibles: ODPItem[];
   rutaExistente?: any; // para edición
   instaladorPreseleccionado?: number; // preselecciona un instalador al crear
-  odpsPreseleccionadas?: ODPItem[]; // ODPs precargadas (desde un día de la agenda)
-  fechaPreseleccion?: string; // fecha tentativa del día de la agenda
+  odpsPreseleccionadas?: ODPItem[]; // ODPs precargadas (día de la agenda, una ODP puntual)
+  fechaPreseleccion?: string; // fecha para las precargadas; vacía = hoy
   onClose: () => void;
   onSaved: () => void;
 }
@@ -42,11 +49,11 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
           orden: ro.orden,
           fecha_programada: ro.fecha_programada,
         }))
-      // Creación desde la agenda: precarga las ODPs del día (con su fecha tentativa)
+      // Creación precargada (día de la agenda, "+ Agregar a ruta", Zona de Despacho de Producción)
       : (odpsPreseleccionadas ?? []).map((odp, i) => ({
           odp,
           orden: i + 1,
-          fecha_programada: fechaPreseleccion || new Date().toISOString().split('T')[0],
+          fecha_programada: fechaPreseleccion || hoyLocal(),
         }))
   );
   const [saving, setSaving] = useState(false);
@@ -64,8 +71,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
 
   const agregarODP = (odp: ODPItem) => {
     if (entries.find(e => e.odp.id === odp.id)) return;
-    const hoy = new Date().toISOString().split('T')[0];
-    setEntries(prev => [...prev, { odp, orden: prev.length + 1, fecha_programada: hoy }]);
+    setEntries(prev => [...prev, { odp, orden: prev.length + 1, fecha_programada: hoyLocal() }]);
   };
 
   const quitarODP = (odpId: number) => {

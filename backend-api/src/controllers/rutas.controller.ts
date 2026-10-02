@@ -345,6 +345,40 @@ export const getRutas = async (_req: Request, res: Response) => {
 export const getRutasHistorial = async (req: Request, res: Response) => {
   try {
     const { desde, hasta } = req.query;
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+
+    // Búsqueda (buscador global de la vista de jefe): ignora el período y busca en todo el
+    // historial por N° ODP o cliente. Primero los IDs por SQL y luego el findAll de siempre:
+    // un where dentro de ruta_odps (separate: true) no descarta la ruta, solo le quita
+    // paradas, y la tarjeta saldría incompleta. Tope de 50 rutas para cuidar el egress.
+    if (q.length >= 3) {
+      const patron = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      const filas = await sequelize.query<{ id: number }>(
+        `SELECT r.id
+           FROM rutas_instalacion r
+          WHERE r.estado IN ('completada', 'cancelada')
+            AND EXISTS (
+              SELECT 1
+                FROM ruta_odp ro
+                JOIN odp o ON o.id = ro.odp_id
+                LEFT JOIN clientes c ON c.id = o.cliente_id
+               WHERE ro.ruta_id = r.id
+                 AND (o.numero_odp ILIKE :patron OR c.nombre_razon_social ILIKE :patron)
+            )
+          ORDER BY r.creado_en DESC
+          LIMIT 50`,
+        { replacements: { patron }, type: QueryTypes.SELECT }
+      );
+      if (!filas.length) { res.json([]); return; }
+      const includes = await INCLUDE_RUTA_LISTA();
+      const rutas = await RutaInstalacion.findAll({
+        where: { id: { [Op.in]: filas.map(f => f.id) } },
+        include: includes,
+        order: [['creado_en', 'DESC']],
+      });
+      res.json(rutas);
+      return;
+    }
 
     // Default: semana actual (lunes a domingo)
     const hoy = new Date();

@@ -384,14 +384,41 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     }
   }, [mainTab, fechaDesde, fechaHasta]); // eslint-disable-line
 
+  // Búsqueda — global: filtra todas las pestañas a la vez (no solo la abierta).
+  const q = busqueda.toLowerCase().trim();
+
+  // Completados/Canceladas: con 3+ caracteres se busca en TODO el historial (backend, ignora
+  // el período). Con menos, solo se filtra el período cargado, para no traer media BD con "a".
+  const qHistorial = q.length >= 3 ? q : '';
+  const [busquedaHistorial, setBusquedaHistorial] = useState<{ q: string; rutas: any[] } | null>(null);
+  useEffect(() => {
+    if (!qHistorial) { setBusquedaHistorial(null); return; }
+    // `vigente` descarta respuestas de un texto ya reemplazado (escritura rápida, respuestas desordenadas).
+    let vigente = true;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await axios.get(`${API}/api/rutas/historial`, { headers, params: { q: qHistorial } });
+        if (vigente) setBusquedaHistorial({ q: qHistorial, rutas: res.data });
+      } catch {
+        if (vigente) {
+          setBusquedaHistorial({ q: qHistorial, rutas: [] });
+          toast.error('No se pudo buscar en el historial de rutas (Completados). Las demás pestañas sí muestran resultados; intenta de nuevo en un momento.');
+        }
+      }
+    }, 400);
+    return () => { vigente = false; clearTimeout(timer); };
+  }, [qHistorial]); // eslint-disable-line react-hooks/exhaustive-deps -- headers se recrea en cada render
+  const buscandoHistorial = !!qHistorial && busquedaHistorial?.q !== qHistorial;
+  const historialFuente = useMemo(
+    () => (qHistorial ? (busquedaHistorial?.q === qHistorial ? busquedaHistorial.rutas : []) : rutasHistorial),
+    [qHistorial, busquedaHistorial, rutasHistorial]
+  );
+
   // Segmentación de rutas
   const rutasProgramadas  = useMemo(() => rutas.filter((r: any) => r.estado === 'programada'), [rutas]);
   const rutasEnCurso      = useMemo(() => rutas.filter((r: any) => r.estado === 'en_curso'), [rutas]);
-  const rutasCompletadas  = useMemo(() => rutasHistorial.filter((r: any) => r.estado === 'completada'), [rutasHistorial]);
-  const rutasCanceladas   = useMemo(() => rutasHistorial.filter((r: any) => r.estado === 'cancelada'), [rutasHistorial]);
-
-  // Búsqueda
-  const q = busqueda.toLowerCase().trim();
+  const rutasCompletadas  = useMemo(() => historialFuente.filter((r: any) => r.estado === 'completada'), [historialFuente]);
+  const rutasCanceladas   = useMemo(() => historialFuente.filter((r: any) => r.estado === 'cancelada'), [historialFuente]);
 
   const filtrarOdps = (lista: any[]) =>
     q ? lista.filter((o: any) =>
@@ -507,11 +534,47 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         a.cliente?.toLowerCase().includes(q))
     : atascadas;
 
-  // Rutas según sub-tab programados
-  const rutasProg = filtrarRutas(subTabProg === 'programada' ? rutasProgramadas : rutasEnCurso);
+  // Rutas por sub-tab, ya filtradas por la búsqueda
+  const rutasProgFiltradas = { programada: filtrarRutas(rutasProgramadas), en_curso: filtrarRutas(rutasEnCurso) };
+  const rutasCompFiltradas = { completadas: filtrarRutas(rutasCompletadas), canceladas: filtrarRutas(rutasCanceladas) };
+  const rutasProg = rutasProgFiltradas[subTabProg];
+  const rutasComp = rutasCompFiltradas[subTabComp];
 
-  // Rutas según sub-tab completados
-  const rutasComp = filtrarRutas(subTabComp === 'completadas' ? rutasCompletadas : rutasCanceladas);
+  // Coincidencias por pestaña (solo con búsqueda activa). Agenda e Instaladores no participan:
+  // las ODPs de la Agenda son las mismas de Listo/Pago/Factura.
+  const coincidencias: Partial<Record<MainTab, number>> = {
+    listos:      filtrarOdps(odps.listos).length,
+    pago:        filtrarOdps(odps.espera_pago).length,
+    factura:     filtrarOdps(odps.espera_factura).length,
+    produccion:  filtrarOdps(odps.espera_produccion).length,
+    programados: rutasProgFiltradas.programada.length + rutasProgFiltradas.en_curso.length,
+    atascadas:   puedeVerPendientesCierre ? atascadasMostradas.length : 0,
+    completados: rutasCompFiltradas.completadas.length + rutasCompFiltradas.canceladas.length,
+  };
+  const ORDEN_BUSQUEDA: MainTab[] = ['listos', 'pago', 'factura', 'produccion', 'programados', 'atascadas', 'completados'];
+  const firmaCoincidencias = ORDEN_BUSQUEDA.map(k => coincidencias[k]).join(',')
+    + `|${rutasProgFiltradas.programada.length},${rutasProgFiltradas.en_curso.length}`
+    + `|${rutasCompFiltradas.completadas.length},${rutasCompFiltradas.canceladas.length}`;
+
+  // Salto automático: si la pestaña (o sub-pestaña) abierta no tiene coincidencias, ir a la
+  // primera que sí tenga. Si la abierta tiene, no se mueve. Solo reacciona a cambios de texto
+  // o de resultados, así que si el usuario abre a mano una pestaña vacía no se le devuelve.
+  useEffect(() => {
+    if (!q || loading) return;
+    let destino = mainTab;
+    if (!coincidencias[mainTab]) {
+      const primera = ORDEN_BUSQUEDA.find(k => (coincidencias[k] ?? 0) > 0);
+      if (!primera) return;
+      destino = primera;
+      setMainTab(primera);
+    }
+    if (destino === 'programados' && !rutasProgFiltradas[subTabProg].length) {
+      setSubTabProg(subTabProg === 'programada' ? 'en_curso' : 'programada');
+    }
+    if (destino === 'completados' && !rutasCompFiltradas[subTabComp].length) {
+      setSubTabComp(subTabComp === 'completadas' ? 'canceladas' : 'completadas');
+    }
+  }, [q, loading, firmaCoincidencias]); // eslint-disable-line react-hooks/exhaustive-deps -- la firma resume las coincidencias
 
   const propsRutaCard = { readOnly, onEditar: handleEditar, onCancelar: handleCancelar, onFinalizar: handleFinalizarODP, onPausar: handlePausar, onVerODP: setSelectedOdpId };
 
@@ -561,7 +624,8 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             .filter(t => !t.soloEscritura || !readOnly)
             // Pendientes de cierre solo para los roles que el backend deja consultarla.
             .filter(t => t.key !== 'atascadas' || puedeVerPendientesCierre)
-            .map(t => ({ key: t.key, label: t.label, icon: React.createElement(t.icon, { className: 'w-4 h-4' }), badge: t.count ?? undefined }))}
+            // Con búsqueda activa el contador muestra las coincidencias, no el total.
+            .map(t => ({ key: t.key, label: t.label, icon: React.createElement(t.icon, { className: 'w-4 h-4' }), badge: (q ? coincidencias[t.key] : t.count) ?? undefined }))}
           activeKey={mainTab}
           onChange={(k) => setMainTab(k as MainTab)}
         />
@@ -587,7 +651,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
           loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>
           ) : odpsMostradas.length === 0 ? (
-            <div className="py-12 text-center text-slate-700 text-sm">No hay ODPs en esta categoría</div>
+            <div className="py-12 text-center text-slate-700 text-sm">{q ? 'Sin resultados para la búsqueda en esta pestaña.' : 'No hay ODPs en esta categoría'}</div>
           ) : (
             <div className="divide-y divide-slate-50">
               {odpsMostradas.map((odp: any) => (
@@ -630,7 +694,9 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                   )}
                   {mainTab === 'listos' && !readOnly && (
                     <button
-                      onClick={() => { setPreseleccionRuta(null); setOdpsParaModal(odps.listos); setRutaEditar(null); setShowModal(true); }}
+                      // Abre la ruta nueva con esta ODP ya cargada: fecha de su agenda si la tiene;
+                      // si no, el modal pone la de hoy.
+                      onClick={() => handleCrearRutaDia([odp], odp.agenda?.fecha_tentativa ?? '')}
                       className="flex-shrink-0 px-3 py-1.5 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-semibold hover:bg-indigo-100"
                     >
                       + Agregar a ruta
@@ -648,8 +714,8 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             {/* Sub-tabs */}
             <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
               {([
-                { key: 'programada', label: 'Programada', count: rutasProgramadas.length, cls: 'text-blue-700 bg-white' },
-                { key: 'en_curso',   label: 'En curso',   count: rutasEnCurso.length,     cls: 'text-amber-700 bg-white' },
+                { key: 'programada', label: 'Programada', count: rutasProgFiltradas.programada.length, cls: 'text-blue-700 bg-white' },
+                { key: 'en_curso',   label: 'En curso',   count: rutasProgFiltradas.en_curso.length,   cls: 'text-amber-700 bg-white' },
               ] as const).map(st => (
                 <button
                   key={st.key}
@@ -777,8 +843,16 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         {/* ── Contenido tab Completados ── */}
         {mainTab === 'completados' && (
           <div className="p-4 space-y-4">
+            {/* Con búsqueda de 3+ caracteres el período no aplica: se busca en todo el historial */}
+            {qHistorial && (
+              <div className="flex items-start gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2.5 text-xs text-indigo-800">
+                <Search className="w-4 h-4 mt-px shrink-0 text-indigo-600" />
+                <span>Buscando en todo el historial, sin importar el período (máx. 50 rutas, las más recientes). Borra la búsqueda para volver al período elegido.</span>
+              </div>
+            )}
+
             {/* Filtro por fechas */}
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className={`flex items-center gap-3 flex-wrap ${qHistorial ? 'opacity-50 pointer-events-none' : ''}`} aria-disabled={!!qHistorial}>
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-900">Período</span>
               <div className="flex items-center gap-2">
                 <input
@@ -815,8 +889,8 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             {/* Sub-tabs */}
             <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
               {([
-                { key: 'completadas', label: 'Completadas', count: rutasCompletadas.length, cls: 'text-emerald-700 bg-white' },
-                { key: 'canceladas',  label: 'Canceladas',  count: rutasCanceladas.length,  cls: 'text-slate-800 bg-white' },
+                { key: 'completadas', label: 'Completadas', count: rutasCompFiltradas.completadas.length, cls: 'text-emerald-700 bg-white' },
+                { key: 'canceladas',  label: 'Canceladas',  count: rutasCompFiltradas.canceladas.length,  cls: 'text-slate-800 bg-white' },
               ] as const).map(st => (
                 <button
                   key={st.key}
@@ -831,7 +905,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
               ))}
             </div>
 
-            {loadingHistorial ? (
+            {(qHistorial ? buscandoHistorial : loadingHistorial) ? (
               <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600" /></div>
             ) : rutasComp.length === 0 ? (
               <div className="py-10 text-center text-slate-700 text-sm">

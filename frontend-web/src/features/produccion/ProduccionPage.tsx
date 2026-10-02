@@ -48,6 +48,7 @@ import PrintableOA from '../odp/components/PrintableOA';
 import { ESTILOS_IMPRESION_ODP } from '../odp/components/printStyles';
 import { abrirVentanaImpresion } from '../../utils/printWindow';
 import ProgramacionWhatsAppModal from './components/ProgramacionWhatsAppModal';
+import ProgramarRutaModal from '../instalaciones/components/ProgramarRutaModal';
 import MovimientosAutomaticosTab from './components/MovimientosAutomaticosTab';
 import socket from '../../store/socket';
 import API from '../../services/config';
@@ -331,6 +332,38 @@ const ProduccionPage: React.FC = () => {
     const puedeMarcarEntregada = ['compras', 'produccion', 'admin', 'jefe_produccion', 'gerencia', 'root'].includes(userRol);
     const puedePV = ['compras', 'produccion', 'jefe_produccion', 'admin', 'gerencia', 'root'].includes(userRol);
     const puedeMarcarListo = ['compras', 'produccion', 'jefe_produccion', 'admin', 'gerencia', 'root'].includes(userRol);
+    // Espejo del requireRole de POST /api/rutas (rutas.routes.ts; root pasa siempre).
+    const puedeProgramarRuta = !soloLectura &&
+        ['root', 'admin', 'gerencia', 'jefe_produccion', 'produccion'].includes(userRol);
+
+    // ─── Programar ruta desde la Zona de Despacho ──────────────────────────
+    // La zona muestra toda ODP LISTO_INSTALAR con instalación/acarreo, sin mirar pago ni
+    // factura; createRuta sí los exige. Por eso se consulta la clasificación del backend en el
+    // momento del clic y el modal solo se abre con ODPs que se van a poder guardar.
+    const [programandoRutaId, setProgramandoRutaId] = useState<number | null>(null);
+    const [modalRuta, setModalRuta] = useState<{ disponibles: any[]; odp: any } | null>(null);
+
+    const handleProgramarRuta = async (odp: ODP) => {
+        setProgramandoRutaId(odp.id);
+        try {
+            const { data } = await axios.get(`${API}/api/rutas/odps-para-gestion`);
+            const lista = (data.listos ?? []).find((o: any) => o.id === odp.id);
+            if (lista) {
+                setModalRuta({ disponibles: data.listos, odp: lista });
+            } else if ((data.espera_pago ?? []).some((o: any) => o.id === odp.id)) {
+                toast.warning(`${odp.numero_odp} no se puede programar aún: falta aprobar el pago. Cuando Caja lo apruebe, vuelve a intentarlo.`);
+            } else if ((data.espera_factura ?? []).some((o: any) => o.id === odp.id)) {
+                toast.warning(`${odp.numero_odp} no se puede programar aún: falta la factura electrónica.`);
+            } else {
+                toast.info(`${odp.numero_odp} ya está asignada a una ruta o no requiere instalación. Revísala en el módulo Instalaciones.`);
+                fetchData(true);
+            }
+        } catch {
+            toast.error(`No se pudo verificar si ${odp.numero_odp} se puede programar. Revisa la conexión e intenta de nuevo.`);
+        } finally {
+            setProgramandoRutaId(null);
+        }
+    };
 
     const fetchData = useCallback(async (silent = false) => {
         try {
@@ -1541,6 +1574,18 @@ const ProduccionPage: React.FC = () => {
                                         </div>
                                         <h3 className="text-sm font-semibold text-slate-900 truncate">{odp.cliente.nombre_razon_social}</h3>
                                         <p className="text-[11px] text-emerald-700 font-semibold uppercase tracking-wider mt-1">Lista para instalación</p>
+                                        {puedeProgramarRuta && (
+                                            <button
+                                                onClick={() => handleProgramarRuta(odp)}
+                                                disabled={programandoRutaId !== null}
+                                                className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                                            >
+                                                {programandoRutaId === odp.id
+                                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                    : <Truck className="w-3.5 h-3.5" />}
+                                                Programar ruta
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -2070,6 +2115,16 @@ const ProduccionPage: React.FC = () => {
 
         {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}
         {showProgramacion && <ProgramacionWhatsAppModal onClose={() => setShowProgramacion(false)} />}
+        {/* Ruta nueva con la ODP de la Zona de Despacho ya cargada (fecha de su agenda o hoy) */}
+        {modalRuta && (
+            <ProgramarRutaModal
+                odpsDisponibles={modalRuta.disponibles}
+                odpsPreseleccionadas={[modalRuta.odp]}
+                fechaPreseleccion={modalRuta.odp.agenda?.fecha_tentativa ?? ''}
+                onClose={() => setModalRuta(null)}
+                onSaved={() => { setModalRuta(null); fetchData(true); }}
+            />
+        )}
 
         {/* Modal: Registrar llegada PV */}
         <AnimatePresence>

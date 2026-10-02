@@ -6173,3 +6173,41 @@ consigna de simplicidad y pocos pasos.
   master se salta solo (le falta su fixture, ya pasaba). Backend dev reiniciado: caché de 657 productos.
 - **Pendiente:** revisar el costo manual de la 413 mate (ALF0102, $26.652/m), que heredaron sus otros
   4 colores; prueba manual en pantalla; desplegar.
+
+---
+
+## 2026-10-02 — PC nueva + buscador global en Instalaciones (vista de jefe)
+
+### PC nueva
+- Instalados Git 2.55 y Node 24.19 LTS con winget (no había ninguno). `npm install` en backend y
+  frontend. `backend-api/package-lock.json` quedó modificado por la diferencia de versión de npm.
+  Backend y frontend dev arrancan bien.
+
+### Buscador global en Instalaciones
+- **Antes:** el buscador de `JefeView` solo filtraba la pestaña (y sub-pestaña) abierta; Completados
+  solo buscaba dentro del período elegido (por defecto, la semana).
+- **Decisiones del usuario:** contadores de coincidencias en las pestañas + salto automático (no panel
+  único); Completados busca en **cualquier fecha**.
+- **Backend:** `GET /api/rutas/historial?q=` (3+ caracteres) ignora `desde/hasta`; IDs por SQL con
+  `EXISTS` sobre `ruta_odp → odp → clientes` (`ILIKE`, `%`/`_` escapados), tope 50 y luego el
+  `findAll` de siempre. No se filtra dentro del include porque `ruta_odps` es `separate: true` y
+  recortaría las paradas en vez de descartar la ruta. Sin `q`, idéntico a antes.
+- **Frontend:** badges con coincidencias por pestaña y sub-pestaña; salta a la primera pestaña con
+  resultados solo si la abierta no tiene; Completados con aviso y período desactivado mientras busca;
+  respuestas viejas descartadas (`vigente`). Agenda e Instaladores no participan.
+- **Verificación:** build backend, `tsc` y ESLint de `JefeView` limpios; SQL probada contra la BD
+  (498 rutas en historial, tope de 50 respetado, `%` literal no actúa como comodín).
+- **Pendiente:** prueba manual en pantalla; la Agenda conserva su buscador interno (duplicado).
+
+### Modal de ruta con la ODP precargada (mismo día)
+- **Instalaciones:** "+ Agregar a ruta" abría el modal vacío; ahora lo abre con esa ODP cargada
+  (fecha de su agenda o hoy), reutilizando `handleCrearRutaDia`.
+- **Producción → Zona de Despacho:** botón "Programar ruta" en cada tarjeta (solo root/admin/
+  gerencia/jefe_produccion/produccion, espejo de `POST /api/rutas`). Al clic consulta
+  `odps-para-gestion`: si está en `listos` abre `ProgramarRutaModal`; si está en espera de pago o
+  de factura, aviso sin modal (la zona no filtra por pago/factura y `createRuta` los rechazaría);
+  si no aparece, aviso de que ya está en ruta. Al guardar, recarga el tablero.
+- **Bug corregido de paso:** `ProgramarRutaModal` proponía la fecha con `toISOString()` (UTC): en
+  Colombia, desde las 7 p. m., salía el día siguiente. Ahora usa fecha local. `getLunes`/
+  `getDomingo` de `JefeView` y "Este mes" tienen el mismo patrón UTC (no tocados).
+- **Verificación:** `tsc` y ESLint limpios en los 3 archivos. Sin cambios de backend ni BD.
