@@ -54,9 +54,10 @@ Verificación en vivo (2026-09-19): Sistema5020, 1000×1500 mm, mate, vidrio cla
   2026-09-29; la integración del 2026-09-27 sumó los de vínculos y "Crear ODP")
 - `backend-api/src/scripts/pruebas_cotizador/` — 7 suites, `npm run test:cotizador`
 
-**Frontend** — `frontend-web/src/features/cotizador/`, 5 pestañas:
-Cotizar · Actual · Guardadas · Calibración · Configuración. Sin Redux (estado local, mismo criterio
-que el Explorador ODP).
+**Frontend** — `frontend-web/src/features/cotizador/`, 3 pestañas de trabajo: Cotizar · Resumen
+(clave interna `actual`) · Cotizaciones (clave `guardadas`), más Calibración y Configuración en el
+menú ⚙ Administración. Resumen y Cotizaciones se rediseñaron el 2026-10-01 (ver la sección al final).
+Sin Redux (estado local, mismo criterio que el Explorador ODP).
 
 **BD** — 21 tablas en el schema **`cotizador`**, sin prefijo: `cotizador.producto`, no
 `public.cotizador_producto`. Los archivos y clases sí conservan el prefijo
@@ -1819,3 +1820,117 @@ Detalles que el usuario encontró recorriendo el módulo. Decisiones suyas, no v
 **Pruebas:** suite nueva `peliculasYCerrojo.test.ts` (12). Total **13 suites, 160 pruebas**, en verde
 corridas una a una con el backend dev arriba (cargos, itemLibre, personalizacion y piezaEntera dieron 0/N
 en la primera pasada por el pooler y pasaron completas al repetirlas solas).
+
+---
+
+## Rediseño de Resumen y Cotizaciones (2026-10-01)
+
+Motivo: tras el lanzamiento los asesores no entendían esas dos pestañas (2 cotizaciones guardadas
+frente a 15 ODP en los primeros días). El usuario eligió las direcciones **R1** y **C1** del lienzo de
+propuestas (artifact "Cotizador · Resumen y Cotizaciones"). **Solo cambió la presentación y la forma
+de disparar las acciones; las reglas de negocio son las mismas.**
+
+### Resumen (`TabActual.tsx`)
+- La cotización **como documento**: datos del cliente editables en sitio, productos (Editar / Duplicar
+  / Quitar), trabajos en obra (mano de obra automática + `CargosCompactos`, el mismo editor del resumen
+  de Cotizar), descuento y totales. Las opciones A/B/C son pestañas encima de la hoja, con
+  "+ Ofrecerle otra opción" (copia / otro vidrio / en blanco).
+- Columna **"Lo que sigue"**: enviar (WhatsApp / PDF) → ¿qué respondió? (Aprobó / La perdimos) →
+  Crear ODP. Con varias opciones, "Aprobó" pregunta cuál y la marca como elegida en el mismo paso
+  (`marcarAprobada` en `CotizadorPage`). Ya **no existe el select "Estado"**.
+- "Datos internos" (plegado): tipo de cliente PA/PM/PB (mismo `cambiarSegmento`), asesor, vínculo,
+  contacto, hoja de trabajo y orden de corte (abre `ModalDetalleCotizacion` sin "Reabrir") y comparador.
+- Los cambios de estado se guardan **en el acto** (`guardarYa`), no con la espera de 4 s del
+  autoguardado: "Crear ODP" depende del estado GUARDADO. Los botones de cierre se frenan mientras hay
+  un guardado en curso o un estado en camino, para no mandar dos `PUT` con la misma versión (409
+  "otra ventana").
+- `BarraTrabajo` queda **solo en Cotizar**; ya no recibe `cifras`.
+
+### Cotizaciones (`TabGuardadas.tsx`)
+- Bandeja por situación, resuelta en memoria sobre el listado: **Necesitan atención** (aprobadas sin
+  ODP · vencen pronto · vencidas), Esperando respuesta (pendientes no vencidas, por urgencia),
+  Aprobadas, Perdidas y canceladas, Todas. Abre en "Necesitan atención" solo si hay algo.
+- Un buscador (`q` del backend) y el selector de asesor; los filtros de cliente, número y estado
+  desaparecieron (el estado son las pestañas).
+- **Clic en la fila = abrir en Resumen** (`abrirEnResumen`), sin modal. Acción por fila: Crear ODP
+  (abre y lanza el modal), Recordar / Escribir por WhatsApp, Marcar perdida (abre y lanza el modal del
+  motivo), ficha de la ODP. Eliminar va en el menú "⋯" (solo quien puede editarla; el backend lo
+  impone igual). El deep link `?tab=guardadas&id=…&vista=…` sigue abriendo el modal de detalle.
+
+### Validez de la oferta compartida
+`cotizador/lib/validezOferta.ts`: días hábiles lun–vie desde el día siguiente a la creación, en fecha
+de Bogotá; `POR_VENCER` = quedan 0–2 (`HABILES_POR_VENCER`), `VENCIDA` = menos de 0. La usan el
+tablero del Dashboard (antes la tenía dentro) y `cotizacionStore.listar()`, que devuelve
+`validez: { habilesRestantes, estado }` por cotización con una consulta agregada por ids. Es solo una
+señal: **el estado no cambia** (decisión del usuario del 2026-09-27).
+
+### PDF y WhatsApp (`features/cotizador/documentos.ts`)
+- `descargarPdfPropuesta` es la única implementación de la descarga (Resumen, bandeja y modal).
+- `abrirWhatsApp`: `wa.me` con el celular normalizado (10 cifras que empiezan por 3 → `57…`) y el
+  mensaje listo. **Debe llamarse en el mismo clic** (antes de cualquier `await`) o el navegador
+  bloquea la ventana. WhatsApp no adjunta archivos desde una página: Resumen abre el chat y descarga
+  el PDF para que el asesor lo adjunte.
+- **El mensaje no lleva el precio** (decisión del usuario, 2026-10-01): el cliente abre el PDF para
+  verlo. Texto (opción 2 elegida por el usuario): "¡Hola {nombre}! Gracias por tenernos en cuenta 🙌.
+  Aquí va tu cotización *COT-…[, Opción X]* de Vidrios Templex{instalación}. En el PDF encuentras el
+  detalle de cada producto y el valor. ¿Te parece si la revisamos juntos? — {asesor}, Vidrios Templex".
+  La frase de instalación la decide `instalacionDe()` con la casilla `conInstalacion` de los productos
+  de la opción: todos → "con instalación incluida", ninguno → "solo suministro (sin instalación)",
+  mezcla → "con instalación en los productos que la incluyen"; un producto sin la casilla (ítem libre)
+  no cuenta y, si ninguno la tiene, no se menciona. La letra de la opción solo aparece con varias
+  opciones. Firma el usuario con la sesión abierta. El recordatorio de la bandeja tampoco lleva precio.
+
+### Descartado a propósito
+"Renovar" una cotización vencida: no existe en la lógica; las vencidas se abren o se dan por perdidas.
+
+---
+
+## Alfajía de ventanas: selector, color amarrado, despiece y SAP (2026-10-01)
+
+**Lo que fallaba:** el sí/no "Incluir alfajía" solo cobraba algo en 5020 mate (SIA0102, el sillar
+alfajía 581, por metro y **además** del sillar normal). En 744, 8025, 7038 y otros colores dejaba un
+aviso y no cobraba nada, pero la descripción comercial igual decía "con alfajía". El motor descartaba
+la pieza de alfajía que trae cada diseño, así que nunca llegaba a los cortes ni a la SAP. Y la
+verificación de corte leía `input.incluirAlfajia` cuando el formulario guarda `input.alfajia`.
+
+**Reglas (decisiones del usuario), en `cotizador/lib/alfajias.ts`:**
+- Casilla `alfajia` + selector `alfajiaCodigo` (`soloSi: "alfajia"`, `opcionesDinamicas: "alfajias"`),
+  ambos en el grupo "Sistema". La lista sale del catálogo: todo producto cuya descripción sea
+  `ALFAJIA <ref> <color>` o `[sistema] SILLAR ALFAJIA <ref> <color>` (`analizarAlfajia`). Sin color en
+  el nombre no se ofrece.
+- **El color es el de la perfilería**: el selector solo muestra las de ese color y el motor responde
+  con una línea de error si llega una de otro color. Un sillar alfajía solo vale en su sistema (el 581,
+  en el 5020).
+- **Recomendada** = la referencia de alfajía que traen los diseños: 5020 → S-332, 744 → 1123,
+  8025 → 1123, 7038 → 413 (`REF_RECOMENDADA_POR_SISTEMA`). Sin elección se cobra la recomendada. El
+  formulario la pone primero y la elige sola; al cambiar el sistema o el color pasa a la misma
+  referencia en el color nuevo o, si no existe, a la recomendada (`alfajiaFormulario.ts`).
+- **Despiece por diseño** (`motorDespiece`, parámetro `alfajia`): una alfajía suelta entra con la
+  fórmula de corte de la pieza de alfajía del diseño y el código elegido (una sola vez por diseño). Un
+  sillar alfajía reemplaza al perfil cuya descripción es exactamente "Sillar". Si el diseño no trae
+  dónde ponerla (9 diseños), se agrega una pieza del ancho de fabricación, nivel A, con aviso. Así sale
+  en la Hoja de trabajo y en la SAP como perfil con cortes (barras de 6 m).
+- **Medidas libres:** la alfajía elegida por el ancho; un sillar alfajía quita la línea del sillar. La
+  SAP la pide como "medir en obra".
+- Sin alfajía disponible en ese color: línea de error `ALFAJIA` → el ítem no se puede agregar.
+- **PDF:** `nombreAlfajia()` → "con alfajía 1123" / "con sillar alfajía 581", solo si se resolvió (si
+  no se cobró, no se nombra).
+- `aptitudOrden` (condición 8) recalcula con `alfajiaDeInput(input)`.
+- Se quitó el rol `sillarAlfajia` de `ACCESORIOS_5020` y `avisarAlfajiaNoDisponible`.
+
+**Catálogo** — `scripts/2026-10-01_cotizador_alfajias_catalogo.ts` (**corrido**, la base local es
+producción; revertible con `--revertir`): 27 altas vinculadas al ERP, PERFILERIA, X METRO. Costo:
+1. precio de proveedor (sincronización de siempre): ALF0111 y ALF0601 (1123, $11.000/m), ALF0604
+   (S-332 negra, $16.996/m);
+2. si no, el de la **misma referencia en otro color** (el más alto; cuentan proveedor y los costos
+   escritos a mano): 16 heredadas;
+3. si no, **$70.000 la tira** de 6 m → $11.666,67/m: 8 provisionales (S-012 y 449 en todos sus
+   colores).
+
+El heredado o provisional queda fijo al alta; cuando Proveedores carga el precio real, la
+sincronización lo reemplaza. Las 5 que ya estaban con costo a mano (SIA0101, SIA0102, ALF0102,
+ALF0103, ALF0401) no se tocaron. ⚠️ Por la herencia, la **413** en gris plata, blanco, bronce y negro
+quedó en $26.652,67/m, el costo escrito a mano de la 413 mate (ALF0102): casi 2,4 veces la 1123.
+Revisarlo si ese costo manual no es real.
+
+**Pruebas:** `alfajia.test.ts` (16), en `test:cotizador`.

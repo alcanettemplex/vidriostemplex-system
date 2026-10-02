@@ -34,6 +34,8 @@ import ModalCrearODP from './components/modals/ModalCrearODP';
 import BarraVinculo from './components/BarraVinculo';
 import { AsesorCotizador, FichaVinculo, leadSePuedePerder, leerVinculoDeUrl } from './vinculo';
 import { numeroCotizacion } from './format';
+import { abrirWhatsApp, descargarPdfPropuesta, instalacionDe } from './documentos';
+import ModalDetalleCotizacion from './components/modals/ModalDetalleCotizacion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Módulo Cotizador — /cotizador, solo root/admin.
@@ -242,6 +244,13 @@ const CotizadorPage: React.FC = () => {
     /** Motivo de pérdida ya guardado en la cotización abierta (para Resumen). */
     const [motivoPerdidaGuardado, setMotivoPerdidaGuardado] = useState<MotivoPerdida | null>(null);
     const [creandoOdp, setCreandoOdp] = useState(false);
+    /** Cierre desde Resumen (2026-10-01): "Aprobó", "La perdimos", "Volver a
+     * pendiente" y "Cancelar" se guardan EN EL ACTO, sin esperar el autoguardado
+     * — "Crear ODP" depende del estado guardado y no debe tardar 4 s en aparecer. */
+    const [guardarYa, setGuardarYa] = useState(false);
+    const [generandoPdf, setGenerandoPdf] = useState(false);
+    /** Hoja de trabajo y revisión de corte, abiertas desde "Datos internos". */
+    const [detalleTecnico, setDetalleTecnico] = useState(false);
     const [parametrosListos, setParametrosListos] = useState(false);
     const [guardando, setGuardando] = useState(false);
     /** Estado del autoguardado que pinta la barra ("Guardando…", "✓ Guardado"). */
@@ -668,6 +677,14 @@ const CotizadorPage: React.FC = () => {
         await persistir({ auto: Boolean(edicion) });
     }, [persistir, edicion]);
 
+    // Corre después del render que aplicó el cambio de estado, así `persistir`
+    // ya lleva la cabecera nueva en su cierre.
+    useEffect(() => {
+        if (!guardarYa || guardando) return;
+        setGuardarYa(false);
+        void persistir({ auto: Boolean(edicion) });
+    }, [guardarYa, guardando, persistir, edicion]);
+
     /**
      * Antes de un salto (otra cotización, otra opción, cotización nueva): termina
      * de guardar lo pendiente. Solo si NO se puede guardar se le pregunta al
@@ -731,6 +748,7 @@ const CotizadorPage: React.FC = () => {
         setCabecera(cab => ({ ...cab, estado: 'PERDIDO' }));
         setSucio(true);
         setPreguntandoPerdida(false);
+        setGuardarYa(true);
     }, []);
 
     /** "Crear ODP" (Resumen): termina de guardar y abre el modal, que primero
@@ -851,18 +869,21 @@ const CotizadorPage: React.FC = () => {
      * a la forma nueva"), que es el único sitio que la pide por nombre. */
     const duplicarPropuesta = useCallback(() => { nuevaPropuesta('copia'); }, [nuevaPropuesta]);
 
-    const elegirPropuesta = useCallback(async (pid: number) => {
-        if (!edicion) return;
+    /** Devuelve si quedó elegida (lo usa "Aprobó", que elige y aprueba de un clic). */
+    const elegirPropuesta = useCallback(async (pid: number): Promise<boolean> => {
+        if (!edicion) return false;
         const destino = propuestas.find(p => p.id === pid) ?? null;
         const ctx = await prepararAccion(`marcar la ${rotuloPropuesta(destino)} como elegida`);
-        if (!ctx) return;
+        if (!ctx) return false;
         setOcupado(true);
         try {
             const { data } = await apiElegirPropuesta(ctx.cotId, pid);
             aplicarCotizacion(data);
             toast.success('Opción marcada como elegida: es la que se cobra y la que sale a corte.');
+            return true;
         } catch (e) {
             conError(e, 'No se pudo elegir la opción.');
+            return false;
         } finally {
             setOcupado(false);
         }
@@ -918,6 +939,80 @@ const CotizadorPage: React.FC = () => {
             return false;
         }
     }, [edicion, propuestaActivaId]);
+
+    // ─── Cierre desde Resumen (2026-10-01) ──────────────────────────────────
+    // Reemplazan al select "Estado" de la tarjeta Comercial, que nadie encontraba.
+    // Escriben lo mismo que escribía el select (estado de la cabecera + guardado):
+    // la sincronía con el CRM sigue en el backend.
+
+    /** "Aprobó (Opción X)": la marca como elegida si no lo era y aprueba. */
+    const marcarAprobada = useCallback(async (pid: number) => {
+        if (!edicion) return;
+        const p = propuestas.find(x => x.id === pid) ?? null;
+        if (p && !p.elegida) {
+            if (!(await elegirPropuesta(pid))) return;
+        } else if (!(await asegurarGuardado('aprobar la cotización'))) {
+            return;
+        }
+        setCierrePerdida(null);
+        setCabecera(c => ({ ...c, estado: 'APROBADA' }));
+        setSucio(true);
+        setGuardarYa(true);
+    }, [edicion, propuestas, elegirPropuesta, asegurarGuardado]);
+
+    /** "Volver a pendiente" o "Cancelar cotización". PERDIDO va por su modal. */
+    const cambiarEstado = useCallback((estado: Extract<EstadoCotizacion, 'PENDIENTE' | 'CANCELADO'>) => {
+        if (!edicion) return;
+        if (guardando) {
+            toast.info('Espera un segundo: se está guardando la cotización.');
+            return;
+        }
+        setCierrePerdida(null);
+        setCabecera(c => ({ ...c, estado }));
+        setSucio(true);
+        setGuardarYa(true);
+    }, [edicion, guardando]);
+
+    /** PDF de la opción a la vista, después de guardar lo pendiente. */
+    const enviarPdf = useCallback(async () => {
+        if (!edicion || !propuestaActivaId) return;
+        if (!(await asegurarGuardado('descargar el PDF'))) return;
+        setGenerandoPdf(true);
+        await descargarPdfPropuesta(edicion.id, propuestaActivaId, edicion.numero);
+        setGenerandoPdf(false);
+    }, [edicion, propuestaActivaId, asegurarGuardado]);
+
+    /** WhatsApp primero (debe abrirse en el mismo clic o el navegador lo bloquea)
+     * y luego el PDF, para adjuntarlo en el chat. Sin precio en el mensaje: que
+     * el cliente abra el PDF. La instalación sale de los productos de la opción. */
+    const enviarWhatsApp = useCallback(() => {
+        if (!edicion) return;
+        abrirWhatsApp({
+            telefono: cabecera.cliente.telefono,
+            cliente: cabecera.cliente.nombre,
+            numero: edicion.numero,
+            etiquetaOpcion: propuestas.length > 1 ? propuestaActiva?.etiqueta ?? null : null,
+            instalacion: instalacionDe(carrito),
+            asesor: permisos.usuarioNombre,
+        });
+        void enviarPdf();
+    }, [edicion, cabecera.cliente.telefono, cabecera.cliente.nombre, propuestas.length, propuestaActiva, carrito,
+        permisos.usuarioNombre, enviarPdf]);
+
+    const abrirDetalleTecnico = useCallback(async () => {
+        if (!(await asegurarGuardado('abrir la hoja de trabajo'))) return;
+        setDetalleTecnico(true);
+    }, [asegurarGuardado]);
+
+    /** Desde la bandeja de Cotizaciones: abre la cotización en Resumen y, si se
+     * pidió, sigue con la acción de la fila (crear la ODP o marcarla perdida). */
+    const abrirEnResumen = useCallback(async (cot: Cotizacion, siguiente?: 'crearOdp' | 'perdida') => {
+        if (!(await asegurarGuardado('abrir otra cotización'))) return;
+        aplicarCotizacion(cot);
+        cambiarTab('actual');
+        if (siguiente === 'crearOdp') setCreandoOdp(true);
+        if (siguiente === 'perdida') setPreguntandoPerdida(true);
+    }, [asegurarGuardado, aplicarCotizacion, cambiarTab]);
 
     /** "Cotización nueva": con cambios pendientes, pregunta igual que las demás
      * acciones — también en una cotización todavía sin guardar, que es donde más
@@ -1223,7 +1318,7 @@ const CotizadorPage: React.FC = () => {
     }
 
     // Totales en vivo (2026-09-26). La cuenta es la réplica del backend en
-    // `totalesPropuesta.ts`. Sin cambios pendientes, la barra muestra el total
+    // `totalesPropuesta.ts`. Sin cambios pendientes, Resumen muestra el total
     // GUARDADO, que es exactamente el que quedó en la base.
     const ivaPct = Number(parametros?.iva) || 0;
     const legadoActiva = Boolean(propuestaActiva?.legadoCargosEnItems);
@@ -1243,12 +1338,17 @@ const CotizadorPage: React.FC = () => {
         ivaPct,
         legado: legadoActiva,
     });
-    const usarGuardado = !sucio && Boolean(propuestaActiva);
     const notaTotalCotizar = borrador
         ? (borrador.reemplazaIdTemp
             ? 'Incluye los cambios del producto en edición.'
             : 'Incluye el producto en pantalla, aún sin agregar.')
         : null;
+
+    const motivoNoNueva = propuestas.length >= MAX_PROPUESTAS
+        ? `Una cotización admite como máximo ${MAX_PROPUESTAS} opciones.`
+        : !edicion && carrito.length === 0
+            ? 'Agrega al menos un producto antes de crear otra opción.'
+            : null;
 
     const controlPropuestas = {
         propuestas,
@@ -1257,8 +1357,10 @@ const CotizadorPage: React.FC = () => {
         ocupado,
         onActivar: activarPropuesta,
         onDuplicar: duplicarPropuesta,
-        onElegir: elegirPropuesta,
+        onElegir: (pid: number) => { void elegirPropuesta(pid); },
         onBorrar: borrarPropuesta,
+        onNueva: nuevaPropuesta,
+        motivoNoNueva,
     };
 
     // El tipo de cliente se recalcula en TODAS las propuestas (el backend lo
@@ -1272,20 +1374,15 @@ const CotizadorPage: React.FC = () => {
             ? 'Hay una opción antigua: duplícala a la forma nueva antes de cambiar el tipo de cliente.'
             : null;
 
-    const motivoNoNueva = propuestas.length >= MAX_PROPUESTAS
-        ? `Una cotización admite como máximo ${MAX_PROPUESTAS} opciones.`
-        : !edicion && carrito.length === 0
-            ? 'Agrega al menos un producto antes de crear otra opción.'
-            : null;
-
-    const barraVisible = activeTab === 'cotizar' || activeTab === 'actual';
+    // Solo en Cotizar desde el 2026-10-01: Resumen tiene su propio encabezado con
+    // las opciones, el estado y el guardado.
+    const barraVisible = activeTab === 'cotizar';
 
     return (
         <div className="p-4 md:p-6">
             <div className="relative">
-                {/* Barra de trabajo: en Cotizar y Actual, que son las dos pestañas
-                    donde se arma la cotización. Vive en el shell y no en cada Tab
-                    para que cambiar de pestaña no la mueva de sitio. */}
+                {/* Barra de trabajo: solo en Cotizar desde el 2026-10-01 (Resumen
+                    trae su propio encabezado con opciones, estado y guardado). */}
                 {barraVisible && (
                     <BarraTrabajo
                         numero={edicion?.numero ?? null}
@@ -1310,14 +1407,6 @@ const CotizadorPage: React.FC = () => {
                         onCambiarSegmento={cambiarSegmento}
                         cambiandoSegmento={cambiandoSegmento}
                         motivoNoSegmento={motivoNoSegmento}
-                        cifras={activeTab !== 'actual' ? undefined : {
-                            items: carrito.length,
-                            productos: totalesCarrito.productos,
-                            manoObra: totalesCarrito.manoObra,
-                            cargos: totalesCarrito.cargos,
-                            total: usarGuardado && propuestaActiva ? propuestaActiva.totales.total : totalesCarrito.total,
-                            sinGuardar: !usarGuardado && carrito.length > 0,
-                        }}
                     />
                 )}
 
@@ -1401,8 +1490,6 @@ const CotizadorPage: React.FC = () => {
                             onCambiarCabecera={cambiarCabecera}
                             onQuitarItem={quitarItem}
                             numeroEnEdicion={edicion?.numero ?? null}
-                            asesoresSugeridos={parametros?.asesores || []}
-                            estadosDisponibles={(parametros?.estados_cotizacion as EstadoCotizacion[] | undefined) || ['PENDIENTE', 'APROBADA', 'CANCELADO', 'PERDIDO']}
                             parametros={parametros}
                             descuentoPct={descuentoPct}
                             onCambiarDescuento={(v) => { setDescuentoPct(v); marcarSucio(); }}
@@ -1416,8 +1503,24 @@ const CotizadorPage: React.FC = () => {
                             onNuevaCotizacion={nuevaCotizacion}
                             onEditarItem={editarItem}
                             onDuplicarItem={duplicarItem}
+                            onIrACotizar={() => cambiarTab('cotizar')}
                             bloqueoEdicion={bloqueoEdicion}
+                            sinPermiso={sinPermiso}
                             modulosDisponibles={modulosDisponibles}
+                            estadoGuardadoUI={estadoGuardado}
+                            mensajeError={errorGuardado}
+                            onReintentar={conflicto ? undefined : reintentarGuardado}
+                            onAprobar={marcarAprobada}
+                            onPerdida={() => cambiarCabecera({ estado: 'PERDIDO' })}
+                            onCambiarEstado={cambiarEstado}
+                            onPdf={enviarPdf}
+                            onWhatsApp={enviarWhatsApp}
+                            generandoPdf={generandoPdf}
+                            onDetalleTecnico={abrirDetalleTecnico}
+                            segmento={cabecera.segmentoCliente}
+                            onCambiarSegmento={cambiarSegmento}
+                            cambiandoSegmento={cambiandoSegmento}
+                            motivoNoSegmento={motivoNoSegmento}
                             vinculo={vinculo}
                             odpVinculada={odpVinculada}
                             estadoGuardado={edicion?.estado ?? null}
@@ -1428,7 +1531,11 @@ const CotizadorPage: React.FC = () => {
                         />
                     )}
                     {activeTab === 'guardadas' && (
-                        <TabGuardadas onReabrir={reabrirCotizacion} abrirDetalleInicial={abrirDetalleInicial} />
+                        <TabGuardadas
+                            onAbrir={abrirEnResumen}
+                            onNueva={nuevaCotizacion}
+                            abrirDetalleInicial={abrirDetalleInicial}
+                        />
                     )}
                     {activeTab === 'calibracion' && permisos.administra && <TabCalibracion />}
                     {activeTab === 'configuracion' && permisos.administra && <TabConfiguracion />}
@@ -1462,6 +1569,13 @@ const CotizadorPage: React.FC = () => {
                     onCerrar={() => setCreandoOdp(false)}
                     onCreada={trasCrearOdp}
                     onVincularExistente={vincularOdpExistente}
+                />
+            )}
+
+            {detalleTecnico && edicion && (
+                <ModalDetalleCotizacion
+                    id={edicion.id}
+                    onClose={() => setDetalleTecnico(false)}
                 />
             )}
 

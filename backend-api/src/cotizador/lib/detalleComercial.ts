@@ -22,6 +22,7 @@
 // también sirve para ítems guardados antes de que existiera.
 import { getModulo } from "../modules/registry";
 import { nombrePelicula } from "./peliculas";
+import { nombreAlfajia } from "./alfajias";
 
 type Opcion = string | number | { value: unknown; label: string };
 interface CampoLaxo {
@@ -120,7 +121,10 @@ function producto(
     case "ventanas": {
       const sistema = diseno?.sistema ? sistemaVentana(diseno.sistema) : etiquetaDe(campos, "sistema", i.sistema);
       base = `ventana${sistema ? ` ${sistema}` : ""}${forma(diseno)}${color ? ` color ${color.toLowerCase()}` : ""}`;
-      atributos = [codigoVidrio ? `vidrio ${textoVidrio(codigoVidrio)}` : null, ...extras, marcado(i.alfajia) ? "con alfajía" : null];
+      // "con alfajía 1123" solo si de verdad se cobró (2026-10-01): antes bastaba
+      // la casilla y el PDF prometía alfajía en sistemas donde no se cobraba.
+      const alfajia = nombreAlfajia(i);
+      atributos = [codigoVidrio ? `vidrio ${textoVidrio(codigoVidrio)}` : null, ...extras, alfajia ? `con ${alfajia}` : null];
       break;
     }
     case "proyectantes": {

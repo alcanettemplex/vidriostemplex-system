@@ -36,18 +36,14 @@ import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno, hacerAgregarRol, codigoMatizado } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
 import { codigoPelicula, CAMPO_PELICULA, CAMPO_COSTO_PELICULA } from "../lib/peliculas";
+import { CAMPO_ALFAJIA, CAMPO_ALFAJIA_CODIGO, normalizarColor, resolverAlfajia } from "../lib/alfajias";
+import type { AlfajiaElegida } from "../lib/alfajias";
 import type { LineaBOM } from "../lib/motorCalculo";
 
 // `lineaManual()` construía las dos líneas de BOM sin código de catálogo —SMO y
 // flete—. Ambas dejaron de ser líneas del ítem el 2026-09-20 y pasaron a ser
 // cargos de la propuesta, así que el helper se fue con ellas: dejarlo sin
 // llamadores es una invitación a volver a meter cargos en el BOM.
-
-function normalizarColor(color: unknown): string {
-  const c = String(color ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-  if (c === "grisplata" || c === "gris-plata") return "gris plata";
-  return c;
-}
 
 // Códigos reales del catálogo (server/src/data/catalogo.json) por sistema, rol
 // y color. Sólo se listan los colores que de verdad existen en el catálogo:
@@ -66,7 +62,8 @@ const ACCESORIOS_5020 = {
   guia: { _: "GUIA5020" },
   rodamiento: { _: "RODA5020" },
   empaque: { _: "EMP5020" },
-  sillarAlfajia: { mate: "SIA0102" },
+  // La alfajía ya no es un rol fijo (era SIA0102, solo mate y ADEMÁS del
+  // sillar): la elige el asesor y la resuelve lib/alfajias.ts (2026-10-01).
 };
 
 const CATALOGO_SISTEMAS = {
@@ -139,23 +136,6 @@ const VIDRIOS_VALIDOS = [
 // camino por diseño (codigoMatizado en cotizarPorDiseno, codigoPelicula en
 // lib/peliculas.ts).
 
-/** Avisa cuando el vendedor pidió alfajía pero este sistema/color no puede
- * cobrarla. `hacerAgregarRol` se salta en silencio un rol que no existe, así
- * que sin esto la alfajía marcada en 744 u 8025 —que no tienen `sillarAlfajia`—
- * desaparecería del presupuesto sin que nadie se entere. */
-function avisarAlfajiaNoDisponible(
-  roles: Record<string, Record<string, string>> | undefined,
-  { sistema, color, advertencias }: { sistema: string; color: string; advertencias: string[] }
-) {
-  const mapa = roles?.sillarAlfajia;
-  if (mapa && (mapa[color] || mapa._)) return;
-  advertencias.push(
-    mapa
-      ? `Pediste alfajía, pero el sistema ${sistema} sólo la tiene en otro color (no en "${color}"): no se cobró ninguna alfajía en esta cotización.`
-      : `Pediste alfajía, pero el sistema ${sistema} no tiene referencia de alfajía en el catálogo: no se cobró ninguna alfajía en esta cotización.`
-  );
-}
-
 export const meta = {
   nombre: "Ventanas",
   descripcion:
@@ -182,6 +162,10 @@ export const meta = {
       requerido: true,
       grupo: "cliente",
     },
+    // Alfajía (2026-10-01): casilla + selector filtrado por el color de la
+    // perfilería, con la recomendada del sistema primero. Ver lib/alfajias.ts.
+    CAMPO_ALFAJIA,
+    CAMPO_ALFAJIA_CODIGO,
     // El campo se llama "...Cm" porque así lo interpreta calcular() más abajo
     // (compatibilidad con el motor ya verificado); la etiqueta en mm es sólo
     // presentación — el frontend convierte antes de enviar el valor.
@@ -189,7 +173,6 @@ export const meta = {
     { nombre: "altoCm", tipo: "number", etiqueta: "Alto (mm)", requerido: true, grupo: "medidas" },
     { nombre: "cuerpos", tipo: "number", etiqueta: "Cuerpos", requerido: true, grupo: "medidas" },
     { nombre: "alasCorredizas", tipo: "number", etiqueta: "Alas corredizas", requerido: false, grupo: "medidas" },
-    { nombre: "alfajia", tipo: "boolean", etiqueta: "Incluir alfajía", requerido: false, grupo: "medidas" },
     {
       // Whitelist real que valida `calcular()` más abajo (VIDRIOS_VALIDOS) — si
       // se agrega un código aquí sin agregarlo también allá, el backend lo
@@ -278,6 +261,8 @@ function calcularPorDiseno(
     cantidadPiezas,
     descuentoPct,
     codigoVidrio,
+    alfajia,
+    errorAlfajia,
   }: {
     segmentoCliente: string;
     color: string;
@@ -286,6 +271,8 @@ function calcularPorDiseno(
     cantidadPiezas: number;
     descuentoPct: number;
     codigoVidrio: string;
+    alfajia: AlfajiaElegida | null;
+    errorAlfajia: string | null;
   }
 ) {
   return cotizarPorDiseno({
@@ -306,6 +293,8 @@ function calcularPorDiseno(
     matizado: input.matizado,
     pelicula: input.pelicula,
     costoPelicula: input.costoPelicula,
+    // La alfajía entra al despiece como perfil (cortes y SAP), no como accesorio.
+    alfajia,
     accesorios: ({ cuerpos, alasCorredizas, diseno, advertencias }) => {
       // Primero el nombre exacto ("5020Reforzado" tiene accesorios propios);
       // si no hay entrada, el sistema base sin "Reforzado".
@@ -329,12 +318,8 @@ function calcularPorDiseno(
       agregar("empaque", (anchoCm / 100) * 2 + (altoCm / 100) * 2 * cuerpos);
       agregar("cerrojo", 1, true); // uno por ventana; sólo el 5020 lo declara
       agregar("chapa", alasCorredizas, true);
-      // Alfajía: sólo si el vendedor la pidió, y con la referencia que Templex
-      // vende para este sistema (no la que traía el diseño extraído).
-      if (input.alfajia) {
-        avisarAlfajiaNoDisponible(roles, { sistema: diseno.sistema, color, advertencias });
-        agregar("sillarAlfajia", anchoCm / 100, true);
-      }
+      // Alfajía pedida que no se puede cobrar: línea de error, el ítem no se agrega.
+      if (errorAlfajia) lineas.push(errorLinea("ALFAJIA", errorAlfajia, 0));
       return lineas;
     },
   });
@@ -360,7 +345,12 @@ export function calcular(input: InputModulo = {}) {
 
   let cuerpos = Number.isFinite(Number(input.cuerpos)) ? Math.max(1, Number(input.cuerpos)) : 2;
   let alasCorredizas = Number.isFinite(Number(input.alasCorredizas)) ? Math.max(0, Number(input.alasCorredizas)) : cuerpos;
-  const alfajia = Number(input.alfajia) > 0 ? 1 : 0;
+  // Alfajía (2026-10-01): la elegida, o la recomendada del sistema en el color
+  // de la ventana. Si no se puede (no existe, otro color, otro sistema) es un
+  // error del ítem, no un aviso.
+  const resolucionAlfajia = resolverAlfajia({ ...input, sistema, colorPerfileria: color });
+  const alfajia = resolucionAlfajia.tipo === "ok" ? resolucionAlfajia.alfajia : null;
+  const errorAlfajia = resolucionAlfajia.tipo === "error" ? resolucionAlfajia.mensaje : null;
 
   const cantidadPiezas = Number.isFinite(Number(input.cantidadPiezas)) && Number(input.cantidadPiezas) > 0
     ? Number(input.cantidadPiezas)
@@ -414,6 +404,8 @@ export function calcular(input: InputModulo = {}) {
       cantidadPiezas,
       descuentoPct,
       codigoVidrio,
+      alfajia,
+      errorAlfajia,
     });
     if (porDiseno) {
       porDiseno.advertencias = [...advertencias, ...porDiseno.advertencias];
@@ -471,7 +463,8 @@ export function calcular(input: InputModulo = {}) {
   // Perfiles horizontales (cabezal arriba, sillar abajo, horizontales sup/inf en 744/8025):
   // una longitud igual al ancho de la ventana.
   agregarRol("cabezal", anchoM);
-  agregarRol("sillar", anchoM);
+  // Un sillar alfajía reemplaza al sillar (se cobra abajo, con la alfajía).
+  if (!alfajia?.reemplazaSillar) agregarRol("sillar", anchoM);
   agregarRol("horizontalInferior", anchoM);
   agregarRol("horizontalSuperior", anchoM);
 
@@ -499,11 +492,10 @@ export function calcular(input: InputModulo = {}) {
   // Chapa: 1 por ala corrediza (744 y 8025).
   agregarRol("chapa", alasCorredizas, { opcional: true });
 
-  // Sillar alfajía: sólo si el usuario activó el factor "alfajia".
-  if (alfajia > 0) {
-    avisarAlfajiaNoDisponible(roles, { sistema, color, advertencias });
-    agregarRol("sillarAlfajia", anchoM * alfajia, { opcional: true });
-  }
+  // Alfajía elegida: por el ancho de la ventana. Sin diseño no hay cortes, así
+  // que la SAP la pide como "medir en obra" con estos metros.
+  if (alfajia) items.push(lineaCatalogo(alfajia.codigo, anchoM, segmentoCliente));
+  if (errorAlfajia) items.push(errorLinea("ALFAJIA", errorAlfajia, 0));
 
   // Vidrio: área de UNA ventana (ancho x alto). El total informativo (areaM2)
   // se multiplica por cantidadPiezas más abajo.

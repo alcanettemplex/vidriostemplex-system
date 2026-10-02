@@ -42,6 +42,7 @@
 // devuelve `aptoParaCorte` y `advertencias` y nunca manda nada a producción por
 // su cuenta.
 import { lineaCatalogo, round2 } from "./motorCalculo";
+import type { AlfajiaElegida } from "./alfajias";
 import { getProducto } from "./catalogo";
 import { margenEfectivo } from "./calibracion";
 import { getMargenes } from "../store/calibracionStore";
@@ -147,8 +148,13 @@ export interface ParamsCalcularDespiece {
   /** Código de catálogo del vidrio elegido por el vendedor. */
   codigoVidrio?: string;
   segmentoCliente?: string;
-  incluirAlfajia?: boolean;
+  /** Alfajía elegida (lib/alfajias.ts) o null/ausente si no lleva. */
+  alfajia?: AlfajiaElegida | null;
 }
+
+/** El sillar "de verdad" del diseño (no el de 3 pistas ni el plano): el que
+ * reemplaza un sillar alfajía. */
+const esSillarPrincipal = (descripcion: string | null | undefined) => /^sillar$/i.test(String(descripcion ?? "").trim());
 
 export function calcularDespiece({
   disenoId,
@@ -157,7 +163,7 @@ export function calcularDespiece({
   colorPerfileria = "mate",
   codigoVidrio,
   segmentoCliente = "PA",
-  incluirAlfajia = false,
+  alfajia = null,
 }: ParamsCalcularDespiece) {
   const diseno = getDiseno(disenoId);
   if (!diseno) {
@@ -201,10 +207,27 @@ export function calcularDespiece({
   const piezasConstantes: string[] = [];
 
   // --- Perfiles -----------------------------------------------------------
+  // Alfajía (2026-10-01, lib/alfajias.ts): la pieza de alfajía del diseño solo
+  // entra si el asesor la pidió, con SU fórmula de corte y el código ELEGIDO
+  // (el color ya viene validado). Un sillar alfajía no usa esa pieza: toma la
+  // fórmula del sillar y lo reemplaza. Una sola vez por diseño: nunca dos piezas
+  // de alfajía cobradas por el mismo lugar.
+  let alfajiaPuesta = false;
+  let desperdicioSillar = 0;
   for (const p of diseno.perfiles) {
-    // La alfajía es opcional y su código lo pone el módulo (Templex vende para
-    // cada sistema una referencia distinta de la que trae el diseño extraído).
-    if (p.esAlfajia && !incluirAlfajia) continue;
+    let codigoForzado: string | null = null;
+    let descripcionForzada: string | null = null;
+    if (esSillarPrincipal(p.descripcion)) desperdicioSillar = p.desperdicioPct ?? 0;
+    if (p.esAlfajia) {
+      if (!alfajia || alfajia.reemplazaSillar || alfajiaPuesta) continue;
+      codigoForzado = alfajia.codigo;
+      descripcionForzada = `Alfajía ${alfajia.refVisible}`;
+      alfajiaPuesta = true;
+    } else if (alfajia?.reemplazaSillar && !alfajiaPuesta && esSillarPrincipal(p.descripcion)) {
+      codigoForzado = alfajia.codigo;
+      descripcionForzada = `Sillar alfajía ${alfajia.refVisible}`;
+      alfajiaPuesta = true;
+    }
 
     const medidaMm = evaluar(p.formula, p.modelo, anchoMm, altoMm);
     const nombrePieza = `${p.descripcion ?? "perfil"} (${p.ref})`;
@@ -246,7 +269,7 @@ export function calcularDespiece({
     // formulario no pide color de perfilería y se asume "mate" por defecto. El
     // cambio nunca es silencioso — queda dicho en las advertencias, porque el
     // precio del perfil sí varía entre acabados.
-    let codigo = p.codigosPorColor?.[color] ?? null;
+    let codigo = codigoForzado ?? p.codigosPorColor?.[color] ?? null;
     if (!codigo && p.codigosPorColor) {
       const [colorAlterno, codigoAlterno] = Object.entries(p.codigosPorColor)[0] ?? [];
       if (codigoAlterno) {
@@ -284,7 +307,7 @@ export function calcularDespiece({
 
     cortesPerfil.push({
       ref: p.ref,
-      descripcion: p.descripcion,
+      descripcion: descripcionForzada ?? p.descripcion,
       medidaMm: Math.round(medidaFinalMm * 100) / 100,
       // La medida sin margen es la que hay que contrastar contra el maestro.
       medidaBrutaMm: Math.round(medidaMm * 100) / 100,
@@ -322,6 +345,32 @@ export function calcularDespiece({
       continue;
     }
     items.push(lineaCatalogo(codigo, piezasEnteras ?? metrosConDesperdicio, segmentoCliente));
+  }
+
+  // Alfajía pedida pero el diseño no trae dónde ponerla (9 diseños sin pieza de
+  // alfajía; o un sillar alfajía en un diseño sin "Sillar"): una pieza del ancho
+  // de la ventana. Es una medida que no divide, así que no agrega incertidumbre.
+  if (alfajia && !alfajiaPuesta) {
+    const metrosNetos = anchoMm / 1000;
+    advertencias.push(
+      `Este diseño no trae una pieza de ${alfajia.reemplazaSillar ? "sillar" : "alfajía"}: la alfajía ` +
+        `${alfajia.refVisible} se agregó con el largo del ancho de la ventana (${Math.round(anchoMm)} mm).`
+    );
+    cortesPerfil.push({
+      ref: `ALF-${alfajia.refVisible}`,
+      descripcion: `Alfajía ${alfajia.refVisible} (largo = ancho)`,
+      medidaMm: Math.round(anchoMm * 100) / 100,
+      medidaBrutaMm: Math.round(anchoMm * 100) / 100,
+      margenMm: 0,
+      origenMargen: "sin-calibrar",
+      nivelCorte: "A",
+      incertidumbreMm: 0,
+      cantidad: 1,
+      metrosNetos: round2(metrosNetos),
+      codigo: alfajia.codigo,
+      desperdicioPct: desperdicioSillar,
+    });
+    items.push(lineaCatalogo(alfajia.codigo, metrosNetos * (1 + desperdicioSillar / 100), segmentoCliente));
   }
 
   // --- Vidrios ------------------------------------------------------------

@@ -20,6 +20,7 @@ import { parsearCodigo } from "./codigoDiseno";
 import type { LineaBOM, TipoObra } from "./motorCalculo";
 import type { CortePerfil, CorteVidrio, Diseno } from "../tipos";
 import { codigoPelicula } from "./peliculas";
+import type { AlfajiaElegida } from "./alfajias";
 
 
 /** Las tres variantes de matizado que existen en el catálogo, con su código.
@@ -65,7 +66,7 @@ export function codigoMatizado(matizado: unknown): string | null {
  * @param {boolean} opts.matizado
  * @param {string|boolean} opts.pelicula - código de la película (o `true` = PELI31)
  * @param {number} [opts.costoPelicula] - costo si la película se cotiza aparte
- * @param {boolean} opts.incluirAlfajia
+ * @param {AlfajiaElegida|null} opts.alfajia
  * @param {Function} [opts.accesorios] - (ctx) => Array de líneas de BOM. Recibe
  *        { cuerpos, alasCorredizas, anchoCm, altoCm, color, segmentoCliente,
  *          diseno, agregarRol, advertencias }.
@@ -109,7 +110,8 @@ export interface ParamsCotizarPorDiseno {
   pelicula?: boolean | string;
   /** Costo que escribió el asesor si la película se cotiza aparte. */
   costoPelicula?: unknown;
-  incluirAlfajia?: boolean;
+  /** Alfajía ya resuelta y validada (lib/alfajias.ts); null = no lleva. */
+  alfajia?: AlfajiaElegida | null;
   /** Tipo de obra que decide qué tarifa de mano de obra corresponde. Lo declara
    * el módulo que llama (cabinas cobran distinto que armar una ventana).
    *
@@ -155,7 +157,7 @@ export function cotizarPorDiseno({
   matizado = false,
   pelicula = false,
   costoPelicula,
-  incluirAlfajia = false,
+  alfajia = null,
   accesorios,
   ajustarItems,
 }: ParamsCotizarPorDiseno) {
@@ -215,7 +217,7 @@ export function cotizarPorDiseno({
     colorPerfileria,
     codigoVidrio,
     segmentoCliente,
-    incluirAlfajia,
+    alfajia,
   });
 
   const advertencias = [...avisosMedida, ...despiece.advertencias];

@@ -1,189 +1,190 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
-    Search, Edit3, Trash2, Inbox, Loader2, ChevronUp, ChevronDown, ChevronsUpDown,
+    CheckCircle2, FileCheck, Inbox, Loader2, MessageCircle, MoreVertical, Plus, Search, XCircle,
 } from '../../../components/ui/icons';
 
 import { apiListarCotizaciones, apiObtenerCotizacion, apiEliminarCotizacion, apiListarAsesoresCotizador } from '../services/cotizadorApi';
 import { usePermisosCotizador } from '../permisos';
-import { AsesorCotizador } from '../vinculo';
-import { Cotizacion, CotizacionLigera, EstadoCotizacion, FiltrosListado, RotuloVinculo } from '../types';
-import { fmtCOP, fmtCOPCorto, fmtFecha, numeroCotizacion } from '../format';
+import { AsesorCotizador, MOTIVOS_PERDIDA } from '../vinculo';
+import { Cotizacion, CotizacionLigera, FiltrosListado, RotuloVinculo } from '../types';
+import { fmtCOP, fmtCOPCorto, numeroCotizacion } from '../format';
+import { abrirWhatsApp } from '../documentos';
 import ModalDetalleCotizacion from './modals/ModalDetalleCotizacion';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
-import { Campo, ChipEstadoCotizacion, Input, Select, Tarjeta } from './ui';
+import { BotonPrimario, BotonSecundario } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pestaña "Guardadas" del Cotizador — listado con filtros server-side de
-// `apiListarCotizaciones`, misma línea visual que ExploradorODPPanel (slate/
-// templex, tabla con th clickeable, sin Redux: este listado solo importa
-// mientras la pestaña está montada).
+// Pestaña "Cotizaciones" — BANDEJA POR SITUACIÓN (rediseño 2026-10-01,
+// dirección C1 elegida por el usuario sobre el lienzo de propuestas).
 //
-// Fase 5 del sistema visual (2026-09-26): los encabezados de ESTADO e ÍTEMS
-// quedaban alineados a la izquierda sobre celdas centradas, así que el chip
-// rosa de "Perdido" se leía debajo de "ÍTEMS" como si la cifra fuera roja. Cada
-// encabezado lleva ahora la misma alineación que su celda.
+// Antes: una tabla de 9 columnas con 5 filtros, y el PDF escondido dentro de un
+// modal. Los asesores no sabían qué hacer con ella. Ahora la pestaña responde
+// "¿qué tengo pendiente?":
 //
-// Filtro "Asesor" (2026-09-27): como nadie cotiza a nombre de otro, esta pestaña
-// es donde se ven las de todos. Arranca en "Mías" para quien edita solo las
-// suyas y en "Todos" para control total y solo lectura.
+//   · Necesitan atención (arranca aquí): aprobadas sin ODP, por vencer y
+//     vencidas, cada una con SU acción en la fila (Crear ODP, Recordar por
+//     WhatsApp, Perdida).
+//   · Esperando respuesta · Aprobadas · Perdidas · Todas.
+//
+// Un clic en la fila abre la cotización directo en Resumen (sin modal de
+// detalle intermedio): allí están el PDF, WhatsApp, aprobar y crear la ODP.
+//
+// LA VALIDEZ (vigente / por vencer / vencida) la calcula el backend en el
+// listado con la misma regla que el tablero del Dashboard
+// (`cotizador/lib/validezOferta.ts`). Es solo una señal: el estado no cambia.
+// El buscador es uno solo (`q` del backend: cliente, obra, número, ODP, PR-…,
+// lead); el estado ya no es un filtro, son las pestañas, resueltas en memoria.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ESTADOS: { v: EstadoCotizacion; l: string }[] = [
-    { v: 'PENDIENTE', l: 'Pendiente' },
-    { v: 'APROBADA', l: 'Aprobada' },
-    { v: 'CANCELADO', l: 'Cancelado' },
-    { v: 'PERDIDO', l: 'Perdido' },
+type Pestana = 'atencion' | 'esperando' | 'aprobadas' | 'perdidas' | 'todas';
+
+const PESTANAS: { k: Pestana; rotulo: string }[] = [
+    { k: 'atencion', rotulo: 'Necesitan atención' },
+    { k: 'esperando', rotulo: 'Esperando respuesta' },
+    { k: 'aprobadas', rotulo: 'Aprobadas' },
+    { k: 'perdidas', rotulo: 'Perdidas y canceladas' },
+    { k: 'todas', rotulo: 'Todas' },
 ];
 
-type OrdenCampo = 'numero' | 'cliente' | 'estado' | 'items' | 'total' | 'fecha';
+const esAprobadaSinOdp = (c: CotizacionLigera) => c.estado === 'APROBADA' && !c.odpId;
+const esPorVencer = (c: CotizacionLigera) => c.estado === 'PENDIENTE' && c.validez?.estado === 'POR_VENCER';
+const esVencida = (c: CotizacionLigera) => c.estado === 'PENDIENTE' && c.validez?.estado === 'VENCIDA';
 
-// Columna "Vinculada a" (2026-09-27): de dónde viene la cotización y a qué ODP
-// llegó. Un color por tipo, el mismo en toda la tabla.
-const ESTILO_VINCULO: Record<RotuloVinculo['tipo'], { prefijo: string; clase: string }> = {
-    lead: { prefijo: 'Lead', clase: 'bg-violet-50 text-violet-800 ring-violet-200' },
-    prospecto: { prefijo: '', clase: 'bg-amber-50 text-amber-900 ring-amber-200' },
-    cliente: { prefijo: 'Cliente', clase: 'bg-slate-100 text-slate-800 ring-slate-300' },
-    odp: { prefijo: '', clase: 'bg-emerald-50 text-emerald-800 ring-emerald-200' },
+function enPestana(c: CotizacionLigera, p: Pestana): boolean {
+    switch (p) {
+        case 'atencion': return esAprobadaSinOdp(c) || esPorVencer(c) || esVencida(c);
+        case 'esperando': return c.estado === 'PENDIENTE' && !esVencida(c);
+        case 'aprobadas': return c.estado === 'APROBADA';
+        case 'perdidas': return c.estado === 'PERDIDO' || c.estado === 'CANCELADO';
+        default: return true;
+    }
+}
+
+/** Total que se muestra: el de la elegida, o el rango si hay varias opciones sin
+ * decidir (los totales espejo quedan en 0 a propósito en ese caso). */
+function totalDeFila(c: CotizacionLigera): { valor: number; texto: string; sinDecidir: boolean } {
+    const props = c.propuestas ?? [];
+    const hayElegida = (c.propuestaElegidaId ?? null) !== null || props.some(p => p.elegida);
+    if (hayElegida || props.length <= 1) return { valor: c.totales.total, texto: fmtCOP(c.totales.total), sinDecidir: false };
+    const totales = props.map(p => Number(p.totales?.total) || 0);
+    const min = Math.min(...totales);
+    const max = Math.max(...totales);
+    return { valor: max, texto: min === max ? fmtCOPCorto(max) : `${fmtCOPCorto(min)} – ${fmtCOPCorto(max)}`, sinDecidir: true };
+}
+
+const diasDesde = (fecha?: string | null): number | null => {
+    if (!fecha) return null;
+    const d = Math.floor((Date.now() - new Date(fecha).getTime()) / 86_400_000);
+    return Number.isFinite(d) ? Math.max(0, d) : null;
+};
+const haceDias = (d: number | null) => (d === null ? '' : d === 0 ? 'hoy' : d === 1 ? 'ayer' : `hace ${d} días`);
+
+/** La línea "qué pasa con ella" de cada fila, con su tono. */
+function situacionDeFila(c: CotizacionLigera): { texto: string; tono: 'neutro' | 'ambar' | 'rojo' | 'verde' } {
+    if (c.estado === 'APROBADA') {
+        return { texto: `${c.odpId ? 'En producción' : 'Aprobada'} · ${haceDias(diasDesde(c.aprobadaEn ?? c.actualizadaEn))}`, tono: 'verde' };
+    }
+    if (c.estado === 'PERDIDO') {
+        const motivo = MOTIVOS_PERDIDA.find(m => m.valor === c.motivoPerdida)?.rotulo;
+        return { texto: motivo ? `Perdida · ${motivo}` : 'Perdida', tono: 'neutro' };
+    }
+    if (c.estado === 'CANCELADO') return { texto: 'Cancelada', tono: 'neutro' };
+    const r = c.validez?.habilesRestantes;
+    if (r === undefined || r === null) return { texto: `Enviada ${haceDias(diasDesde(c.creadaEn))}`, tono: 'neutro' };
+    if (r < 0) return { texto: `Venció hace ${-r} día${r === -1 ? '' : 's'} hábil${r === -1 ? '' : 'es'}`, tono: 'rojo' };
+    if (r === 0) return { texto: 'Vence hoy', tono: 'ambar' };
+    if (r === 1) return { texto: 'Vence mañana', tono: 'ambar' };
+    if (r <= 2) return { texto: `Vence en ${r} días hábiles`, tono: 'ambar' };
+    return { texto: `Creada ${haceDias(diasDesde(c.creadaEn))} · vigente`, tono: 'neutro' };
+}
+
+const TONO_SITUACION = {
+    neutro: 'text-slate-700',
+    ambar: 'text-amber-800 font-semibold',
+    rojo: 'text-rose-700 font-semibold',
+    verde: 'text-emerald-800',
 };
 
-const ChipsVinculo: React.FC<{ vinculos?: RotuloVinculo[]; onAbrirOdp: (id: number) => void }> = ({ vinculos, onAbrirOdp }) => {
-    if (!vinculos?.length) return <span className="text-slate-500">Sin vínculo</span>;
+const ETIQUETA_VINCULO: Record<RotuloVinculo['tipo'], string> = { lead: 'Lead', prospecto: '', cliente: 'Cliente', odp: '' };
+
+/** Menú "⋯" de la fila: hoy solo Eliminar. */
+const MenuFila: React.FC<{ onEliminar: () => void; eliminando: boolean }> = ({ onEliminar, eliminando }) => {
+    const [abierto, setAbierto] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!abierto) return;
+        const fuera = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false); };
+        document.addEventListener('mousedown', fuera);
+        return () => document.removeEventListener('mousedown', fuera);
+    }, [abierto]);
     return (
-        <div className="flex flex-wrap gap-1">
-            {vinculos.map(v => {
-                const e = ESTILO_VINCULO[v.tipo];
-                const texto = e.prefijo ? `${e.prefijo} · ${v.etiqueta}` : v.etiqueta;
-                // La ODP abre su ficha (2026-09-27) sin abrir el detalle de la cotización.
-                if (v.tipo === 'odp') {
-                    return (
-                        <button key={`${v.tipo}-${v.id}`} type="button" title={`Abrir la ficha de ${v.etiqueta}`}
-                            onClick={ev => { ev.stopPropagation(); onAbrirOdp(v.id); }}
-                            className={`max-w-[180px] truncate rounded-full px-2 py-0.5 text-[11.5px] font-semibold ring-1 underline decoration-dotted underline-offset-2 hover:bg-emerald-100 hover:ring-emerald-400 ${e.clase}`}>
-                            {texto}
-                        </button>
-                    );
-                }
-                return (
-                    <span key={`${v.tipo}-${v.id}`} title={texto}
-                        className={`max-w-[180px] truncate rounded-full px-2 py-0.5 text-[11.5px] font-semibold ring-1 ${e.clase}`}>
-                        {texto}
-                    </span>
-                );
-            })}
+        <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
+            <button
+                type="button"
+                aria-label="Más acciones"
+                aria-haspopup="menu"
+                aria-expanded={abierto}
+                onClick={() => setAbierto(v => !v)}
+                className="h-10 w-10 inline-flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100"
+            >
+                {eliminando ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreVertical className="w-5 h-5" />}
+            </button>
+            {abierto && (
+                <div role="menu" className="absolute right-0 top-full mt-1 z-30 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                    <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => { setAbierto(false); onEliminar(); }}
+                        className="w-full rounded-lg px-3 py-2.5 text-left text-[13.5px] font-semibold text-rose-700 hover:bg-rose-50"
+                    >
+                        Eliminar cotización
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
 
-// ─── Cotizaciones con varias propuestas ─────────────────────────────────────
-// Desde el 2026-09-20 una cotización puede tener hasta 5 propuestas y su total
-// es el de la ELEGIDA. Cuando no hay ninguna elegida, los totales espejo de la
-// cabecera quedan en CERO a propósito: presentar el de la A como definitivo
-// haría pasar por precio cerrado uno que nadie escogió. En ese caso esta tabla
-// pinta el RANGO ("$1,1 M – $1,8 M · sin decidir"), que es exactamente lo que
-// el vendedor le puede decir al cliente en ese momento.
-
-/** Los ítems que cuentan para una fila del listado. `c.items` trae los de TODAS
- * las propuestas juntos, así que sin filtrar por la elegida una cotización con
- * tres variantes de dos ventanas parecería tener seis productos. */
-const itemsDeLaElegida = (c: CotizacionLigera): number => {
-    const elegidaId = c.propuestaElegidaId ?? c.propuestas?.find(p => p.elegida)?.id ?? null;
-    if (elegidaId === null) {
-        // Sin elegida no hay un conjunto "el" de ítems: se muestran los de la
-        // primera propuesta, que es la que el cliente ya vio.
-        const primera = c.propuestas?.[0]?.id ?? null;
-        if (primera === null) return c.items.length;
-        return c.items.filter(i => i.propuestaId === primera).length;
-    }
-    return c.items.filter(i => i.propuestaId === elegidaId).length || c.items.length;
-};
-
-interface TotalDeFila {
-    /** Total de la elegida, o el mayor de las propuestas cuando no hay ninguna.
-     * Sólo se usa para ORDENAR: con `null` la columna quedaría al azar. */
-    valorOrden: number;
-    /** Lo que se pinta en la celda. */
-    nodo: React.ReactNode;
-}
-
-const totalDeFila = (c: CotizacionLigera): TotalDeFila => {
-    const props = c.propuestas ?? [];
-    const hayElegida = (c.propuestaElegidaId ?? null) !== null || props.some(p => p.elegida);
-
-    if (hayElegida || props.length <= 1) {
-        return {
-            valorOrden: c.totales.total,
-            nodo: <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(c.totales.total)}</span>,
-        };
-    }
-
-    const totales = props.map(p => Number(p.totales?.total) || 0);
-    const min = Math.min(...totales);
-    const max = Math.max(...totales);
-    return {
-        valorOrden: max,
-        nodo: (
-            <span title={`${props.length} propuestas sin decidir: ${totales.map(t => fmtCOP(t)).join(' · ')}`}>
-                <span className="font-semibold text-slate-900 tabular-nums">
-                    {min === max ? fmtCOPCorto(max) : `${fmtCOPCorto(min)} – ${fmtCOPCorto(max)}`}
-                </span>
-                <span className="block text-[11px] font-semibold text-amber-800">sin decidir</span>
-            </span>
-        ),
-    };
-};
-
 interface Props {
-    onReabrir: (cot: Cotizacion) => void;
+    /** Abre la cotización en Resumen y, si se pide, sigue con esa acción. */
+    onAbrir: (cot: Cotizacion, siguiente?: 'crearOdp' | 'perdida') => void;
+    onNueva: () => void;
     abrirDetalleInicial?: { id: number; vista: 'normal' | 'tecnico' };
 }
 
-const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
-    const [cliente, setCliente] = useState('');
-    const [clienteDebounced, setClienteDebounced] = useState('');
-    const [estado, setEstado] = useState('');
-    const [numero, setNumero] = useState('');
-    const [q, setQ] = useState('');
+const TabGuardadas: React.FC<Props> = ({ onAbrir, onNueva, abrirDetalleInicial }) => {
     const permisos = usePermisosCotizador();
+    const [q, setQ] = useState('');
+    const [qDebounced, setQDebounced] = useState('');
     const [asesores, setAsesores] = useState<AsesorCotizador[]>([]);
-    /** '' = todos, o el id del asesor. */
+    /** '' = todos, o el id del asesor. Arranca en "las mías" para quien edita solo las suyas. */
     const [asesorId, setAsesorId] = useState<string>(
         permisos.nivel === 'propias' && permisos.usuarioId ? String(permisos.usuarioId) : ''
     );
-
-    useEffect(() => {
-        apiListarAsesoresCotizador()
-            .then(r => setAsesores(r.data))
-            .catch(() => setAsesores([]));
-    }, []);
-
     const [cotizaciones, setCotizaciones] = useState<CotizacionLigera[]>([]);
     const [loading, setLoading] = useState(true);
-    const [reabriendoId, setReabriendoId] = useState<number | null>(null);
+    const [pestana, setPestana] = useState<Pestana | null>(null);
+    const [abriendoId, setAbriendoId] = useState<number | null>(null);
     const [eliminandoId, setEliminandoId] = useState<number | null>(null);
-
-    const [ordenCampo, setOrdenCampo] = useState<OrdenCampo>('fecha');
-    const [ordenDir, setOrdenDir] = useState<'ASC' | 'DESC'>('DESC');
-
-    const [detalleId, setDetalleId] = useState<number | null>(null);
-    const [detalleVista, setDetalleVista] = useState<'normal' | 'tecnico'>('normal');
+    const [detalle, setDetalle] = useState<{ id: number; vista: 'normal' | 'tecnico' } | null>(null);
     const [odpFichaId, setOdpFichaId] = useState<number | null>(null);
 
-    // Debounce del texto de cliente: evita una consulta por tecla.
     useEffect(() => {
-        const t = setTimeout(() => setClienteDebounced(cliente), 400);
+        apiListarAsesoresCotizador().then(r => setAsesores(r.data)).catch(() => setAsesores([]));
+    }, []);
+
+    useEffect(() => {
+        const t = setTimeout(() => setQDebounced(q.trim()), 400);
         return () => clearTimeout(t);
-    }, [cliente]);
+    }, [q]);
 
     const filtros: FiltrosListado = useMemo(() => {
         const f: FiltrosListado = {};
-        if (clienteDebounced.trim()) f.cliente = clienteDebounced.trim();
-        if (estado) f.estado = estado;
-        if (numero.trim()) f.numero = numero.trim();
-        if (q.trim()) f.q = q.trim();
+        if (qDebounced) f.q = qDebounced;
         if (asesorId) f.asesorUsuarioId = Number(asesorId);
         return f;
-    }, [clienteDebounced, estado, numero, q, asesorId]);
+    }, [qDebounced, asesorId]);
 
     const cargar = useCallback(async () => {
         setLoading(true);
@@ -191,7 +192,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
             const { data } = await apiListarCotizaciones(filtros);
             setCotizaciones(data);
         } catch (e: any) {
-            toast.error(e?.response?.data?.error || 'No se pudo cargar el listado de cotizaciones.');
+            toast.error(e?.response?.data?.error || 'No se pudo cargar la lista de cotizaciones. Revisa tu conexión e inténtalo de nuevo.');
         } finally {
             setLoading(false);
         }
@@ -199,66 +200,38 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
 
     useEffect(() => { cargar(); }, [cargar]);
 
-    // Deep-link: ?tab=guardadas&id=1&vista=tecnico abre el modal directo al montar.
+    // Deep-link: ?tab=guardadas&id=1&vista=tecnico abre el detalle al montar.
     useEffect(() => {
-        if (abrirDetalleInicial) {
-            setDetalleId(abrirDetalleInicial.id);
-            setDetalleVista(abrirDetalleInicial.vista);
-        }
+        if (abrirDetalleInicial) setDetalle(abrirDetalleInicial);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const ordenar = (campo: OrdenCampo) => {
-        if (ordenCampo === campo) {
-            setOrdenDir(d => (d === 'DESC' ? 'ASC' : 'DESC'));
-        } else {
-            setOrdenCampo(campo);
-            setOrdenDir('DESC');
-        }
-    };
+    const conteos = useMemo(() => {
+        const r = {} as Record<Pestana, number>;
+        PESTANAS.forEach(p => { r[p.k] = cotizaciones.filter(c => enPestana(c, p.k)).length; });
+        return r;
+    }, [cotizaciones]);
 
-    const IconoOrden: React.FC<{ campo: OrdenCampo }> = ({ campo }) => {
-        if (ordenCampo !== campo) return <ChevronsUpDown className="w-3.5 h-3.5 ml-1 text-slate-500 inline" />;
-        return ordenDir === 'ASC'
-            ? <ChevronUp className="w-3.5 h-3.5 ml-1 text-templex-600 inline" />
-            : <ChevronDown className="w-3.5 h-3.5 ml-1 text-templex-600 inline" />;
-    };
-
-    const th = (campo: OrdenCampo, texto: string, extra = '') => (
-        <th
-            onClick={() => ordenar(campo)}
-            className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 cursor-pointer select-none hover:bg-slate-100 transition whitespace-nowrap ${extra || 'text-left'}`}
-        >
-            {texto}<IconoOrden campo={campo} />
-        </th>
-    );
+    // Arranca en "Necesitan atención" solo si hay algo; si no, en lo que espera respuesta.
+    const activa: Pestana = pestana ?? (loading || conteos.atencion > 0 ? 'atencion' : 'esperando');
 
     const filas = useMemo(() => {
-        const copia = [...cotizaciones];
-        const factor = ordenDir === 'ASC' ? 1 : -1;
-        copia.sort((a, b) => {
-            switch (ordenCampo) {
-                case 'numero': return (a.numero - b.numero) * factor;
-                case 'cliente': return (a.cliente?.nombre || '').localeCompare(b.cliente?.nombre || '') * factor;
-                case 'estado': return a.estado.localeCompare(b.estado) * factor;
-                case 'items': return (itemsDeLaElegida(a) - itemsDeLaElegida(b)) * factor;
-                case 'total': return (totalDeFila(a).valorOrden - totalDeFila(b).valorOrden) * factor;
-                case 'fecha': return (new Date(a.creadaEn || 0).getTime() - new Date(b.creadaEn || 0).getTime()) * factor;
-                default: return 0;
-            }
-        });
-        return copia;
-    }, [cotizaciones, ordenCampo, ordenDir]);
+        const lista = cotizaciones.filter(c => enPestana(c, activa));
+        if (activa === 'esperando') {
+            return [...lista].sort((a, b) => (a.validez?.habilesRestantes ?? 99) - (b.validez?.habilesRestantes ?? 99));
+        }
+        return lista; // el backend ya las trae de la más nueva a la más vieja
+    }, [cotizaciones, activa]);
 
-    const reabrir = async (id: number) => {
-        setReabriendoId(id);
+    const abrir = async (id: number, siguiente?: 'crearOdp' | 'perdida') => {
+        setAbriendoId(id);
         try {
             const { data } = await apiObtenerCotizacion(id);
-            onReabrir(data);
+            onAbrir(data, siguiente);
         } catch (e: any) {
-            toast.error(e?.response?.data?.error || 'No se pudo abrir la cotización para editarla.');
+            toast.error(e?.response?.data?.error || 'No se pudo abrir la cotización. Inténtalo de nuevo.');
         } finally {
-            setReabriendoId(null);
+            setAbriendoId(null);
         }
     };
 
@@ -276,136 +249,207 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
         }
     };
 
+    const recordar = (c: CotizacionLigera) => {
+        abrirWhatsApp({
+            telefono: c.cliente?.telefono,
+            cliente: c.cliente?.nombre,
+            numero: c.numero,
+            asesor: permisos.usuarioNombre,
+            recordatorio: true,
+        });
+    };
+
+    /** La acción principal de la fila, según su situación. */
+    const accionDeFila = (c: CotizacionLigera): React.ReactNode => {
+        const puede = permisos.puedeEditar(c.asesorUsuarioId);
+        const cargando = abriendoId === c.id;
+        if (esAprobadaSinOdp(c) && puede) {
+            return (
+                <BotonPrimario compacto icono={FileCheck} cargando={cargando} onClick={() => abrir(c.id, 'crearOdp')}
+                    claseColor="bg-emerald-600 text-white hover:bg-emerald-700" className="min-h-[40px]">
+                    Crear ODP
+                </BotonPrimario>
+            );
+        }
+        if (c.estado === 'APROBADA' && c.odpId) {
+            const odp = c.vinculos?.find(v => v.tipo === 'odp');
+            return (
+                <button type="button" onClick={() => setOdpFichaId(c.odpId!)}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 min-h-[40px] text-[13px] font-semibold text-emerald-800 hover:bg-emerald-50">
+                    <CheckCircle2 className="w-4 h-4" /> {odp?.etiqueta ?? 'Ver ODP'}
+                </button>
+            );
+        }
+        if (esVencida(c) && puede) {
+            return (
+                <BotonSecundario compacto icono={XCircle} cargando={cargando} onClick={() => abrir(c.id, 'perdida')} className="min-h-[40px] !text-rose-700">
+                    Marcar perdida
+                </BotonSecundario>
+            );
+        }
+        if (c.estado === 'PENDIENTE') {
+            return (
+                <BotonSecundario compacto icono={MessageCircle} onClick={() => recordar(c)} className="min-h-[40px]"
+                    title="Abre WhatsApp con un mensaje de seguimiento listo">
+                    {esPorVencer(c) ? 'Recordar por WhatsApp' : 'Escribir por WhatsApp'}
+                </BotonSecundario>
+            );
+        }
+        return null;
+    };
+
+    const fila = (c: CotizacionLigera) => {
+        const total = totalDeFila(c);
+        const sit = situacionDeFila(c);
+        const origen = (c.vinculos ?? []).filter(v => v.tipo !== 'odp')
+            .map(v => (ETIQUETA_VINCULO[v.tipo] ? `${ETIQUETA_VINCULO[v.tipo]}` : v.etiqueta))[0];
+        const nOpciones = c.propuestas?.length ?? 0;
+        return (
+            <li key={c.id}>
+                <div
+                    className="grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[96px_minmax(0,1.5fr)_minmax(0,1fr)_150px_auto] items-center gap-x-4 gap-y-2 px-4 py-3.5 hover:bg-templex-50/50 transition cursor-pointer"
+                    onClick={() => abrir(c.id)}
+                >
+                    <span className="hidden md:block text-[13.5px] font-bold text-slate-900 tabular-nums">{numeroCotizacion(c.numero)}</span>
+                    <div className="min-w-0">
+                        <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); abrir(c.id); }}
+                            className="block max-w-full truncate text-left text-[15px] font-semibold text-slate-900 hover:underline"
+                        >
+                            {c.cliente?.nombre?.trim() || 'Sin nombre'}
+                        </button>
+                        <p className="truncate text-[12.5px] text-slate-700">
+                            <span className="md:hidden tabular-nums">{numeroCotizacion(c.numero)} · </span>
+                            {[c.cliente?.obra?.trim(), origen, nOpciones > 1 ? `${nOpciones} opciones` : null, permisos.nivel !== 'propias' || !asesorId ? c.asesor : null]
+                                .filter(Boolean).join(' · ')}
+                        </p>
+                    </div>
+                    <span className={`col-span-2 md:col-span-1 text-[13px] ${TONO_SITUACION[sit.tono]}`}>{sit.texto}</span>
+                    <span className="text-right">
+                        <span className="block text-[15px] font-bold text-slate-900 tabular-nums">{total.texto}</span>
+                        {total.sinDecidir && <span className="block text-[11.5px] font-semibold text-amber-800">sin decidir</span>}
+                    </span>
+                    <div className="col-span-2 md:col-span-1 flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                        {accionDeFila(c)}
+                        {permisos.puedeEditar(c.asesorUsuarioId) && (
+                            <MenuFila onEliminar={() => eliminar(c)} eliminando={eliminandoId === c.id} />
+                        )}
+                    </div>
+                </div>
+            </li>
+        );
+    };
+
+    /** Grupo con título dentro de "Necesitan atención". */
+    const grupo = (titulo: string, detalleGrupo: string, clase: string, lista: CotizacionLigera[]) => lista.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <header className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 border-b border-slate-200">
+                <span className={`inline-flex items-center h-7 px-3 rounded-full text-[12.5px] font-bold ${clase}`}>{titulo} · {lista.length}</span>
+                <span className="text-[13px] text-slate-700">{detalleGrupo}</span>
+            </header>
+            <ul className="divide-y divide-slate-200">{lista.map(fila)}</ul>
+        </section>
+    );
+
     return (
-        <div className="p-4 space-y-4">
-            {cotizaciones.length > 0 && (
-                <p className="text-[12.5px] text-slate-900 font-semibold mb-1">
-                    {cotizaciones.length} cotizacion{cotizaciones.length === 1 ? '' : 'es'} guardada{cotizaciones.length === 1 ? '' : 's'}
-                </p>
-            )}
-            {/* ── Filtros ──────────────────────────────────────────────────── */}
-            <Tarjeta cuerpoClassName="grid grid-cols-1 md:grid-cols-5 gap-3">
-                <Campo etiqueta="Asesor">
-                    <Select value={asesorId} onChange={e => setAsesorId(e.target.value)}>
+        <div className="p-3 sm:p-5 space-y-4">
+            {/* ── Encabezado ─────────────────────────────────────────────── */}
+            <header className="flex flex-wrap items-center gap-3">
+                <label className="relative flex-1 min-w-[240px] max-w-xl">
+                    <span className="sr-only">Buscar cotización</span>
+                    <Search className="w-4 h-4 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                        value={q}
+                        onChange={e => setQ(e.target.value)}
+                        placeholder="Buscar por cliente, número, obra u ODP"
+                        className="w-full h-11 rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-[14px] text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-templex-500 focus:ring-2 focus:ring-templex-200"
+                    />
+                </label>
+                <label className="flex items-center gap-2">
+                    <span className="sr-only">Asesor</span>
+                    <select
+                        value={asesorId}
+                        onChange={e => setAsesorId(e.target.value)}
+                        className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-[14px] text-slate-900"
+                    >
                         <option value="">Todos los asesores</option>
-                        {permisos.usuarioId && <option value={String(permisos.usuarioId)}>Mis cotizaciones</option>}
+                        {permisos.usuarioId && <option value={String(permisos.usuarioId)}>Solo las mías</option>}
                         {asesores.filter(a => a.id !== permisos.usuarioId).map(a => (
                             <option key={a.id} value={String(a.id)}>{a.nombre}</option>
                         ))}
-                    </Select>
-                </Campo>
-                <Campo etiqueta="Cliente">
-                    <Input placeholder="Nombre del cliente" value={cliente} onChange={e => setCliente(e.target.value)} />
-                </Campo>
-                <Campo etiqueta="Estado">
-                    <Select value={estado} onChange={e => setEstado(e.target.value)}>
-                        <option value="">Todos</option>
-                        {ESTADOS.map(e => <option key={e.v} value={e.v}>{e.l}</option>)}
-                    </Select>
-                </Campo>
-                <Campo etiqueta="N.°">
-                    <Input type="number" placeholder="Número" value={numero} onChange={e => setNumero(e.target.value)} />
-                </Campo>
-                <Campo etiqueta="Buscar">
-                    <div className="relative">
-                        <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <Input className="pl-9" placeholder="Obra, ODP, PR-…, lead" value={q} onChange={e => setQ(e.target.value)} />
-                    </div>
-                </Campo>
-            </Tarjeta>
+                    </select>
+                </label>
+                {permisos.puedeCrear && (
+                    <BotonPrimario icono={Plus} onClick={onNueva} className="ml-auto min-h-[44px]">Nueva cotización</BotonPrimario>
+                )}
+            </header>
 
-            {/* ── Resultados ───────────────────────────────────────────────── */}
-            <Tarjeta sinRelleno>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-slate-900 border-b border-slate-200">
-                            <tr>
-                                {th('numero', 'N.°')}
-                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 text-left">Cliente</th>
-                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 text-left">Vinculada a</th>
-                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 text-left">Asesor</th>
-                                {th('estado', 'Estado', 'text-center')}
-                                {th('items', 'Ítems', 'text-center')}
-                                {th('total', 'Total', 'text-right')}
-                                {th('fecha', 'Fecha')}
-                                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-slate-900 text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {loading ? (
-                                <tr><td colSpan={9} className="py-16 text-center text-slate-700">
-                                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                                    Cargando cotizaciones…
-                                </td></tr>
-                            ) : filas.length === 0 ? (
-                                <tr><td colSpan={9} className="py-16 text-center">
-                                    <Inbox className="w-9 h-9 text-slate-400 mx-auto mb-2" />
-                                    <p className="text-slate-900 font-semibold">Ninguna cotización guardada coincide con estos filtros</p>
-                                </td></tr>
-                            ) : filas.map(c => (
-                                <tr
-                                    key={c.id}
-                                    onClick={() => { setDetalleId(c.id); setDetalleVista('normal'); }}
-                                    className="hover:bg-templex-50/60 cursor-pointer transition"
-                                >
-                                    <td className="px-4 py-3 font-bold text-slate-900 tabular-nums whitespace-nowrap">
-                                        {numeroCotizacion(c.numero)}
-                                        {(c.propuestas?.length ?? 0) > 1 && (
-                                            <span
-                                                className="ml-1.5 px-1.5 py-0.5 rounded-full bg-templex-50 ring-1 ring-templex-200 text-[11px] font-semibold text-templex-800 align-middle"
-                                                title={`${c.propuestas!.length} propuestas: ${c.propuestas!.map(p => p.etiqueta).join(' · ')}`}
-                                            >
-                                                {c.propuestas!.length} props.
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-800 max-w-[220px]">
-                                        <div className="truncate" title={c.cliente?.nombre || ''}>{c.cliente?.nombre || '—'}</div>
-                                        {c.cliente?.obra && <div className="text-[11.5px] text-slate-700 truncate">{c.cliente.obra}</div>}
-                                    </td>
-                                    <td className="px-4 py-3 max-w-[260px]"><ChipsVinculo vinculos={c.vinculos} onAbrirOdp={setOdpFichaId} /></td>
-                                    <td className={`px-4 py-3 max-w-[160px] truncate ${c.asesor ? 'text-slate-800' : 'text-slate-500'}`}>{c.asesor || '—'}</td>
-                                    <td className="px-4 py-3 text-center">
-                                        <ChipEstadoCotizacion estado={c.estado} />
-                                    </td>
-                                    <td className="px-4 py-3 text-center text-slate-800 tabular-nums">{itemsDeLaElegida(c)}</td>
-                                    <td className="px-4 py-3 text-right text-slate-800 whitespace-nowrap">{totalDeFila(c).nodo}</td>
-                                    <td className="px-4 py-3 text-slate-800 tabular-nums whitespace-nowrap">{fmtFecha(c.creadaEn)}</td>
-                                    <td className="px-4 py-3 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                                        <button
-                                            onClick={() => reabrir(c.id)}
-                                            disabled={reabriendoId === c.id}
-                                            title="Reabrir para editar"
-                                            className="p-1.5 rounded-lg text-templex-700 hover:bg-templex-50 transition disabled:opacity-40 mr-1"
-                                        >
-                                            {reabriendoId === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Edit3 className="w-4 h-4" />}
-                                        </button>
-                                        <button
-                                            onClick={() => eliminar(c)}
-                                            disabled={eliminandoId === c.id}
-                                            title="Eliminar"
-                                            className="p-1.5 rounded-lg text-rose-700 hover:bg-rose-50 transition disabled:opacity-40"
-                                        >
-                                            {eliminandoId === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            {/* ── Pestañas por situación ─────────────────────────────────── */}
+            <nav aria-label="Situación" className="flex flex-wrap gap-2">
+                {PESTANAS.map(p => {
+                    const sel = p.k === activa;
+                    const n = conteos[p.k];
+                    return (
+                        <button
+                            key={p.k}
+                            type="button"
+                            onClick={() => setPestana(p.k)}
+                            aria-pressed={sel}
+                            className={`inline-flex items-center gap-2 min-h-[44px] px-4 rounded-full border text-[14px] font-semibold transition ${sel
+                                ? 'bg-slate-900 border-slate-900 text-white'
+                                : 'bg-white border-slate-300 text-slate-800 hover:border-slate-400'}`}
+                        >
+                            {p.rotulo}
+                            <span className={`tabular-nums rounded-full px-2 text-[12px] ${p.k === 'atencion' && n > 0
+                                ? 'bg-rose-600 text-white'
+                                : sel ? 'bg-white/20' : 'bg-slate-100 text-slate-800'}`}>
+                                {n}
+                            </span>
+                        </button>
+                    );
+                })}
+            </nav>
+
+            {/* ── Contenido ──────────────────────────────────────────────── */}
+            {loading ? (
+                <div className="py-16 text-center text-slate-700">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" /> Cargando cotizaciones…
                 </div>
-            </Tarjeta>
-
-            {odpFichaId !== null && (
-                <ODPFichaModal odpId={odpFichaId} onClose={() => setOdpFichaId(null)} />
+            ) : filas.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white py-14 text-center">
+                    <Inbox className="w-9 h-9 text-slate-500 mx-auto mb-2" />
+                    <p className="text-[15px] font-semibold text-slate-900">
+                        {qDebounced ? `Ninguna cotización coincide con “${qDebounced}”.`
+                            : activa === 'atencion' ? 'Nada pendiente: no hay aprobadas sin ODP ni ofertas por vencer.'
+                                : 'No hay cotizaciones en esta lista.'}
+                    </p>
+                </div>
+            ) : activa === 'atencion' ? (
+                <div className="space-y-4">
+                    {grupo('Aprobadas sin ODP', 'El cliente dijo que sí: falta pasarlas a producción.',
+                        'bg-emerald-50 text-emerald-800', filas.filter(esAprobadaSinOdp))}
+                    {grupo('Vencen pronto', 'Les quedan 2 días hábiles o menos de validez.',
+                        'bg-amber-50 text-amber-900', filas.filter(esPorVencer))}
+                    {grupo('Vencidas', 'Pasó la validez sin respuesta: escríbele o dala por perdida.',
+                        'bg-rose-50 text-rose-800', filas.filter(esVencida))}
+                </div>
+            ) : (
+                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                    <ul className="divide-y divide-slate-200">{filas.map(fila)}</ul>
+                </section>
             )}
 
-            {detalleId !== null && (
+            <p className="text-[12.5px] text-slate-700">Haz clic en cualquier cotización para abrirla.</p>
+
+            {odpFichaId !== null && <ODPFichaModal odpId={odpFichaId} onClose={() => setOdpFichaId(null)} />}
+
+            {detalle !== null && (
                 <ModalDetalleCotizacion
-                    id={detalleId}
-                    vistaInicial={detalleVista}
-                    onClose={() => setDetalleId(null)}
-                    onReabrir={onReabrir}
+                    id={detalle.id}
+                    vistaInicial={detalle.vista}
+                    onClose={() => setDetalle(null)}
+                    onReabrir={cot => onAbrir(cot)}
                 />
             )}
         </div>

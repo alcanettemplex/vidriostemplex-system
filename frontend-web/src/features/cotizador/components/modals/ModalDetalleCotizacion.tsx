@@ -4,7 +4,8 @@ import {
     Loader2, Edit3, ClipboardCheck, CheckCircle2, XCircle, AlertTriangle, HardHat, Download, Printer,
 } from '../../../../components/ui/icons';
 
-import { apiObtenerCotizacion, apiAptitudCotizacion, apiPlanoDeItem, apiDespieceDeItem, apiDescargarPdfPropuesta, apiGetModulos } from '../../services/cotizadorApi';
+import { apiObtenerCotizacion, apiAptitudCotizacion, apiPlanoDeItem, apiDespieceDeItem, apiGetModulos } from '../../services/cotizadorApi';
+import { descargarPdfPropuesta } from '../../documentos';
 import { Aptitud, Cotizacion, DespieceItem, ItemCotizacion, ModuloMeta, Plano, Propuesta } from '../../types';
 import { ETIQUETA_CARGO, fmtCOP, fmtFecha, fmtPct, numeroCotizacion } from '../../format';
 import { descripcionDeItem } from '../../fichaProducto';
@@ -46,7 +47,9 @@ interface Props {
     id: number;
     vistaInicial?: 'normal' | 'tecnico';
     onClose: () => void;
-    onReabrir: (cot: Cotizacion) => void;
+    /** Sin él no se ofrece "Reabrir para editar": desde Resumen la cotización
+     * ya está abierta (2026-10-01). */
+    onReabrir?: (cot: Cotizacion) => void;
 }
 
 type Vista = 'normal' | 'tecnico' | 'comparar';
@@ -196,7 +199,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
     };
 
     const reabrir = () => {
-        if (!cot) return;
+        if (!cot || !onReabrir) return;
         onReabrir(cot);
         onClose();
     };
@@ -216,37 +219,13 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
     const cargos = activa?.cargos ?? [];
 
     /** PDF de la propuesta que se está mirando (no necesariamente la elegida:
-     * el asesor puede querer mandarle al cliente una variante concreta). Mismo
-     * patrón de descarga que `ManualVisor.tsx`/`PedidosPVPage.tsx`: con
-     * `responseType: 'blob'` un error llega como Blob, no como JSON, así que el
-     * mensaje de error es genérico en vez de intentar leer `.error` de él. */
-    const nombreDeContentDisposition = (valor?: string): string | null => {
-        if (!valor) return null;
-        const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(valor);
-        if (utf8) { try { return decodeURIComponent(utf8[1]); } catch { /* cae al ASCII */ } }
-        const ascii = /filename="([^"]+)"/i.exec(valor);
-        return ascii ? ascii[1] : null;
-    };
-
+     * el asesor puede querer mandarle al cliente una variante concreta). La
+     * descarga vive en `documentos.ts`, compartida con Resumen y la bandeja. */
     const descargarPdf = async () => {
         if (!cot || !activa) return;
         setDescargandoPdf(true);
-        try {
-            const { data, headers } = await apiDescargarPdfPropuesta(cot.id, activa.id);
-            const url = URL.createObjectURL(data);
-            const a = document.createElement('a');
-            a.href = url;
-            // "COT-87 B, ODP-24381 Cliente.pdf": el nombre lo arma el backend.
-            a.download = nombreDeContentDisposition(headers?.['content-disposition']) ?? `${numeroCotizacion(cot.numero)}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-        } catch {
-            toast.error('No se pudo generar el PDF de la cotización.');
-        } finally {
-            setDescargandoPdf(false);
-        }
+        await descargarPdfPropuesta(cot.id, activa.id, cot.numero);
+        setDescargandoPdf(false);
     };
 
     /** Documento interno, sin plata: se imprime tal cual (`window.print()`),
@@ -571,7 +550,7 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                             >
                                 Evaluar aptitud de la propuesta elegida
                             </BotonSecundario>
-                            <BotonPrimario icono={Edit3} onClick={reabrir}>Reabrir para editar</BotonPrimario>
+                            {onReabrir && <BotonPrimario icono={Edit3} onClick={reabrir}>Reabrir para editar</BotonPrimario>}
                         </div>
                     </div>
                 ) : (

@@ -56,6 +56,7 @@ import {
 } from '../lib/cargos';
 import { calcularItem, getModulo } from '../modules/registry';
 import { sincronizarLeadAlAprobar, sincronizarLeadAlCotizar, sincronizarLeadAlPerder } from '../lib/vinculos';
+import { validezDeCotizaciones } from '../lib/validezOferta';
 
 /** Error de negocio con el código HTTP que le corresponde y un mensaje ya
  * redactado para el vendedor. El controlador sólo lo traduce a respuesta: así
@@ -499,11 +500,20 @@ export async function listar(filtros: FiltrosListado = {}) {
 
   const itemsPorCot = agrupar(items, 'cotizacion_id');
   const propsPorCot = agrupar(propuestas, 'cotizacion_id');
-  const rotulos = await rotulosDeVinculos(cabeceras);
+  // Validez de la oferta (2026-10-01): la pestaña Cotizaciones agrupa por
+  // "vencen pronto / vencidas" con la misma regla que el tablero del Dashboard.
+  const [rotulos, validez] = await Promise.all([
+    rotulosDeVinculos(cabeceras),
+    validezDeCotizaciones(ids.map(Number)),
+  ]);
 
   return cabeceras.map((c) => {
     const props = (propsPorCot.get(c.id) ?? []).map((p) => aPropuesta(p, null, null));
-    return { ...aCotizacion(c, itemsPorCot.get(c.id) ?? [], props, null), vinculos: rotulos(c) };
+    return {
+      ...aCotizacion(c, itemsPorCot.get(c.id) ?? [], props, null),
+      vinculos: rotulos(c),
+      validez: validez.get(Number(c.id)) ?? null,
+    };
   });
 }
 

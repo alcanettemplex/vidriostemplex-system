@@ -78,6 +78,12 @@ export interface OpcionCampo {
     /** La opción no tiene precio de catálogo: el asesor escribe su costo en
      * el campo que la declara con `soloSiACotizar` (p. ej. una película). */
     precioACotizar?: boolean;
+    /** Solo en el selector de alfajía (2026-10-01): para filtrar por el color de
+     * la perfilería y poner primero la recomendada (ver alfajiaFormulario.ts). */
+    color?: string;
+    ref?: string;
+    tipoAlfajia?: 'alfajia' | 'sillar';
+    sistemaAlfajia?: string | null;
 }
 
 /** Agrupación puramente visual (backend/utils/modules/*.ts): en qué tarjeta del
@@ -101,6 +107,11 @@ export interface CampoMeta {
      * allí se cotiza aparte (`OpcionCampo.precioACotizar`). P. ej. el costo de
      * una película sin precio, `soloSiACotizar: 'pelicula'` (2026-09-27). */
     soloSiACotizar?: string;
+    /** Selector de alfajía (2026-10-01): el formulario lo filtra por el color de
+     * la perfilería y el sistema, con la recomendada primero. */
+    filtroAlfajia?: boolean;
+    /** Referencia recomendada por sistema ("744" → "1123"). */
+    recomendadaPorSistema?: Record<string, string>;
     // Sólo en campos tipo 'select': cada opción es un primitivo (se muestra tal
     // cual) o un {value,label} cuando el texto a mostrar difiere del valor real.
     opciones?: Array<string | number | OpcionCampo>;
@@ -526,7 +537,15 @@ export interface CotizacionLigera {
     odpId?: number | null;
     motivoPerdida?: MotivoPerdida | null;
     motivoPerdidaDetalle?: string | null;
+    aprobadaEn?: string | null;
+    perdidaEn?: string | null;
+    /** Solo en el listado (2026-10-01): días hábiles que le quedan a la oferta,
+     * con la misma regla que el tablero del Dashboard. */
+    validez?: ValidezCotizacion | null;
 }
+
+export type EstadoValidez = 'VIGENTE' | 'POR_VENCER' | 'VENCIDA';
+export interface ValidezCotizacion { habilesRestantes: number; estado: EstadoValidez }
 
 export type TipoVinculo = 'lead' | 'prospecto' | 'cliente' | 'odp';
 export interface VinculoCotizacion { tipo: TipoVinculo; id: number }

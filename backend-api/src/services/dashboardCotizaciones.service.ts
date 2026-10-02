@@ -34,6 +34,7 @@ import { z } from 'zod';
 import sequelize from '../config/database';
 import { nivelCotizador, ROLES_CONTROL_TOTAL, ROLES_EDITAN_PROPIAS } from '../cotizador/lib/permisos';
 import { descripcionComercial } from '../cotizador/lib/detalleComercial';
+import { HABILES_POR_VENCER, habilesTranscurridosSql, validezOfertaDias } from '../cotizador/lib/validezOferta';
 
 // ─── Catálogos ────────────────────────────────────────────────────────────────
 
@@ -254,14 +255,6 @@ const num = (v: unknown): number => {
 };
 const redondear = (n: number, d = 1) => Math.round(n * 10 ** d) / 10 ** d;
 
-async function validezOfertaDias(): Promise<number> {
-  const filas = await sequelize.query<{ dias: number | null }>(
-    'SELECT validez_oferta_dias AS dias FROM cotizador.empresa WHERE id = 1',
-    { type: QueryTypes.SELECT }
-  );
-  const d = Number(filas[0]?.dias);
-  return Number.isInteger(d) && d > 0 ? d : 8;
-}
 
 // ─── Bloques del panel ───────────────────────────────────────────────────────
 
@@ -406,10 +399,10 @@ export interface DatosPanelCotizaciones {
   asesores: Array<{ id: number; nombre: string }>;
 }
 
-/** Días hábiles (lun–vie) transcurridos desde el día siguiente a la creación hasta hoy. */
-const HABILES_TRANSCURRIDOS = `(
-  SELECT COUNT(*)::int FROM generate_series(fecha + 1, ${HOY_BOGOTA}, interval '1 day') g
-  WHERE EXTRACT(ISODOW FROM g) < 6)`;
+/** Días hábiles (lun–vie) transcurridos desde el día siguiente a la creación
+ * hasta hoy. La regla vive en `cotizador/lib/validezOferta.ts`, compartida con
+ * la pestaña Cotizaciones del Cotizador. */
+const HABILES_TRANSCURRIDOS = habilesTranscurridosSql('fecha');
 
 export async function datosPanel(f: FiltrosResueltos): Promise<DatosPanelCotizaciones> {
   const validez = await validezOfertaDias();
@@ -485,7 +478,7 @@ export async function datosPanel(f: FiltrosResueltos): Promise<DatosPanelCotizac
            FROM vig WHERE estado = 'PENDIENTE'
          ), clas AS (
            SELECT *, CASE WHEN habiles_restantes < 0 THEN 'VENCIDA'
-                          WHEN habiles_restantes <= 2 THEN 'POR_VENCER'
+                          WHEN habiles_restantes <= ${HABILES_POR_VENCER} THEN 'POR_VENCER'
                           ELSE 'VIGENTE' END AS validez
            FROM pend
          )

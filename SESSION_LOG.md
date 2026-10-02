@@ -6093,3 +6093,83 @@ ficha ODP y rediseño del tablero de Cotizaciones del Dashboard con Excel. Pregu
   correcta (ReportarProblemaForm), `API` fuera de dependencias (Configuración).
 - Verificación: tsc limpio; ESLint del proyecto sobre los 14 archivos: 0 advertencias (comprobado que
   la regla sí se aplica con un fragmento de prueba).
+
+## 2026-10-01 — Cotizador: rediseño de Resumen y Cotizaciones tras el lanzamiento
+
+### Contexto
+El usuario lanzó el Cotizador a producción y los asesores dijeron que no lo entendían. Uso real medido
+(solo lectura): desde el 27-sep, 2 cotizaciones guardadas (1 de una asesora) frente a 15 ODP creadas
+en esos días, 14 de ellas sin cotización. El usuario precisó que lo que enreda son **Resumen** y
+**Cotizaciones**, que le gusta la lógica pero no el diseño. Se hicieron 6 propuestas en un lienzo
+(artifact "Cotizador · Resumen y Cotizaciones": R1/R2/R3 y C1/C2/C3) y eligió **R1 + C1**, con la
+consigna de simplicidad y pocos pasos.
+
+### Cambios
+- **Resumen (R1, `TabActual.tsx` reescrito):** la cotización como documento (tal como la verá el
+  cliente, editable en sitio) con las opciones como pestañas encima, más la columna **"Lo que sigue"**:
+  enviar (WhatsApp / PDF) → ¿qué respondió? (Aprobó / La perdimos) → Crear ODP. Tipo de cliente,
+  asesor, vínculo, contacto, hoja de trabajo y comparador quedan plegados en "Datos internos".
+  `BarraTrabajo` queda solo en Cotizar.
+- **Cotizaciones (C1, `TabGuardadas.tsx` reescrito):** bandeja por situación: Necesitan atención
+  (aprobadas sin ODP · vencen pronto · vencidas), Esperando respuesta, Aprobadas, Perdidas y
+  canceladas, Todas. Un buscador y el selector de asesor en lugar de 5 filtros. Clic en la fila =
+  abrir en Resumen. Cada fila trae su acción: Crear ODP, Recordar por WhatsApp, Marcar perdida.
+- **Cierre en un clic (`CotizadorPage`):** `marcarAprobada` (elige la opción si hace falta y aprueba),
+  `cambiarEstado` (pendiente / cancelada), `confirmarPerdida`; las tres guardan en el acto con
+  `guardarYa`. `elegirPropuesta` ahora devuelve si quedó elegida. `abrirEnResumen` abre desde la
+  bandeja y sigue con Crear ODP o Perdida.
+- **`documentos.ts` (nuevo):** descarga de PDF compartida (la usaba solo el modal de detalle) y
+  `abrirWhatsApp` (`wa.me` con 57 para celulares de 10 cifras; se abre en el mismo clic para que el
+  navegador no lo bloquee; el PDF se descarga para adjuntarlo, porque WhatsApp no permite adjuntar
+  desde una página).
+- **Backend:** `cotizador/lib/validezOferta.ts` (nuevo) con la regla de días hábiles que vivía en
+  `dashboardCotizaciones.service.ts`; el tablero ahora la importa (incluido el umbral de 2 días) y
+  `cotizacionStore.listar()` devuelve `validez: { habilesRestantes, estado }` (una consulta agregada
+  por ids, sin JSONB). Sin cambios de BD.
+- `CargosCompactos` (de `ResumenPropuesta`) exportado y reutilizado en la hoja de Resumen;
+  `ModalDetalleCotizacion` acepta `onReabrir` opcional.
+
+### Decisiones
+- Sin "Renovar" una cotización vencida: no existe en la lógica actual y el usuario pidió no cambiarla.
+- Se tomaron los valores recomendados de las tres preguntas abiertas (WhatsApp + PDF, sin Renovar,
+  clic directo a Resumen): el usuario respondió "procede" sin elegir otros.
+
+### Verificación
+- tsc backend y frontend limpios; ESLint del módulo cotizador sin advertencias (el backend no tiene
+  configuración de ESLint, ya era así).
+- `listar()` contra la base: devuelve `validez` (COT-17001 de hoy: 8 días hábiles; COT-17000 del
+  29-sep: 6). Panel del Dashboard con la regla extraída: mismo `resumen_validez`.
+- **No se probó la interfaz con sesión iniciada** (firmar un token local quedó bloqueado): falta la
+  prueba manual del usuario.
+
+### Pendientes
+- Prueba manual de las dos pestañas (lista de 10 pasos entregada en la sesión).
+- Commit y push cuando el usuario lo ordene; luego desplegar backend y frontend.
+- Medir la adopción en una o dos semanas: cotizaciones por asesor frente a ODP creadas (hoy 1 de 15).
+
+### Mensaje de WhatsApp (mismo día)
+- Formato elegido por el usuario (opción 2, comercial y cercano), **sin precio** para que el cliente
+  abra el PDF, cerrando siempre con "¿Te parece si la revisamos juntos?" y firmado por quien envía.
+- Frase de instalación automática según la casilla "Con instalación" de los productos de la opción
+  (todos / ninguno / mezcla; el ítem libre no cuenta). El recordatorio de la bandeja, también sin precio.
+- `documentos.ts` (`instalacionDe`, `abrirWhatsApp`), `CotizadorPage`, `TabActual`, `TabGuardadas`.
+  tsc y ESLint del módulo limpios.
+
+### Alfajía de ventanas (mismo día)
+- **Diagnóstico:** solo cobraba en 5020 mate (SIA0102, además del sillar: doble pieza); en los demás
+  sistemas y colores solo avisaba, pero el PDF decía "con alfajía"; la pieza de alfajía de los diseños
+  se descartaba (no llegaba a cortes ni a SAP); la verificación de corte leía otro nombre de campo.
+- **Cambio:** selector de alfajía al marcar la casilla, solo del color de la perfilería, con la
+  recomendada del sistema primero (5020 S-332 · 744/8025 1123 · 7038 413). Entra al despiece con la
+  fórmula de la pieza del diseño → cortes, Hoja de trabajo y SAP. El sillar alfajía 581 reemplaza al
+  sillar. Sin alfajía en ese color: error que bloquea el ítem. El PDF nombra la alfajía cobrada.
+  `lib/alfajias.ts` (nuevo), `motorDespiece`, `cotizarPorDiseno`, `ventanas`, `aptitudOrden`,
+  `detalleComercial`, `registry`; frontend `alfajiaFormulario.ts` (nuevo), `FormularioModulo`, `types`.
+- **Catálogo:** script `2026-10-01_cotizador_alfajias_catalogo.ts` corrido: 27 altas (3 con proveedor,
+  16 heredadas del mismo perfil en otro color, 8 provisionales a $70.000 la tira). Las 5 con costo
+  manual intactas (decisión del usuario).
+- **Verificación:** tsc back y front, ESLint del módulo; `alfajia.test.ts` 16/16; suites de regresión
+  en verde una por una (peliculasYCerrojo dio 0/12 por el pooler y 12/12 al repetirla sola); el golden
+  master se salta solo (le falta su fixture, ya pasaba). Backend dev reiniciado: caché de 657 productos.
+- **Pendiente:** revisar el costo manual de la 413 mate (ALF0102, $26.652/m), que heredaron sus otros
+  4 colores; prueba manual en pantalla; desplegar.

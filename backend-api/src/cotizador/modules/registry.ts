@@ -24,6 +24,7 @@ import { advertenciasPrecioACotizar } from "../lib/motorCalculo";
 // dos lados sólo se llaman dentro de funciones, nunca al cargar el módulo.
 import { descripcionComercial } from "../lib/detalleComercial";
 import { opcionesPelicula } from "../lib/peliculas";
+import { opcionesAlfajia } from "../lib/alfajias";
 import type { InputModulo } from "../tipos";
 
 // El orden de este objeto es el orden en que el frontend pinta las tarjetas de
@@ -44,6 +45,7 @@ export const MODULOS = {
  * nueva aparece en el formulario sin reiniciar nada. */
 const OPCIONES_DINAMICAS: Record<string, () => unknown[]> = {
   peliculas: opcionesPelicula,
+  alfajias: opcionesAlfajia,
 };
 
 export function listarModulos() {

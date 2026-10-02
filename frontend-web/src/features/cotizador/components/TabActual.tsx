@@ -1,68 +1,59 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    Trash2, Inbox, AlertTriangle, Package, Copy, Layers,
-    CheckCircle2, Scale, FilePlus2, User, Briefcase, Receipt, Pencil, Lock, Link2, FileCheck, ExternalLink,
+    AlertTriangle, Check, CheckCircle2, ChevronDown, Copy, Download, ExternalLink, FileCheck, HardHat, Inbox, Loader2,
+    Lock, MessageCircle, MoreVertical, Pencil, Plus, RotateCcw, Scale, Trash2, XCircle,
 } from '../../../components/ui/icons';
 
-import { fmtCOP, fmtPct } from '../format';
+import { fmtCOP, fmtPct, numeroCotizacion } from '../format';
 import { descripcionDeItem } from '../fichaProducto';
-import {
-    ClienteCotizacion, EstadoCotizacion, ItemCarrito, LineaManoObra, Parametros, Propuesta, SegmentoCliente,
-} from '../types';
+import { ClienteCotizacion, EstadoCotizacion, ItemCarrito, LineaManoObra, MotivoPerdida, Parametros, Propuesta, SegmentoCliente } from '../types';
 import { CabeceraCotizacion } from '../CotizadorPage';
-import PanelCargosObra, { EstadoCargos, resumenCargos } from './PanelCargosObra';
-import { TotalesPrevistos } from '../totalesPropuesta';
+import { EstadoCargos } from './PanelCargosObra';
+import { CargosCompactos } from './ResumenPropuesta';
+import { TotalesPrevistos, totalLineaManoObra } from '../totalesPropuesta';
 import ComparadorPropuestas from './ComparadorPropuestas';
-import {
-    BotonSecundario, Chip, CONTROL_LABEL_CLASS, EstadoVacio, Tarjeta, claseControl,
-} from './ui';
-import { colorPropuesta } from '../propuestaColor';
+import { EstadoGuardado, TipoNuevaPropuesta } from './BarraTrabajo';
+import { BotonPrimario, BotonSecundario, Chip, EstadoVacio, Tarjeta } from './ui';
 import { AsesorCotizador, FichaVinculo, MOTIVOS_PERDIDA } from '../vinculo';
-import { MotivoPerdida } from '../types';
 import { ChipVinculo } from './BuscadorVinculo';
-import { BotonPrimario } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pestaña "Actual": la propuesta que se está armando, de principio a fin.
+// Pestaña "Resumen" — la cotización como DOCUMENTO (rediseño 2026-10-01,
+// dirección R1 elegida por el usuario sobre el lienzo de propuestas).
 //
-// Desde el 2026-09-20 su alcance creció: además de la cabecera (cliente y
-// comercial) y del carrito, gobierna las PROPUESTAS de la cotización (chips
-// A/B/C con nueva / duplicar / variante / elegir / borrar), el descuento ÚNICO
-// de la propuesta y su panel de cargos de obra.
+// Por qué se rehízo: los asesores no la entendían. Eran siete tarjetas del mismo
+// peso (Para quién, Propuestas, Cliente, Comercial, Cargos, Productos, Totales),
+// aprobar era cambiar un select "Estado" escondido en "Comercial", y el PDF —lo
+// que el asesor quiere al final— ni siquiera estaba en esta pestaña.
 //
-// Sigue sin calcular ni persistir nada por su cuenta: el dueño del estado y de
-// las llamadas es `CotizadorPage`, y este componente sólo notifica hacia arriba
-// (mismo patrón que `FormularioModulo` con `onResultado`). La única aritmética
-// que hace es la PREVISUALIZACIÓN de los totales mientras hay cambios sin
-// guardar — ver `totalesPrevistos`, y por qué no puede evitarse.
+// Ahora hay dos piezas:
+//   · LA HOJA: la cotización tal como la verá el cliente, editable en sitio
+//     (datos del cliente, productos, trabajos en obra, descuento y total), con
+//     las opciones A/B/C como pestañas encima.
+//   · "LO QUE SIGUE": enviar (WhatsApp / PDF) → ¿qué respondió? (Aprobó / La
+//     perdimos) → Crear ODP. Lo interno (tipo de cliente, asesor, vínculo, hoja
+//     de trabajo, comparar) queda plegado en "Datos internos".
 //
-// Rediseño visual 2026-09-20 (misma sesión, después del de Cotizar): mismos
-// datos, mismos controles y mismas reglas; lo que cambia es la presentación.
-// Todo se agrupa en las `Tarjeta` de `components/ui` para que las dos pestañas
-// se lean igual, el carrito pasa de una pila de fichas a una TABLA compacta
-// —con el subtotal de cada línea y el rótulo "a precio lleno" en la cabecera,
-// una vez, en vez de repetido en cada fila— y el TOTAL de la propuesta deja de
-// pesar lo mismo que los cuatro parciales: es el número que el vendedor busca
-// de un vistazo y ahora ocupa su propio bloque.
-//
-// 2026-09-23: crear propuestas y cambiar el tipo de cliente se mudaron a la
-// barra de trabajo (`BarraTrabajo`), visible también en Cotizar. Aquí quedan lo
-// que sólo tiene sentido con la propuesta a la vista: sus totales, elegirla,
-// borrarla y compararlas.
+// LA LÓGICA NO CAMBIÓ. Este componente sigue sin calcular ni persistir nada:
+// todo llega de CotizadorPage y todo vuelve por sus callbacks (los mismos de
+// antes más los de cierre: `onAprobar`, `onPerdida`, `onCambiarEstado`). Los
+// totales son los de `totalesPropuesta.ts`; los cargos, el mismo editor del
+// resumen de Cotizar (`CargosCompactos`).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface ControlPropuestas {
     propuestas: Propuesta[];
     activaId: number | null;
-    /** null mientras la cotización no se haya guardado: sin id no hay propuestas
-     * en el servidor y los chips no tienen nada que mostrar. */
+    /** null mientras la cotización no se haya guardado. */
     cotizacionId: number | null;
     ocupado: boolean;
     onActivar: (id: number) => void;
-    /** Copia exacta: la pide el aviso de propuesta legada del panel de cargos. */
+    /** Copia exacta: la pide el aviso de propuesta legada. */
     onDuplicar: () => void;
     onElegir: (id: number) => void;
     onBorrar: (id: number) => void;
+    onNueva: (tipo: TipoNuevaPropuesta) => void;
+    motivoNoNueva: string | null;
 }
 
 interface Props {
@@ -71,121 +62,184 @@ interface Props {
     onCambiarCabecera: (cambios: Partial<CabeceraCotizacion>) => void;
     onQuitarItem: (idTemp: string) => void;
     numeroEnEdicion: number | null;
-    asesoresSugeridos: string[];
-    estadosDisponibles: EstadoCotizacion[];
     parametros: Parametros | null;
     /** Descuento de la PROPUESTA activa, en fracción (0,05 = 5%). */
     descuentoPct: number;
     onCambiarDescuento: (v: number) => void;
     cargos: EstadoCargos;
     onCambiarCargos: (v: EstadoCargos) => void;
-    /** Mano de obra por producto del carrito, calculada por el backend. */
     manoObra: LineaManoObra[];
     cargandoManoObra?: boolean;
-    /** Total previsto del carrito (`calcularTotalesPrevistos`, en CotizadorPage). */
     totalesPrevistos: TotalesPrevistos;
     propuestas: ControlPropuestas;
     hayCambiosSinGuardar: boolean;
     onNuevaCotizacion: () => void;
-    /** Abre el ítem en Cotizar para editarlo en su posición. */
     onEditarItem: (idTemp: string) => void;
-    /** Copia el ítem justo debajo, tal cual (mismo input, mismo resultado). */
     onDuplicarItem: (idTemp: string) => void;
-    /** Motivo por el que los ítems, el descuento, los cargos y el segmento no se
-     * pueden tocar (propuesta elegida de una cotización aprobada). */
+    /** Ir a Cotizar para agregar un producto a la opción a la vista. */
+    onIrACotizar: () => void;
+    /** Motivo por el que ítems, descuento, cargos y segmento no se tocan. */
     bloqueoEdicion: string | null;
-    /** Ids de módulo que existen hoy: un ítem de un módulo retirado no se edita. */
+    /** Sin permiso sobre esta cotización (solo lectura): no se ofrecen acciones de cierre. */
+    sinPermiso: string | null;
     modulosDisponibles: Set<string>;
-    // ─── Vínculo con el ERP (2026-09-27) ─────────────────────────────────
+    // Guardado
+    estadoGuardadoUI: EstadoGuardado;
+    mensajeError: string | null;
+    onReintentar?: () => void;
+    // Vínculo y cierre
     vinculo?: FichaVinculo | null;
     odpVinculada?: { id: number; numero: string } | null;
     /** Estado GUARDADO (null = cotización nueva). */
     estadoGuardado?: EstadoCotizacion | null;
     motivoPerdida?: MotivoPerdida | null;
-    /** null = no se ofrece "Crear ODP" (no aprobada, ya tiene ODP o sin permiso). */
     onCrearOdp?: (() => void) | null;
+    onAprobar: (propuestaId: number) => void;
+    onPerdida: () => void;
+    onCambiarEstado: (estado: 'PENDIENTE' | 'CANCELADO') => void;
+    onPdf: () => void;
+    onWhatsApp: () => void;
+    generandoPdf: boolean;
+    onDetalleTecnico: () => void;
+    // Datos internos
+    segmento: SegmentoCliente;
+    onCambiarSegmento: (s: SegmentoCliente) => void;
+    cambiandoSegmento: boolean;
+    motivoNoSegmento: string | null;
     asesores?: AsesorCotizador[];
-    /** Nueva: quien puede crear. Guardada: solo control total. */
     puedeCambiarAsesor?: boolean;
 }
 
-/** Rótulo largo del tipo de cliente, para la ficha de sólo lectura de Comercial
- * (el control para cambiarlo está en la barra de trabajo). */
-const NOMBRE_SEGMENTO: Record<SegmentoCliente, string> = {
-    PA: 'PA — Persona / obra pequeña',
-    PM: 'PM — Constructor mediano',
-    PB: 'PB — Gran obra',
+const SEGMENTOS: { v: SegmentoCliente; corto: string; largo: string }[] = [
+    { v: 'PA', corto: 'Persona', largo: 'PA — Persona / obra pequeña' },
+    { v: 'PM', corto: 'Constructor', largo: 'PM — Constructor mediano' },
+    { v: 'PB', corto: 'Gran obra', largo: 'PB — Gran obra' },
+];
+
+/** Situación en palabras del asesor, a partir del estado guardado. */
+function situacion(estado: EstadoCotizacion | null | undefined, odp: boolean): { texto: string; clase: string } {
+    if (!estado) return { texto: 'Sin guardar', clase: 'bg-slate-100 text-slate-800' };
+    if (estado === 'APROBADA') return odp
+        ? { texto: 'Aprobada · en producción', clase: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200' }
+        : { texto: 'Aprobada · falta la ODP', clase: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200' };
+    if (estado === 'PERDIDO') return { texto: 'Perdida', clase: 'bg-rose-50 text-rose-800 ring-1 ring-rose-200' };
+    if (estado === 'CANCELADO') return { texto: 'Cancelada', clase: 'bg-slate-100 text-slate-800 ring-1 ring-slate-300' };
+    return { texto: 'Esperando respuesta', clase: 'bg-amber-50 text-amber-900 ring-1 ring-amber-200' };
+}
+
+const INDICADOR_GUARDADO: Record<EstadoGuardado, { texto: string; clase: string }> = {
+    nuevo: { texto: 'Se guarda sola con el primer producto', clase: 'text-slate-700' },
+    pendiente: { texto: 'Cambios por guardar…', clase: 'text-slate-700' },
+    guardando: { texto: 'Guardando…', clase: 'text-templex-700' },
+    guardado: { texto: 'Guardada automáticamente', clase: 'text-emerald-700' },
+    error: { texto: 'No se pudo guardar', clase: 'text-rose-700' },
 };
 
-const ESTADO_LABELS: Record<EstadoCotizacion, string> = {
-    PENDIENTE: 'Pendiente',
-    APROBADA: 'Aprobada',
-    CANCELADO: 'Cancelado',
-    PERDIDO: 'Perdido',
+const campoHoja =
+    'w-full bg-transparent border-0 border-b border-dashed border-slate-400 px-0 py-1 text-[14px] text-slate-900 ' +
+    'placeholder:text-slate-500 focus:outline-none focus:border-solid focus:border-templex-600 disabled:border-transparent';
+
+/** Menú "⋯" con las acciones poco frecuentes. */
+const MenuMas: React.FC<{ opciones: { texto: string; onClick: () => void; peligro?: boolean }[] }> = ({ opciones }) => {
+    const [abierto, setAbierto] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!abierto) return;
+        const fuera = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false); };
+        const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
+        document.addEventListener('mousedown', fuera);
+        document.addEventListener('keydown', esc);
+        return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc); };
+    }, [abierto]);
+    if (opciones.length === 0) return null;
+    return (
+        <div ref={ref} className="relative">
+            <button
+                type="button"
+                onClick={() => setAbierto(v => !v)}
+                aria-haspopup="menu"
+                aria-expanded={abierto}
+                aria-label="Más acciones"
+                className="h-10 w-10 inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+            >
+                <MoreVertical className="w-5 h-5" />
+            </button>
+            {abierto && (
+                <div role="menu" className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                    {opciones.map(o => (
+                        <button
+                            key={o.texto}
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { setAbierto(false); o.onClick(); }}
+                            className={`w-full rounded-lg px-3 py-2.5 text-left text-[13.5px] font-semibold hover:bg-slate-50 ${o.peligro ? 'text-rose-700' : 'text-slate-900'}`}
+                        >
+                            {o.texto}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 };
 
-// Fase 5 del sistema visual (2026-09-26): los controles salen del kit del
-// módulo (`ui/index.tsx`) en vez de declararse aquí con su propio índigo. El
-// estado deshabilitado se agrega porque el descuento se bloquea en propuestas
-// legadas y aprobadas, y debe verse bloqueado sin volverse ilegible.
-const inputClass = claseControl(false, 'disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed');
-const labelClass = CONTROL_LABEL_CLASS;
-const btnChip = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-[12px] font-semibold text-slate-800 hover:bg-slate-50 hover:border-slate-400 transition disabled:opacity-40 disabled:cursor-not-allowed';
-const thClass = 'px-3 py-2 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap text-slate-900';
-const btnFila = 'p-1.5 rounded-lg text-slate-600 hover:text-templex-700 hover:bg-templex-50 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-600';
-
-/** Renglón de la cadena de totales: rótulo con su aclaración debajo e importe a
- * la derecha. Existe para que los cuatro parciales se lean como una cadena
- * (productos → descuento → cargos → IVA) y no como cuatro tarjetas sueltas que
- * compiten en peso con el total. */
-const FilaTotal: React.FC<{
-    etiqueta: string;
-    detalle: string;
-    valor: React.ReactNode;
-    tono?: 'normal' | 'rebaja' | 'apagado';
-}> = ({ etiqueta, detalle, valor, tono = 'normal' }) => (
-    <div className="flex items-baseline justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0">
-        <div className="min-w-0">
-            <div className="text-[12.5px] font-semibold text-slate-900">{etiqueta}</div>
-            <div className="text-[11px] text-slate-700 leading-tight">{detalle}</div>
-        </div>
-        <div
-            className={`text-[15px] tabular-nums whitespace-nowrap ${
-                tono === 'rebaja' ? 'font-bold text-rose-700' : tono === 'apagado' ? 'font-normal text-slate-700' : 'font-bold text-slate-900'
-            }`}
-        >
-            {valor}
-        </div>
-    </div>
-);
+/** Paso numerado de "Lo que sigue". */
+const Paso: React.FC<{
+    n: number;
+    estado: 'hecho' | 'actual' | 'futuro' | 'bloqueado';
+    titulo: string;
+    detalle?: React.ReactNode;
+    children?: React.ReactNode;
+}> = ({ n, estado, titulo, detalle, children }) => {
+    const circulo = estado === 'hecho'
+        ? <span className="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0"><Check className="w-4 h-4" /></span>
+        : estado === 'actual'
+            ? <span className="w-7 h-7 rounded-full bg-templex-600 text-white flex items-center justify-center text-[13px] font-bold shrink-0 tabular-nums">{n}</span>
+            : estado === 'bloqueado'
+                ? <span className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0"><Lock className="w-3.5 h-3.5" /></span>
+                : <span className="w-7 h-7 rounded-full border-2 border-slate-300 text-slate-600 flex items-center justify-center text-[13px] font-bold shrink-0 tabular-nums">{n}</span>;
+    return (
+        <li className={`flex gap-3 ${estado === 'bloqueado' ? 'opacity-80' : ''}`}>
+            {circulo}
+            <div className="min-w-0 flex-1 space-y-2.5">
+                <div>
+                    <p className="text-[14px] font-semibold text-slate-900">{titulo}</p>
+                    {detalle && <p className="text-[12.5px] text-slate-700 leading-snug">{detalle}</p>}
+                </div>
+                {children}
+            </div>
+        </li>
+    );
+};
 
 const TabActual: React.FC<Props> = ({
-    carrito, cabecera, onCambiarCabecera, onQuitarItem,
-    numeroEnEdicion, estadosDisponibles, parametros,
+    carrito, cabecera, onCambiarCabecera, onQuitarItem, numeroEnEdicion, parametros,
     descuentoPct, onCambiarDescuento, cargos, onCambiarCargos, manoObra, cargandoManoObra, totalesPrevistos, propuestas,
-    hayCambiosSinGuardar, onNuevaCotizacion, onEditarItem, onDuplicarItem,
-    bloqueoEdicion, modulosDisponibles,
+    hayCambiosSinGuardar, onNuevaCotizacion, onEditarItem, onDuplicarItem, onIrACotizar,
+    bloqueoEdicion, sinPermiso, modulosDisponibles,
+    estadoGuardadoUI, mensajeError, onReintentar,
     vinculo = null, odpVinculada = null, estadoGuardado = null, motivoPerdida = null, onCrearOdp = null,
-    asesores = [], puedeCambiarAsesor = false,
+    onAprobar, onPerdida, onCambiarEstado, onPdf, onWhatsApp, generandoPdf, onDetalleTecnico,
+    segmento, onCambiarSegmento, cambiandoSegmento, motivoNoSegmento, asesores = [], puedeCambiarAsesor = false,
 }) => {
     const [comparando, setComparando] = useState(false);
-    const aprobada = Boolean(bloqueoEdicion);
+    const [eligiendoAprobada, setEligiendoAprobada] = useState(false);
+    const [menuNueva, setMenuNueva] = useState(false);
 
     const cambiarCliente = (campo: keyof ClienteCotizacion, valor: string) => {
         onCambiarCabecera({ cliente: { ...cabecera.cliente, [campo]: valor } });
     };
 
-    const activa = propuestas.propuestas.find(p => p.id === propuestas.activaId) ?? null;
+    const lista = propuestas.propuestas;
+    const activa = lista.find(p => p.id === propuestas.activaId) ?? null;
+    const elegida = lista.find(p => p.elegida) ?? null;
     const legado = Boolean(activa?.legadoCargosEnItems);
-    const ivaPct = Number(parametros?.iva) || 0;
-
-    // La previsualización de los totales llega hecha desde CotizadorPage
-    // (`totalesPrevistos`): la cuenta vive en `totalesPropuesta.ts`, la misma que
-    // usan la barra superior y el paso 3 de Cotizar (antes estaba copiada aquí).
+    const soloLectura = Boolean(sinPermiso);
+    const bloqueoCargos = legado
+        ? 'Opción anterior al cambio de cargos: duplícala para editarlos.'
+        : bloqueoEdicion;
 
     // Guardado = lo que devolvió el backend. Previsto = lo que se está armando.
-    // Se muestra el guardado en cuanto no hay nada pendiente, para que el número
-    // de la pantalla sea exactamente el que quedó en la base.
     const totales = !hayCambiosSinGuardar && activa
         ? {
             productos: activa.totales.productos,
@@ -198,554 +252,600 @@ const TabActual: React.FC<Props> = ({
         : totalesPrevistos;
 
     const hayCarrito = carrito.length > 0;
-    const hayPropuestas = propuestas.cotizacionId !== null && propuestas.propuestas.length > 0;
-    const sinNada = !hayCarrito && !hayPropuestas;
+    const guardada = numeroEnEdicion !== null;
+    const sit = situacion(estadoGuardado, Boolean(odpVinculada));
+    const indicador = INDICADOR_GUARDADO[estadoGuardadoUI];
 
-    return (
-        <div className="p-4 space-y-3 bg-slate-50">
-            {sinNada && (
+    if (!hayCarrito && !guardada) {
+        return (
+            <div className="p-4 md:p-6 bg-slate-50">
                 <Tarjeta>
                     <EstadoVacio
                         icono={Inbox}
-                        titulo="Aún no has agregado ítems"
-                        detalle="Ve a la pestaña Cotizar para calcular el primero: en cuanto lo agregues aparecerán aquí el carrito, los cargos de obra y el total de la propuesta."
+                        titulo="Todavía no hay productos"
+                        detalle="Arma el primero en Cotizar. Apenas lo agregues, aquí verás la cotización tal como le llegará al cliente."
                     />
+                    <div className="flex justify-center pb-4">
+                        <BotonPrimario icono={Plus} onClick={onIrACotizar}>Ir a Cotizar</BotonPrimario>
+                    </div>
                 </Tarjeta>
+            </div>
+        );
+    }
+
+    // ── Acciones poco frecuentes ──────────────────────────────────────────
+    const opcionesMas: { texto: string; onClick: () => void; peligro?: boolean }[] = [];
+    if (guardada && !soloLectura) {
+        if (estadoGuardado && estadoGuardado !== 'PENDIENTE') {
+            opcionesMas.push({ texto: 'Volver a “Esperando respuesta”', onClick: () => onCambiarEstado('PENDIENTE') });
+        }
+        if (estadoGuardado === 'PENDIENTE') {
+            opcionesMas.push({ texto: 'Cancelar la cotización', onClick: () => onCambiarEstado('CANCELADO'), peligro: true });
+        }
+        if (activa && lista.length > 1 && !bloqueoEdicion) {
+            opcionesMas.push({ texto: `Borrar la Opción ${activa.etiqueta}`, onClick: () => propuestas.onBorrar(activa.id), peligro: true });
+        }
+    }
+    if (guardada) opcionesMas.push({ texto: 'Cotizar a otro cliente', onClick: onNuevaCotizacion });
+
+    // ── "Lo que sigue" ────────────────────────────────────────────────────
+    const pendiente = estadoGuardado === 'PENDIENTE';
+    const aprobada = estadoGuardado === 'APROBADA';
+    const cerrada = estadoGuardado === 'PERDIDO' || estadoGuardado === 'CANCELADO';
+    const hayErrores = carrito.some(it => it.resultado.hayErrores);
+    const motivoNoEnviar = !guardada
+        ? (vinculo ? 'Guardando la cotización…' : 'Primero elige para quién es, en Cotizar.')
+        : hayErrores ? 'Hay productos con líneas en error: corrígelos antes de enviar.' : null;
+    // Un cambio de estado en camino (o un guardado en curso) frena los botones de
+    // cierre: dos guardados con la misma versión darían el 409 "otra ventana".
+    const estadoEnCamino = Boolean(estadoGuardado) && cabecera.estado !== estadoGuardado;
+    const cierreOcupado = estadoEnCamino || estadoGuardadoUI === 'guardando' || propuestas.ocupado;
+
+    const aprobar = () => {
+        if (lista.length > 1) { setEligiendoAprobada(true); return; }
+        const pid = activa?.id ?? elegida?.id;
+        if (pid) onAprobar(pid);
+    };
+
+    return (
+        <div className="p-3 sm:p-5 bg-slate-50 space-y-4">
+            {/* ── Encabezado ─────────────────────────────────────────────── */}
+            <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div className="min-w-0">
+                    <h2 className="text-[22px] font-extrabold text-slate-900 leading-tight truncate">
+                        {cabecera.cliente.nombre?.trim() || 'Cotización sin nombre de cliente'}
+                    </h2>
+                    <p className="text-[13px] text-slate-700 truncate">
+                        {guardada ? numeroCotizacion(numeroEnEdicion) : 'Cotización nueva'}
+                        {cabecera.cliente.obra?.trim() ? ` · ${cabecera.cliente.obra.trim()}` : ''}
+                        {vinculo ? ` · ${vinculo.titulo}` : ''}
+                    </p>
+                </div>
+                <span className={`inline-flex items-center h-7 px-3 rounded-full text-[12.5px] font-semibold ${sit.clase}`}>{sit.texto}</span>
+                <div className="ml-auto flex items-center gap-3">
+                    <span className={`inline-flex items-center gap-1.5 text-[12.5px] font-semibold ${indicador.clase}`} aria-live="polite">
+                        {estadoGuardadoUI === 'guardando' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {estadoGuardadoUI === 'guardado' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        {estadoGuardadoUI === 'error' && <AlertTriangle className="w-3.5 h-3.5" />}
+                        <span title={mensajeError ?? undefined}>{indicador.texto}</span>
+                        {estadoGuardadoUI === 'error' && onReintentar && (
+                            <button type="button" onClick={onReintentar} className="underline underline-offset-2">Reintentar</button>
+                        )}
+                    </span>
+                    <MenuMas opciones={opcionesMas} />
+                </div>
+            </header>
+
+            {(bloqueoEdicion || sinPermiso) && (
+                <div className="flex items-start gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-[13px] text-slate-800">
+                    <Lock className="w-4 h-4 mt-0.5 shrink-0" />
+                    <p>{sinPermiso ?? bloqueoEdicion}</p>
+                </div>
             )}
 
-            {!sinNada && (
-                <>
-                    {bloqueoEdicion && (
-                        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-800">
-                            <Lock className="w-4 h-4 mt-0.5 shrink-0" />
-                            <p>{bloqueoEdicion}</p>
-                        </div>
-                    )}
-
-                    {/* ── Para quién es y cierre (2026-09-27) ──────────────────── */}
-                    <Tarjeta titulo="Para quién es" icono={Link2}>
-                        <div className="flex flex-wrap items-center gap-3">
-                            {vinculo
-                                ? <ChipVinculo ficha={vinculo} className="flex-1 min-w-[220px]" />
-                                : <span className="flex-1 text-[12.5px] text-slate-800">Sin vínculo todavía: elígelo arriba, en Cotizar.</span>}
-                            {odpVinculada && (
-                                <a
-                                    href={`/odp?buscar=${encodeURIComponent(odpVinculada.numero)}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[12.5px] font-bold text-emerald-800 hover:bg-emerald-100"
-                                    title="Abrir la ODP en otra pestaña"
-                                >
-                                    <FileCheck className="w-4 h-4" /> {odpVinculada.numero} <ExternalLink className="w-3.5 h-3.5" />
-                                </a>
-                            )}
-                            {onCrearOdp && (
-                                <BotonPrimario compacto icono={FileCheck} onClick={onCrearOdp} claseColor="bg-emerald-600 text-white hover:bg-emerald-700">
-                                    Crear ODP
-                                </BotonPrimario>
-                            )}
-                        </div>
-                        {estadoGuardado && estadoGuardado !== 'APROBADA' && !odpVinculada && estadoGuardado !== 'PERDIDO' && (
-                            <p className="mt-2 text-[12px] text-slate-700">
-                                Cuando el cliente la apruebe, pásala a <span className="font-semibold text-slate-900">Aprobada</span> (Estado,
-                                en Comercial) y aquí aparecerá <span className="font-semibold text-slate-900">Crear ODP</span>.
-                            </p>
-                        )}
-                        {cabecera.estado === 'PERDIDO' && motivoPerdida && (
-                            <p className="mt-2 text-[12px] text-rose-800">
-                                Perdida · motivo: <span className="font-semibold">{MOTIVOS_PERDIDA.find(m => m.valor === motivoPerdida)?.rotulo ?? motivoPerdida}</span>
-                            </p>
-                        )}
-                    </Tarjeta>
-
-                    {/* ── Propuestas (A · B · C) ───────────────────────────────── */}
-                    {hayPropuestas && (
-                        <Tarjeta
-                            titulo="Propuestas"
-                            icono={Layers}
-                            accion={propuestas.propuestas.length > 1
-                                ? (
-                                    <button onClick={() => setComparando(v => !v)} className={btnChip}>
-                                        <Scale className="w-3.5 h-3.5" /> {comparando ? 'Ocultar comparación' : 'Comparar'}
+            <div className="grid gap-5 items-start lg:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="min-w-0">
+                    {/* ── Pestañas de opción ──────────────────────────────── */}
+                    {lista.length > 0 && (
+                        <nav aria-label="Opciones de la cotización" className="flex flex-wrap items-end gap-1.5">
+                            {lista.map(p => {
+                                const esActiva = p.id === propuestas.activaId;
+                                return (
+                                    <button
+                                        key={p.id}
+                                        type="button"
+                                        onClick={() => propuestas.onActivar(p.id)}
+                                        disabled={propuestas.ocupado}
+                                        aria-current={esActiva ? 'true' : undefined}
+                                        className={`relative text-left rounded-t-xl border px-4 py-2.5 transition disabled:cursor-wait ${esActiva
+                                            ? 'bg-white border-slate-300 border-b-white -mb-px z-[1]'
+                                            : 'bg-slate-100 border-slate-200 hover:bg-white'}`}
+                                    >
+                                        <span className={`flex items-center gap-1.5 text-[13.5px] ${esActiva ? 'font-bold text-slate-900' : 'font-semibold text-slate-800'}`}>
+                                            Opción {p.etiqueta}{p.nombre ? ` · ${p.nombre}` : ''}
+                                            {p.elegida && lista.length > 1 && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" aria-label="elegida" />}
+                                        </span>
+                                        <span className={`block text-[12.5px] tabular-nums ${esActiva ? 'font-semibold text-templex-700' : 'text-slate-700'}`}>
+                                            {fmtCOP(esActiva ? totales.total : p.totales.total)}
+                                        </span>
                                     </button>
-                                )
-                                : undefined}
-                        >
-                            <p className="text-[12px] text-slate-700 leading-snug -mt-1 mb-2.5">
-                                El total de la cotización es el de la elegida, y de ella sale la orden de corte.
-                                Para ofrecerle otra opción al cliente, usa <span className="font-semibold text-slate-900">Otra opción para este cliente</span> en
-                                la barra de arriba.
-                            </p>
-
-                            <div className="flex flex-wrap gap-2">
-                                {propuestas.propuestas.map(p => {
-                                    const esActiva = p.id === propuestas.activaId;
-                                    return (
-                                        <div
-                                            key={p.id}
-                                            className={`rounded-xl border px-3 py-2 min-w-[190px] transition ${esActiva
-                                                ? 'border-templex-300 bg-templex-50/70 ring-1 ring-templex-200'
-                                                : 'border-slate-200 bg-white hover:bg-slate-50'}`}
-                                        >
-                                            <button
-                                                onClick={() => propuestas.onActivar(p.id)}
-                                                disabled={propuestas.ocupado}
-                                                title={esActiva ? 'Es la opción que estás editando' : `Abrir la Opción ${p.etiqueta}`}
-                                                className="text-left w-full disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400 rounded-lg"
-                                            >
-                                                <div className="flex flex-wrap items-center gap-1.5">
-                                                    {/* Mismo color que su pestaña en la barra de trabajo. */}
-                                                    <span className={`w-2 h-2 rounded-full ${colorPropuesta(p.etiqueta).punto}`} />
-                                                    <span className="tabular-nums font-bold text-slate-900">{p.etiqueta}</span>
-                                                    {p.elegida && (
-                                                        <Chip tono="esmeralda" title="Es la propuesta que se cobra y la que sale a corte">
-                                                            <CheckCircle2 className="w-3 h-3" /> Elegida
-                                                        </Chip>
-                                                    )}
-                                                    {p.legadoCargosEnItems && (
-                                                        <Chip tono="ambar" title="Sus cargos están dentro del precio de los ítems">
-                                                            Legada
-                                                        </Chip>
-                                                    )}
-                                                </div>
-                                                {p.nombre && <div className="text-[12px] text-slate-700 truncate">{p.nombre}</div>}
-                                                <div className="text-[13px] text-slate-900 tabular-nums font-bold">{fmtCOP(p.totales.total)}</div>
-                                            </button>
-                                            <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-slate-100">
-                                                {!p.elegida && (
-                                                    <button
-                                                        onClick={() => propuestas.onElegir(p.id)}
-                                                        disabled={propuestas.ocupado}
-                                                        className="text-[12px] font-semibold text-templex-700 hover:underline disabled:opacity-40"
-                                                    >
-                                                        Elegir
-                                                    </button>
-                                                )}
+                                );
+                            })}
+                            {!soloLectura && guardada && (
+                                <div className="relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => setMenuNueva(v => !v)}
+                                        disabled={Boolean(propuestas.motivoNoNueva) || propuestas.ocupado}
+                                        title={propuestas.motivoNoNueva ?? undefined}
+                                        aria-haspopup="menu"
+                                        aria-expanded={menuNueva}
+                                        className="rounded-t-xl border border-dashed border-slate-400 px-4 py-2.5 text-[13.5px] font-semibold text-templex-700 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] inline-flex items-center gap-1"
+                                    >
+                                        <Plus className="w-4 h-4" /> Ofrecerle otra opción <ChevronDown className="w-3.5 h-3.5" />
+                                    </button>
+                                    {menuNueva && (
+                                        <div role="menu" className="absolute left-0 top-full mt-1 z-30 w-80 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                                            {([
+                                                ['copia', 'Copiar esta opción', 'Mismos productos y cargos; luego cambias lo que sea distinto.'],
+                                                ['variante', 'Igual pero con otro vidrio', 'Recalcula todo con otro vidrio, película o matizado.'],
+                                                ['vacia', 'Opción en blanco', 'Para cotizarle algo distinto desde cero.'],
+                                            ] as [TipoNuevaPropuesta, string, string][]).map(([tipo, titulo, detalle]) => (
                                                 <button
-                                                    onClick={() => propuestas.onBorrar(p.id)}
-                                                    disabled={propuestas.ocupado || propuestas.propuestas.length <= 1}
-                                                    title={propuestas.propuestas.length <= 1
-                                                        ? 'No se puede borrar la única opción de la cotización.'
-                                                        : 'Borrar esta opción'}
-                                                    className="ml-auto text-[12px] font-semibold text-slate-700 hover:text-rose-700 disabled:opacity-40 disabled:hover:text-slate-700"
+                                                    key={tipo}
+                                                    type="button"
+                                                    role="menuitem"
+                                                    onClick={() => { setMenuNueva(false); propuestas.onNueva(tipo); }}
+                                                    className="w-full rounded-lg px-3 py-2 text-left hover:bg-slate-50"
                                                 >
-                                                    Borrar
+                                                    <span className="block text-[13.5px] font-semibold text-slate-900">{titulo}</span>
+                                                    <span className="block text-[12px] text-slate-700">{detalle}</span>
                                                 </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {!propuestas.propuestas.some(p => p.elegida) && (
-                                <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800 font-semibold leading-snug">
-                                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                                    Ninguna propuesta está elegida todavía: la cotización no muestra un total definitivo,
-                                    no se puede aprobar y no sale orden de corte hasta que marques una.
-                                </p>
-                            )}
-                        </Tarjeta>
-                    )}
-
-                    {comparando && propuestas.cotizacionId !== null && (
-                        <ComparadorPropuestas
-                            cotizacionId={propuestas.cotizacionId}
-                            onElegir={propuestas.onElegir}
-                        />
-                    )}
-
-                    {/* ── Cliente y comercial, lado a lado ─────────────────────── */}
-                    {/* Son la cabecera de la cotización: se ven de una vez y dejan el
-                        espacio vertical para lo que de verdad cambia mientras se
-                        cotiza, que es el carrito. */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
-                        <Tarjeta titulo="Cliente" icono={User}>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="sm:col-span-2">
-                                    <label className={labelClass} htmlFor="cot-cliente-nombre">Nombre</label>
-                                    <input
-                                        id="cot-cliente-nombre"
-                                        className={inputClass}
-                                        value={cabecera.cliente.nombre || ''}
-                                        onChange={e => cambiarCliente('nombre', e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className={labelClass} htmlFor="cot-cliente-obra">Obra</label>
-                                    <input
-                                        id="cot-cliente-obra"
-                                        className={inputClass}
-                                        value={cabecera.cliente.obra || ''}
-                                        onChange={e => cambiarCliente('obra', e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className={labelClass} htmlFor="cot-cliente-contacto">Contacto</label>
-                                    <input
-                                        id="cot-cliente-contacto"
-                                        className={inputClass}
-                                        value={cabecera.cliente.contacto || ''}
-                                        onChange={e => cambiarCliente('contacto', e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className={labelClass} htmlFor="cot-cliente-direccion">Dirección</label>
-                                    <input
-                                        id="cot-cliente-direccion"
-                                        className={inputClass}
-                                        value={cabecera.cliente.direccion || ''}
-                                        onChange={e => cambiarCliente('direccion', e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className={labelClass} htmlFor="cot-cliente-telefono">Teléfono</label>
-                                    <input
-                                        id="cot-cliente-telefono"
-                                        className={inputClass}
-                                        value={cabecera.cliente.telefono || ''}
-                                        onChange={e => cambiarCliente('telefono', e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                        </Tarjeta>
-
-                        <Tarjeta titulo="Comercial" icono={Briefcase}>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    {/* Sólo lectura: el control está en la barra de
-                                        trabajo, a la vista desde Cotizar y Actual. Dos
-                                        controles para el mismo dato era una forma más
-                                        de no saber cuál mandaba. */}
-                                    <span className={labelClass}>Tipo de cliente</span>
-                                    <div className="h-10 flex items-center px-3 text-sm rounded-lg bg-slate-50 border border-slate-200 text-slate-900 font-semibold">
-                                        {NOMBRE_SEGMENTO[cabecera.segmentoCliente] ?? cabecera.segmentoCliente}
-                                    </div>
-                                    <p className="text-[11px] text-slate-700 mt-0.5">Se cambia arriba, en la barra.</p>
-                                </div>
-                                <div>
-                                    <label className={labelClass} htmlFor="cot-asesor">Asesor</label>
-                                    {/* El asesor es el DUEÑO (2026-09-27): quien la crea —nadie
-                                        cotiza a nombre de otro—. Solo un administrador lo
-                                        reasigna, en una cotización ya creada. Las anteriores
-                                        conservan su nombre en texto. */}
-                                    {puedeCambiarAsesor && asesores.length > 0 ? (
-                                        <select
-                                            id="cot-asesor"
-                                            className={inputClass}
-                                            value={cabecera.asesorUsuarioId ?? ''}
-                                            onChange={e => {
-                                                const a = asesores.find(x => x.id === Number(e.target.value));
-                                                if (a) onCambiarCabecera({ asesorUsuarioId: a.id, asesor: a.nombre });
-                                            }}
-                                        >
-                                            {cabecera.asesorUsuarioId === null && <option value="">{cabecera.asesor || 'Sin asesor asignado'}</option>}
-                                            {cabecera.asesorUsuarioId !== null && !asesores.some(a => a.id === cabecera.asesorUsuarioId) && (
-                                                <option value={cabecera.asesorUsuarioId}>{cabecera.asesor}</option>
-                                            )}
-                                            {asesores.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-                                        </select>
-                                    ) : (
-                                        <div className="h-10 flex items-center px-3 text-sm rounded-lg bg-slate-50 border border-slate-200 text-slate-900">
-                                            {cabecera.asesor || '—'}
+                                            ))}
                                         </div>
                                     )}
                                 </div>
-                                <div>
-                                    {/* UN SOLO descuento, el de la propuesta. El del
-                                        formulario por ítem se retiró el 2026-09-20 y el de
-                                        la cabecera quedó legado: había dos y sólo uno de
-                                        los dos afectaba a algún total. */}
-                                    <label className={labelClass} htmlFor="cot-descuento">
-                                        Descuento (%){activa ? ` · Opción ${activa.etiqueta}` : ''}
-                                    </label>
+                            )}
+                        </nav>
+                    )}
+
+                    {/* ── La hoja ─────────────────────────────────────────── */}
+                    <article
+                        aria-label="Cotización tal como la verá el cliente"
+                        className={`bg-white border border-slate-300 shadow-[0_12px_32px_rgba(17,22,32,0.08)] px-5 py-6 sm:px-10 sm:py-9 space-y-7 ${lista.length > 0 ? 'rounded-b-2xl rounded-tr-2xl' : 'rounded-2xl'}`}
+                    >
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div>
+                                <p className="text-[20px] font-extrabold tracking-wide text-templex-800">VIDRIOS TEMPLEX</p>
+                                <p className="text-[12.5px] text-slate-700">Así la verá el cliente en el PDF</p>
+                            </div>
+                            <p className="text-right text-[16px] font-bold text-slate-900">
+                                {guardada ? `Cotización ${numeroCotizacion(numeroEnEdicion)}` : 'Cotización'}{activa && lista.length > 1 ? ` ${activa.etiqueta}` : ''}
+                            </p>
+                        </div>
+
+                        {/* Datos del cliente, editables en sitio. */}
+                        <section aria-label="Datos del cliente" className="grid gap-x-5 gap-y-3 rounded-xl bg-slate-50 px-4 py-3.5 sm:grid-cols-2 xl:grid-cols-4">
+                            {([
+                                ['nombre', 'Cliente'],
+                                ['telefono', 'Teléfono'],
+                                ['direccion', 'Dirección'],
+                                ['obra', 'Obra'],
+                            ] as [keyof ClienteCotizacion, string][]).map(([campo, rotulo]) => (
+                                <label key={campo} className="block min-w-0">
+                                    <span className="block text-[12px] font-semibold text-slate-700">{rotulo}</span>
+                                    <input
+                                        className={campoHoja}
+                                        value={cabecera.cliente[campo] || ''}
+                                        disabled={soloLectura}
+                                        onChange={e => cambiarCliente(campo, e.target.value)}
+                                    />
+                                </label>
+                            ))}
+                        </section>
+
+                        {/* Productos. */}
+                        <section aria-label="Productos">
+                            <div className="grid grid-cols-[28px_minmax(0,1fr)_56px_120px] gap-3 border-b-2 border-slate-900 pb-2 text-[12px] font-bold text-slate-900">
+                                <span>#</span><span>Descripción</span><span className="text-center">Cant.</span><span className="text-right">Valor antes de IVA</span>
+                            </div>
+                            {!hayCarrito && (
+                                <p className="py-5 text-[13.5px] text-slate-700">
+                                    {activa ? `La Opción ${activa.etiqueta} todavía no tiene productos.` : 'Sin productos.'}
+                                </p>
+                            )}
+                            {carrito.map((item, i) => {
+                                const moduloExiste = modulosDisponibles.has(item.moduloId);
+                                const motivoNoEditar = bloqueoEdicion
+                                    ?? (legado ? 'Opción antigua: duplícala a la forma nueva para editar sus productos.' : null)
+                                    ?? (moduloExiste ? null : 'Este producto ya no existe en el cotizador: no se puede recalcular.');
+                                const personalizado = item.resultado.personalizacion && (
+                                    item.resultado.personalizacion.cambios.length +
+                                    item.resultado.personalizacion.quitados.length +
+                                    item.resultado.personalizacion.extras.length
+                                ) > 0;
+                                return (
+                                    <div
+                                        key={item.idTemp}
+                                        className={`grid grid-cols-[28px_minmax(0,1fr)_56px_120px] gap-3 border-b border-slate-200 py-3.5 ${item.resultado.hayErrores ? 'bg-rose-50 -mx-3 px-3 rounded-lg' : ''}`}
+                                    >
+                                        <span className="text-[14px] font-bold text-slate-900 tabular-nums">{i + 1}</span>
+                                        <div className="min-w-0">
+                                            <p className="flex items-start gap-1.5 text-[14px] text-slate-900 leading-snug">
+                                                {item.resultado.hayErrores && <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-700" />}
+                                                {descripcionDeItem(item.input, item.resultado, null, item.moduloNombre)}
+                                            </p>
+                                            <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                                {personalizado && (
+                                                    <Chip
+                                                        tono={item.resultado.perfileriaPersonalizada ? 'ambar' : 'marca'}
+                                                        title={item.resultado.perfileriaPersonalizada
+                                                            ? 'Tiene componentes personalizados, incluida perfilería: no sale en orden de corte.'
+                                                            : 'Tiene componentes cambiados, quitados o agregados respecto del estándar.'}
+                                                    >
+                                                        Personalizado
+                                                    </Chip>
+                                                )}
+                                                {!soloLectura && (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onEditarItem(item.idTemp)}
+                                                            disabled={Boolean(motivoNoEditar)}
+                                                            title={motivoNoEditar ?? undefined}
+                                                            className="inline-flex items-center gap-1 text-[13px] font-semibold text-templex-700 hover:underline disabled:text-slate-500 disabled:no-underline disabled:cursor-not-allowed"
+                                                        >
+                                                            <Pencil className="w-3.5 h-3.5" /> Editar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onDuplicarItem(item.idTemp)}
+                                                            disabled={Boolean(bloqueoEdicion || legado)}
+                                                            title={bloqueoEdicion ?? (legado ? 'Opción antigua: duplícala a la forma nueva.' : undefined)}
+                                                            className="inline-flex items-center gap-1 text-[13px] font-semibold text-templex-700 hover:underline disabled:text-slate-500 disabled:no-underline disabled:cursor-not-allowed"
+                                                        >
+                                                            <Copy className="w-3.5 h-3.5" /> Duplicar
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onQuitarItem(item.idTemp)}
+                                                            disabled={Boolean(bloqueoEdicion)}
+                                                            title={bloqueoEdicion ?? undefined}
+                                                            className="inline-flex items-center gap-1 text-[13px] font-semibold text-rose-700 hover:underline disabled:text-slate-500 disabled:no-underline disabled:cursor-not-allowed"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" /> Quitar
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <span className="text-center text-[14px] text-slate-900 tabular-nums">{item.resultado.cantidadPiezas}</span>
+                                        <span className="text-right text-[14px] font-semibold text-slate-900 tabular-nums">{fmtCOP(item.resultado.subtotalConAiu)}</span>
+                                    </div>
+                                );
+                            })}
+                            {!soloLectura && !bloqueoEdicion && !legado && (
+                                <button
+                                    type="button"
+                                    onClick={onIrACotizar}
+                                    className="mt-2 inline-flex min-h-[44px] items-center gap-1.5 text-[14px] font-semibold text-templex-700 hover:underline"
+                                >
+                                    <Plus className="w-4 h-4" /> Agregar otro producto
+                                </button>
+                            )}
+                        </section>
+
+                        {/* Trabajos en obra: mano de obra automática + cargos editables. */}
+                        <section aria-label="Trabajos en obra" className="space-y-2.5">
+                            <h3 className="text-[14px] font-bold text-slate-900">Trabajos en obra</h3>
+                            {manoObra.length > 0 && (
+                                <ul className="space-y-1.5">
+                                    {manoObra.map(l => (
+                                        <li key={`${l.tipo}-${l.descripcion}`} className="flex items-start justify-between gap-3 text-[13.5px]">
+                                            <span className="min-w-0 text-slate-900">
+                                                {l.descripcion}
+                                                <span className="block text-[12px] text-slate-700">Se calcula solo con cada producto</span>
+                                            </span>
+                                            <span className="tabular-nums text-slate-900 whitespace-nowrap">{fmtCOP(totalLineaManoObra(l))}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            {cargandoManoObra && manoObra.length === 0 && (
+                                <p className="inline-flex items-center gap-1.5 text-[12.5px] text-slate-700"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Calculando la instalación…</p>
+                            )}
+                            {legado && (
+                                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
+                                    Esta opción es anterior al cambio de cargos: sus trabajos en obra van dentro del precio de cada producto.
+                                    {!soloLectura && (
+                                        <button type="button" onClick={propuestas.onDuplicar} className="font-semibold underline underline-offset-2">Duplicarla para editarlos</button>
+                                    )}
+                                </div>
+                            )}
+                            {!legado && (
+                                <CargosCompactos
+                                    cargos={cargos}
+                                    onChange={onCambiarCargos}
+                                    parametros={parametros}
+                                    deshabilitado={Boolean(bloqueoCargos) || soloLectura}
+                                />
+                            )}
+                        </section>
+
+                        {/* Totales. */}
+                        <section aria-label="Totales" aria-live="polite" className="ml-auto w-full max-w-sm space-y-2 text-[14px]">
+                            <div className="flex justify-between gap-3"><span className="text-slate-800">Productos</span><span className="tabular-nums text-slate-900">{fmtCOP(totales.productos)}</span></div>
+                            <div className="flex justify-between gap-3"><span className="text-slate-800">Instalación y ensamble</span><span className="tabular-nums text-slate-900">{fmtCOP(totales.manoObra)}</span></div>
+                            <div className="flex items-center justify-between gap-3">
+                                <label htmlFor="cot-descuento" className="text-slate-800">Descuento</label>
+                                <span className="inline-flex items-center gap-1.5">
+                                    {totales.descuento > 0 && <span className="tabular-nums text-rose-700">− {fmtCOP(totales.descuento)}</span>}
                                     <input
                                         id="cot-descuento"
                                         type="number"
                                         min={0}
                                         max={100}
                                         step={0.5}
-                                        className={inputClass}
-                                        disabled={legado || aprobada}
-                                        title={legado
-                                            ? 'Las opciones anteriores al cambio no aplican descuento.'
-                                            : aprobada ? 'La cotización está aprobada: pásala a Pendiente para cambiar el descuento.' : ''}
+                                        disabled={legado || Boolean(bloqueoEdicion) || soloLectura}
+                                        title={legado ? 'Las opciones anteriores al cambio no aplican descuento.' : bloqueoEdicion ?? undefined}
                                         value={descuentoPct * 100}
                                         onChange={e => {
-                                            // Se manda como fracción y con tope 1: el backend
-                                            // rechaza cualquier cosa mayor porque un "5"
-                                            // escrito donde iba 0,05 dejaría el total en
-                                            // negativo.
+                                            // Fracción con tope 1: el backend rechaza más.
                                             const pct = Math.min(100, Math.max(0, Number(e.target.value) || 0));
                                             onCambiarDescuento(pct / 100);
                                         }}
+                                        className="h-9 w-16 rounded-lg border border-slate-300 px-2 text-right tabular-nums focus:outline-none focus:border-templex-500 focus:ring-2 focus:ring-templex-200 disabled:bg-slate-50"
                                     />
-                                </div>
-                                <div>
-                                    <label className={labelClass} htmlFor="cot-estado">Estado</label>
-                                    <select
-                                        id="cot-estado"
-                                        className={inputClass}
-                                        value={cabecera.estado}
-                                        onChange={e => onCambiarCabecera({ estado: e.target.value as EstadoCotizacion })}
-                                    >
-                                        {estadosDisponibles.map(e => <option key={e} value={e}>{ESTADO_LABELS[e] || e}</option>)}
-                                    </select>
-                                </div>
+                                    %
+                                </span>
                             </div>
-                            {legado && (
-                                <p className="mt-2 text-[12px] text-amber-800 leading-snug">
-                                    Propuesta legada: sus cargos de obra están dentro del precio de los ítems, así que no
-                                    admite descuento de propuesta.
-                                </p>
+                            <div className="flex justify-between gap-3"><span className="text-slate-800">Otros trabajos en obra</span><span className="tabular-nums text-slate-900">{fmtCOP(totales.cargos)}</span></div>
+                            <div className="flex justify-between gap-3"><span className="text-slate-800">IVA {fmtPct(Number(parametros?.iva) || 0)}</span><span className="tabular-nums text-slate-900">{fmtCOP(totales.iva)}</span></div>
+                            <div className="flex items-baseline justify-between gap-3 border-t-2 border-slate-900 pt-2.5">
+                                <span className="font-bold text-slate-900">Total</span>
+                                <span className="text-[28px] font-extrabold text-slate-900 tabular-nums leading-none">{fmtCOP(totales.total)}</span>
+                            </div>
+                            {hayCambiosSinGuardar && (
+                                <p className="text-[12px] text-slate-700 text-right">Estimado: el definitivo queda al guardarse (en segundos).</p>
                             )}
-                        </Tarjeta>
-                    </div>
+                        </section>
+                    </article>
 
-                    {/* ── Cargos de obra ───────────────────────────────────────── */}
-                    <PanelCargosObra
-                        valor={cargos}
-                        onChange={onCambiarCargos}
-                        parametros={parametros}
-                        cotizacionId={propuestas.cotizacionId}
-                        manoObra={manoObra}
-                        cargandoManoObra={cargandoManoObra}
-                        etiquetaPropuesta={activa?.etiqueta ?? null}
-                        legado={legado}
-                        onDuplicarLegado={propuestas.onDuplicar}
-                        aprobada={aprobada}
-                    />
+                    {comparando && propuestas.cotizacionId !== null && (
+                        <div className="mt-4">
+                            <ComparadorPropuestas cotizacionId={propuestas.cotizacionId} onElegir={propuestas.onElegir} />
+                        </div>
+                    )}
+                </div>
 
-                    {/* ── Ítems del carrito ────────────────────────────────────── */}
-                    {!hayCarrito ? (
-                        <Tarjeta className="border-dashed">
-                            <EstadoVacio
-                                icono={Inbox}
-                                titulo={activa ? `La Opción ${activa.etiqueta} todavía no tiene productos` : 'Sin ítems'}
-                                detalle="Ve a la pestaña Cotizar para agregar el primero."
+                {/* ── Lo que sigue ────────────────────────────────────────── */}
+                <aside aria-label="Lo que sigue" className="space-y-4 lg:sticky lg:top-3">
+                    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+                        <h3 className="text-[16px] font-bold text-slate-900 mb-4">Lo que sigue</h3>
+                        <ol className="space-y-5">
+                            <Paso
+                                n={1}
+                                estado={hayCarrito && !hayErrores ? 'hecho' : 'actual'}
+                                titulo={hayCarrito ? 'Cotización armada' : 'Arma la cotización'}
+                                detalle={hayCarrito
+                                    ? `${carrito.length} producto${carrito.length === 1 ? '' : 's'}${lista.length > 1 ? ` · ${lista.length} opciones` : ''}`
+                                    : 'Agrega el primer producto en Cotizar.'}
                             />
-                        </Tarjeta>
-                    ) : (
-                        <Tarjeta
-                            titulo={activa ? `Productos de la Opción ${activa.etiqueta}` : 'Productos de la cotización'}
-                            icono={Package}
-                            cuerpoClassName="pt-0"
-                            accion={
-                                <span className="text-[12px] text-slate-800 tabular-nums">
-                                    {carrito.length} ítem{carrito.length === 1 ? '' : 's'}
-                                </span>
-                            }
-                        >
-                            {/* Sangría negativa: igual que en el despiece de Cotizar, para
-                                que la banda gris del encabezado llegue a los dos bordes de
-                                la tarjeta en vez de flotar dentro del padding. */}
-                            <div className="overflow-x-auto -mx-4">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-slate-50 text-slate-900 border-y border-slate-200">
-                                        <tr>
-                                            <th className={`${thClass} text-left`}>Descripción</th>
-                                            <th className={`${thClass} text-right`}>Piezas</th>
-                                            <th className={`${thClass} text-right`}>Subtotal + AIU</th>
-                                            {/* El `iva` y el `total` del blob del ítem se
-                                                calcularon a PRECIO LLENO: el descuento de la
-                                                propuesta se aplica después, sobre la suma. Sin
-                                                este rótulo el vendedor sumaría mal a mano. Va
-                                                en la cabecera, una vez, y no repetido en cada
-                                                fila como antes del rediseño. */}
-                                            <th className={`${thClass} text-right`}>
-                                                IVA
-                                                <span className="block font-normal normal-case tracking-normal text-slate-700">a precio lleno</span>
-                                            </th>
-                                            <th className={`${thClass} text-right`}>
-                                                Total
-                                                <span className="block font-normal normal-case tracking-normal text-slate-700">a precio lleno</span>
-                                            </th>
-                                            <th className={`${thClass} w-28`}>
-                                                <span className="sr-only">Acciones</span>
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {carrito.map((item, i) => {
-                                            const moduloExiste = modulosDisponibles.has(item.moduloId);
-                                            // Legada: su blob trae SMO y flete dentro del BOM, y
-                                            // recalcularla con el motor actual los sacaría.
-                                            const motivoNoEditar = bloqueoEdicion
-                                                ?? (legado ? 'Opción antigua: duplícala a la forma nueva para editar sus productos.' : null)
-                                                ?? (moduloExiste ? null : 'Este producto ya no existe en el cotizador: no se puede recalcular.');
-                                            return (
-                                            <tr
-                                                key={item.idTemp}
-                                                className={item.resultado.hayErrores
-                                                    ? 'bg-rose-50 text-rose-800'
-                                                    : 'text-slate-800 hover:bg-slate-50 transition-colors'}
-                                            >
-                                                {/* Una sola columna con la frase que imprime el PDF
-                                                    ("Sala — Suministro e instalación de ventana 744
-                                                    color mate, vidrio claro 4 mm…"), 2026-09-26. Antes
-                                                    eran dos: "Producto" decía el módulo ("Ventanas") y
-                                                    "Detalle" solo la medida, sin sistema, color ni
-                                                    vidrio. El módulo queda como rótulo pequeño. */}
-                                                <td className="px-3 py-2 align-top text-[12.5px] min-w-[18rem]">
-                                                    <span className="flex items-start gap-1.5">
-                                                        {item.resultado.hayErrores && (
-                                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                                        )}
-                                                        <span className={item.resultado.hayErrores ? '' : 'text-slate-900'}>
-                                                            {descripcionDeItem(item.input, item.resultado, null, item.moduloNombre)}
-                                                        </span>
-                                                    </span>
-                                                    <span className="inline-block mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                                                        {item.moduloNombre}
-                                                    </span>
-                                                    {item.resultado.personalizacion && (
-                                                        item.resultado.personalizacion.cambios.length +
-                                                        item.resultado.personalizacion.quitados.length +
-                                                        item.resultado.personalizacion.extras.length
-                                                    ) > 0 && (
-                                                        <span className="ml-1.5 align-middle">
-                                                            <Chip
-                                                                tono={item.resultado.perfileriaPersonalizada ? 'ambar' : 'marca'}
-                                                                title={item.resultado.perfileriaPersonalizada
-                                                                    ? 'Tiene componentes personalizados, incluida perfilería: no sale en orden de corte.'
-                                                                    : 'Tiene componentes cambiados, quitados o agregados respecto del estándar.'}
-                                                            >
-                                                                Personalizado
-                                                            </Chip>
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 text-right align-top whitespace-nowrap tabular-nums">
-                                                    {item.resultado.cantidadPiezas}
-                                                </td>
-                                                <td className="px-3 py-2 text-right align-top whitespace-nowrap font-semibold tabular-nums">
-                                                    {fmtCOP(item.resultado.subtotalConAiu)}
-                                                </td>
-                                                <td className={`px-3 py-2 text-right align-top whitespace-nowrap tabular-nums ${item.resultado.hayErrores ? '' : 'text-slate-700'}`}>
-                                                    {fmtCOP(item.resultado.iva)}
-                                                </td>
-                                                <td className={`px-3 py-2 text-right align-top whitespace-nowrap tabular-nums ${item.resultado.hayErrores ? '' : 'text-slate-700'}`}>
-                                                    {fmtCOP(item.resultado.total)}
-                                                </td>
-                                                <td className="px-3 py-2 text-right align-top whitespace-nowrap">
-                                                    <button
-                                                        onClick={() => onEditarItem(item.idTemp)}
-                                                        disabled={Boolean(motivoNoEditar)}
-                                                        title={motivoNoEditar ?? `Editar el ítem ${i + 1}`}
-                                                        className={btnFila}
-                                                    >
-                                                        <Pencil className="w-4 h-4" />
-                                                        <span className="sr-only">Editar {item.moduloNombre}</span>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => onDuplicarItem(item.idTemp)}
-                                                        disabled={Boolean(bloqueoEdicion || legado)}
-                                                        title={bloqueoEdicion ?? (legado ? 'Opción antigua: duplícala a la forma nueva.' : 'Duplicar el ítem')}
-                                                        className={btnFila}
-                                                    >
-                                                        <Copy className="w-4 h-4" />
-                                                        <span className="sr-only">Duplicar {item.moduloNombre}</span>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => onQuitarItem(item.idTemp)}
-                                                        disabled={Boolean(bloqueoEdicion)}
-                                                        title={bloqueoEdicion ?? 'Quitar ítem'}
-                                                        className={`${btnFila} hover:text-rose-700 hover:bg-rose-50 focus-visible:ring-rose-300`}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                        <span className="sr-only">Quitar {item.moduloNombre}</span>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
 
-                            {descuentoPct > 0 && !legado && (
-                                <p className="text-[12px] text-slate-700 leading-snug pt-2.5">
-                                    El IVA y el total de cada ítem están a precio lleno: el descuento de {fmtPct(descuentoPct)} de
-                                    la propuesta se aplica sobre el subtotal, no ítem por ítem. Los totales de abajo ya lo
-                                    incluyen.
-                                </p>
+                            {!cerrada && (
+                                <Paso
+                                    n={2}
+                                    estado={aprobada ? 'hecho' : motivoNoEnviar ? 'futuro' : 'actual'}
+                                    titulo={aprobada ? 'Enviada al cliente' : 'Envíasela al cliente'}
+                                    detalle={motivoNoEnviar ?? (lista.length > 1 ? `Sale la opción que estás viendo (${activa?.etiqueta ?? 'A'}).` : 'Sale en PDF, lista para el cliente.')}
+                                >
+                                    {!motivoNoEnviar && (
+                                        <div className="space-y-2">
+                                            <BotonPrimario ancho icono={MessageCircle} onClick={onWhatsApp} cargando={generandoPdf} className="min-h-[44px]">
+                                                Enviar por WhatsApp
+                                            </BotonPrimario>
+                                            <BotonSecundario ancho icono={Download} onClick={onPdf} cargando={generandoPdf} className="min-h-[44px]">
+                                                Descargar PDF
+                                            </BotonSecundario>
+                                            <p className="text-[12px] text-slate-700 leading-snug">
+                                                WhatsApp se abre con el mensaje listo y el PDF se descarga para que lo adjuntes.
+                                            </p>
+                                        </div>
+                                    )}
+                                </Paso>
                             )}
-                        </Tarjeta>
-                    )}
 
-                    {/* ── Totales de la propuesta ──────────────────────────────── */}
-                    <Tarjeta
-                        titulo={`Totales${activa ? ` · Opción ${activa.etiqueta}` : ''}`}
-                        icono={Receipt}
-                        accion={hayCambiosSinGuardar
-                            ? (
-                                <Chip tono="ambar" title="Los números son una previsualización hasta que guardes: el definitivo lo calcula el servidor.">
-                                    <AlertTriangle className="w-3 h-3" /> Estimado — hay cambios sin guardar
-                                </Chip>
-                            )
-                            : undefined}
-                    >
-                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-stretch">
-                            {/* La cadena, en orden de aplicación. */}
-                            <div className="lg:col-span-3">
-                                <FilaTotal
-                                    etiqueta="Productos"
-                                    detalle="Con AIU, sin descuento"
-                                    valor={fmtCOP(totales.productos)}
+                            {pendiente && (
+                                <Paso
+                                    n={3}
+                                    estado={motivoNoEnviar ? 'futuro' : 'actual'}
+                                    titulo="¿Qué respondió?"
+                                    detalle="Al aprobar, el lead pasa solo a Aprobado en el CRM."
+                                >
+                                    {soloLectura ? null : !eligiendoAprobada ? (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <BotonPrimario
+                                                icono={CheckCircle2}
+                                                onClick={aprobar}
+                                                disabled={Boolean(motivoNoEnviar) || cierreOcupado}
+                                                cargando={estadoEnCamino && cabecera.estado === 'APROBADA'}
+                                                claseColor="bg-emerald-600 text-white hover:bg-emerald-700"
+                                                className="min-h-[44px]"
+                                            >
+                                                Aprobó
+                                            </BotonPrimario>
+                                            <BotonSecundario
+                                                icono={XCircle}
+                                                onClick={onPerdida}
+                                                disabled={Boolean(motivoNoEnviar) || cierreOcupado}
+                                                className="min-h-[44px] !text-rose-700"
+                                            >
+                                                La perdimos
+                                            </BotonSecundario>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                                            <p className="text-[13px] font-semibold text-emerald-900">¿Cuál opción aprobó?</p>
+                                            {lista.map(p => (
+                                                <button
+                                                    key={p.id}
+                                                    type="button"
+                                                    onClick={() => { setEligiendoAprobada(false); onAprobar(p.id); }}
+                                                    disabled={cierreOcupado}
+                                                    className="w-full flex items-center justify-between gap-2 rounded-lg border border-emerald-300 bg-white px-3 py-2.5 text-left hover:bg-emerald-100 min-h-[44px]"
+                                                >
+                                                    <span className="text-[13.5px] font-semibold text-slate-900">Opción {p.etiqueta}{p.nombre ? ` · ${p.nombre}` : ''}</span>
+                                                    <span className="text-[13px] tabular-nums text-slate-900">{fmtCOP(p.totales.total)}</span>
+                                                </button>
+                                            ))}
+                                            <button type="button" onClick={() => setEligiendoAprobada(false)} className="text-[12.5px] font-semibold text-slate-700 hover:underline">
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    )}
+                                </Paso>
+                            )}
+
+                            {aprobada && (
+                                <Paso
+                                    n={3}
+                                    estado="hecho"
+                                    titulo={`Aprobada${elegida && lista.length > 1 ? ` · Opción ${elegida.etiqueta}` : ''}`}
                                 />
-                                <FilaTotal
-                                    etiqueta="Mano de obra"
-                                    detalle="Ensamble e instalación, con AIU"
-                                    valor={fmtCOP(totales.manoObra)}
-                                />
-                                <FilaTotal
-                                    etiqueta="Descuento"
-                                    detalle={`${fmtPct(descuentoPct)} sobre productos y mano de obra`}
-                                    valor={totales.descuento > 0 ? `− ${fmtCOP(totales.descuento)}` : fmtCOP(0)}
-                                    tono={totales.descuento > 0 ? 'rebaja' : 'apagado'}
-                                />
-                                <FilaTotal
-                                    etiqueta="Cargos de obra"
-                                    detalle="Fuera del AIU y del descuento"
-                                    valor={fmtCOP(totales.cargos)}
-                                />
-                                <FilaTotal
-                                    etiqueta="IVA"
-                                    detalle="Productos, mano de obra y cargos"
-                                    valor={fmtCOP(totales.iva)}
-                                />
+                            )}
+
+                            {!cerrada && (
+                                <Paso
+                                    n={4}
+                                    estado={odpVinculada ? 'hecho' : aprobada ? 'actual' : 'bloqueado'}
+                                    titulo={odpVinculada ? 'ODP creada' : 'Crear la ODP'}
+                                    detalle={odpVinculada ? null : aprobada ? 'Pasa la cotización a producción.' : 'Se habilita cuando el cliente apruebe.'}
+                                >
+                                    {odpVinculada && (
+                                        <a
+                                            href={`/odp?buscar=${encodeURIComponent(odpVinculada.numero)}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-[14px] font-bold text-emerald-800 hover:underline"
+                                        >
+                                            <FileCheck className="w-4 h-4" /> {odpVinculada.numero} <ExternalLink className="w-3.5 h-3.5" />
+                                        </a>
+                                    )}
+                                    {!odpVinculada && aprobada && onCrearOdp && (
+                                        <BotonPrimario ancho icono={FileCheck} onClick={onCrearOdp} claseColor="bg-emerald-600 text-white hover:bg-emerald-700" className="min-h-[44px]">
+                                            Crear ODP
+                                        </BotonPrimario>
+                                    )}
+                                </Paso>
+                            )}
+
+                            {cerrada && (
+                                <li className="space-y-3">
+                                    <p className="text-[14px] font-semibold text-slate-900">
+                                        {estadoGuardado === 'PERDIDO' ? 'La cotización se perdió' : 'La cotización se canceló'}
+                                    </p>
+                                    {estadoGuardado === 'PERDIDO' && motivoPerdida && (
+                                        <p className="text-[13px] text-rose-800">
+                                            Motivo: <span className="font-semibold">{MOTIVOS_PERDIDA.find(m => m.valor === motivoPerdida)?.rotulo ?? motivoPerdida}</span>
+                                        </p>
+                                    )}
+                                    {!soloLectura && (
+                                        <BotonSecundario ancho icono={RotateCcw} onClick={() => onCambiarEstado('PENDIENTE')} disabled={cierreOcupado} className="min-h-[44px]">
+                                            Volver a “Esperando respuesta”
+                                        </BotonSecundario>
+                                    )}
+                                </li>
+                            )}
+                        </ol>
+                    </section>
+
+                    {/* ── Datos internos (no salen en el PDF) ─────────────── */}
+                    <details className="group rounded-2xl border border-slate-200 bg-white px-5 py-4">
+                        <summary className="flex cursor-pointer list-none items-center justify-between text-[14px] font-semibold text-slate-900 min-h-[28px]">
+                            Datos internos
+                            <ChevronDown className="w-4 h-4 transition group-open:rotate-180" />
+                        </summary>
+                        <div className="mt-4 space-y-4 text-[13px]">
+                            <div>
+                                <p className="mb-1.5 font-semibold text-slate-800">Tipo de cliente (lista de precios)</p>
+                                <div role="radiogroup" aria-label="Tipo de cliente" className="grid grid-cols-3 gap-1.5">
+                                    {SEGMENTOS.map(s => (
+                                        <button
+                                            key={s.v}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={segmento === s.v}
+                                            title={motivoNoSegmento ?? s.largo}
+                                            disabled={Boolean(motivoNoSegmento) || cambiandoSegmento || soloLectura}
+                                            onClick={() => onCambiarSegmento(s.v)}
+                                            className={`rounded-lg border px-2 py-2 text-[12.5px] font-semibold min-h-[40px] disabled:cursor-not-allowed ${segmento === s.v
+                                                ? 'border-templex-600 bg-templex-600 text-white'
+                                                : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50 disabled:text-slate-500'}`}
+                                        >
+                                            {s.corto}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="mt-1 text-[12px] text-slate-700">
+                                    {cambiandoSegmento ? 'Recalculando precios…' : motivoNoSegmento ?? 'Cambiarlo recalcula los precios de todas las opciones.'}
+                                </p>
                             </div>
 
-                            {/* El TOTAL no puede pesar lo mismo que los parciales: es el
-                                número que el vendedor busca de un vistazo y el que acaba
-                                en el papel que ve el cliente. */}
-                            <div className="lg:col-span-2 rounded-xl bg-gradient-to-br from-templex-600 to-templex-800 border border-templex-700 px-4 py-3.5 flex flex-col justify-center">
-                                <span className="text-[11px] font-semibold uppercase tracking-wide text-templex-50">
-                                    Total de la propuesta
-                                </span>
-                                <span className="text-3xl font-extrabold text-white tabular-nums leading-none mt-1.5 break-words">
-                                    {fmtCOP(totales.total)}
-                                </span>
-                                <span className="text-[11px] text-templex-50 mt-1.5 leading-snug">
-                                    {resumenCargos(cargos, ivaPct).total > 0 && !legado
-                                        ? 'Incluye cargos con su IVA'
-                                        : 'Opción completa'}
-                                </span>
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-slate-700">Asesor</span>
+                                {puedeCambiarAsesor && asesores.length > 0 ? (
+                                    <select
+                                        className="h-9 max-w-[180px] rounded-lg border border-slate-300 px-2 text-[13px] text-slate-900"
+                                        value={cabecera.asesorUsuarioId ?? ''}
+                                        onChange={e => {
+                                            const a = asesores.find(x => x.id === Number(e.target.value));
+                                            if (a) onCambiarCabecera({ asesorUsuarioId: a.id, asesor: a.nombre });
+                                        }}
+                                    >
+                                        {cabecera.asesorUsuarioId === null && <option value="">{cabecera.asesor || 'Sin asesor asignado'}</option>}
+                                        {cabecera.asesorUsuarioId !== null && !asesores.some(a => a.id === cabecera.asesorUsuarioId) && (
+                                            <option value={cabecera.asesorUsuarioId}>{cabecera.asesor}</option>
+                                        )}
+                                        {asesores.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                                    </select>
+                                ) : (
+                                    <span className="font-semibold text-slate-900 text-right">{cabecera.asesor || '—'}</span>
+                                )}
                             </div>
-                        </div>
-                    </Tarjeta>
 
-                    {/* ── Acciones ─────────────────────────────────────────────── */}
-                    {/* Sin "Guardar" desde el 2026-09-26: la cotización se guarda sola
-                        (ver el indicador de la barra de arriba). */}
-                    {numeroEnEdicion !== null && (
-                        <div className="flex flex-wrap gap-2">
-                            <BotonSecundario icono={FilePlus2} onClick={onNuevaCotizacion}>
-                                Nuevo cliente
-                            </BotonSecundario>
+                            <div>
+                                <p className="mb-1 text-slate-700">Vinculada a</p>
+                                {vinculo
+                                    ? <ChipVinculo ficha={vinculo} />
+                                    : <p className="text-slate-800">Sin vínculo todavía: se elige en Cotizar.</p>}
+                            </div>
+
+                            <label className="block">
+                                <span className="block text-slate-700">Contacto en obra</span>
+                                <input
+                                    className={campoHoja}
+                                    value={cabecera.cliente.contacto || ''}
+                                    disabled={soloLectura}
+                                    onChange={e => cambiarCliente('contacto', e.target.value)}
+                                />
+                            </label>
+
+                            {guardada && (
+                                <div className="space-y-2 border-t border-slate-200 pt-3">
+                                    <BotonSecundario ancho compacto icono={HardHat} onClick={onDetalleTecnico}>
+                                        Hoja de trabajo y orden de corte
+                                    </BotonSecundario>
+                                    {lista.length > 1 && (
+                                        <BotonSecundario ancho compacto icono={Scale} onClick={() => setComparando(v => !v)}>
+                                            {comparando ? 'Ocultar comparación' : 'Comparar las opciones'}
+                                        </BotonSecundario>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                    )}
-                </>
-            )}
+                    </details>
+                </aside>
+            </div>
         </div>
     );
 };

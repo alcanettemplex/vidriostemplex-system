@@ -200,7 +200,8 @@ const FilaCargo: React.FC<{
     </div>
 );
 
-const CargosCompactos: React.FC<{
+/** También la usa la hoja de Resumen (2026-10-01): un solo editor de cargos. */
+export const CargosCompactos: React.FC<{
     cargos: EstadoCargos;
     onChange: (v: EstadoCargos) => void;
     parametros: Parametros | null;

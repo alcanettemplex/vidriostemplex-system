@@ -6,6 +6,7 @@ import { apiCotizarItem } from '../services/cotizadorApi';
 import { CampoMeta, GrupoCampo, ModuloMeta, OpcionCampo, PersonalizacionItem, ResultadoCalculo, SegmentoCliente } from '../types';
 import { CAMPOS_DERIVADOS_DEL_DISENO, ETIQUETAS_CON_DISENO, MODULOS_CON_DISENO } from '../fichaProducto';
 import CampoDinamico from './CampoDinamico';
+import { ajustarAlfajia, opcionesAlfajia } from '../alfajiaFormulario';
 import SelectorDiseno from './SelectorDiseno';
 import { BotonSecundario, Chip, Tarjeta } from './ui';
 
@@ -169,9 +170,27 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
         return false;
     };
     const etiquetasDiseno = hayDiseno ? ETIQUETAS_CON_DISENO[modulo.id] : undefined;
+    // Alfajía (2026-10-01): el selector solo ofrece las del color de la
+    // perfilería, con la recomendada del sistema primero.
+    const campoAlfajia = modulo.campos.find(c => c.filtroAlfajia) ?? null;
+    const listaAlfajia = campoAlfajia ? opcionesAlfajia(campoAlfajia, input.sistema, input.colorPerfileria) : null;
     const camposVisibles = (campos: CampoMeta[]) => campos
         .filter(c => !campoOculto(c.nombre))
+        .map(c => (c.filtroAlfajia && listaAlfajia ? { ...c, opciones: listaAlfajia.opciones } : c))
         .map(c => (etiquetasDiseno?.[c.nombre] ? { ...c, etiqueta: etiquetasDiseno[c.nombre] } : c));
+
+    // Al marcar la alfajía, o al cambiar el sistema o el color con ella marcada,
+    // queda elegida la recomendada (o la misma referencia en el color nuevo). Al
+    // desmarcarla se limpia, para que el input no arrastre un código sin uso.
+    const marcadaAlfajia = input.alfajia === true || input.alfajia === 'true';
+    const codigoAjustado = !campoAlfajia || !listaAlfajia ? null
+        : marcadaAlfajia ? ajustarAlfajia(input[campoAlfajia.nombre], campoAlfajia, listaAlfajia) : '';
+    useEffect(() => {
+        if (!campoAlfajia || codigoAjustado === null) return;
+        if ((input[campoAlfajia.nombre] ?? '') === codigoAjustado) return;
+        setInput(prev => ({ ...prev, [campoAlfajia.nombre]: codigoAjustado }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [codigoAjustado]);
 
     const buscarFaltante = () => modulo.campos.find(
         c => c.requerido && !campoOculto(c.nombre) && esVacio(input[c.nombre])

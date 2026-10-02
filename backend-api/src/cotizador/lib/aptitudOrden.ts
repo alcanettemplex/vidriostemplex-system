@@ -31,6 +31,7 @@ import { getMargenes, getSistemas } from "../store/calibracionStore";
 import * as cache from "../cache";
 import type { Holguras, Margenes, Sistemas } from "../tipos";
 import { cotizarPorDiseno } from "./cotizarPorDiseno";
+import { alfajiaDeInput } from "./alfajias";
 
 
 const RUTA_CALIBRACION = "/calibracion";
@@ -293,7 +294,7 @@ function verificarVigencia(item: ItemCotizacion) {
       medidaEs: input.medidaEs,
       holguraAnchoMm: input.holguraAnchoMm,
       holguraAltoMm: input.holguraAltoMm,
-      incluirAlfajia: input.incluirAlfajia,
+      alfajia: alfajiaDeInput(input as Record<string, unknown>),
     });
   } catch (e) {
     return {
