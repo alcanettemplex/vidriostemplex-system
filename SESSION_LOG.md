@@ -6234,3 +6234,11 @@ consigna de simplicidad y pocos pasos.
   `build` del frontend usa `CI=false …`, sintaxis POSIX que no corre en PowerShell.
 - **Pendiente:** prueba manual en pantalla (acciones de enviar/llegada/verificar con un pedido real);
   desplegar backend y frontend juntos (el frontend nuevo funciona con el backend viejo y viceversa).
+
+### Control Taller: filtros Matizado y Cartón (mismo día)
+- **Producción (`ProduccionPage.tsx`):** dos filtros nuevos, en el orden e iconos de las columnas del
+  tablero: Todas · Urgentes · Matizado · Película · Huacal · Cartón · NC · Sin imprimir.
+- **Criterio (decisión por defecto, igual que Película/Huacal):** la ODP **lleva** el servicio en su
+  ficha (`odp.matizado` / `odp.carton`), esté hecho o no — no "pendientes".
+- Sin cambios de backend ni BD: la vista `produccion` de `GET /api/odp` ya entrega ambos campos.
+- **Verificación:** `tsc` y ESLint limpios; en BD, de 32 ODPs activas, 2 llevan matizado y 1 cartón.

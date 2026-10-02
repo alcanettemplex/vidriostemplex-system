@@ -707,8 +707,11 @@ const ProduccionPage: React.FC = () => {
         const urgency = getUrgency(odp.fecha_entrega);
         switch (filterType) {
             case 'URGENTES': return urgency.weight >= 2;
+            // Servicios de la ficha: la ODP los lleva, estén hechos o no (no "pendientes").
+            case 'MATIZADO': return odp.matizado;
             case 'PELICULA': return odp.pelicula;
             case 'HUACAL':   return odp.huacal;
+            case 'CARTON':   return odp.carton;
             case 'NC':       return odp.es_no_conformidad;
             case 'SIN_IMPRIMIR': return !odp.fecha_impresion_op;
             default:         return true;
@@ -1470,8 +1473,11 @@ const ProduccionPage: React.FC = () => {
                             {[
                                 { id: 'TODAS',    label: 'Todas' },
                                 { id: 'URGENTES', label: 'Urgentes', icon: AlertCircle },
+                                // Mismo orden e iconos que las columnas del tablero (COLUMNS).
+                                { id: 'MATIZADO', label: 'Matizado', icon: Sparkles },
                                 { id: 'PELICULA', label: 'Película',  icon: Film },
                                 { id: 'HUACAL',   label: 'Huacal',   icon: Box },
+                                { id: 'CARTON',   label: 'Cartón',   icon: Archive },
                                 { id: 'NC',       label: 'NC',        icon: AlertCircle },
                                 { id: 'SIN_IMPRIMIR', label: 'Sin imprimir', icon: Printer },
                             ].map(f => (
