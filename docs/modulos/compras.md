@@ -1548,3 +1548,43 @@ por revisar con ACVICOL la FE-AC55241: cobró la chapeta negra al precio de la d
   auditoría anulada en ese proceso (el hook escribe fuera de la transacción). ALU701NG se vinculó solo
   a SIL0601 (+3 %), ALU703NG con precio ×3 quedó en la bandeja, GRX700NT (natural) no se unió al
   negro. Nada quedó escrito, tampoco en `auditoria_log`.
+
+---
+
+## Pedidos PV — limpieza y rendimiento (2026-10-02)
+
+### Qué se retiró (decisión del usuario)
+- **Columna "Color" de Gestión PV** (8 circulitos que pintaban el fondo de la fila): nunca se usó,
+  0 pedidos con `color_fila`. Salió de la pantalla, de la whitelist de `PATCH /api/pedidos-pv/:id` y
+  del modelo. **La columna `pedido_pv.color_fila` sigue en la BD a propósito**: "Revertir auditoría"
+  (`root.controller.ts`) arma su `UPDATE`/`INSERT` con todas las claves de `datos_anteriores`, y las
+  entradas viejas de `pedido_pv` la traen — borrarla haría fallar con 500 esos reverts.
+- **Pestaña "Vista Excel"**: 0 pedidos con `origen='EXCEL'` en producción; la pestaña estaba vacía y
+  aun así se pedía en cada recarga (con `limit: 5000`, que el backend recortaba a 500). La lógica de
+  origen EXCEL del backend (p. ej. la guarda de `eliminarPedidoPV`) se dejó: es inofensiva.
+  "Por Gestionar" pasó del índice de pestaña 2 al 1.
+
+### Diagnóstico medido (BD real)
+- Ida y vuelta a Supabase desde la oficina: **~150 ms por consulta**. Lo que pesa es el número de
+  consultas en serie, no su costo individual.
+- `odp_items` no tenía más índice que el de `id`. El `EXISTS` de `excluir_por_gestionar` y
+  `M2_PEDIDO_SQL` recorrían la tabla completa por pedido: **KPI m² = 136 ms de ejecución**.
+
+### Cambios
+- **BD:** `scripts/2026-10-02_indices_odp_items.ts` (ya ejecutado) crea `idx_odp_items_pedido_pv_id` e
+  `idx_odp_items_odp_id`. KPI m²: **136 ms → 2,5 ms**. El de `odp_id` beneficia además a ODP, Compras y
+  Producción (Postgres no indexa las FK solo).
+- **`GET /kpis`:** 5 consultas (5 conexiones del pool por recarga) → 1 con `COUNT(*) FILTER (...)`.
+  Verificado contra la versión anterior con 7 combinaciones de filtros: resultados idénticos; sin
+  filtros, 795 ms → 151 ms.
+- **Frontend (`PedidosPVPage.tsx`):** spinner de pantalla completa solo en la primera carga (después,
+  barra delgada y la tabla visible); tabla y KPIs se cargan por separado (paginar no recalcula KPIs);
+  respuestas viejas de la tabla se descartan; tras una acción la fila se actualiza con la respuesta del
+  backend y se recarga en silencio, y el eco del socket dentro de 1,5 s se ignora (antes: dos recargas
+  completas por acción); la observación en línea se guarda sin recargar la tabla; el reloj del modal
+  "Marcar enviado" es un componente propio (antes redibujaba la página cada segundo).
+
+### Pendiente / a vigilar
+- `getPorGestionar` filtra en JS los pedidos ya gestionados; hoy hay 0 pendientes, así que no se tocó.
+- Si otro usuario cambia un pedido dentro de la ventana de 1,5 s tras una acción propia, ese cambio
+  llega con el siguiente aviso o al recargar.

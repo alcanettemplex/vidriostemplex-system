@@ -280,27 +280,37 @@ export const getPedidosPVKpis = async (req: Request, res: Response) => {
       ],
     }];
 
-    const [total, conDanoSinReponer, enTransito, vencidosSinLlegar, metrajeTotal] = await Promise.all([
-      PedidoPV.count({ where, include: includeFiltro }),
-      // "Con daño sin reponer" — un pedido sale de PROBLEMA justo cuando se completa la
-      // reposición (`registrarReposicion` lo devuelve a LLEGADO), así que el estado por
-      // sí solo ya es "tuvo daño y sigue sin resolver".
-      PedidoPV.count({ where: { [Op.and]: [where, { estado: 'PROBLEMA' }] }, include: includeFiltro }),
-      PedidoPV.count({ where: { [Op.and]: [where, { estado: { [Op.in]: ['ENVIADO', 'CONFIRMADO_PROVEEDOR'] } }] }, include: includeFiltro }),
-      // "Vencidos sin llegar" — no confundir con `dias_diferencia` (qué tan tarde llegó
-      // un pedido que YA llegó): ver `condicionVencidoSinLlegar`.
-      PedidoPV.count({ where: { [Op.and]: [where, condicionVencidoSinLlegar()] }, include: includeFiltro }),
-      // `PedidoPV.sum('metraje_venta', ...)` ignoraba el metraje calculado de los ítems
-      // asignados (la mayoría de los pedidos): ver `M2_PEDIDO_SQL`. `findOne` con
-      // `attributes` a medida en vez de `.sum()` porque necesita agregar una expresión,
-      // no una columna simple.
-      PedidoPV.findOne({
-        where, include: includeFiltro, raw: true,
-        attributes: [[sequelize.fn('SUM', sequelize.literal(M2_PEDIDO_SQL)), 'metraje']],
-      }),
-    ]);
+    // Una sola consulta con `COUNT(*) FILTER (...)` en vez de cinco: con ~150 ms de ida
+    // y vuelta a Supabase, cinco consultas en paralelo ocupaban cinco de las diez
+    // conexiones del pool en cada recarga de la pantalla. Cada FILTER debe seguir
+    // siendo la misma condición que usa el listado para ese subconjunto:
+    //   - "Con daño sin reponer": un pedido sale de PROBLEMA justo cuando se completa
+    //     la reposición (`registrarReposicion` lo devuelve a LLEGADO), así que el estado
+    //     por sí solo ya es "tuvo daño y sigue sin resolver".
+    //   - "Vencidos sin llegar": mismo criterio que `condicionVencidoSinLlegar` — no
+    //     confundir con `dias_diferencia` (qué tan tarde llegó un pedido que YA llegó).
+    //   - m²: `M2_PEDIDO_SQL`, no `metraje_venta` (ignoraría los ítems asignados).
+    const hoy = sequelize.escape(hoyBogotaISO());
+    const fila = await PedidoPV.findOne({
+      where, include: includeFiltro, raw: true,
+      attributes: [
+        [literal('COUNT(*)'), 'total'],
+        [literal(`COUNT(*) FILTER (WHERE "PedidoPV"."estado" = 'PROBLEMA')`), 'conDanoSinReponer'],
+        [literal(`COUNT(*) FILTER (WHERE "PedidoPV"."estado" IN ('ENVIADO', 'CONFIRMADO_PROVEEDOR'))`), 'enTransito'],
+        [literal(`COUNT(*) FILTER (WHERE "PedidoPV"."fecha_llegada_real" IS NULL
+          AND "PedidoPV"."fecha_entrega_prometida" IS NOT NULL
+          AND "PedidoPV"."fecha_entrega_prometida" < ${hoy})`), 'vencidosSinLlegar'],
+        [sequelize.fn('SUM', sequelize.literal(M2_PEDIDO_SQL)), 'metraje'],
+      ],
+    }) as unknown as Record<'total' | 'conDanoSinReponer' | 'enTransito' | 'vencidosSinLlegar' | 'metraje', string | null> | null;
 
-    res.json({ total, conDanoSinReponer, enTransito, vencidosSinLlegar, metraje: Number((metrajeTotal as any)?.metraje || 0) });
+    res.json({
+      total: Number(fila?.total || 0),
+      conDanoSinReponer: Number(fila?.conDanoSinReponer || 0),
+      enTransito: Number(fila?.enTransito || 0),
+      vencidosSinLlegar: Number(fila?.vencidosSinLlegar || 0),
+      metraje: Number(fila?.metraje || 0),
+    });
   } catch (error) {
     console.error('Error getPedidosPVKpis:', error);
     res.status(500).json({ error: 'Error al obtener KPIs de pedidos PV' });
@@ -707,7 +717,7 @@ export const updatePedidoPV = async (req: Request, res: Response) => {
     if (!pedido) return res.status(404).json({ error: 'Pedido PV no encontrado' });
 
     const campos = ['proveedor', 'fecha_envio', 'hora_envio', 'fecha_entrega_prometida',
-      'metraje_venta', 'espesor_vidrio', 'factura_pv', 'observaciones', 'color_fila'];
+      'metraje_venta', 'espesor_vidrio', 'factura_pv', 'observaciones'];
     const update: Record<string, unknown> = {};
     for (const campo of campos) {
       if (req.body[campo] !== undefined) update[campo] = req.body[campo];

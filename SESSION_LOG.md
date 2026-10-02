@@ -6211,3 +6211,26 @@ consigna de simplicidad y pocos pasos.
   Colombia, desde las 7 p. m., salía el día siguiente. Ahora usa fecha local. `getLunes`/
   `getDomingo` de `JefeView` y "Este mes" tienen el mismo patrón UTC (no tocados).
 - **Verificación:** `tsc` y ESLint limpios en los 3 archivos. Sin cambios de backend ni BD.
+
+### Pedidos PV: sin columna Color ni Vista Excel, y más rápido (mismo día)
+- **Decisiones del usuario:** quitar la columna Color (nunca usada) y la pestaña Vista Excel (ya no se
+  usa); autonomía sobre las mejoras de rendimiento, con resultado verificado.
+- **Medido en BD:** 0 pedidos con `color_fila`, 0 con `origen='EXCEL'` (402, todos SISTEMA);
+  `odp_items` sin índices salvo `id`; KPI m² 136 ms de ejecución; ~150 ms de ida y vuelta a Supabase.
+- **BD:** `2026-10-02_indices_odp_items.ts` **ejecutado** — índices en `odp_items(pedido_pv_id)` y
+  `odp_items(odp_id)`. KPI m² 136 → 2,5 ms.
+- **Backend:** KPIs en 1 consulta (`COUNT FILTER`) en vez de 5; `color_fila` fuera de la whitelist del
+  PATCH y del modelo. La columna queda en la BD porque "Revertir auditoría" la necesita.
+- **Frontend:** sin Color ni Vista Excel; sin spinner en recargas (barra delgada); tabla y KPIs
+  separados; respuestas viejas descartadas; fila actualizada con la respuesta de cada acción + eco del
+  socket ignorado (antes, dos recargas completas por acción); observación sin recargar la tabla;
+  reloj del modal en componente propio; mensajes de error con contexto (`mensajeError`).
+- **Verificación:** KPIs nuevos = viejos en 7 combinaciones de filtros; build backend; `tsc` + ESLint
+  del frontend limpios y `react-scripts build` OK; backend compilado levantado en local (puerto 3099)
+  y probado por HTTP: KPIs, lista (402 = total del KPI, `color_fila` ya no viaja), Por Gestionar y
+  opciones de filtro responden 200.
+- **Hallazgos:** Git y Node no están en el PATH de la sesión (recién instalados; hace falta reabrir
+  VS Code); `npm run lint` del backend roto (ESLint 10 sin config plana) → `TECH_DEBT.md`; el script
+  `build` del frontend usa `CI=false …`, sintaxis POSIX que no corre en PowerShell.
+- **Pendiente:** prueba manual en pantalla (acciones de enviar/llegada/verificar con un pedido real);
+  desplegar backend y frontend juntos (el frontend nuevo funciona con el backend viejo y viceversa).

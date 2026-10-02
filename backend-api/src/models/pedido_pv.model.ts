@@ -27,7 +27,10 @@ PedidoPV.init({
   espesor_vidrio: { type: DataTypes.STRING(100), allowNull: true },
   factura_pv: { type: DataTypes.STRING(100), allowNull: true },
   observaciones: { type: DataTypes.TEXT, allowNull: true },
-  color_fila: { type: DataTypes.STRING(20), allowNull: true },
+  // `color_fila` se retiró del modelo el 2026-10-02 (selector de color de la tabla, nunca
+  // usado: 0 filas con valor). La COLUMNA sigue en la BD a propósito: "Revertir
+  // auditoría" del panel ROOT arma su UPDATE con todas las claves de `datos_anteriores`,
+  // y las entradas viejas de `pedido_pv` traen `color_fila` — borrarla daría 500.
   alerta_enviada: { type: DataTypes.BOOLEAN, defaultValue: false },
   verificado_por: { type: DataTypes.INTEGER, allowNull: true },
   fecha_verificacion: { type: DataTypes.DATE, allowNull: true },

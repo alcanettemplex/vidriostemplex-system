@@ -8,7 +8,7 @@ import {
   DialogContent, DialogActions, TextField, MenuItem, Select, FormControl,
   InputLabel, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Tooltip, IconButton, Stack, Tabs, Tab, Card, CardContent, Divider,
-  Menu, FormControlLabel, Switch, TablePagination, InputAdornment, TableSortLabel,
+  Menu, FormControlLabel, Switch, InputAdornment, TableSortLabel, LinearProgress,
 } from '@mui/material';
 import {
   Plus as Add, RefreshCw as Refresh, MoreVertical as MoreVert, Search, CheckCircle as CheckCircleOutline,
@@ -50,7 +50,6 @@ interface PedidoPV {
   espesor_vidrio: string | null;
   factura_pv: string | null;
   observaciones: string | null;
-  color_fila: string | null;
   observacion_verificacion: string | null;
   nombre_cliente_excel: string | null;
   asesor_iniciales: string | null;
@@ -82,6 +81,20 @@ const diasVencido = (fechaPrometida: string) =>
 
 const toFloat = (v: unknown) => parseFloat(String(v ?? 0)) || 0;
 
+// El socket avisa ~600 ms después de una acción (debounce de `useDataChangedSocket`).
+// Un aviso dentro de esta ventana tras una recarga propia es el eco de esa acción.
+// Si otro usuario cambia algo justo en esa ventana, su cambio llega con el siguiente
+// aviso o al recargar: se acepta a cambio de no recargar todo dos veces.
+const VENTANA_ECO_SOCKET_MS = 1500;
+
+// Mensaje de error con contexto: qué se intentaba y, si el backend explicó la causa
+// (403 sin permiso, 409 por estado…), esa explicación. Se filtra por `string` porque
+// los 400 de Zod devuelven `error` como array de issues, ilegible para el usuario.
+const mensajeError = (e: unknown, contexto: string) => {
+  const detalle = axios.isAxiosError(e) ? e.response?.data?.error : undefined;
+  return typeof detalle === 'string' ? `${contexto}: ${detalle}` : `${contexto}. Intenta de nuevo o recarga la página.`;
+};
+
 const ESTADO_CONFIG: Record<string, {
   label: string;
   color: 'default' | 'primary' | 'info' | 'warning' | 'success' | 'error';
@@ -101,19 +114,6 @@ const getBarColor = (p: PedidoPV): string => {
   if (p.dias_diferencia !== null && p.dias_diferencia < 0) return '#c62828'; // retrasado
   return ESTADO_CONFIG[p.estado]?.barColor ?? '#9e9e9e';
 };
-
-// ─── Paleta de colores de fila ────────────────────────────────────────────────
-
-const COLOR_PALETTE = [
-  { value: '#ef5350', label: 'Rojo' },
-  { value: '#ff9800', label: 'Naranja' },
-  { value: '#ffee58', label: 'Amarillo' },
-  { value: '#66bb6a', label: 'Verde' },
-  { value: '#42a5f5', label: 'Azul' },
-  { value: '#ab47bc', label: 'Morado' },
-  { value: '#f06292', label: 'Rosa' },
-  { value: '#90a4ae', label: 'Gris' },
-];
 
 // ─── Calcular días de tránsito (llegada - envío) ──────────────────────────────
 
@@ -203,6 +203,26 @@ const KPICard: React.FC<{
   </Card>
 );
 
+// ─── Reloj en vivo del modal "Marcar enviado" ─────────────────────────────────
+// Componente propio a propósito: con el estado del reloj en la página, el tic de cada
+// segundo redibujaba la página completa (tabla de 100 filas incluida) mientras el
+// modal estaba abierto. Aquí solo se redibuja este texto. Vive dentro del Dialog, así
+// que se monta al abrir el modal y su intervalo muere al cerrarlo.
+
+const RelojEnVivo: React.FC = () => {
+  const ahora = () => new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const [hora, setHora] = useState(ahora);
+  useEffect(() => {
+    const id = setInterval(() => setHora(ahora()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <Typography variant="h6" fontWeight="bold" letterSpacing={1} color="primary.main">
+      {hora}
+    </Typography>
+  );
+};
+
 // ─── Menú de acciones (...) ───────────────────────────────────────────────────
 
 const AccionesMenu: React.FC<{
@@ -280,10 +300,13 @@ const PedidosPVPage: React.FC = () => {
 
   const [tab, setTab] = useState(0);
 
-  // Datos separados por origen
-  const [pedidosExcel, setPedidosExcel] = useState<PedidoPV[]>([]);
+  // `loading` es solo la PRIMERA carga (spinner de pantalla completa). Las recargas
+  // posteriores —paginar, filtrar, una acción, un aviso por socket— usan `recargando`:
+  // la tabla sigue visible con una barra delgada encima. Antes cada recarga reemplazaba
+  // la tabla por el spinner, parpadeaba y se perdía el scroll.
   const [pedidosSistema, setPedidosSistema] = useState<PedidoPV[]>([]);
   const [loading, setLoading] = useState(true);
+  const [recargando, setRecargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Filtros Gestión PV — se mandan al backend (búsqueda, estado, proveedor, asesor y
@@ -342,10 +365,6 @@ const PedidosPVPage: React.FC = () => {
   const [pagina, setPagina] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
 
-  // Filtro Vista Excel
-  const [busquedaExcel, setBusquedaExcel] = useState('');
-  const [pageExcel, setPageExcel] = useState(0);
-
   // Modales
   const [modalCrear, setModalCrear] = useState(false);
   const [odps, setOdps] = useState<any[]>([]);
@@ -361,18 +380,6 @@ const PedidosPVPage: React.FC = () => {
 
   const [modalEnviar, setModalEnviar] = useState<PedidoPV | null>(null);
   const [formEnviar, setFormEnviar] = useState({ fecha_entrega_prometida: '', confirmado_proveedor: false });
-  const [horaActual, setHoraActual] = useState('');
-
-  // Reloj en vivo: se activa solo cuando el modal de enviar está abierto. Depende de
-  // "abierto / cerrado" y no del pedido, para no reiniciar el intervalo al cambiar de pedido.
-  const modalEnviarAbierto = !!modalEnviar;
-  useEffect(() => {
-    if (!modalEnviarAbierto) return;
-    const tick = () => setHoraActual(new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [modalEnviarAbierto]);
 
   const [modalLlegada, setModalLlegada] = useState<PedidoPV | null>(null);
   const [fechaLlegada, setFechaLlegada] = useState('');
@@ -416,11 +423,26 @@ const PedidosPVPage: React.FC = () => {
 
   // ─── Carga de datos ───────────────────────────────────────────────────────
 
-  const cargarDatos = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // Filtros de pantalla que comparten la tabla y los KPIs. La página NO va aquí: así
+  // paginar solo recarga la tabla, y los KPIs (que no dependen de la página) se piden
+  // únicamente cuando cambia un filtro.
+  const filtrosPantalla = useMemo(() => ({
+    search: busquedaDebounced || undefined,
+    estado: filtrosAplicados.estado || undefined,
+    proveedor: filtrosAplicados.proveedor || undefined,
+    asesor: filtrosAplicados.asesor || undefined,
+    solo_retrasos: soloRetrasos || undefined,
+  }), [busquedaDebounced, filtrosAplicados, soloRetrasos]);
+
+  // Cada carga de la tabla toma un número; si al volver ya hay una más nueva en curso
+  // (paginar o filtrar rápido), la respuesta vieja se descarta en vez de pisar a la nueva.
+  const ultimaCargaListaRef = useRef(0);
+
+  const cargarLista = useCallback(async () => {
+    const turno = ++ultimaCargaListaRef.current;
+    setRecargando(true);
     try {
-      const filtrosSistema = {
+      const { data } = await axios.get(`${API}/api/pedidos-pv`, { headers, params: {
         origen: 'SISTEMA',
         page: pagina,
         limit: 100,
@@ -428,31 +450,56 @@ const PedidosPVPage: React.FC = () => {
         // asignados (mismo criterio que `getPorGestionar`). Esos viven solo en la
         // pestaña "Por Gestionar"; acá se excluyen para que ambas sean excluyentes.
         excluir_por_gestionar: true,
-        search: busquedaDebounced || undefined,
-        estado: filtrosAplicados.estado || undefined,
-        proveedor: filtrosAplicados.proveedor || undefined,
-        asesor: filtrosAplicados.asesor || undefined,
-        solo_retrasos: soloRetrasos || undefined,
-      };
-      const [resExcel, resSistema, resKpis] = await Promise.all([
-        axios.get(`${API}/api/pedidos-pv`, { headers, params: { origen: 'EXCEL', limit: 5000 } }),
-        axios.get(`${API}/api/pedidos-pv`, { headers, params: filtrosSistema }),
-        axios.get(`${API}/api/pedidos-pv/kpis`, { headers, params: {
-          search: filtrosSistema.search, estado: filtrosSistema.estado,
-          proveedor: filtrosSistema.proveedor, asesor: filtrosSistema.asesor,
-          solo_retrasos: filtrosSistema.solo_retrasos,
-        } }),
-      ]);
-      setPedidosExcel(resExcel.data.rows ?? []);
-      setPedidosSistema(resSistema.data.rows ?? []);
-      setTotalPaginas(resSistema.data.totalPages ?? 1);
-      setKpis(resKpis.data ?? { total: 0, conDanoSinReponer: 0, enTransito: 0, vencidosSinLlegar: 0, metraje: 0 });
+        ...filtrosPantalla,
+      } });
+      if (turno !== ultimaCargaListaRef.current) return;
+      setPedidosSistema(data.rows ?? []);
+      setTotalPaginas(data.totalPages ?? 1);
     } catch {
-      setError('Error al cargar pedidos PV');
+      if (turno !== ultimaCargaListaRef.current) return;
+      setError('No se pudieron cargar los pedidos PV. Revisa tu conexión y pulsa el botón de recargar.');
     } finally {
-      setLoading(false);
+      if (turno === ultimaCargaListaRef.current) {
+        setLoading(false);
+        setRecargando(false);
+      }
     }
-  }, [headers, pagina, busquedaDebounced, filtrosAplicados, soloRetrasos]);
+  }, [headers, pagina, filtrosPantalla]);
+
+  const cargarKpis = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API}/api/pedidos-pv/kpis`, { headers, params: filtrosPantalla });
+      setKpis(data ?? { total: 0, conDanoSinReponer: 0, enTransito: 0, vencidosSinLlegar: 0, metraje: 0 });
+    } catch { /* silencioso: los KPIs conservan el último valor, la tabla no se bloquea */ }
+  }, [headers, filtrosPantalla]);
+
+  // Recarga completa (tabla + KPIs), sin spinner de pantalla completa.
+  const cargarDatos = useCallback(async () => {
+    await Promise.all([cargarLista(), cargarKpis()]);
+  }, [cargarLista, cargarKpis]);
+
+  // Cada acción propia hace que el backend emita `pedidos_pv` por socket, y este
+  // cliente lo recibe igual que los demás: sin esta marca, cada acción recargaba todo
+  // dos veces (la recarga de la acción y, ~600 ms después, la del socket). Se ignora
+  // el aviso que llega dentro de `VENTANA_ECO_SOCKET_MS` tras una recarga propia.
+  const ultimaRecargaPropiaRef = useRef(0);
+  const marcarRecargaPropia = () => { ultimaRecargaPropiaRef.current = Date.now(); };
+  const recargarPorSocket = useCallback(() => {
+    if (Date.now() - ultimaRecargaPropiaRef.current < VENTANA_ECO_SOCKET_MS) return;
+    cargarDatos();
+  }, [cargarDatos]);
+
+  // Tras una acción: la fila se actualiza al instante con lo que devolvió el backend
+  // (antes se ignoraba la respuesta) y luego se recarga en silencio, por si la acción
+  // sacó al pedido del filtro activo o cambió los KPIs.
+  const aplicarPedidoActualizado = (pedido?: PedidoPV) => {
+    if (pedido?.id) setPedidosSistema(prev => prev.map(p => p.id === pedido.id ? pedido : p));
+  };
+  const recargarTrasAccion = (pedido?: PedidoPV) => {
+    aplicarPedidoActualizado(pedido);
+    marcarRecargaPropia();
+    cargarDatos();
+  };
 
   // Abre el modal "Vencidos sin Llegar" con el mismo subconjunto que compone el KPI:
   // origen SISTEMA, excluye Por Gestionar, y respeta los filtros activos de pantalla.
@@ -552,9 +599,14 @@ const PedidosPVPage: React.FC = () => {
     } catch { /* silencioso: los dropdowns quedan sin opciones, no bloquea la pantalla */ }
   }, [headers]);
 
-  useEffect(() => { cargarDatos(); cargarPorGestionar(); }, [cargarDatos, cargarPorGestionar]);
+  // Efectos separados a propósito: cambiar de página solo dispara `cargarLista`;
+  // cambiar un filtro dispara tabla + KPIs. "Por Gestionar" ya no se recarga en cada
+  // página o filtro (no depende de ninguno de los dos).
+  useEffect(() => { cargarLista(); }, [cargarLista]);
+  useEffect(() => { cargarKpis(); }, [cargarKpis]);
+  useEffect(() => { cargarPorGestionar(); }, [cargarPorGestionar]);
   useEffect(() => { cargarOpcionesFiltro(); }, [cargarOpcionesFiltro]);
-  useDataChangedSocket('pedidos_pv', cargarDatos);
+  useDataChangedSocket('pedidos_pv', recargarPorSocket);
 
   // ─── Orden Gestión PV ─────────────────────────────────────────────────────
   // El filtrado (búsqueda, estado, proveedor, asesor, retrasos) y la exclusión de
@@ -605,23 +657,6 @@ const PedidosPVPage: React.FC = () => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortDir('asc'); }
   };
-
-  // ─── Filtrado Vista Excel ─────────────────────────────────────────────────
-
-  const pedidosExcelFiltrados = pedidosExcel.filter(p => {
-    if (!busquedaExcel) return true;
-    const q = busquedaExcel.toLowerCase();
-    return (
-      p.numero_pedido.toLowerCase().includes(q) ||
-      (p.proveedor || '').toLowerCase().includes(q) ||
-      (p.odp_numero_excel || '').toLowerCase().includes(q) ||
-      (p.asesor_iniciales || '').toLowerCase().includes(q) ||
-      (p.nombre_cliente_excel || '').toLowerCase().includes(q) ||
-      (p.espesor_vidrio || '').toLowerCase().includes(q)
-    );
-  });
-
-  const pedidosExcelPaginados = pedidosExcelFiltrados.slice(pageExcel * 10, pageExcel * 10 + 10);
 
   // ─── KPIs ─────────────────────────────────────────────────────────────────
   // `kpis` viene del backend (GET /api/pedidos-pv/kpis), ya agregado sobre el
@@ -734,17 +769,13 @@ const PedidosPVPage: React.FC = () => {
         observaciones: formCrear.observaciones || null,
       }, { headers });
       cerrarModalCrear();
+      marcarRecargaPropia();
       cargarDatos();
       cargarPorGestionar();
     } catch (e) {
       // El backend explica la causa real (400 de validación de ítems, 403 por
-      // `puede_gestionar_pv`…). El catch ciego que había antes las colapsaba todas en un
-      // mismo mensaje y volvía indescifrable cualquier fallo. Se filtra por `string`
-      // porque el 400 de `createPedidoPV` devuelve `error` como array de issues de Zod.
-      const detalle = axios.isAxiosError(e) ? e.response?.data?.error : undefined;
-      setError(typeof detalle === 'string'
-        ? `No se pudo crear el pedido PV: ${detalle}`
-        : 'Error al crear pedido PV');
+      // `puede_gestionar_pv`…): `mensajeError` la muestra cuando viene redactada.
+      setError(mensajeError(e, 'No se pudo crear el pedido PV'));
     }
   };
 
@@ -758,33 +789,33 @@ const PedidosPVPage: React.FC = () => {
         String(ahora.getMinutes()).padStart(2, '0'),
         String(ahora.getSeconds()).padStart(2, '0'),
       ].join(':');
-      await axios.patch(`${API}/api/pedidos-pv/${modalEnviar.id}/enviar`, {
+      const { data } = await axios.patch(`${API}/api/pedidos-pv/${modalEnviar.id}/enviar`, {
         fecha_entrega_prometida: formEnviar.fecha_entrega_prometida || null,
         confirmado_proveedor: formEnviar.confirmado_proveedor,
         hora_envio: horaLocal,
       }, { headers });
       setModalEnviar(null);
-      cargarDatos();
-    } catch { setError('Error al marcar como enviado'); }
+      recargarTrasAccion(data);
+    } catch (e) { setError(mensajeError(e, `No se pudo marcar como enviado el pedido ${modalEnviar.numero_pedido}`)); }
   };
 
   const confirmarProveedor = async (pedido: PedidoPV) => {
     try {
-      await axios.patch(`${API}/api/pedidos-pv/${pedido.id}/confirmar-proveedor`, {}, { headers });
-      cargarDatos();
-    } catch { setError('Error al confirmar proveedor'); }
+      const { data } = await axios.patch(`${API}/api/pedidos-pv/${pedido.id}/confirmar-proveedor`, {}, { headers });
+      recargarTrasAccion(data);
+    } catch (e) { setError(mensajeError(e, `No se pudo confirmar el proveedor del pedido ${pedido.numero_pedido}`)); }
   };
 
   const registrarLlegada = async () => {
     if (!modalLlegada) return;
     try {
-      await axios.patch(`${API}/api/pedidos-pv/${modalLlegada.id}/registrar-llegada`, {
+      const { data } = await axios.patch(`${API}/api/pedidos-pv/${modalLlegada.id}/registrar-llegada`, {
         fecha_llegada_real: fechaLlegada || undefined,
       }, { headers });
       setModalLlegada(null);
       setFechaLlegada('');
-      cargarDatos();
-    } catch { setError('Error al registrar llegada'); }
+      recargarTrasAccion(data);
+    } catch (e) { setError(mensajeError(e, `No se pudo registrar la llegada del pedido ${modalLlegada.numero_pedido}`)); }
   };
 
   const accionVerificar = async () => {
@@ -794,12 +825,15 @@ const PedidosPVPage: React.FC = () => {
       ? { observacion_verificacion: obsVerificacion || null }
       : { observacion: obsVerificacion, tipo_problema: tipoProblema || null };
     try {
-      await axios.patch(`${API}/api/pedidos-pv/${modalVerificar.pedido.id}/${endpoint}`, body, { headers });
+      const { data } = await axios.patch(`${API}/api/pedidos-pv/${modalVerificar.pedido.id}/${endpoint}`, body, { headers });
       setModalVerificar(null);
       setObsVerificacion('');
       setTipoProblema('');
-      cargarDatos();
-    } catch { setError('Error al procesar acción'); }
+      recargarTrasAccion(data);
+    } catch (e) {
+      const accion = modalVerificar.tipo === 'verificar' ? 'marcar como verificado' : 'registrar el problema de';
+      setError(mensajeError(e, `No se pudo ${accion} el pedido ${modalVerificar.pedido.numero_pedido}`));
+    }
   };
 
   const accionReposicion = async () => {
@@ -809,11 +843,11 @@ const PedidosPVPage: React.FC = () => {
       ? { fecha_reposicion_prometida: fechaReposicion || null }
       : {};
     try {
-      await axios.patch(`${API}/api/pedidos-pv/${modalReposicion.pedido.id}/${endpoint}`, body, { headers });
+      const { data } = await axios.patch(`${API}/api/pedidos-pv/${modalReposicion.pedido.id}/${endpoint}`, body, { headers });
       setModalReposicion(null);
       setFechaReposicion('');
-      cargarDatos();
-    } catch { setError('Error al procesar reposición'); }
+      recargarTrasAccion(data);
+    } catch (e) { setError(mensajeError(e, `No se pudo actualizar la reposición del pedido ${modalReposicion.pedido.numero_pedido}`)); }
   };
 
   const asignarItemsPV = async () => {
@@ -834,6 +868,7 @@ const PedidosPVPage: React.FC = () => {
       setModalGestionar(null);
       setItemsSeleccionados([]);
       setItemsExtras({});
+      marcarRecargaPropia();
       await cargarDatos();
       await cargarPorGestionar();
       setTab(0); // Redirigir a Gestión PV
@@ -851,6 +886,7 @@ const PedidosPVPage: React.FC = () => {
     try {
       const { data } = await axios.delete(`${API}/api/pedidos-pv/${modalEliminar.id}`, { headers });
       setModalEliminar(null);
+      marcarRecargaPropia();
       await cargarDatos();
       await cargarPorGestionar();
       setMensajeOk(
@@ -867,10 +903,19 @@ const PedidosPVPage: React.FC = () => {
   const actualizarCampo = async (id: number, field: string, value: unknown) => {
     if (soloLectura) return;
     setSavingField({ id, field });
+    // Optimista: el texto queda en la fila al soltar el campo, sin esperar al servidor.
+    setPedidosSistema(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
     try {
-      await axios.patch(`${API}/api/pedidos-pv/${id}`, { [field]: value }, { headers });
-      setPedidosSistema(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
-    } catch { setError(`Error al actualizar ${field}`); }
+      // La edición en línea (observaciones) no cambia KPIs ni la pertenencia al filtro:
+      // basta con la fila que devuelve el backend, sin recargar la tabla. La marca evita
+      // además la recarga completa que traía el eco del socket.
+      const { data } = await axios.patch(`${API}/api/pedidos-pv/${id}`, { [field]: value }, { headers });
+      marcarRecargaPropia();
+      aplicarPedidoActualizado(data);
+    } catch (e) {
+      setError(mensajeError(e, 'No se pudo guardar el cambio del pedido'));
+      cargarLista(); // deshace el cambio optimista con lo que de verdad quedó en la BD
+    }
     finally { setSavingField(null); }
   };
 
@@ -967,7 +1012,6 @@ const PedidosPVPage: React.FC = () => {
       <Tabs value={tab} onChange={(_, v) => setTab(v)}
         sx={{ mb: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Tab icon={<Tune size={20} />} iconPosition="start" label="Gestión PV" />
-        <Tab icon={<TableChart size={20} />} iconPosition="start" label="Vista Excel" />
         {puedeCrear && (
           <Tab
             icon={<HourglassEmpty size={20} />}
@@ -1049,12 +1093,14 @@ const PedidosPVPage: React.FC = () => {
 
               {/* Tabla */}
               <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
-                <TableContainer>
+                {/* Recarga en segundo plano: la tabla queda visible. Alto reservado
+                    para que la barra no empuje la tabla al aparecer y desaparecer. */}
+                <Box sx={{ height: 3 }}>{recargando && <LinearProgress sx={{ height: 3 }} />}</Box>
+                <TableContainer sx={{ opacity: recargando ? 0.7 : 1, transition: 'opacity .15s' }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontWeight: 600, fontSize: 13, color: 'text.primary', whiteSpace: 'nowrap', borderBottom: '2px solid', borderColor: 'divider' } }}>
                         <TableCell sx={{ width: 4, p: 0 }} />
-                        <TableCell>Color</TableCell>
                         <TableCell sortDirection={sortField === 'numero_base' ? sortDir : false}>
                           <TableSortLabel active={sortField === 'numero_base'} direction={sortField === 'numero_base' ? sortDir : 'asc'} onClick={() => manejarOrden('numero_base')}>Pedido</TableSortLabel>
                         </TableCell>
@@ -1099,7 +1145,7 @@ const PedidosPVPage: React.FC = () => {
                     <TableBody>
                       {pedidosOrdenados.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={17} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                          <TableCell colSpan={16} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                             No hay pedidos con los filtros seleccionados
                           </TableCell>
                         </TableRow>
@@ -1115,30 +1161,9 @@ const PedidosPVPage: React.FC = () => {
                         const isEditingObs = editingObs?.id === p.id;
 
                         return (
-                          <TableRow key={p.id} hover sx={{
-                            '&:hover': { bgcolor: p.color_fila ? `${p.color_fila}50` : 'action.hover' },
-                            bgcolor: p.color_fila ? `${p.color_fila}28` : undefined,
-                          }}>
-                            {/* Barra de color lateral */}
+                          <TableRow key={p.id} hover>
+                            {/* Barra de color lateral (estado / retraso) */}
                             <TableCell sx={{ width: 4, p: 0, bgcolor: barColor }} />
-                            {/* Color de fila */}
-                            <TableCell sx={{ p: 0.5 }}>
-                              <Stack direction="row" gap={0.4} flexWrap="wrap" sx={{ maxWidth: 90 }}>
-                                {COLOR_PALETTE.map(c => (
-                                  <Tooltip key={c.value} title={c.label} placement="top">
-                                    <Box
-                                      onClick={() => actualizarCampo(p.id, 'color_fila', p.color_fila === c.value ? null : c.value)}
-                                      sx={{
-                                        width: 14, height: 14, borderRadius: '50%', bgcolor: c.value, cursor: 'pointer',
-                                        border: p.color_fila === c.value ? '2px solid #000' : '2px solid transparent',
-                                        opacity: savingField?.id === p.id && savingField.field === 'color_fila' ? 0.5 : 1,
-                                        '&:hover': { transform: 'scale(1.3)' }, transition: 'transform 0.1s',
-                                      }}
-                                    />
-                                  </Tooltip>
-                                ))}
-                              </Stack>
-                            </TableCell>
                             {/* Pedido */}
                             <TableCell>
                               <Typography fontWeight={700} fontSize={13}>{p.numero_pedido}</Typography>
@@ -1247,7 +1272,11 @@ const PedidosPVPage: React.FC = () => {
                                   <Typography
                                     fontSize={12} noWrap
                                     onClick={() => setEditingObs({ id: p.id, value: p.observaciones || '' })}
-                                    sx={{ cursor: 'pointer', color: p.observaciones ? 'text.primary' : 'text.disabled', '&:hover': { textDecoration: 'underline' } }}
+                                    sx={{
+                                      cursor: 'pointer', color: p.observaciones ? 'text.primary' : 'text.disabled', '&:hover': { textDecoration: 'underline' },
+                                      // Guardando: la observación ya no recarga la tabla, así que este es su único aviso.
+                                      opacity: savingField?.id === p.id && savingField.field === 'observaciones' ? 0.5 : 1,
+                                    }}
                                   >
                                     {p.observaciones || '+ obs.'}
                                   </Typography>
@@ -1299,7 +1328,7 @@ const PedidosPVPage: React.FC = () => {
           )}
 
           {/* ═══════════════════════════ TAB 2 — POR GESTIONAR ═══════════════════════════ */}
-          {tab === 2 && puedeCrear && (
+          {tab === 1 && puedeCrear && (
             <Box>
               {pedidosPorGestionar.length === 0 ? (
                 <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 6, textAlign: 'center' }}>
@@ -1365,98 +1394,6 @@ const PedidosPVPage: React.FC = () => {
                   })}
                 </Stack>
               )}
-            </Box>
-          )}
-
-          {/* ═══════════════════════════ TAB 1 — VISTA EXCEL ═══════════════════════════ */}
-          {tab === 1 && (
-            <Box>
-              <Stack direction="row" gap={2} mb={2} alignItems="center">
-                <TextField size="small"
-                  placeholder="Buscar por pedido, proveedor, ODP, asesor, cliente..."
-                  value={busquedaExcel}
-                  onChange={(e) => { setBusquedaExcel(e.target.value); setPageExcel(0); }}
-                  sx={{ minWidth: 380 }}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><Search size={18} color="#555f71" /></InputAdornment> }} />
-                <Typography variant="caption" color="text.secondary">
-                  {pedidosExcelFiltrados.length} de {pedidosExcel.length} registros — datos históricos del Excel
-                </Typography>
-              </Stack>
-
-              <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
-                <TableContainer sx={{ maxHeight: 'calc(100vh - 320px)' }}>
-                  <Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        {['PROVEEDOR', 'PEDIDO #', 'O.D.P TEMPLEX', 'ASESOR', 'FECHA ENVIO', 'HORA ENVIO',
-                          'RECIBIDO x PROVEEDOR', 'ENTREGA', '# DIAS', 'LLEGADA',
-                          'METRAJE VENTA', 'NOMBRE CLIENTE', 'FACTURA PV', 'ESPESOR/VIDRIO', 'OBSERVACION'
-                        ].map(col => (
-                          <TableCell key={col} sx={{ fontWeight: 700, whiteSpace: 'nowrap', bgcolor: '#1a5276', color: 'white', fontSize: 11 }}>
-                            {col}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {pedidosExcelPaginados.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={15} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                            No hay resultados
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      {pedidosExcelPaginados.map((p, idx) => {
-                        const retrasado = p.dias_diferencia !== null && p.dias_diferencia < 0;
-                        return (
-                          <TableRow key={p.id}
-                            sx={{ bgcolor: p.tuvo_problema ? 'rgba(211,47,47,0.07)' : idx % 2 === 0 ? 'white' : 'rgba(0,0,0,0.02)' }}>
-                            <TableCell sx={{ fontSize: 12 }}>{p.proveedor}</TableCell>
-                            <TableCell sx={{ fontSize: 12, fontWeight: 700, color: p.tuvo_problema ? 'error.main' : 'inherit' }}>{p.numero_pedido}</TableCell>
-                            <TableCell sx={{ fontSize: 12 }}>{p.odp_numero_excel || ''}</TableCell>
-                            <TableCell sx={{ fontSize: 12, fontWeight: 600 }}>{p.asesor_iniciales || ''}</TableCell>
-                            <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtFecha(p.fecha_envio)}</TableCell>
-                            <TableCell sx={{ fontSize: 12 }}>{fmtHora(p.hora_envio)}</TableCell>
-                            <TableCell sx={{ fontSize: 12, fontWeight: 700, color: p.confirmado_proveedor ? 'success.main' : 'text.disabled' }}>
-                              {p.confirmado_proveedor ? 'OK' : ''}
-                            </TableCell>
-                            <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtFecha(p.fecha_entrega_prometida)}</TableCell>
-                            <TableCell sx={{ fontSize: 12, fontWeight: 700, textAlign: 'center', color: retrasado ? 'error.main' : p.dias_diferencia !== null ? 'success.main' : 'inherit' }}>
-                              {p.dias_diferencia !== null ? p.dias_diferencia : ''}
-                            </TableCell>
-                            <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtFecha(p.fecha_llegada_real)}</TableCell>
-                            <TableCell sx={{ fontSize: 12, textAlign: 'right' }}>{p.metraje_venta ? toFloat(p.metraje_venta).toFixed(2) : ''}</TableCell>
-                            <TableCell sx={{ fontSize: 12, maxWidth: 200 }}>
-                              <Tooltip title={p.nombre_cliente_excel || ''} placement="top">
-                                <Typography fontSize={12} noWrap>{p.nombre_cliente_excel || ''}</Typography>
-                              </Tooltip>
-                            </TableCell>
-                            <TableCell sx={{ fontSize: 12 }}>{p.factura_pv || ''}</TableCell>
-                            <TableCell sx={{ fontSize: 12 }}>{p.espesor_vidrio || ''}</TableCell>
-                            <TableCell sx={{ fontSize: 12, maxWidth: 160 }}>
-                              <Tooltip title={p.observaciones || ''} placement="top">
-                                <Typography fontSize={12} noWrap>{p.observaciones || ''}</Typography>
-                              </Tooltip>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                <Divider />
-                <Box sx={{ px: 2 }}>
-                  <TablePagination
-                    component="div"
-                    count={pedidosExcelFiltrados.length}
-                    page={pageExcel}
-                    onPageChange={(_, p) => setPageExcel(p)}
-                    rowsPerPage={10}
-                    rowsPerPageOptions={[10]}
-                    labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count} registros`}
-                  />
-                </Box>
-              </Paper>
             </Box>
           )}
         </>
@@ -1691,9 +1628,7 @@ const PedidosPVPage: React.FC = () => {
                 <Typography variant="caption" color="text.secondary" display="block">
                   Hora de envío que se registrará
                 </Typography>
-                <Typography variant="h6" fontWeight="bold" letterSpacing={1} color="primary.main">
-                  {horaActual}
-                </Typography>
+                <RelojEnVivo />
               </Box>
             </Box>
             <TextField label="Fecha entrega prometida" type="date" size="small" fullWidth

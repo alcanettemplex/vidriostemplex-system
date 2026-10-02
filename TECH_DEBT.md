@@ -4,6 +4,29 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-10-02 — Pedidos PV: `PedidosPVPage.tsx` monolítico (~2.200 líneas)
+
+**Severidad:** Media · **Estimación:** ~3-4 h
+
+Un solo componente con ~55 `useState`, la tabla de Gestión PV, la pestaña Por Gestionar y ~10 modales
+(crear, enviar, llegada, verificar, reposición, detalle, eliminar, vencidos, dañados, por proveedor).
+Cualquier cambio de estado de un modal redibuja la tabla de 100 filas. El 2026-10-02 se sacó el reloj
+del modal "Marcar enviado" a su propio componente por ese motivo, pero el patrón sigue. Propuesta:
+extraer `TablaGestionPV` (memoizada), `PorGestionarTab` y cada modal a `components/`, con el estado de
+cada modal dentro del modal.
+
+---
+
+## 2026-10-02 — Backend: `npm run lint` roto (ESLint 10 sin `eslint.config.js`)
+
+**Severidad:** Baja · **Estimación:** ~30 min
+
+`backend-api` tiene ESLint 10, que solo lee configuración plana (`eslint.config.js`), y el proyecto solo
+tiene `.eslintrc.json` (formato que ESLint 10 ya no soporta): `npm --prefix backend-api run lint` falla antes de revisar nada. La verificación del backend
+hoy es solo `tsc`. Migrar la configuración (o fijar ESLint 8 con `.eslintrc`).
+
+---
+
 ## 2026-09-30 — Frontend: cabeceras de token armadas a mano (migración al interceptor a medias)
 
 **Severidad:** Baja · **Estimación:** ~2-3 h en una pasada dedicada, o 5 min por archivo al tocarlo
