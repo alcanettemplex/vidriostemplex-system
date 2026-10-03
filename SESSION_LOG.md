@@ -6251,3 +6251,24 @@ consigna de simplicidad y pocos pasos.
 - **Decisión por defecto (el usuario no respondió las preguntas):** acceso completo, solo módulo
   Proveedores; los precios de compra del Cotizador siguen fuera del alcance de compras.
 - **Docs:** CLAUDE.md y `docs/modulos/compras.md` §8 actualizados.
+
+### Conciliación septiembre: KPI Pedidos Cobrados vs World Office + fix de borde de fecha (2026-10-02)
+- **Análisis (solo lectura):** World Office $248.776.133 vs KPI producción $160.626.967. Puente al peso:
+  +NC210 SISCOAX $3.949.154 (el ERP no maneja notas crédito), −FE7464 ECAR $77.263.934 (**falta
+  cargarla** como factura adicional de ODP-24000; la 7332 de julio es otra factura), −FE7513
+  Laminación $502.165 (fecha 7-jul en vez de 28-sep), +FE7517 $1.100.000 (fecha 30-sep, es de
+  octubre), −$15.432.221 de cartera (el KPI suma abono, no monto FE). 8 FE con número mal digitado
+  (7056→7456, etc.), sin efecto en valor. Informe Word para gerencia en el Escritorio (`..._v3.docx`).
+- **Bug encontrado:** `odp.fecha_factura` es DATE y se comparaba con instantes; PG convierte el
+  literal a fecha por su parte UTC. Con el servidor en hora Colombia (local) el fin de mes caía en
+  el día 1 siguiente → local mostraba $165,5M y producción (Docker en UTC) $160,6M.
+- **Fix:** `utils/facturacion.ts` — helper `fechaFePrincipal()` que interpreta la fecha como
+  medianoche de Colombia (`::timestamp AT TIME ZONE 'America/Bogota'`), aplicado a la FE principal en
+  `sqlFacturadoEnRango`, `sqlCobradoEnRango` y `whereTieneFacturaEnRango`; mismo cambio en el modal
+  `getPedidosFacturados` (`dashboard.controller.ts`). Las FE adicionales (TIMESTAMPTZ a 12:00 UTC) no
+  cambian. Sin BD, sin frontend.
+- **Verificación:** KPI cobrado, facturado, conteo del Informe Ejecutivo, buscador y modal, jul–sep,
+  con `TZ=America/Bogota` y `TZ=UTC`: ambos dan sep = $160.626.967 / 74 ODP; **UTC idéntico antes y
+  después** (producción no cambia). `npm run build` OK. ESLint backend sigue roto (ya en TECH_DEBT).
+- **Pendiente (usuario):** cargar FE7464 en ODP-24000, corregir fecha FE7513 (ODP-24245) y de FE7517
+  y FE7524, renumerar las 8 FE mal digitadas. Desplegar el backend cuando se suba el commit.

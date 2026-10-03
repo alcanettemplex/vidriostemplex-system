@@ -898,7 +898,8 @@ export const getPedidosFacturados = async (req: Request, res: Response) => {
                o.abono AS monto_abonado
           FROM odp o JOIN clientes c ON c.id = o.cliente_id
          WHERE o.estado_facturacion = 'FACTURADA' AND o.factura_electronica IS NOT NULL
-           AND o.fecha_factura BETWEEN :a AND :b
+           -- DATE → medianoche de Colombia, igual que sqlCobradoEnRango (ver utils/facturacion.ts)
+           AND (o.fecha_factura::timestamp AT TIME ZONE 'America/Bogota') BETWEEN :a AND :b
         UNION ALL
         SELECT o.id, o.numero_odp, o.fecha_creacion, o.estado_caja,
                c.nombre_razon_social, 'Adicional' AS tipo_fe, fa.numero_fe,

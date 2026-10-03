@@ -13,6 +13,23 @@ import { literal } from 'sequelize';
  */
 
 /**
+ * `odp.fecha_factura` es DATE en Postgres (el modelo dice DATE de Sequelize, pero la columna
+ * real no tiene hora), mientras que los límites del rango son instantes. Comparar un DATE
+ * contra un literal con hora hace que PG convierta el literal a fecha tomando su parte UTC:
+ * con el servidor en hora de Colombia, el fin de septiembre (30-sep 23:59 -05) es
+ * 1-oct 04:59 UTC y las FE del 1-oct entraban al KPI de septiembre. En producción (Docker
+ * en UTC) no pasaba, por eso local y producción mostraban cifras distintas (2026-10-02).
+ *
+ * La fecha de la FE se interpreta como medianoche de Colombia y se compara como instante:
+ * correcto con cualquier zona horaria del servidor y para los tres tipos de rango que llegan
+ * aquí (dashboard e Informe Ejecutivo en hora local, buscador en UTC).
+ *
+ * Solo aplica a la FE principal: `facturas_adicionales_odp.fecha_factura` es TIMESTAMPTZ y se
+ * guarda a las 12:00 UTC, que cae el mismo día en Colombia — se compara directo.
+ */
+const fechaFePrincipal = (alias: string) => `(${alias}.fecha_factura::timestamp AT TIME ZONE 'America/Bogota')`;
+
+/**
  * SQL (subconsulta escalar) que suma los montos de TODAS las FE — principal y adicionales —
  * cuya fecha cae en [desde, hasta], opcionalmente acotado a ODPs tipo OA.
  *
@@ -46,7 +63,7 @@ export const sqlFacturadoEnRango = (
           FROM odp o
          WHERE o.estado_facturacion = 'FACTURADA'
            AND o.factura_electronica IS NOT NULL
-           AND o.fecha_factura BETWEEN '${d}' AND '${h}'
+           AND ${fechaFePrincipal('o')} BETWEEN '${d}' AND '${h}'
            ${extra}
         UNION ALL
         SELECT fa.monto AS monto
@@ -98,7 +115,7 @@ export const sqlCobradoEnRango = (
           FROM odp o
          WHERE o.estado_facturacion = 'FACTURADA'
            AND o.factura_electronica IS NOT NULL
-           AND o.fecha_factura BETWEEN '${d}' AND '${h}'
+           AND ${fechaFePrincipal('o')} BETWEEN '${d}' AND '${h}'
            ${extra}
         UNION ALL
         SELECT 0 AS monto
@@ -120,7 +137,7 @@ export const whereTieneFacturaEnRango = (
   const h = new Date(hasta).toISOString();
   return literal(
     `(
-      ("${alias}"."factura_electronica" IS NOT NULL AND "${alias}"."fecha_factura" BETWEEN '${d}' AND '${h}')
+      ("${alias}"."factura_electronica" IS NOT NULL AND ${fechaFePrincipal(`"${alias}"`)} BETWEEN '${d}' AND '${h}')
       OR EXISTS (
         SELECT 1 FROM facturas_adicionales_odp fa
          WHERE fa.odp_id = "${alias}"."id" AND fa.fecha_factura BETWEEN '${d}' AND '${h}'

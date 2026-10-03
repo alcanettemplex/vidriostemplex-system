@@ -1502,3 +1502,19 @@ Nuevos, detectados por los agentes y **no corregidos** (fuera de "solo presentac
    dev server levantado): con el heap por defecto falla y con 6 GB el equipo se colgó. Funciona con
    `GENERATE_SOURCEMAP=false NODE_OPTIONS=--max-old-space-size=2048`. El bundle principal pesa
    1,15 MB gzip: code splitting por ruta (`React.lazy`) lo aliviaría — media, ~2 h.
+
+## 2026-10-02 — Zona horaria: fechas DATE vs instantes, y servidor sin `TZ`
+
+1. **`odp.fecha_factura` es DATE en Postgres pero `DataTypes.DATE` (TIMESTAMPTZ) en el modelo.** Drift
+   modelo↔BD. Comparar esa columna contra un instante la convierte por la parte UTC del literal. Se
+   corrigió en `utils/facturacion.ts` y en `getPedidosFacturados` (helper `fechaFePrincipal`), pero
+   cualquier consulta nueva sobre `fecha_factura` con rango de instantes repetiría el error. Alinear el
+   modelo a `DataTypes.DATEONLY` exige revisar todas las lecturas que hoy reciben un `Date` — media, ~1 h.
+2. **El contenedor de producción no fija `TZ`** (node:20-alpine → UTC) y los rangos se arman con
+   `new Date(y, m, d)` en hora del servidor. Las columnas TIMESTAMPTZ (`fecha_creacion`, etc.) se cortan a
+   medianoche UTC = 19:00 de Colombia: lo creado entre las 19:00 y las 24:00 del último día del mes cae
+   en el mes siguiente en producción y en el correcto en local. Decidir una zona única (fijar
+   `TZ=America/Bogota` en el Dockerfile o construir los rangos en hora Colombia explícita) — media,
+   requiere verificar KPIs de meses cerrados antes y después.
+3. **El ERP no valida el número de FE** (8 FE de septiembre digitadas con error, una FE "0000") ni modela
+   notas crédito — baja/media, a decidir con contabilidad.
