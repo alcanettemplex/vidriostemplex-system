@@ -37,6 +37,81 @@ const pagoSchema = z.object({
   fecha: z.string().optional(), // ISO date string YYYY-MM-DD; si no se envía usa NOW
 });
 
+// ─── Búsqueda ────────────────────────────────────────────────────────────────
+// La BD no tiene la extensión `unaccent`: `translate()` es nativo de Postgres y quita las
+// tildes sin migración. El término llega ya normalizado igual desde normalizarTermino().
+const sinTildes = (expr: string) =>
+  `translate(lower(coalesce(${expr}, '')), 'áàäâãéèëêíìïîóòöôõúùüûñç', 'aaaaaeeeeiiiiooooouuuunc')`;
+
+const normalizarTermino = (q: string) =>
+  q.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+// Patrón LIKE seguro: escapa los comodines con '!' y lo pasa por sequelize.escape (no se
+// concatena texto del usuario sin escapar).
+const patronLike = (termino: string) =>
+  sequelize.escape(`%${termino.replace(/[!%_]/g, (c) => `!${c}`)}%`);
+
+/**
+ * Condición SQL "esta ODP coincide con el término": número de ODP, FE principal y
+ * adicionales, cliente (nombre y NIT, también sin puntos ni guiones) y asesor.
+ * Es la única fuente de la regla de búsqueda: la usan /odps (sobre "ODP"."id") y
+ * /pagos (sobre "Pago"."odp_id"), para que ambas encuentren exactamente lo mismo.
+ */
+const condicionBusquedaODP = (odpIdExpr: string, q: string): string => {
+  const termino = normalizarTermino(q);
+  const like = patronLike(termino);
+  const digitos = q.replace(/\D/g, '');
+  const porNitSinFormato = digitos.length >= 3
+    ? `OR regexp_replace(coalesce(c.numero_documento, ''), '\\D', '', 'g') LIKE ${patronLike(digitos)} ESCAPE '!'`
+    : '';
+  return `EXISTS (
+    SELECT 1 FROM odp o
+    LEFT JOIN clientes c ON c.id = o.cliente_id
+    LEFT JOIN usuarios u ON u.id = o.asesor_id
+    WHERE o.id = ${odpIdExpr} AND (
+      ${sinTildes('o.numero_odp')} LIKE ${like} ESCAPE '!'
+      OR ${sinTildes('o.factura_electronica')} LIKE ${like} ESCAPE '!'
+      OR ${sinTildes('c.nombre_razon_social')} LIKE ${like} ESCAPE '!'
+      OR ${sinTildes('c.numero_documento')} LIKE ${like} ESCAPE '!'
+      ${porNitSinFormato}
+      OR ${sinTildes('u.nombre_completo')} LIKE ${like} ESCAPE '!'
+      OR EXISTS (
+        SELECT 1 FROM facturas_adicionales_odp f
+        WHERE f.odp_id = o.id AND ${sinTildes('f.numero_fe')} LIKE ${like} ESCAPE '!'
+      )
+    )
+  )`;
+};
+
+// Proceso Completado = ODP (no OA) con FE registrada y caja CANCELADO. Misma regla que
+// pestanaDeODP() en el frontend (features/contabilidad/components/contabilidad.utils.ts).
+const SQL_COMPLETADA = `("ODP"."tipo_odp" <> 'OA' AND coalesce("ODP"."factura_electronica", '') <> '' AND "ODP"."estado_caja" = 'CANCELADO')`;
+
+const terminoSchema = z.string().trim().min(2, 'Escribe al menos 2 caracteres para buscar').max(100);
+
+const odpsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  estado_caja: z.string().max(30).optional(),
+  estado_facturacion: z.string().max(30).optional(),
+  tipo_odp: z.string().max(10).optional(),
+  q: terminoSchema.optional(),
+  // operativa: todo lo que NO es Proceso Completado (Estado Caja + OA) — es el listado
+  // de trabajo y cabe completo. completado: la pestaña paginada del histórico.
+  vista: z.enum(['operativa', 'completado']).optional(),
+  orden: z.enum(['numero_odp', 'fecha_creacion', 'cliente', 'asesor', 'estado_produccion', 'factura_electronica', 'monto_total', 'abono', 'pendiente']).optional(),
+  dir: z.enum(['asc', 'desc']).optional(),
+}).strict();
+
+const pagosQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  q: terminoSchema.optional(),
+}).strict();
+
+const mensajeQueryInvalida = (error: z.ZodError) =>
+  error.issues[0]?.message || 'Los filtros de búsqueda no son válidos.';
+
 /**
  * Resumen financiero global para el módulo de contabilidad.
  */
@@ -92,12 +167,15 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
           { estado_caja: 'CREDITO_APROBADO', fecha_vencimiento_credito: { [Op.lt]: today, [Op.ne]: null } },
         ],
       },
+      // Sin límite de filas, así que solo las columnas que usa el detalle (egress).
+      attributes: ['id', 'numero_odp', 'pendiente', 'estado_caja', 'fecha_entrega', 'fecha_vencimiento_credito', 'fecha_creacion', 'factura_electronica'],
       include: [
-        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
       ],
+      // Sin límite: con el antiguo `limit: 15` la pestaña mostraba 15 ODPs mientras el total
+      // en rojo (totalCarteraVencida, sin límite) sumaba todas — 28 el 2026-10-03.
       order: [['fecha_entrega', 'ASC']],
-      limit: 15,
     });
 
     const totalCarteraVencida = await ODP.sum('pendiente', {
@@ -122,15 +200,18 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
       const diffDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
       return {
+        id: odp.id,
         odp: odp.numero_odp,
         cliente: odp.cliente?.nombre_razon_social || 'Sin cliente',
+        nit: odp.cliente?.numero_documento || null,
+        factura_electronica: odp.factura_electronica || null,
         asesor: odp.asesor?.nombre_completo || '—',
         pendiente: fmtCurrency(Number(odp.pendiente) || 0),
         dias_vencido: diffDays,
         tipo_vencimiento: esCreditoVencido ? 'credito' : 'entrega',
         fecha_creacion: odp.fecha_creacion,
       };
-    });
+    }).sort((a, b) => b.dias_vencido - a.dias_vencido); // las más vencidas primero
 
     const pagosRecientes = await Pago.findAll({
       include: [
@@ -167,19 +248,59 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
 };
 
 /**
- * Lista ODPs con filtros para el módulo de contabilidad.
+ * Lista ODPs para el módulo de contabilidad.
+ *
+ * - `vista=operativa`: todo lo que no es Proceso Completado (Estado Caja + Órdenes Azules).
+ *   Es el listado de trabajo; cabe completo en una página (155 filas el 2026-10-03).
+ * - `vista=completado`: el histórico de Proceso Completado, paginado y ordenado en el
+ *   servidor — crece con cada ODP cerrada y ya no cabía en el corte de 500 (89 ODPs de
+ *   abril 2026 quedaban fuera, 2026-10-03).
+ * - `q`: búsqueda en toda la BD (ODP, FE, cliente, NIT, asesor), ver condicionBusquedaODP().
+ * Sin `vista` devuelve todas, como antes (lo usa el buscador maestro junto con `q`).
  */
 export const getContabilidadODPs = async (req: Request, res: Response) => {
+  const parsed = odpsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: mensajeQueryInvalida(parsed.error) });
+  }
+  const { estado_caja, estado_facturacion, tipo_odp, q, vista, orden, dir } = parsed.data;
+  const limit = parsed.data.limit ?? 200;
+  const page = parsed.data.page ?? 1;
+  const offset = (page - 1) * limit;
+
   try {
-    const limit = Math.min(parseInt(String(req.query.limit || '200')), 500);
-    const page = Math.max(parseInt(String(req.query.page || '1')), 1);
-    const offset = (page - 1) * limit;
-
     const where: any = {};
+    if (estado_caja) where.estado_caja = estado_caja;
+    if (estado_facturacion) where.estado_facturacion = estado_facturacion;
+    if (tipo_odp) where.tipo_odp = tipo_odp;
 
-    if (req.query.estado_caja) where.estado_caja = req.query.estado_caja;
-    if (req.query.estado_facturacion) where.estado_facturacion = req.query.estado_facturacion;
-    if (req.query.tipo_odp) where.tipo_odp = req.query.tipo_odp;
+    const condiciones: any[] = [];
+    if (vista === 'completado') condiciones.push(sequelize.literal(SQL_COMPLETADA));
+    if (vista === 'operativa') condiciones.push(sequelize.literal(`NOT ${SQL_COMPLETADA}`));
+    if (q) condiciones.push(sequelize.literal(condicionBusquedaODP('"ODP"."id"', q)));
+    if (condiciones.length) where[Op.and] = condiciones;
+
+    const sentido = dir === 'desc' ? 'DESC' : 'ASC';
+    const ordenPorColumna: Record<string, any> = {
+      numero_odp: ['numero_odp', sentido],
+      fecha_creacion: ['fecha_creacion', sentido],
+      cliente: [{ model: Cliente, as: 'cliente' }, 'nombre_razon_social', sentido],
+      asesor: [{ model: Usuario, as: 'asesor' }, 'nombre_completo', sentido],
+      estado_produccion: ['estado_produccion', sentido],
+      factura_electronica: ['factura_electronica', sentido],
+      monto_total: ['valor_total', sentido],
+      abono: ['abono', sentido],
+      pendiente: ['pendiente', sentido],
+    };
+    const order: any[] = orden
+      ? [ordenPorColumna[orden], ['id', 'DESC']]
+      // Las no CANCELADO van siempre primero para que ninguna con saldo abierto quede
+      // fuera del corte por antigüedad (caso ODP-23859, 2026-09-16).
+      : [
+          [sequelize.literal(`CASE WHEN "ODP"."estado_caja" = 'CANCELADO' THEN 1 ELSE 0 END`), 'ASC'],
+          ['fecha_creacion', 'DESC'],
+          ['id', 'DESC'],
+        ];
 
     const { count, rows } = await ODP.findAndCountAll({
       where,
@@ -189,58 +310,67 @@ export const getContabilidadODPs = async (req: Request, res: Response) => {
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
         { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura', 'monto'], separate: true },
       ],
-      // El frontend (ContabilidadPage) pide todo con un solo limit=500 y busca/filtra en
-      // el navegador — no hay búsqueda server-side. Con orden puro por fecha_creacion, una
-      // ODP vieja con saldo abierto puede quedar fuera del corte y desaparecer de toda
-      // búsqueda aunque tenga pendiente real (caso ODP-23859, 2026-09-16). Las no
-      // CANCELADO van siempre primero (sin límite práctico: son un puñado frente a las
-      // ya saldadas) para que ninguna con saldo abierto quede nunca fuera del listado.
-      order: [
-        [sequelize.literal(`CASE WHEN estado_caja = 'CANCELADO' THEN 1 ELSE 0 END`), 'ASC'],
-        ['fecha_creacion', 'DESC'],
-      ],
+      order,
       limit,
       offset,
+      distinct: true,
     });
 
-    res.json({ rows, count, page, totalPages: Math.ceil(count / limit) });
+    res.json({ rows, count, page, totalPages: Math.max(1, Math.ceil(count / limit)) });
   } catch (error) {
     console.error('Error al obtener ODPs de contabilidad:', error);
-    res.status(500).json({ error: 'Error al obtener ODPs' });
+    res.status(500).json({ error: 'No se pudo cargar el listado de ODPs de Contabilidad. Recarga la página; si persiste, avisa a soporte.' });
   }
 };
 
 /**
- * Lista todos los pagos registrados con información detallada.
+ * Lista los pagos registrados, paginados. `q` busca por la ODP del pago (número, FE,
+ * cliente, NIT, asesor — misma regla que /odps) y por el recibo o las observaciones.
  */
 export const getPagos = async (req: Request, res: Response) => {
+  const parsed = pagosQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: mensajeQueryInvalida(parsed.error) });
+  }
+  const { q } = parsed.data;
+  const limit = parsed.data.limit ?? 100;
+  const pagina = parsed.data.page ?? 1;
+  const offset = (pagina - 1) * limit;
+
   try {
-    const limit = Math.min(parseInt(String(req.query.limit || '100')), 500);
-    const pagina = Math.max(parseInt(String(req.query.page || '1')), 1);
-    const offset = (pagina - 1) * limit;
+    const where: any = {};
+    if (q) {
+      const like = patronLike(normalizarTermino(q));
+      where[Op.and] = [sequelize.literal(`(
+        ${condicionBusquedaODP('"Pago"."odp_id"', q)}
+        OR ${sinTildes('"Pago"."referencia_pago"')} LIKE ${like} ESCAPE '!'
+        OR ${sinTildes('"Pago"."observaciones"')} LIKE ${like} ESCAPE '!'
+      )`)];
+    }
 
     const { count, rows: pagos } = await Pago.findAndCountAll({
+      where,
       include: [
         {
           model: ODP,
           as: 'odp',
-          attributes: ['id', 'numero_odp', 'fecha_creacion', 'cliente_id', 'asesor_id'],
+          attributes: ['id', 'numero_odp', 'fecha_creacion', 'cliente_id', 'asesor_id', 'factura_electronica'],
           include: [
-            { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+            { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento'] },
             { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
           ],
         },
         { model: Usuario, as: 'registrador', attributes: ['id', 'nombre_completo'] },
       ],
-      order: [['fecha', 'DESC']],
+      order: [['fecha', 'DESC'], ['id', 'DESC']],
       limit,
       offset,
     });
 
-    res.json({ pagos, total: count, pagina, totalPaginas: Math.ceil(count / limit) });
+    res.json({ pagos, total: count, pagina, totalPaginas: Math.max(1, Math.ceil(count / limit)) });
   } catch (error) {
     console.error('Error al obtener pagos:', error);
-    res.status(500).json({ error: 'Error al obtener pagos' });
+    res.status(500).json({ error: 'No se pudo cargar el listado de pagos. Recarga la página; si persiste, avisa a soporte.' });
   }
 };
 

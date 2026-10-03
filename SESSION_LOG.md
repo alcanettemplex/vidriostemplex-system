@@ -6297,3 +6297,28 @@ consigna de simplicidad y pocos pasos.
 - **Rastro de la prueba:** quedan en `auditoria_log` 3 INSERT de piezas de prueba (990001, 990002 y
   11319, ubicación PRUEBA) sin su DELETE, porque se borraron con SQL directo.
 - **Docs:** nuevo `docs/modulos/inventario.md` + fila en el índice de CLAUDE.md.
+
+### Contabilidad: buscadores de todas las pestañas + buscador maestro
+- **Diagnóstico:** la página cargaba `GET /contabilidad/odps?limit=500` y filtraba en el navegador; con
+  599 ODPs quedaban fuera 99 canceladas de abril (89 completadas, 7 de Estado Caja, 3 OA). Pagos y
+  Cartera no tenían buscador; Cartera traía solo 15 de 28 vencidas mientras el total sumaba las 28.
+- **Decisiones del usuario:** los 5 puntos + buscador maestro que diga en qué pestaña está cada
+  resultado; Cartera completa; búsqueda por NIT y FE; Proceso Completado **paginado** (opción B).
+- **Backend (`contabilidad.controller.ts`):** `condicionBusquedaODP()` única (ODP, FE principal y
+  adicionales, cliente, NIT con y sin formato, asesor), sin tildes con `translate()` (la BD no tiene
+  `unaccent`), comodines escapados; Zod `.strict` en la query de `/odps` y `/pagos`; `/odps` con `q`,
+  `vista=operativa|completado`, `orden`/`dir`; `/pagos` con `q` (además recibo y observaciones);
+  `cartera_detalle` sin límite, ordenada por días vencidos, con `id`/`nit`/FE y columnas acotadas.
+- **Frontend:** `utils/busqueda.ts` (normalizar, coincidir, `useValorDiferido`); `BuscadorMaestro`;
+  `ControlesListado` (`CampoBusqueda`, `Paginador`); Estado Caja y OA desde la carga operativa completa
+  con filtro local; Completado y Pagos paginados con búsqueda en servidor; Cartera con buscador y enlace
+  a la ficha; selector de ODP con búsqueda en el modal de abono; contadores de pestaña globales;
+  `aplicarPatchODP()` para las tres listas; `useODPSocketPatch` acepta `setSoloActualizar`.
+- **Desvío del plan, informado:** Estado Caja y OA filtran en el navegador en vez de en el servidor:
+  la carga `vista=operativa` ya trae todas (155), así que el resultado es completo e instantáneo.
+- **Verificación:** controladores contra la BD real y luego por HTTP con token local (GET únicamente):
+  operativa 155, completado 444 en 5 páginas con orden en servidor, ODP-23846 (antes fuera) encontrada,
+  "castano"→CASTAÑO, "Martínez"→MARTINEZ, NIT con puntos, FE 7524, `%%`→0, q de 1 carácter→400, clave
+  desconocida→400, cartera 28 con total $224.373.637, asistente: pagos 403. `tsc` back y front y ESLint
+  front limpios. **No se probó la pantalla en el navegador.**
+- **Docs:** nuevo `docs/modulos/contabilidad.md` + fila en el índice de CLAUDE.md; 5 ítems en `TECH_DEBT.md`.

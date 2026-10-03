@@ -80,15 +80,20 @@ interface ODPPatchPayload {
  * Pasar SIEMPRE setOdpsOA en ese contexto — si se omite, las OAs quedarán
  * desactualizadas silenciosamente. Ver memory/project_odp_patch_riesgo.md.
  *
+ * `setSoloActualizar`: listas que se parchan en update/delete pero nunca reciben altas
+ * (p. ej. la página de Proceso Completado, que es un histórico paginado: una ODP recién
+ * creada nunca pertenece ahí).
+ *
  * Uso en ODPListPage:       useODPSocketPatch({ setOdps, setGarantias })
- * Uso en ContabilidadPage:  useODPSocketPatch({ setOdps, setOdpsOA })
+ * Uso en ContabilidadPage:  useODPSocketPatch({ setOdps, setOdpsOA, setSoloActualizar: setCompletadas })
  */
 export const useODPSocketPatch = (params: {
   setOdps: SetODPs;
   setGarantias?: SetODPs;
   setOdpsOA?: SetODPs;
+  setSoloActualizar?: SetODPs;
 }) => {
-  const { setOdps, setGarantias, setOdpsOA } = params;
+  const { setOdps, setGarantias, setOdpsOA, setSoloActualizar } = params;
 
   useEffect(() => {
     const handler = ({ accion, id, odp }: ODPPatchPayload) => {
@@ -96,6 +101,7 @@ export const useODPSocketPatch = (params: {
         setOdps(prev => prev.filter(o => o.id !== id));
         setGarantias?.(prev => prev.filter(o => o.id !== id));
         setOdpsOA?.(prev => prev.filter(o => o.id !== id));
+        setSoloActualizar?.(prev => prev.filter(o => o.id !== id));
         return;
       }
 
@@ -117,11 +123,12 @@ export const useODPSocketPatch = (params: {
       setOdps(prev => patch(prev));
       setGarantias?.(prev => patch(prev));
       setOdpsOA?.(prev => patch(prev));
+      setSoloActualizar?.(prev => patch(prev));
     };
 
     socket.on('odp_patch', handler);
     return () => { socket.off('odp_patch', handler); };
-  }, [setOdps, setGarantias, setOdpsOA]);
+  }, [setOdps, setGarantias, setOdpsOA, setSoloActualizar]);
 };
 
 export const useDataChangedSocket = (modulo: string, onRefresh: () => void) => {

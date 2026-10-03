@@ -71,7 +71,7 @@ Para no rehacer el rastreo forense completo cada vez que se toca un módulo gran
 | Inventario Perfilería | `docs/modulos/inventario.md` | Piezas sobrantes con consecutivo (etiqueta física), índice único desde el 2026-10-03, ingreso automático (MAX+1) e **ingreso con consecutivo asignado por el usuario**, y cómo Compras consume y revierte piezas por consecutivo |
 | Rutas e Instalaciones | *(pendiente)* | RutaInstalacion/RutaODP, Instalaciones, Evidencias, Agenda |
 | CRM / Leads | *(pendiente)* | Leads, pipeline CRM, Supervisión CRM, Prospectos |
-| Contabilidad / Caja | *(pendiente)* | Facturación, Caja, Salidas de Almacén |
+| Contabilidad / Caja | `docs/modulos/contabilidad.md` | Pestañas de Contabilidad y en cuál cae cada ODP (`pestanaDeODP`), búsqueda en servidor sin tildes y por NIT/FE (`condicionBusquedaODP`), buscador maestro, Proceso Completado paginado, Cartera Vencida completa. Salidas de Almacén aún sin documentar |
 | RBAC / Auditoría | *(pendiente)* | Roles, permisos, hooks de auditoría, revertir desde ROOT |
 | Infraestructura / Despliegue | *(pendiente)* | Sockets, deploy, sincronización entre máquinas |
 

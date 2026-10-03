@@ -1518,3 +1518,19 @@ Nuevos, detectados por los agentes y **no corregidos** (fuera de "solo presentac
    requiere verificar KPIs de meses cerrados antes y después.
 3. **El ERP no valida el número de FE** (8 FE de septiembre digitadas con error, una FE "0000") ni modela
    notas crédito — baja/media, a decidir con contabilidad.
+
+## 2026-10-03 — Contabilidad: buscadores (lo que quedó señalado)
+
+1. **`contabilidadSlice` es código muerto:** registrado en `rootReducer.ts` pero ningún componente
+   despacha ni lee sus acciones (`movimientos`, `filtroTipo`, `filtroMes`). Quitarlo exige tocar
+   `rootReducer` y el tipo `RootState` — baja, ~15 min.
+2. **El rol `contabilidad` no ve la pestaña Órdenes Azules** (`canSeeOA` en `ContabilidadPage.tsx`),
+   aunque `GET /api/contabilidad/odps` sí le devuelve las OA. Confirmar con el usuario si es intencional
+   — baja, 5 min una vez decidido.
+3. **`GET /api/contabilidad/resumen` devuelve `pagos_recientes`** (10 pagos con includes) que el frontend
+   no consume: egress sin uso en cada carga de la página — baja, 5 min.
+4. **El ESLint del backend no corre:** `npm --prefix backend-api run lint:fix` falla con ESLint 10 porque
+   no hay `eslint.config.js` (solo existe el formato anterior). Hoy el backend se valida solo con `tsc` —
+   media, ~30 min (migrar la configuración y revisar las reglas que empiecen a fallar).
+5. **Cuatro copias de "normalizar sin tildes"** fuera de Contabilidad (`navegacion.ts`, `Galeria.tsx`,
+   `CotizacionesODPSection.tsx`, `ManualVisor.tsx`) que podrían usar `utils/busqueda.ts` — baja, ~20 min.

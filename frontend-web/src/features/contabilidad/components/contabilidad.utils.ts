@@ -1,6 +1,7 @@
 // Helpers compartidos del módulo Contabilidad.
 // Extraídos de ContabilidadPage para que los modales (FE, abonos) puedan reutilizarse
 // también desde la ficha de la ODP sin duplicar formato ni reglas de cálculo.
+import { coincideBusqueda } from '../../../utils/busqueda';
 
 export const getToken = () => sessionStorage.getItem('token');
 export const headers = () => ({ Authorization: `Bearer ${getToken()}` });
@@ -36,6 +37,44 @@ export const calcPendiente = (o: any) =>
   o?.pendiente != null
     ? Number(o.pendiente)
     : Math.max(0, Number(o?.valor_total || 0) - Number(o?.abono || 0));
+
+// ─── Pestañas y búsqueda ─────────────────────────────────────────────────────
+
+export type PestanaContabilidad = 'estado_caja' | 'pagos' | 'cartera' | 'completado' | 'oa';
+
+/** Proceso Completado: ODP (no OA) con FE registrada y caja CANCELADO.
+ *  Misma regla que SQL_COMPLETADA en contabilidad.controller.ts. */
+export const esCompletada = (o: any): boolean =>
+  o?.tipo_odp !== 'OA' && !!o?.factura_electronica && o?.estado_caja === 'CANCELADO';
+
+/**
+ * Pestaña donde vive una ODP. Una sola fuente para los listados y el buscador maestro.
+ * 'ninguna' = NC o garantía: no cobran ni facturan, así que no salen en Estado Caja.
+ * Cartera Vencida es adicional (una ODP puede estar en Estado Caja y en Cartera a la vez)
+ * y se resuelve contra cartera_detalle del resumen, no aquí.
+ */
+export const pestanaDeODP = (o: any): 'estado_caja' | 'completado' | 'oa' | 'ninguna' => {
+  if (o?.tipo_odp === 'OA') return 'oa';
+  if (esCompletada(o)) return 'completado';
+  if (o?.es_no_conformidad || o?.es_garantia) return 'ninguna';
+  return 'estado_caja';
+};
+
+/** Filtro local de ODPs: número, cliente, NIT (con o sin puntos), asesor y FE (principal
+ *  y adicionales). Es el mismo criterio que la búsqueda del servidor (`q`). */
+export const coincideODP = (o: any, termino: string): boolean =>
+  coincideBusqueda(
+    termino,
+    [
+      o?.numero_odp,
+      o?.cliente?.nombre_razon_social,
+      o?.cliente?.numero_documento,
+      o?.asesor?.nombre_completo,
+      o?.factura_electronica,
+      ...((o?.facturas_adicionales as any[]) || []).map(f => f?.numero_fe),
+    ],
+    [o?.cliente?.numero_documento],
+  );
 
 export const BANCOS_COLOMBIA = [
   'Bancolombia', 'Nequi', 'Davivienda', 'Banco de Bogotá', 'BBVA', 'Scotiabank Colpatria',

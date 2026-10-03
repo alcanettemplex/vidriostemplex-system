@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { motion } from 'framer-motion';
@@ -10,19 +10,32 @@ import {
   Calculator, DollarSign, FileCheck, AlertCircle,
   CreditCard, Plus, X, Receipt, Clock, Banknote, TrendingDown,
   Pencil, Trash2, Calendar, ChevronUp, ChevronDown, ChevronsUpDown,
-  CheckCircle2, Search,
+  CheckCircle2,
 } from '../../components/ui/icons';
 import { useDataChangedSocket, useODPSocketPatch } from '../../store/useSocketNotifications';
 
 import API from '../../services/config';
 // Helpers y modales compartidos: los mismos que consume la ficha de la ODP.
-import { headers, fmt, fmtFecha, formatMiles, parseMiles, calcPendiente } from './components/contabilidad.utils';
+import {
+  headers, fmt, fmtFecha, formatMiles, parseMiles, calcPendiente,
+  esCompletada, pestanaDeODP, coincideODP, PestanaContabilidad,
+} from './components/contabilidad.utils';
+import { coincideBusqueda, normalizarTexto, useValorDiferido } from '../../utils/busqueda';
 import { getEstadoODP } from '../../utils/estadosODP';
 import FacturaElectronicaModal from './components/FacturaElectronicaModal';
 import AbonoFormModal from './components/AbonoFormModal';
 import ConfirmarEliminarAbonoModal from './components/ConfirmarEliminarAbonoModal';
+import BuscadorMaestro from './components/BuscadorMaestro';
+import { CampoBusqueda, Paginador } from './components/ControlesListado';
 
-type Tab = 'estado_caja' | 'pagos' | 'cartera' | 'completado' | 'oa';
+type Tab = PestanaContabilidad;
+
+const LIMITE_OPERATIVAS = 500;
+const POR_PAGINA_COMPLETADO = 100;
+const POR_PAGINA_PAGOS = 100;
+
+/** El término se manda al servidor solo desde 2 caracteres (el backend rechaza menos). */
+const terminoServidor = (t: string) => (normalizarTexto(t).length >= 2 ? t.trim() : '');
 
 const ContabilidadPage: React.FC = () => {
   const authUser = useSelector((state: any) => state.auth?.user);
@@ -30,24 +43,51 @@ const ContabilidadPage: React.FC = () => {
   const canSeeOA = ['admin', 'gerencia', 'jefe_produccion', 'asistente_administrativo'].includes(authUser?.rol);
   const isAsistenteAdmin = authUser?.rol === 'asistente_administrativo';
   const canPayOA = ['admin', 'gerencia', 'asistente_administrativo'].includes(authUser?.rol);
+  // El asistente administrativo solo ve Órdenes Azules; /resumen y /pagos le responden 403.
+  const verFinanzas = !isAsistenteAdmin;
 
   const [tab, setTab] = useState<Tab>(isAsistenteAdmin ? 'oa' : 'estado_caja');
 
-  // ─── ODPs ────────────────────────────────────────────────────────────────
+  // ─── ODPs operativas (Estado Caja + OA) ──────────────────────────────────
+  // Se cargan completas (vista=operativa excluye el histórico de Proceso Completado) y se
+  // filtran en el navegador: 155 filas el 2026-10-03, lejos del tope.
   const [odps, setOdps] = useState<any[]>([]);
   const [odpsOA, setOdpsOA] = useState<any[]>([]);
+  const [totalOperativas, setTotalOperativas] = useState(0);
   const [loadingOdps, setLoadingOdps] = useState(true);
   const [filterEstadoCaja, setFilterEstadoCaja] = useState('todos');
   const [filterBusqueda, setFilterBusqueda] = useState('');
   const [busquedaOA, setBusquedaOA] = useState('');
 
-  // ─── Resumen / pagos ─────────────────────────────────────────────────────
+  // ─── Resumen / cartera ───────────────────────────────────────────────────
   const [resumen, setResumen] = useState<any>(null);
+  const [loadingResumen, setLoadingResumen] = useState(true);
+  const [busquedaCartera, setBusquedaCartera] = useState('');
+
+  // ─── Pagos (paginados y buscados en el servidor) ─────────────────────────
   const [pagos, setPagos] = useState<any[]>([]);
   const [totalPagos, setTotalPagos] = useState(0);
+  // El contador de la pestaña es el total sin búsqueda; totalPagos es el del listado actual.
+  const [totalPagosGlobal, setTotalPagosGlobal] = useState(0);
   const [paginaPagos, setPaginaPagos] = useState(1);
   const [totalPaginasPagos, setTotalPaginasPagos] = useState(1);
-  const [loadingResumen, setLoadingResumen] = useState(true);
+  const [loadingPagos, setLoadingPagos] = useState(true);
+  const [busquedaPagos, setBusquedaPagos] = useState('');
+  const qPagos = terminoServidor(useValorDiferido(busquedaPagos));
+  const consultaPagosRef = useRef(0);
+
+  // ─── Proceso Completado (paginado, ordenado y buscado en el servidor) ────
+  const [completadas, setCompletadas] = useState<any[]>([]);
+  const [totalCompletadas, setTotalCompletadas] = useState(0);
+  const [totalCompletadasGlobal, setTotalCompletadasGlobal] = useState(0);
+  const [paginaComp, setPaginaComp] = useState(1);
+  const [totalPaginasComp, setTotalPaginasComp] = useState(1);
+  const [loadingComp, setLoadingComp] = useState(true);
+  const [filterBusquedaCompletado, setFilterBusquedaCompletado] = useState('');
+  const qComp = terminoServidor(useValorDiferido(filterBusquedaCompletado));
+  const [sortColComp, setSortColComp] = useState<string | null>(null);
+  const [sortDirComp, setSortDirComp] = useState<'asc' | 'desc'>('asc');
+  const consultaCompRef = useRef(0);
 
   // ─── Modales compartidos: FE y abonos ────────────────────────────────────
   // Cada estado guarda el objetivo (ODP o pago); el formulario vive dentro del componente.
@@ -68,15 +108,12 @@ const ContabilidadPage: React.FC = () => {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  // ─── Proceso Completado ──────────────────────────────────────────────────
-  const [filterBusquedaCompletado, setFilterBusquedaCompletado] = useState('');
-  const [sortColComp, setSortColComp] = useState<string | null>(null);
-  const [sortDirComp, setSortDirComp] = useState<'asc' | 'desc'>('asc');
-
+  // El orden de Proceso Completado lo aplica el servidor (está paginado): cambiarlo vuelve a la página 1.
   const handleSortComp = (key: string | null) => {
     if (!key) return;
     if (sortColComp === key) setSortDirComp(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortColComp(key); setSortDirComp('asc'); }
+    setPaginaComp(1);
   };
 
   const handleSort = (key: string | null) => {
@@ -89,53 +126,104 @@ const ContabilidadPage: React.FC = () => {
     }
   };
 
+  // Cambiar el texto de una búsqueda paginada vuelve a la página 1 en el mismo evento,
+  // así la consulta sale una sola vez cuando termina la espera de escritura.
+  const cambiarBusquedaPagos = (v: string) => { setBusquedaPagos(v); setPaginaPagos(1); };
+  const cambiarBusquedaCompletado = (v: string) => { setFilterBusquedaCompletado(v); setPaginaComp(1); };
+
   // ─── Fetchers ────────────────────────────────────────────────────────────
   const fetchOdps = useCallback(async () => {
     try {
       setLoadingOdps(true);
-      const res = await axios.get(`${API}/api/contabilidad/odps?limit=500`, { headers: headers() });
+      const res = await axios.get(`${API}/api/contabilidad/odps?vista=operativa&limit=${LIMITE_OPERATIVAS}`, { headers: headers() });
       const data = res.data;
       if (data && Array.isArray(data.rows)) {
         setOdps(data.rows.filter((o: any) => o.tipo_odp !== 'OA'));
         if (canSeeOA) setOdpsOA(data.rows.filter((o: any) => o.tipo_odp === 'OA'));
+        setTotalOperativas(data.count || 0);
       } else {
         console.error('Respuesta de ODPs no tiene rows:', data);
         setOdps([]);
       }
     } catch (err) {
       console.error('Error fetching ODPs:', err);
+      toast.error('No se pudo cargar el listado de ODPs de Contabilidad. Recarga la página para reintentar.');
       setOdps([]);
     } finally { setLoadingOdps(false); }
     // canSeeOA sale del rol, que no cambia en la sesión: declararla no altera cuándo se recarga
   }, [canSeeOA]);
 
   const fetchResumen = useCallback(async () => {
+    if (!verFinanzas) { setLoadingResumen(false); return; }
     try {
       setLoadingResumen(true);
-      const [resumenRes, pagosRes] = await Promise.all([
-        axios.get(`${API}/api/contabilidad/resumen`, { headers: headers() }).catch((err) => {
-          console.error('Error resumen dashboard:', err);
-          return null;
-        }),
-        axios.get(`${API}/api/contabilidad/pagos?page=${paginaPagos}&limit=100`, { headers: headers() }).catch((err) => {
-          console.error('Error listado pagos:', err);
-          return { data: { pagos: [], total: 0, pagina: 1, totalPaginas: 1 } };
-        }),
-      ]);
-      if (resumenRes) setResumen(resumenRes.data);
-      const pagosData = pagosRes?.data;
-      setPagos(pagosData?.pagos || []);
-      setTotalPagos(pagosData?.total || 0);
-      setTotalPaginasPagos(pagosData?.totalPaginas || 1);
+      const res = await axios.get(`${API}/api/contabilidad/resumen`, { headers: headers() });
+      setResumen(res.data);
     } catch (err) {
-      console.error('Error en Promise.all de contabilidad:', err);
+      console.error('Error resumen dashboard:', err);
     } finally { setLoadingResumen(false); }
-  }, [paginaPagos]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [verFinanzas]);
+
+  const fetchPagos = useCallback(async () => {
+    if (!verFinanzas) { setLoadingPagos(false); return; }
+    // Si cambian la página o la búsqueda antes de que responda, la respuesta vieja se descarta.
+    const id = ++consultaPagosRef.current;
+    setLoadingPagos(true);
+    try {
+      const q = qPagos ? `&q=${encodeURIComponent(qPagos)}` : '';
+      const res = await axios.get(`${API}/api/contabilidad/pagos?page=${paginaPagos}&limit=${POR_PAGINA_PAGOS}${q}`, { headers: headers() });
+      if (id !== consultaPagosRef.current) return;
+      setPagos(res.data?.pagos || []);
+      setTotalPagos(res.data?.total || 0);
+      if (!qPagos) setTotalPagosGlobal(res.data?.total || 0);
+      setTotalPaginasPagos(res.data?.totalPaginas || 1);
+    } catch (err: any) {
+      if (id !== consultaPagosRef.current) return;
+      console.error('Error listado pagos:', err);
+      toast.error(err?.response?.data?.error || 'No se pudo cargar el listado de pagos.');
+    } finally { if (id === consultaPagosRef.current) setLoadingPagos(false); }
+  }, [verFinanzas, paginaPagos, qPagos]);
+
+  const fetchCompletadas = useCallback(async () => {
+    if (!verFinanzas) { setLoadingComp(false); return; }
+    const id = ++consultaCompRef.current;
+    setLoadingComp(true);
+    try {
+      const params = new URLSearchParams({ vista: 'completado', page: String(paginaComp), limit: String(POR_PAGINA_COMPLETADO) });
+      if (qComp) params.set('q', qComp);
+      if (sortColComp) { params.set('orden', sortColComp); params.set('dir', sortDirComp); }
+      const res = await axios.get(`${API}/api/contabilidad/odps?${params.toString()}`, { headers: headers() });
+      if (id !== consultaCompRef.current) return;
+      setCompletadas(res.data?.rows || []);
+      setTotalCompletadas(res.data?.count || 0);
+      if (!qComp) setTotalCompletadasGlobal(res.data?.count || 0);
+      setTotalPaginasComp(res.data?.totalPages || 1);
+    } catch (err: any) {
+      if (id !== consultaCompRef.current) return;
+      console.error('Error listado Proceso Completado:', err);
+      toast.error(err?.response?.data?.error || 'No se pudo cargar Proceso Completado.');
+    } finally { if (id === consultaCompRef.current) setLoadingComp(false); }
+  }, [verFinanzas, paginaComp, qComp, sortColComp, sortDirComp]);
 
   useEffect(() => { fetchOdps(); }, [fetchOdps]);
   useEffect(() => { fetchResumen(); }, [fetchResumen]);
-  useDataChangedSocket('contabilidad', () => { fetchOdps(); fetchResumen(); });
-  useODPSocketPatch({ setOdps, setOdpsOA });
+  useEffect(() => { fetchPagos(); }, [fetchPagos]);
+  useEffect(() => { fetchCompletadas(); }, [fetchCompletadas]);
+  useDataChangedSocket('contabilidad', useCallback(() => {
+    fetchOdps(); fetchResumen(); fetchPagos(); fetchCompletadas();
+  }, [fetchOdps, fetchResumen, fetchPagos, fetchCompletadas]));
+  useODPSocketPatch({ setOdps, setOdpsOA, setSoloActualizar: setCompletadas });
+
+  /** Aplica un cambio de una ODP en todas las listas donde pueda estar. Si con el cambio
+   *  pasa a (o deja de ser) Proceso Completado, esa pestaña se recarga. */
+  const aplicarPatchODP = (id: number, patch: Record<string, any>) => {
+    const parchar = (arr: any[]) => arr.map(o => o.id === id ? { ...o, ...patch } : o);
+    const antes = [...odps, ...completadas].find(o => o.id === id);
+    setOdps(parchar);
+    setOdpsOA(parchar);
+    setCompletadas(parchar);
+    if (antes && esCompletada(antes) !== esCompletada({ ...antes, ...patch })) fetchCompletadas();
+  };
 
   // ─── Handlers estado caja / facturación ──────────────────────────────────
   const updateCaja = async (id: number, campo: string, valor: string) => {
@@ -144,7 +232,7 @@ const ContabilidadPage: React.FC = () => {
         ? `${API}/api/odp/${id}/caja`
         : `${API}/api/odp/${id}/facturar`;
       await axios.patch(endpoint, { [campo]: valor }, { headers: headers() });
-      setOdps(prev => prev.map(o => o.id === id ? { ...o, [campo]: valor } : o));
+      aplicarPatchODP(id, { [campo]: valor });
       toast.success('Estado actualizado');
     } catch { toast.error('Error al actualizar estado'); }
   };
@@ -183,13 +271,27 @@ const ContabilidadPage: React.FC = () => {
       toast.success('Monto total actualizado');
       setShowEditTotalModal(false);
       fetchOdps();
+      fetchCompletadas();
     } catch {
       toast.error('Error al actualizar el monto');
     } finally { setSubmittingTotal(false); }
   };
 
-  // Refresco tras cualquier alta/edición/borrado de abono (mismo comportamiento previo).
-  const refrescarTrasAbono = () => { fetchOdps(); fetchResumen(); };
+  // Refresco tras cualquier alta/edición/borrado de abono.
+  const refrescarTrasAbono = () => { fetchOdps(); fetchResumen(); fetchPagos(); fetchCompletadas(); };
+
+  // ─── Buscador maestro → pestaña ──────────────────────────────────────────
+  // Lleva a la pestaña con su propio buscador ya filtrado por el término.
+  const irAPestana = (destino: Tab, termino: string) => {
+    setTab(destino);
+    switch (destino) {
+      case 'estado_caja': setFilterEstadoCaja('todos'); setFilterBusqueda(termino); break;
+      case 'completado': cambiarBusquedaCompletado(termino); break;
+      case 'oa': setBusquedaOA(termino); break;
+      case 'cartera': setBusquedaCartera(termino); break;
+      case 'pagos': cambiarBusquedaPagos(termino); break;
+    }
+  };
 
   // ─── Datos derivados ─────────────────────────────────────────────────────
   const diasParaVencer = (o: any): number | null => {
@@ -207,26 +309,12 @@ const ContabilidadPage: React.FC = () => {
     return '';
   };
 
-  // ODPs con proceso 100% cerrado: tienen FE registrada y caja CANCELADO
-  const odpsCompletadas = odps.filter(o => o.factura_electronica && o.estado_caja === 'CANCELADO');
+  // Estado Caja: ni completadas (van a su pestaña) ni NC/garantías (no cobran ni llevan FE).
+  const baseEstadoCaja = useMemo(() => odps.filter(o => pestanaDeODP(o) === 'estado_caja'), [odps]);
 
-  const filtradas = odps.filter(o => {
-    // Las que ya están en Proceso Completado no aparecen en Estado Caja
-    if (o.factura_electronica && o.estado_caja === 'CANCELADO') return false;
-    // NC y garantías no cobran al cliente y no llevan factura electrónica: no son
-    // "pendientes por facturar", así que no pertenecen a este listado.
-    if (o.es_no_conformidad || o.es_garantia) return false;
-    if (filterEstadoCaja !== 'todos' && o.estado_caja !== filterEstadoCaja) return false;
-    if (filterBusqueda) {
-      const q = filterBusqueda.toLowerCase();
-      return (
-        o.numero_odp?.toLowerCase().includes(q) ||
-        o.cliente?.nombre_razon_social?.toLowerCase().includes(q) ||
-        o.asesor?.nombre_completo?.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const filtradas = useMemo(() => baseEstadoCaja.filter(o =>
+    (filterEstadoCaja === 'todos' || o.estado_caja === filterEstadoCaja) && coincideODP(o, filterBusqueda),
+  ), [baseEstadoCaja, filterEstadoCaja, filterBusqueda]);
 
   const sortedFiltradas = useMemo(() => {
     if (!sortCol) return filtradas;
@@ -254,42 +342,14 @@ const ContabilidadPage: React.FC = () => {
     });
   }, [filtradas, sortCol, sortDir]);
 
-  const sortedOdpsCompletadas = useMemo(() => {
-    const source = filterBusquedaCompletado
-      ? odpsCompletadas.filter(o => {
-          const q = filterBusquedaCompletado.toLowerCase();
-          return (
-            o.numero_odp?.toLowerCase().includes(q) ||
-            o.cliente?.nombre_razon_social?.toLowerCase().includes(q) ||
-            o.asesor?.nombre_completo?.toLowerCase().includes(q)
-          );
-        })
-      : odpsCompletadas;
-    if (!sortColComp) return source;
-    return [...source].sort((a, b) => {
-      let va: any, vb: any;
-      switch (sortColComp) {
-        case 'numero_odp':          va = a.numero_odp || ''; vb = b.numero_odp || ''; break;
-        case 'fecha_creacion':      va = a.fecha_creacion || ''; vb = b.fecha_creacion || ''; break;
-        case 'cliente':             va = a.cliente?.nombre_razon_social || ''; vb = b.cliente?.nombre_razon_social || ''; break;
-        case 'asesor':              va = a.asesor?.nombre_completo || ''; vb = b.asesor?.nombre_completo || ''; break;
-        case 'estado_produccion':   va = a.estado_produccion || ''; vb = b.estado_produccion || ''; break;
-        case 'factura_electronica': va = a.factura_electronica || ''; vb = b.factura_electronica || ''; break;
-        case 'monto_total':         va = Number(a.valor_total) || 0; vb = Number(b.valor_total) || 0; break;
-        case 'abono':               va = Number(a.abono) || 0; vb = Number(b.abono) || 0; break;
-        case 'pendiente':           va = calcPendiente(a); vb = calcPendiente(b); break;
-        default: return 0;
-      }
-      if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb as string).toLowerCase(); }
-      if (va < vb) return sortDirComp === 'asc' ? -1 : 1;
-      if (va > vb) return sortDirComp === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [odpsCompletadas, filterBusquedaCompletado, sortColComp, sortDirComp]);
+  const oaFiltradas = useMemo(() => odpsOA.filter(o => coincideODP(o, busquedaOA)), [odpsOA, busquedaOA]);
 
   const odpsPendientes = odps.filter(o => calcPendiente(o) > 0 && o.estado_caja !== 'CANCELADO');
   const odpsOAPendientes = odpsOA.filter(o => calcPendiente(o) > 0 && o.estado_caja !== 'CANCELADO');
-  const carteraDetalle: any[] = resumen?.cartera_detalle || [];
+  const carteraDetalle: any[] = useMemo(() => resumen?.cartera_detalle || [], [resumen]);
+  const carteraFiltrada = useMemo(() => carteraDetalle.filter((c: any) =>
+    coincideBusqueda(busquedaCartera, [c.odp, c.cliente, c.nit, c.asesor, c.factura_electronica], [c.nit]),
+  ), [carteraDetalle, busquedaCartera]);
 
   const totalAbonado = resumen?.total_abonado || fmt(odps.reduce((s, o) => s + (Number(o.abono) || 0), 0));
   const totalPorCobrar = resumen?.total_pendiente || fmt(
@@ -299,12 +359,15 @@ const ContabilidadPage: React.FC = () => {
   const pendFactura = resumen?.pendientes_factura ?? odps.filter(o => o.estado_facturacion === 'PENDIENTE' && !o.factura_electronica && !o.es_no_conformidad && !o.es_garantia).length;
   const carteraVencida = resumen?.cartera_vencida || '$0';
 
+  // Red de seguridad: si algún día las operativas superan el tope, avisar en vez de ocultar.
+  const operativasIncompletas = !loadingOdps && totalOperativas > LIMITE_OPERATIVAS;
+
   const TABS = [
     ...(!isAsistenteAdmin ? [
-      { key: 'estado_caja' as Tab, label: 'Estado Caja', icon: <Banknote className="w-4 h-4" />, badge: odps.length - odpsCompletadas.length },
-      { key: 'pagos' as Tab, label: 'Pagos Recientes', icon: <Receipt className="w-4 h-4" />, badge: totalPagos },
+      { key: 'estado_caja' as Tab, label: 'Estado Caja', icon: <Banknote className="w-4 h-4" />, badge: baseEstadoCaja.length },
+      { key: 'pagos' as Tab, label: 'Pagos Recientes', icon: <Receipt className="w-4 h-4" />, badge: totalPagosGlobal },
       { key: 'cartera' as Tab, label: 'Cartera Vencida', icon: <TrendingDown className="w-4 h-4" />, badge: carteraDetalle.length, badgeColor: carteraDetalle.length > 0 ? 'bg-rose-100 text-rose-700' : undefined },
-      { key: 'completado' as Tab, label: 'Proceso Completado', icon: <CheckCircle2 className="w-4 h-4" />, badge: odpsCompletadas.length, badgeColor: 'bg-emerald-100 text-emerald-700' },
+      { key: 'completado' as Tab, label: 'Proceso Completado', icon: <CheckCircle2 className="w-4 h-4" />, badge: totalCompletadasGlobal, badgeColor: 'bg-emerald-100 text-emerald-700' },
     ] : []),
     ...(canSeeOA ? [
       { key: 'oa' as Tab, label: 'Órdenes Azules', icon: <FileCheck className="w-4 h-4" />, badge: odpsOA.length, badgeColor: 'bg-blue-100 text-blue-700' },
@@ -322,15 +385,32 @@ const ContabilidadPage: React.FC = () => {
           </h1>
           <p className="text-slate-700 mt-1">Control de facturación, caja, pagos y cuentas por cobrar</p>
         </div>
-        {(!isReadOnly || canPayOA) && (
-        <button
-          onClick={() => { setAbonoOdpFija(null); setShowAbonoModal(true); }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-all hover:-translate-y-0.5"
-        >
-          <Plus className="w-5 h-5" /> Registrar Pago
-        </button>
-        )}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+          <BuscadorMaestro
+            verFinanzas={verFinanzas}
+            verOA={canSeeOA}
+            cartera={carteraDetalle}
+            onIrA={irAPestana}
+            onAbrirFicha={setFichaOdpId}
+          />
+          {(!isReadOnly || canPayOA) && (
+          <button
+            onClick={() => { setAbonoOdpFija(null); setShowAbonoModal(true); }}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-all hover:-translate-y-0.5 whitespace-nowrap"
+          >
+            <Plus className="w-5 h-5" /> Registrar Pago
+          </button>
+          )}
+        </div>
       </div>
+
+      {operativasIncompletas && (
+        <div className="flex items-start gap-2 px-4 py-3 rounded-xl border border-amber-300 bg-amber-50 text-sm text-amber-900">
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          Hay {totalOperativas} ODPs abiertas y solo se cargaron {LIMITE_OPERATIVAS}. Los listados de Estado Caja y Órdenes Azules
+          no las muestran todas: usa el buscador de arriba, que busca en toda la base de datos, y avisa a soporte para ampliar el límite.
+        </div>
+      )}
 
       {/* KPIs — solo para roles con acceso al resumen financiero */}
       {!isAsistenteAdmin && <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -374,15 +454,7 @@ const ContabilidadPage: React.FC = () => {
                   {f === 'todos' ? 'Todos' : f.replace('_', ' ')}
                 </button>
               ))}
-              <div className="ml-auto">
-                <input
-                  type="text"
-                  value={filterBusqueda}
-                  onChange={e => setFilterBusqueda(e.target.value)}
-                  placeholder="Buscar ODP, cliente o asesor..."
-                  className="text-xs text-slate-800 placeholder:text-slate-500 border border-slate-300 rounded-lg px-3 py-1.5 w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-                />
-              </div>
+              <CampoBusqueda className="ml-auto w-72" valor={filterBusqueda} onChange={setFilterBusqueda} />
             </div>
             <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
               <table className="w-full text-sm">
@@ -427,7 +499,11 @@ const ContabilidadPage: React.FC = () => {
                       <tr key={i}><td colSpan={12} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
                     ))
                   ) : sortedFiltradas.length === 0 ? (
-                    <tr><td colSpan={12} className="text-center py-12 text-slate-700">No hay registros que mostrar.</td></tr>
+                    <tr><td colSpan={12} className="text-center py-12 text-slate-700">
+                      {filterBusqueda.trim()
+                        ? <>Ninguna ODP de Estado Caja coincide con “{filterBusqueda.trim()}”{filterEstadoCaja !== 'todos' && ' con el filtro de estado elegido'}. Si ya está saldada y facturada, búscala en Proceso Completado o en el buscador de arriba.</>
+                        : 'No hay registros que mostrar.'}
+                    </td></tr>
                   ) : sortedFiltradas.map(odp => (
                     <tr key={odp.id} className={`hover:bg-slate-50 transition-colors ${rowColorCredito(odp)}`}>
                       <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>{odp.numero_odp}</td>
@@ -567,14 +643,25 @@ const ContabilidadPage: React.FC = () => {
         {/* ── TAB 2: Pagos Recientes ─────────────────────────────────────────── */}
         {tab === 'pagos' && (
           <div>
-            {loadingResumen ? (
+            <div className="flex gap-2 flex-wrap items-center px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+              <span className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                <Receipt className="w-3.5 h-3.5 inline mr-1 text-slate-600" />
+                {qPagos ? `${totalPagos} pago${totalPagos !== 1 ? 's' : ''} encontrado${totalPagos !== 1 ? 's' : ''}` : 'Todos los pagos, del más reciente al más antiguo'}
+              </span>
+              <CampoBusqueda className="ml-auto w-80" valor={busquedaPagos} onChange={cambiarBusquedaPagos}
+                placeholder="Buscar ODP, cliente, NIT, asesor, FE o recibo…" buscando={loadingPagos && !!busquedaPagos.trim()} />
+            </div>
+            {loadingPagos && pagos.length === 0 ? (
               <div className="flex justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
               </div>
             ) : pagos.length === 0 ? (
               <div className="py-16 text-center text-slate-700">
                 <Receipt className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="font-semibold text-slate-900">No hay pagos registrados</p>
+                <p className="font-semibold text-slate-900">
+                  {qPagos ? `Ningún pago coincide con “${qPagos}”` : 'No hay pagos registrados'}
+                </p>
+                {qPagos && <p className="text-sm mt-1">Prueba con el número de ODP, el nombre del cliente, el NIT o el número de recibo.</p>}
               </div>
             ) : (
               <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
@@ -640,23 +727,9 @@ const ContabilidadPage: React.FC = () => {
                 </table>
               </div>
             )}
-            {totalPaginasPagos > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/50">
-                <span className="text-xs text-slate-700">{totalPagos} pagos en total</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    disabled={paginaPagos <= 1}
-                    onClick={() => setPaginaPagos(p => p - 1)}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                  >‹ Anterior</button>
-                  <span className="text-xs text-slate-800 font-medium">Página {paginaPagos} de {totalPaginasPagos}</span>
-                  <button
-                    disabled={paginaPagos >= totalPaginasPagos}
-                    onClick={() => setPaginaPagos(p => p + 1)}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                  >Siguiente ›</button>
-                </div>
-              </div>
+            {pagos.length > 0 && (
+              <Paginador pagina={paginaPagos} totalPaginas={totalPaginasPagos} total={totalPagos}
+                unidad={qPagos ? 'pagos encontrados' : 'pagos'} onCambiar={setPaginaPagos} />
             )}
           </div>
         )}
@@ -669,15 +742,8 @@ const ContabilidadPage: React.FC = () => {
                 <CheckCircle2 className="w-3.5 h-3.5 inline mr-1 text-emerald-600" />
                 ODPs con factura electrónica y caja cancelada
               </span>
-              <div className="ml-auto">
-                <input
-                  type="text"
-                  value={filterBusquedaCompletado}
-                  onChange={e => setFilterBusquedaCompletado(e.target.value)}
-                  placeholder="Buscar ODP, cliente o asesor..."
-                  className="text-xs text-slate-800 placeholder:text-slate-500 border border-slate-300 rounded-lg px-3 py-1.5 w-56 focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
-                />
-              </div>
+              <CampoBusqueda className="ml-auto w-72" valor={filterBusquedaCompletado} onChange={cambiarBusquedaCompletado}
+                buscando={loadingComp && !!filterBusquedaCompletado.trim()} />
             </div>
             <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
               <table className="w-full text-sm">
@@ -717,18 +783,20 @@ const ContabilidadPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {loadingOdps ? (
+                  {loadingComp && completadas.length === 0 ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i}><td colSpan={12} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
                     ))
-                  ) : sortedOdpsCompletadas.length === 0 ? (
+                  ) : completadas.length === 0 ? (
                     <tr>
                       <td colSpan={12} className="text-center py-12 text-slate-700">
                         <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                        {filterBusquedaCompletado ? 'Sin resultados para la búsqueda.' : 'No hay procesos completados aún.'}
+                        {qComp
+                          ? `Ninguna ODP completada coincide con “${qComp}”. Si aún tiene saldo o le falta la FE, está en Estado Caja.`
+                          : 'No hay procesos completados aún.'}
                       </td>
                     </tr>
-                  ) : sortedOdpsCompletadas.map(odp => (
+                  ) : completadas.map(odp => (
                     <tr key={odp.id} className="hover:bg-emerald-50/40 transition-colors">
                       <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>{odp.numero_odp}</td>
                       <td className="px-4 py-4 text-slate-800 text-xs whitespace-nowrap">
@@ -802,6 +870,10 @@ const ContabilidadPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+            {completadas.length > 0 && (
+              <Paginador pagina={paginaComp} totalPaginas={totalPaginasComp} total={totalCompletadas}
+                unidad={qComp ? 'ODPs encontradas' : 'ODPs completadas'} onCambiar={setPaginaComp} />
+            )}
           </div>
         )}
 
@@ -820,18 +892,34 @@ const ContabilidadPage: React.FC = () => {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between mb-4">
-                  <p className="text-sm text-slate-700">{carteraDetalle.length} ODP{carteraDetalle.length !== 1 ? 's' : ''} con saldo vencido</p>
-                  <span className="text-base font-extrabold text-rose-700">{carteraVencida}</span>
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <p className="text-sm text-slate-700">
+                    {carteraDetalle.length} ODP{carteraDetalle.length !== 1 ? 's' : ''} con saldo vencido
+                    {busquedaCartera.trim() && <> · {carteraFiltrada.length} coinciden con la búsqueda</>}
+                  </p>
+                  <span className="text-base font-extrabold text-rose-700" title="Total de toda la cartera vencida">{carteraVencida}</span>
+                  <CampoBusqueda className="ml-auto w-72" valor={busquedaCartera} onChange={setBusquedaCartera} />
                 </div>
+                {carteraFiltrada.length === 0 && (
+                  <p className="py-12 text-center text-sm text-slate-700">
+                    Ninguna ODP de la cartera vencida coincide con “{busquedaCartera.trim()}”.
+                  </p>
+                )}
                 <div className="space-y-3">
-                  {carteraDetalle.map((item: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between p-4 bg-rose-50 rounded-xl border border-rose-100">
+                  {carteraFiltrada.map((item: any) => (
+                    <div key={item.id ?? item.odp} className="flex items-center justify-between p-4 bg-rose-50 rounded-xl border border-rose-100">
                       <div className="flex items-center gap-3">
                         <div className="w-2 h-10 bg-rose-400 rounded-full flex-shrink-0" />
                         <div>
-                          <p className="text-sm font-bold text-slate-900">{item.odp}</p>
-                          <p className="text-xs text-slate-800">{item.cliente}</p>
+                          {item.id ? (
+                            <button type="button" onClick={() => setFichaOdpId(item.id)} title="Abrir ficha de la ODP"
+                              className="text-sm font-bold text-indigo-700 hover:underline">{item.odp}</button>
+                          ) : (
+                            <p className="text-sm font-bold text-slate-900">{item.odp}</p>
+                          )}
+                          <p className="text-xs text-slate-800">
+                            {item.cliente}{item.nit && <span className="text-slate-600"> · NIT {item.nit}</span>}
+                          </p>
                           {item.asesor && (
                             <p className="text-xs text-indigo-700">
                               Asesor: {item.asesor}
@@ -864,16 +952,8 @@ const ContabilidadPage: React.FC = () => {
               <span className="text-xs font-semibold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
                 <FileCheck className="w-3.5 h-3.5" /> Órdenes Azules (OA) — sin facturación
               </span>
-              <div className="relative ml-auto">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Buscar ODP, cliente, asesor..."
-                  value={busquedaOA}
-                  onChange={e => setBusquedaOA(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-500 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 w-64"
-                />
-              </div>
+              <CampoBusqueda className="ml-auto w-72" valor={busquedaOA} onChange={setBusquedaOA}
+                placeholder="Buscar OA, cliente, NIT o asesor…" />
             </div>
             <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
               <table className="w-full text-sm">
@@ -890,20 +970,12 @@ const ContabilidadPage: React.FC = () => {
                       <tr key={i}><td colSpan={11} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
                     ))
                   ) : (() => {
-                    const q = busquedaOA.toLowerCase().trim();
-                    const lista = q
-                      ? odpsOA.filter((o: any) =>
-                          (o.numero_odp || '').toLowerCase().includes(q) ||
-                          (o.cliente?.nombre_razon_social || '').toLowerCase().includes(q) ||
-                          (o.asesor?.nombre_completo || '').toLowerCase().includes(q)
-                        )
-                      : odpsOA;
-                    if (lista.length === 0) return (
+                    if (oaFiltradas.length === 0) return (
                       <tr><td colSpan={11} className="text-center py-12 text-slate-700">
-                        {q ? 'Sin resultados.' : 'No hay Órdenes Azules registradas.'}
+                        {busquedaOA.trim() ? `Ninguna Orden Azul coincide con “${busquedaOA.trim()}”.` : 'No hay Órdenes Azules registradas.'}
                       </td></tr>
                     );
-                    return lista.map((odp: any) => (
+                    return oaFiltradas.map((odp: any) => (
                     <tr key={odp.id} className="hover:bg-blue-50/30 transition-colors">
                       <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>
                         {odp.numero_odp}
@@ -979,8 +1051,8 @@ const ContabilidadPage: React.FC = () => {
         <FacturaElectronicaModal
           odp={feTarget}
           onClose={() => setFeTarget(null)}
-          onSaved={(patch) => setOdps(prev => prev.map(o => o.id === patch.id ? { ...o, ...patch } : o))}
-          onAdicionalesChange={(odpId, facturas) => setOdps(prev => prev.map(o => o.id === odpId ? { ...o, facturas_adicionales: facturas } : o))}
+          onSaved={(patch) => aplicarPatchODP(patch.id, patch)}
+          onAdicionalesChange={(odpId, facturas) => aplicarPatchODP(odpId, { facturas_adicionales: facturas })}
         />
       )}
 
