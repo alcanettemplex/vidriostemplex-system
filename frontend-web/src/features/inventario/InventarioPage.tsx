@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
-import { Search, MapPin, Ruler, Trash2, Edit2, Check, X, BarChart2, List, PackagePlus, Download, FileSpreadsheet } from '../../components/ui/icons';
+import { Search, MapPin, Ruler, Trash2, Edit2, Check, X, BarChart2, List, PackagePlus, Download, FileSpreadsheet, Hash } from '../../components/ui/icons';
 import IngresarPerfilModal from './IngresarPerfilModal';
 import { getCatalogoCached } from '../../services/listasCache';
 
@@ -39,6 +39,9 @@ const InventarioPage: React.FC = () => {
   const isAdmin = user?.rol === 'admin';
   // Roles de solo lectura (marketing): consultan el inventario sin editar ni eliminar.
   const soloLectura = useSoloLectura();
+  // Ingresar piezas: mismos roles que `POST /bulk` y `/bulk-manual` en el backend.
+  // Antes el botón se mostraba también a producción, jefe y auxiliar, que recibían 403.
+  const puedeIngresar = !soloLectura && ['admin', 'gerencia', 'compras'].includes(user?.rol);
 
   const [items, setItems] = useState<PerfilItem[]>([]);
   const [stats, setStats] = useState<StatItem[]>([]);
@@ -56,7 +59,8 @@ const InventarioPage: React.FC = () => {
   const LIMIT = 200;
 
   const [ultimaEntrada, setUltimaEntrada] = useState<string | null>(null);
-  const [showIngresoModal, setShowIngresoModal] = useState(false);
+  // null = cerrado; 'automatico' numera con MAX + 1; 'consecutivo' lo asigna el usuario.
+  const [modoIngreso, setModoIngreso] = useState<'automatico' | 'consecutivo' | null>(null);
 
   const [reporteSearch, setReporteSearch] = useState('');
 
@@ -249,12 +253,21 @@ const InventarioPage: React.FC = () => {
           >
             <Download className="w-4 h-4" /> Exportar Excel
           </button>
-          {!soloLectura && (<button
-            onClick={() => setShowIngresoModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-200"
-          >
-            <PackagePlus className="w-4 h-4" /> Ingresar Perfilería
-          </button>)}
+          {puedeIngresar && (<>
+            <button
+              onClick={() => setModoIngreso('automatico')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-200"
+            >
+              <PackagePlus className="w-4 h-4" /> Ingresar Perfilería
+            </button>
+            <button
+              onClick={() => setModoIngreso('consecutivo')}
+              title="Ingresar un lote asignando usted el consecutivo de cada pieza"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-indigo-300 text-indigo-700 bg-white hover:bg-indigo-50 transition-all"
+            >
+              <Hash className="w-4 h-4" /> Ingresar con consecutivo
+            </button>
+          </>)}
           <button
             onClick={() => setViewMode('lista')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all ${viewMode === 'lista' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'}`}
@@ -556,13 +569,15 @@ const InventarioPage: React.FC = () => {
       )}
     </div>
 
-    {showIngresoModal && (
+    {modoIngreso && (
       <IngresarPerfilModal
-        onClose={() => setShowIngresoModal(false)}
+        conConsecutivo={modoIngreso === 'consecutivo'}
+        onClose={() => setModoIngreso(null)}
         onGuardado={() => {
-          setShowIngresoModal(false);
+          setModoIngreso(null);
           loadItems();
         }}
+        onIngresoParcial={loadItems}
       />
     )}
     </>

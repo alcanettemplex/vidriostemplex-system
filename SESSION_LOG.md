@@ -6272,3 +6272,28 @@ consigna de simplicidad y pocos pasos.
   después** (producción no cambia). `npm run build` OK. ESLint backend sigue roto (ya en TECH_DEBT).
 - **Pendiente (usuario):** cargar FE7464 en ODP-24000, corregir fecha FE7513 (ODP-24245) y de FE7517
   y FE7524, renumerar las 8 FE mal digitadas. Desplegar el backend cuando se suba el commit.
+
+## 2026-10-03
+
+### Inventario: ingreso de perfilería con consecutivo asignado por el usuario
+- **Pedido:** botón aparte para ingresar un lote poniendo el consecutivo a mano, con advertencia si ya existe.
+- **Decisiones del usuario:** un número ocupado no bloquea el lote (se guardan las válidas); captura en
+  tabla fila por fila (propone +1); los consecutivos consumidos por Compras quedan libres; mismos
+  roles que el ingreso normal (admin, gerencia, compras).
+- **BD:** `2026-10-03_unique_consecutivo_inventario.ts` **ejecutado** — índice único
+  `inventario_perfileria_consecutivo_key`. El modelo decía `unique: true` pero la tabla nunca lo tuvo
+  (707 piezas, 0 duplicados). Además arregla la reversión de Compras, que esperaba ese error para
+  responder 409 y sin el índice podía crear duplicados.
+- **Backend:** `POST /verificar-consecutivos` (ocupados + último) y `POST /bulk-manual` (Zod `.strict`,
+  transacción con savepoint por fila, auditoría por pieza, rechazados con motivo).
+- **Frontend:** `IngresarPerfilModal` con modo `conConsecutivo` (columna Consecutivo, aviso en vivo,
+  repetidos en el lote, rechazadas se quedan en la tabla); botón "Ingresar con consecutivo". Ambos
+  botones ahora solo para admin/gerencia/compras (antes producción los veía y recibía 403).
+- **Verificación:** 12 pruebas HTTP contra el backend compilado (puerto 3099): verificar, 400 por
+  negativo/mm 0/campo extra, 403 producción, lote mixto (2 guardadas, 1 ocupada, 1 repetida), datos en
+  BD, 2 registros de auditoría, 23505 por duplicado directo, ingreso automático sigue en MAX+1.
+  Limpieza: 707 piezas y máximo 11318, igual que antes. `tsc` y ESLint del frontend limpios.
+  No se probó la pantalla en el navegador.
+- **Rastro de la prueba:** quedan en `auditoria_log` 3 INSERT de piezas de prueba (990001, 990002 y
+  11319, ubicación PRUEBA) sin su DELETE, porque se borraron con SQL directo.
+- **Docs:** nuevo `docs/modulos/inventario.md` + fila en el índice de CLAUDE.md.

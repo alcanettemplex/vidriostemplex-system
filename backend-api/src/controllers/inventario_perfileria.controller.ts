@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
+import { z } from 'zod';
+import sequelize from '../config/database';
 import { InventarioPerfileria, CatalogoProducto } from '../models';
 
 export const getInventario = async (req: Request, res: Response) => {
@@ -126,6 +128,122 @@ export const bulkInsertPerfileria = async (req: Request, res: Response) => {
     res.status(201).json({ insertados: created.length, items: created });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Error al insertar perfilería' });
+  }
+};
+
+// ─── Ingreso con consecutivo asignado por el usuario (2026-10-03) ──────────────
+//
+// El ingreso normal (`bulkInsertPerfileria`) numera solo con MAX + 1. Este permite que el
+// usuario ponga el número (el de la etiqueta física de la pieza). Decisiones del usuario:
+//   - Un número ocupado NO bloquea el lote: se guardan las filas válidas y las demás
+//     vuelven con su motivo para corregirlas.
+//   - Los consecutivos que Compras consumió (borrados del inventario, con snapshot en
+//     `sap_items.existencia_piezas`) quedan LIBRES. Si se reutilizan y Compras revierte,
+//     la reversión responde 409 gracias al índice único (script 2026-10-03).
+// La BD es la última barrera: índice único `inventario_perfileria_consecutivo_key`.
+
+const consecutivosSchema = z.object({
+  consecutivos: z.array(z.number().int().positive()).max(500),
+}).strict();
+
+const itemManualSchema = z.object({
+  consecutivo: z.number().int().positive(),
+  codigo: z.string().trim().min(1).max(100),
+  mm: z.number().positive(),
+  ubicacion: z.string().trim().max(255).nullable().optional(),
+}).strict();
+
+const bulkManualSchema = z.object({
+  items: z.array(itemManualSchema).min(1).max(500),
+}).strict();
+
+interface PiezaOcupada { consecutivo: number; codigo: string | null; ubicacion: string | null }
+
+const buscarOcupados = async (consecutivos: number[], transaction?: Transaction): Promise<PiezaOcupada[]> => {
+  const filas = await InventarioPerfileria.findAll({
+    where: { consecutivo: { [Op.in]: consecutivos } },
+    attributes: ['consecutivo', 'codigo', 'ubicacion'],
+    transaction,
+  });
+  return filas.map(f => ({
+    consecutivo: f.getDataValue('consecutivo'),
+    codigo: f.getDataValue('codigo'),
+    ubicacion: f.getDataValue('ubicacion'),
+  }));
+};
+
+const describirPieza = (p: PiezaOcupada) =>
+  `Ya existe: ${p.codigo || 'sin código'}${p.ubicacion ? ` en ${p.ubicacion}` : ''}`;
+
+/** POST /verificar-consecutivos — qué números de la lista ya están en el inventario. */
+export const verificarConsecutivos = async (req: Request, res: Response) => {
+  const parsed = consecutivosSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Los consecutivos deben ser números enteros mayores que cero.' });
+  try {
+    const lista = [...new Set(parsed.data.consecutivos)];
+    const ocupados = lista.length > 0 ? await buscarOcupados(lista) : [];
+    const ultimo = ((await InventarioPerfileria.max('consecutivo')) as number) || 0;
+    res.json({ ocupados: ocupados.map(p => ({ ...p, motivo: describirPieza(p) })), ultimo_consecutivo: ultimo });
+  } catch (e) {
+    res.status(500).json({ error: 'No se pudieron verificar los consecutivos. Intenta de nuevo.' });
+  }
+};
+
+/** POST /bulk-manual — ingresa el lote con los consecutivos dados; guarda las filas válidas. */
+export const bulkInsertManual = async (req: Request, res: Response) => {
+  const parsed = bulkManualSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Revisa el lote: cada fila necesita consecutivo (entero mayor que 0), código y longitud mayor que 0.' });
+  }
+  const { items } = parsed.data;
+  const hoy = new Date().toISOString().split('T')[0];
+
+  const rechazados: { consecutivo: number; motivo: string }[] = [];
+  const vistos = new Set<number>();
+  const candidatos = items.filter(it => {
+    if (vistos.has(it.consecutivo)) {
+      rechazados.push({ consecutivo: it.consecutivo, motivo: 'Repetido dentro del lote' });
+      return false;
+    }
+    vistos.add(it.consecutivo);
+    return true;
+  });
+
+  const t = await sequelize.transaction();
+  try {
+    const ocupados = new Map((await buscarOcupados(candidatos.map(c => c.consecutivo), t)).map(p => [p.consecutivo, p]));
+    const aInsertar = candidatos.filter(c => {
+      const p = ocupados.get(c.consecutivo);
+      if (p) rechazados.push({ consecutivo: c.consecutivo, motivo: describirPieza(p) });
+      return !p;
+    });
+
+    // Uno por uno, con savepoint: si otro usuario tomó el número entre la verificación y
+    // el INSERT, el índice único rechaza solo esa fila y el resto del lote sigue.
+    // `create` individual además dispara el hook de auditoría por pieza.
+    const creados: unknown[] = [];
+    for (const it of aInsertar) {
+      try {
+        const nuevo = await sequelize.transaction({ transaction: t }, (sp) => InventarioPerfileria.create({
+          consecutivo: it.consecutivo,
+          codigo: it.codigo.toUpperCase(),
+          mm: it.mm,
+          ubicacion: it.ubicacion || null,
+          fecha_corte: hoy,
+        }, { transaction: sp }));
+        creados.push(nuevo);
+      } catch (e: unknown) {
+        if ((e as { name?: string })?.name !== 'SequelizeUniqueConstraintError') throw e;
+        rechazados.push({ consecutivo: it.consecutivo, motivo: 'Lo acaba de tomar otro ingreso' });
+      }
+    }
+
+    await t.commit();
+    rechazados.sort((a, b) => a.consecutivo - b.consecutivo);
+    res.status(201).json({ insertados: creados.length, items: creados, rechazados });
+  } catch (e) {
+    await t.rollback();
+    res.status(500).json({ error: 'No se pudo guardar el lote. No se guardó ninguna pieza; intenta de nuevo.' });
   }
 };
 

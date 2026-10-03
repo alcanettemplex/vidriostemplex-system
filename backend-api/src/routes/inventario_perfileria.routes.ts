@@ -8,6 +8,8 @@ import {
   updateInventarioItem,
   deleteInventarioItem,
   bulkInsertPerfileria,
+  bulkInsertManual,
+  verificarConsecutivos,
 } from '../controllers/inventario_perfileria.controller';
 
 const router = Router();
@@ -28,6 +30,9 @@ router.get('/export', requireRole(...LECTURA_INVENTARIO), exportInventario);
 
 // CRUD: compras, admin, gerencia
 router.post('/bulk', requireRole('admin', 'gerencia', 'compras'), bulkInsertPerfileria);
+// Ingreso con consecutivo asignado por el usuario (2026-10-03). Declaradas antes de '/:id'.
+router.post('/bulk-manual', requireRole('admin', 'gerencia', 'compras'), bulkInsertManual);
+router.post('/verificar-consecutivos', requireRole('admin', 'gerencia', 'compras'), verificarConsecutivos);
 router.patch('/:id', requireRole('admin', 'gerencia', 'compras'), updateInventarioItem);
 router.delete('/:id', requireRole('admin', 'gerencia', 'compras'), deleteInventarioItem);
 
