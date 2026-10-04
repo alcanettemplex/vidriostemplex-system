@@ -23,6 +23,7 @@
 import { getModulo } from "../modules/registry";
 import { nombrePelicula } from "./peliculas";
 import { nombreAlfajia } from "./alfajias";
+import { composicionDe, type Composicion } from "../modules/divisionFachada";
 
 type Opcion = string | number | { value: unknown; label: string };
 interface CampoLaxo {
@@ -178,23 +179,27 @@ function producto(
     case "division-fachada": {
       // "división en vidrio templado 8 mm, batiente con 1 puerta y 2 fijos" /
       // "división enmarcada en aluminio color mate, vidrio templado 6 mm,
-      // corrediza con 1 hoja corrediza y 1 fija" (2026-10-04).
+      // corrediza con 1 hoja corrediza y 1 fija (OX)" (2026-10-04).
       const enmarcada = i.tipo === "enmarcada";
       const corrediza = i.apertura === "corrediza";
       const espesorVidrio = !enmarcada && !corrediza ? 8 : 6;
-      const n = (v: unknown, d: number) => (Number.isInteger(Number(v)) ? Number(v) : d);
       const plural = (k: number, uno: string, varios: string) => `${k} ${k === 1 ? uno : varios}`;
-      let composicion: string;
-      if (corrediza) {
-        const fijas = n(i.hojasFijas, 1);
+      // La misma lectura de la configuración que el motor (OPO, OXXO…).
+      let comp: Composicion | null = null;
+      try {
+        comp = composicionDe(i);
+      } catch {
+        comp = null;
+      }
+      let composicion: string | null = null;
+      if (comp && corrediza) {
         composicion =
-          `corrediza con ${plural(n(i.hojasCorredizas, 1), "hoja corrediza", "hojas corredizas")}` +
-          (fijas > 0 ? ` y ${plural(fijas, "fija", "fijas")}` : "");
-      } else {
-        const fijos = n(i.numeroFijos, 2);
+          `corrediza con ${plural(comp.moviles, "hoja corrediza", "hojas corredizas")}` +
+          (comp.fijos > 0 ? ` y ${plural(comp.fijos, "fija", "fijas")}` : "") + ` (${comp.configuracion})`;
+      } else if (comp) {
         composicion =
-          `batiente con ${plural(n(i.numeroPuertas, 1), "puerta", "puertas")}` +
-          (fijos > 0 ? ` y ${plural(fijos, "fijo", "fijos")}` : "");
+          `batiente con ${plural(comp.moviles, "puerta", "puertas")}` +
+          (comp.fijos > 0 ? ` y ${plural(comp.fijos, "fijo", "fijos")}` : "") + ` (${comp.configuracion})`;
       }
       base = enmarcada
         ? `división enmarcada en aluminio${color ? ` color ${color.toLowerCase()}` : ""}`

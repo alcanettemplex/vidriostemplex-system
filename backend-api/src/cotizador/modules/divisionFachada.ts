@@ -5,8 +5,8 @@
 //   · TIPO:     solo vidrio  |  enmarcada en aluminio
 //   · APERTURA: batiente     |  corrediza
 //
-// Se mide como el resto del Cotizador: ancho × alto TOTAL más la composición
-// (puertas y fijos en la batiente; hojas corredizas y fijas en la corrediza).
+// Se mide como el resto del Cotizador: ancho × alto TOTAL más la configuración
+// (un solo campo con notación O = fijo, P = puerta, X = corrediza: OPO, OXXO…).
 // No hay diseños con despiece para este producto, así que no emite `cortes`:
 // la SAP pide los perfiles como "medir en obra" (lib/itemsParaSap.ts) y la
 // orden de corte lo trata como SIN_DESPIECE_POR_DISENO, igual que un tablero.
@@ -79,6 +79,20 @@ const CAPACIDAD_KIT_80 = 80;
 
 // ─── Formulario ─────────────────────────────────────────────────────────────
 
+export const CONFIGURACIONES_BATIENTE = [
+  { value: "P", label: "P — 1 puerta" },
+  { value: "OP", label: "OP — fijo + puerta" },
+  { value: "OPO", label: "OPO — fijo + puerta + fijo" },
+  { value: "PP", label: "PP — 2 puertas" },
+  { value: "OPPO", label: "OPPO — fijo + 2 puertas + fijo" },
+];
+export const CONFIGURACIONES_CORREDIZA = [
+  { value: "OX", label: "OX — fija + corrediza" },
+  { value: "XX", label: "XX — 2 corredizas" },
+  { value: "OXO", label: "OXO — fija + corrediza + fija" },
+  { value: "OXXO", label: "OXXO — fija + 2 corredizas + fija" },
+];
+
 const BATIENTE = [{ campo: "apertura", valores: ["batiente"] }];
 const CORREDIZA = [{ campo: "apertura", valores: ["corrediza"] }];
 const SOLO_VIDRIO_BATIENTE = [
@@ -117,13 +131,14 @@ export const meta = {
     },
     { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho total (mm)", requerido: true, grupo: "medidas" },
     { nombre: "altoCm", tipo: "number", etiqueta: "Alto total (mm)", requerido: true, grupo: "medidas" },
-    // Batiente: puertas + fijos; el ancho que no ocupan las puertas se reparte en los fijos.
-    { nombre: "numeroPuertas", tipo: "select", opciones: [1, 2], etiqueta: "Puertas", requerido: true, grupo: "medidas", defecto: 1, soloSiValor: BATIENTE },
-    { nombre: "anchoPuertaCm", tipo: "number", etiqueta: "Ancho de cada puerta (mm)", requerido: true, grupo: "medidas", soloSiValor: BATIENTE },
-    { nombre: "numeroFijos", tipo: "select", opciones: [0, 1, 2], etiqueta: "Fijos", requerido: true, grupo: "medidas", defecto: 2, soloSiValor: BATIENTE },
-    // Corrediza: hojas de igual ancho.
-    { nombre: "hojasCorredizas", tipo: "select", opciones: [1, 2], etiqueta: "Hojas corredizas", requerido: true, grupo: "medidas", defecto: 1, soloSiValor: CORREDIZA },
-    { nombre: "hojasFijas", tipo: "select", opciones: [0, 1, 2, 3], etiqueta: "Hojas fijas", requerido: true, grupo: "medidas", defecto: 1, soloSiValor: CORREDIZA },
+    // Composición en UN campo (2026-10-04, pedido del usuario: antes eran
+    // puertas/fijos/hojas corredizas/hojas fijas, que se leían como datos
+    // repetidos). Notación del ERP: O = fijo, P = puerta, X = hoja corrediza.
+    // Dos campos porque la lista depende de la apertura; solo se ve uno.
+    { nombre: "configuracionBatiente", tipo: "select", opciones: CONFIGURACIONES_BATIENTE, etiqueta: "Configuración", requerido: true, grupo: "medidas", defecto: "OPO", soloSiValor: BATIENTE },
+    { nombre: "configuracionCorrediza", tipo: "select", opciones: CONFIGURACIONES_CORREDIZA, etiqueta: "Configuración", requerido: true, grupo: "medidas", defecto: "OX", soloSiValor: CORREDIZA },
+    // Opcional: vacío = todas las hojas del mismo ancho.
+    { nombre: "anchoPuertaCm", tipo: "number", etiqueta: "Ancho de puerta (mm, opcional)", requerido: false, grupo: "medidas", soloSiValor: BATIENTE },
     {
       nombre: "colorPerfileria",
       tipo: "select",
@@ -192,12 +207,35 @@ export interface Composicion {
   fijos: number;
   /** Ancho de CADA fijo. */
   anchoFijoM: number;
+  /** "OPO", "OXXO"… */
+  configuracion: string;
+  /** Algo que el asesor debe saber (p. ej. ancho de puerta ignorado). */
+  aviso: string | null;
 }
 
 const entero = (v: unknown, defecto: number) => {
   const n = Number(v);
   return Number.isInteger(n) && n >= 0 ? n : defecto;
 };
+
+/** La configuración elegida, o la armada con los campos del formato anterior
+ * (puertas/fijos, hojas corredizas/fijas) si un ítem llegara así. */
+function configuracionDe(input: InputModulo, apertura: AperturaDivision): string {
+  const lista = apertura === "corrediza" ? CONFIGURACIONES_CORREDIZA : CONFIGURACIONES_BATIENTE;
+  const valor = String(apertura === "corrediza" ? input?.configuracionCorrediza ?? "" : input?.configuracionBatiente ?? "")
+    .trim()
+    .toUpperCase();
+  if (lista.some((o) => o.value === valor)) return valor;
+  if (valor) throw new Error(`La configuración "${valor}" no existe para una división ${apertura}.`);
+  const movil = apertura === "corrediza" ? "X" : "P";
+  const moviles = entero(apertura === "corrediza" ? input?.hojasCorredizas : input?.numeroPuertas, NaN);
+  const fijos = entero(apertura === "corrediza" ? input?.hojasFijas : input?.numeroFijos, NaN);
+  if (Number.isFinite(moviles) && Number.isFinite(fijos)) {
+    const antes = Math.ceil(fijos / 2);
+    return "O".repeat(antes) + movil.repeat(moviles) + "O".repeat(fijos - antes);
+  }
+  return apertura === "corrediza" ? "OX" : "OPO";
+}
 
 export function composicionDe(input: InputModulo): Composicion {
   const tipo: TipoDivision = input?.tipo === "enmarcada" ? "enmarcada" : "solo-vidrio";
@@ -207,34 +245,46 @@ export function composicionDe(input: InputModulo): Composicion {
   if (!Number.isFinite(anchoM) || anchoM <= 0) throw new Error("El ancho total es obligatorio y debe ser mayor a 0.");
   if (!Number.isFinite(altoM) || altoM <= 0) throw new Error("El alto total es obligatorio y debe ser mayor a 0.");
 
+  const configuracion = configuracionDe(input, apertura);
+  const moviles = (configuracion.match(apertura === "corrediza" ? /X/g : /P/g) ?? []).length;
+  const fijos = (configuracion.match(/O/g) ?? []).length;
+  const anchoIgual = anchoM / (moviles + fijos);
+  const base = { tipo, apertura, anchoM, altoM, moviles, fijos, configuracion };
+
+  // Corrediza: siempre hojas iguales.
   if (apertura === "corrediza") {
-    const moviles = entero(input?.hojasCorredizas, 1);
-    const fijos = entero(input?.hojasFijas, 1);
-    if (moviles < 1 || moviles > 2) throw new Error("Las hojas corredizas deben ser 1 o 2.");
-    if (fijos > 3) throw new Error("Las hojas fijas van de 0 a 3.");
-    const anchoHoja = anchoM / (moviles + fijos);
-    return { tipo, apertura, anchoM, altoM, moviles, anchoMovilM: anchoHoja, fijos, anchoFijoM: fijos ? anchoHoja : 0 };
+    return { ...base, anchoMovilM: anchoIgual, anchoFijoM: fijos ? anchoIgual : 0, aviso: null };
   }
 
-  const moviles = entero(input?.numeroPuertas, 1);
-  const fijos = entero(input?.numeroFijos, 2);
-  if (moviles < 1 || moviles > 2) throw new Error("Las puertas deben ser 1 o 2.");
-  if (fijos > 2) throw new Error("Los fijos van de 0 a 2.");
-  const anchoPuertaM = Number(input?.anchoPuertaCm) / 100;
+  // Batiente: el ancho de puerta es opcional; vacío = hojas iguales.
+  const crudo = input?.anchoPuertaCm;
+  if (crudo === undefined || crudo === null || crudo === "") {
+    return { ...base, anchoMovilM: anchoIgual, anchoFijoM: fijos ? anchoIgual : 0, aviso: null };
+  }
+  const anchoPuertaM = Number(crudo) / 100;
   if (!Number.isFinite(anchoPuertaM) || anchoPuertaM <= 0) {
-    throw new Error("Escribe el ancho de cada puerta: es lo que separa la puerta de los fijos.");
+    throw new Error("El ancho de puerta debe ser un número mayor a 0, o déjalo vacío para hojas iguales.");
+  }
+  if (fijos === 0) {
+    const igual = Math.abs(anchoPuertaM - anchoIgual) < 0.005;
+    return {
+      ...base,
+      anchoMovilM: anchoIgual,
+      anchoFijoM: 0,
+      aviso: igual
+        ? null
+        : `Sin fijos, ${moviles === 1 ? "la puerta ocupa" : "las puertas ocupan"} todo el ancho: se cotizó con ` +
+          `${Math.round(anchoIgual * 1000)} mm por puerta y no con el ancho de puerta escrito.`,
+    };
   }
   const sobrante = anchoM - moviles * anchoPuertaM;
-  if (sobrante < -0.0001) {
+  if (sobrante < 0.01) {
     throw new Error(
-      `${moviles === 1 ? "La puerta ocupa" : "Las puertas ocupan"} ${Math.round(moviles * anchoPuertaM * 1000)} mm y el ancho total es ` +
-        `${Math.round(anchoM * 1000)} mm: revisa el ancho de la puerta.`
+      `${moviles === 1 ? "La puerta ocupa" : "Las puertas ocupan"} ${Math.round(moviles * anchoPuertaM * 1000)} mm de ` +
+        `${Math.round(anchoM * 1000)} mm: no queda espacio para los fijos. Reduce el ancho de la puerta o déjalo vacío.`
     );
   }
-  if (fijos > 0 && sobrante < 0.01) {
-    throw new Error("Las puertas ocupan todo el ancho: no queda espacio para los fijos. Pon 0 fijos o reduce el ancho de la puerta.");
-  }
-  return { tipo, apertura, anchoM, altoM, moviles, anchoMovilM: anchoPuertaM, fijos, anchoFijoM: fijos ? sobrante / fijos : 0 };
+  return { ...base, anchoMovilM: anchoPuertaM, anchoFijoM: sobrante / fijos, aviso: null };
 }
 
 export function calcular(input: InputModulo) {
@@ -251,7 +301,7 @@ export function calcular(input: InputModulo) {
   const { tipo, apertura, anchoM: A, altoM: H, moviles, anchoMovilM, fijos, anchoFijoM } = comp;
   const color = normalizarColor(input?.colorPerfileria) || "mate";
   const seg = String(segmentoCliente);
-  const advertencias: string[] = [];
+  const advertencias: string[] = comp.aviso ? [comp.aviso] : [];
   const items: LineaBOM[] = [];
 
   const avisados = new Set<string>();

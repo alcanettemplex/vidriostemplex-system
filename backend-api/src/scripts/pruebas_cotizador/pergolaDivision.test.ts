@@ -24,10 +24,11 @@ const BASE = { segmentoCliente: "PA", cantidadPiezas: 1, conInstalacion: true, c
 const cant = (r: any, codigo: string) => r.items.filter((l: any) => l.codigo === codigo).reduce((a: number, l: any) => a + l.cantidad, 0);
 const sinErrores = (r: any) => assert.deepEqual(r.items.filter((l: any) => l.error).map((l: any) => l.codigo), []);
 
-const SV_BATIENTE = { ...BASE, tipo: "solo-vidrio", apertura: "batiente", anchoCm: 300, altoCm: 240, numeroPuertas: 1, anchoPuertaCm: 90, numeroFijos: 2 };
-const SV_CORREDIZA = { ...BASE, tipo: "solo-vidrio", apertura: "corrediza", anchoCm: 300, altoCm: 240, hojasCorredizas: 1, hojasFijas: 1 };
-const ENM_BATIENTE = { ...BASE, tipo: "enmarcada", apertura: "batiente", anchoCm: 300, altoCm: 240, numeroPuertas: 1, anchoPuertaCm: 90, numeroFijos: 2 };
-const ENM_CORREDIZA = { ...BASE, tipo: "enmarcada", apertura: "corrediza", anchoCm: 300, altoCm: 240, hojasCorredizas: 2, hojasFijas: 2 };
+// Configuración en un solo campo (2026-10-04): O = fijo, P = puerta, X = corrediza.
+const SV_BATIENTE = { ...BASE, tipo: "solo-vidrio", apertura: "batiente", anchoCm: 300, altoCm: 240, configuracionBatiente: "OPO", anchoPuertaCm: 90 };
+const SV_CORREDIZA = { ...BASE, tipo: "solo-vidrio", apertura: "corrediza", anchoCm: 300, altoCm: 240, configuracionCorrediza: "OX" };
+const ENM_BATIENTE = { ...BASE, tipo: "enmarcada", apertura: "batiente", anchoCm: 300, altoCm: 240, configuracionBatiente: "OPO", anchoPuertaCm: 90 };
+const ENM_CORREDIZA = { ...BASE, tipo: "enmarcada", apertura: "corrediza", anchoCm: 300, altoCm: 240, configuracionCorrediza: "OXXO" };
 
 // ─── Pérgola ────────────────────────────────────────────────────────────────
 
@@ -62,18 +63,39 @@ test("composición batiente: el ancho que no ocupa la puerta se reparte en los f
   assert.ok(Math.abs(c.anchoFijoM - 1.05) < 1e-9);
 });
 
-test("composición: puertas más anchas que el total, o sin espacio para los fijos, se rechazan con mensaje", () => {
-  assert.throws(() => composicionDe({ ...SV_BATIENTE, anchoPuertaCm: 400 }), /revisa el ancho de la puerta/);
-  assert.throws(() => composicionDe({ ...SV_BATIENTE, anchoPuertaCm: 300 }), /no queda espacio para los fijos/);
-  assert.throws(() => composicionDe({ ...SV_BATIENTE, anchoPuertaCm: "" }), /ancho de cada puerta/);
-  assert.doesNotThrow(() => composicionDe({ ...SV_BATIENTE, anchoPuertaCm: 300, numeroFijos: 0 }));
+test("ancho de puerta vacío: todas las hojas del mismo ancho", () => {
+  const c = composicionDe({ ...SV_BATIENTE, anchoPuertaCm: "" });
+  assert.equal(c.configuracion, "OPO");
+  assert.equal(c.anchoMovilM, 1);
+  assert.equal(c.anchoFijoM, 1);
 });
 
-test("composición corrediza: hojas de igual ancho; los selects llegan como texto y se aceptan", () => {
-  const c = composicionDe({ ...SV_CORREDIZA, hojasCorredizas: "2", hojasFijas: "1" });
-  assert.equal(c.moviles, 2);
-  assert.equal(c.fijos, 1);
-  assert.equal(c.anchoMovilM, 1);
+test("composición: puerta que no deja espacio a los fijos se rechaza; sin fijos se ignora con aviso", () => {
+  assert.throws(() => composicionDe({ ...SV_BATIENTE, anchoPuertaCm: 400 }), /no queda espacio para los fijos/);
+  assert.throws(() => composicionDe({ ...SV_BATIENTE, anchoPuertaCm: 300 }), /no queda espacio para los fijos/);
+  const pp = composicionDe({ ...SV_BATIENTE, configuracionBatiente: "PP", anchoPuertaCm: 90 });
+  assert.equal(pp.moviles, 2);
+  assert.equal(pp.fijos, 0);
+  assert.equal(pp.anchoMovilM, 1.5);
+  assert.match(String(pp.aviso), /Sin fijos/);
+  assert.equal(composicionDe({ ...SV_BATIENTE, configuracionBatiente: "PP", anchoPuertaCm: 150 }).aviso, null);
+});
+
+test("configuración: cada código da sus puertas/hojas y fijos; uno inexistente se rechaza", () => {
+  const casos: Array<[string, string, number, number]> = [
+    ["batiente", "P", 1, 0], ["batiente", "OP", 1, 1], ["batiente", "OPO", 1, 2], ["batiente", "PP", 2, 0], ["batiente", "OPPO", 2, 2],
+    ["corrediza", "OX", 1, 1], ["corrediza", "XX", 2, 0], ["corrediza", "OXO", 1, 2], ["corrediza", "OXXO", 2, 2],
+  ];
+  for (const [apertura, conf, moviles, fijos] of casos) {
+    const c = composicionDe({ anchoCm: 300, altoCm: 240, apertura, configuracionBatiente: conf, configuracionCorrediza: conf });
+    assert.deepEqual([c.moviles, c.fijos], [moviles, fijos], `${apertura} ${conf}`);
+  }
+  assert.throws(() => composicionDe({ ...SV_CORREDIZA, configuracionCorrediza: "OPO" }), /no existe/);
+});
+
+test("formato anterior (puertas/fijos, hojas) se sigue entendiendo", () => {
+  assert.equal(composicionDe({ anchoCm: 300, altoCm: 240, apertura: "batiente", numeroPuertas: 1, numeroFijos: 2 }).configuracion, "OPO");
+  assert.equal(composicionDe({ anchoCm: 300, altoCm: 240, apertura: "corrediza", hojasCorredizas: "2", hojasFijas: "2" }).configuracion, "OXXO");
 });
 
 // ─── División: materiales por variante ──────────────────────────────────────
@@ -93,7 +115,7 @@ test("solo vidrio batiente: 8 mm, 2 topes, manija, Yale + escudo, esquineros; fi
 });
 
 test("solo vidrio batiente con zócalo y recibidor: cambia el herraje, no lo demás", () => {
-  const r: any = calcularItem("division-fachada", { ...SV_BATIENTE, numeroPuertas: 2, inferiorPuerta: "zocalo", seguridadPuerta: "recibidor" });
+  const r: any = calcularItem("division-fachada", { ...SV_BATIENTE, configuracionBatiente: "OPPO", inferiorPuerta: "zocalo", seguridadPuerta: "recibidor" });
   sinErrores(r);
   assert.equal(cant(r, "ESU1102"), 0);
   assert.equal(cant(r, "ZSE0104"), 1.8); // 2 puertas × 0,90 m
@@ -116,11 +138,11 @@ test("solo vidrio corrediza: riel × ancho, kit por hoja, T-70 = 2 parales × al
 });
 
 test("solo vidrio corrediza: una hoja de más de 60 kg pide el kit de 80; más de 80 avisa", () => {
-  // 1 hoja de 1,80 × 2,40 m en 6 mm ≈ 65 kg.
-  const pesada: any = calcularItem("division-fachada", { ...SV_CORREDIZA, anchoCm: 180, hojasFijas: 0 });
-  assert.equal(cant(pesada, "KOP0101"), 1);
+  // XX de 3,60 m: hojas de 1,80 × 2,40 m en 6 mm ≈ 65 kg.
+  const pesada: any = calcularItem("division-fachada", { ...SV_CORREDIZA, anchoCm: 360, configuracionCorrediza: "XX" });
+  assert.equal(cant(pesada, "KOP0101"), 2);
   assert.equal(cant(pesada, "KOP0102"), 0);
-  const muyPesada: any = calcularItem("division-fachada", { ...SV_CORREDIZA, anchoCm: 250, altoCm: 250, hojasFijas: 0 });
+  const muyPesada: any = calcularItem("division-fachada", { ...SV_CORREDIZA, anchoCm: 500, altoCm: 250, configuracionCorrediza: "XX" });
   assert.ok(muyPesada.advertencias.some((a: string) => /kit Optiglas más grande/.test(a)));
 });
 
@@ -162,11 +184,11 @@ test("color: se resuelve por perfil; el que no existe cae a mate con aviso", () 
 test("frase comercial de la división", () => {
   assert.match(
     (calcularItem("division-fachada", SV_BATIENTE) as any).descripcionComercial,
-    /^Suministro e instalación de división en vidrio templado 8 mm, batiente con 1 puerta y 2 fijos, medidas 3\.000 × 2\.400 mm$/
+    /^Suministro e instalación de división en vidrio templado 8 mm, batiente con 1 puerta y 2 fijos \(OPO\), medidas 3\.000 × 2\.400 mm$/
   );
   assert.match(
     (calcularItem("division-fachada", ENM_CORREDIZA) as any).descripcionComercial,
-    /división enmarcada en aluminio color mate, vidrio templado 6 mm, corrediza con 2 hojas corredizas y 2 fijas/
+    /división enmarcada en aluminio color mate, vidrio templado 6 mm, corrediza con 2 hojas corredizas y 2 fijas \(OXXO\)/
   );
 });
 

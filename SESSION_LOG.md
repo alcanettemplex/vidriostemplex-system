@@ -6398,4 +6398,9 @@ consigna de simplicidad y pocos pasos.
   (+360 %) sin revisión. Script `2026-10-04_proveedores_perfil_f_tira.ts` aplicado: TIRA_6M nueva
   (#328), METRO de vuelta a $26.974,79, Cotizador a $20.672,27/m (PA $32.287). Supuesto: los $26.974,79
   del 17-sep son por metro (no lo confirmó el usuario; no afecta al Cotizador, que prefiere la tira).
+- **División: configuración en un solo campo (mismo día):** el usuario vio redundante pedir puertas,
+  hojas corredizas, fijos y hojas fijas. Ahora un campo "Configuración" con notación O/P/X (batiente:
+  P, OP, OPO, PP, OPPO; corrediza: OX, XX, OXO, OXXO) y ancho de puerta opcional (vacío = hojas iguales).
+  Materiales y cantidades sin cambio; la frase comercial cita la configuración ("… (OPO)"). Suite
+  `pergolaDivision` 18/18; navegador 11/11 sin escrituras.
 

@@ -2001,10 +2001,14 @@ cotizaciones reales así). Reglas dadas y **validadas por el usuario**, no reabr
 - **2 tarjetas**, no 5: `pergola` (`modules/pergola.ts`) y `division-fachada`
   (`modules/divisionFachada.ts`, con **Tipo** solo vidrio | enmarcada y **Apertura** batiente | corrediza).
 - **Medidas libres**, sin diseños: no emiten `cortes` (la SAP pide perfiles "medir en obra"; la orden de
-  corte da `SIN_DESPIECE_POR_DISENO`, como un tablero). Medida = ancho × alto total + composición:
-  batiente = puertas (1|2) + ancho de puerta + fijos (0|1|2), el resto del ancho se reparte en los fijos;
-  corrediza = hojas corredizas (1|2) + fijas (0-3), de igual ancho. `composicionDe()` rechaza con mensaje
-  una puerta más ancha que el total o sin espacio para los fijos.
+  corte da `SIN_DESPIECE_POR_DISENO`, como un tablero). Medida = ancho × alto total + **configuración**
+  en un solo campo (simplificado el mismo día a pedido del usuario: antes eran puertas / fijos / hojas
+  corredizas / hojas fijas). Notación del ERP: O = fijo, P = puerta, X = corrediza. Batiente: P, OP,
+  OPO (defecto), PP, OPPO; corrediza: OX (defecto), XX, OXO, OXXO. Son dos campos
+  (`configuracionBatiente` / `configuracionCorrediza`) porque la lista depende de la apertura; solo se
+  ve uno. **Ancho de puerta opcional** (solo batiente): vacío = hojas iguales; con valor, la puerta mide
+  eso y el resto va a los fijos; sin fijos (P, PP) se ignora con aviso. `composicionDe()` rechaza una
+  puerta que no deja espacio a los fijos y sigue entendiendo el formato anterior.
 - **Pérgola** = vidrio sobre la estructura existente del cliente (Templex no hace la estructura) +
   película de seguridad `PEL0106` obligatoria, ambos por m². El asesor elige el vidrio (templado 6 mm
   por defecto; 8 y 10 mm; laminados 3+3, 4+4, 5+5).
