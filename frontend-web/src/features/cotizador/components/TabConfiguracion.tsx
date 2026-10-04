@@ -402,7 +402,9 @@ const CAMPOS_RAIZ: Array<{
  * tarifas SMO por tipo de obra, que siguen en la BD solo para las propuestas
  * guardadas antes de ese día y ya no se muestran aquí. */
 const CAMPOS_MANO_OBRA: Array<{
-    clave: 'mo_ensamble_ventana_m2' | 'mo_instalacion_ventana_m2' | 'mo_instalacion_cabina_und' | 'mo_instalacion_espejo_tablero_m2';
+    clave:
+        | 'mo_ensamble_ventana_m2' | 'mo_instalacion_ventana_m2' | 'mo_instalacion_cabina_und' | 'mo_instalacion_espejo_tablero_m2'
+        | 'mo_instalacion_pergola_m2' | 'mo_instalacion_division_m2';
     label: string;
     ayuda: string;
 }> = [
@@ -410,6 +412,9 @@ const CAMPOS_MANO_OBRA: Array<{
     { clave: 'mo_instalacion_ventana_m2', label: 'Instalación ventanas y proyectantes', ayuda: 'por m², si llevan instalación' },
     { clave: 'mo_instalacion_cabina_und', label: 'Instalación cabinas', ayuda: 'por unidad; en L, el doble' },
     { clave: 'mo_instalacion_espejo_tablero_m2', label: 'Instalación espejos y tableros', ayuda: 'por m², si llevan instalación' },
+    // 2026-10-04: productos Pérgola y División / Fachada.
+    { clave: 'mo_instalacion_pergola_m2', label: 'Instalación pérgolas', ayuda: 'por m², si llevan instalación' },
+    { clave: 'mo_instalacion_division_m2', label: 'Instalación divisiones y fachadas', ayuda: 'por m², si llevan instalación' },
 ];
 
 const SeccionParametros: React.FC = () => {

@@ -169,6 +169,39 @@ function producto(
       ];
       break;
     }
+    case "pergola": {
+      // "pérgola en vidrio templado claro 6 mm, con película de seguridad" (2026-10-04).
+      base = `pérgola en vidrio ${codigoVidrio ? textoVidrio(codigoVidrio) : "templado claro 6 mm"}`;
+      atributos = ["con película de seguridad"];
+      break;
+    }
+    case "division-fachada": {
+      // "división en vidrio templado 8 mm, batiente con 1 puerta y 2 fijos" /
+      // "división enmarcada en aluminio color mate, vidrio templado 6 mm,
+      // corrediza con 1 hoja corrediza y 1 fija" (2026-10-04).
+      const enmarcada = i.tipo === "enmarcada";
+      const corrediza = i.apertura === "corrediza";
+      const espesorVidrio = !enmarcada && !corrediza ? 8 : 6;
+      const n = (v: unknown, d: number) => (Number.isInteger(Number(v)) ? Number(v) : d);
+      const plural = (k: number, uno: string, varios: string) => `${k} ${k === 1 ? uno : varios}`;
+      let composicion: string;
+      if (corrediza) {
+        const fijas = n(i.hojasFijas, 1);
+        composicion =
+          `corrediza con ${plural(n(i.hojasCorredizas, 1), "hoja corrediza", "hojas corredizas")}` +
+          (fijas > 0 ? ` y ${plural(fijas, "fija", "fijas")}` : "");
+      } else {
+        const fijos = n(i.numeroFijos, 2);
+        composicion =
+          `batiente con ${plural(n(i.numeroPuertas, 1), "puerta", "puertas")}` +
+          (fijos > 0 ? ` y ${plural(fijos, "fijo", "fijos")}` : "");
+      }
+      base = enmarcada
+        ? `división enmarcada en aluminio${color ? ` color ${color.toLowerCase()}` : ""}`
+        : `división en vidrio templado ${espesorVidrio} mm`;
+      atributos = enmarcada ? [`vidrio templado ${espesorVidrio} mm`, composicion] : [composicion];
+      break;
+    }
     default:
       base = nombreModulo.toLowerCase();
       atributos = [];

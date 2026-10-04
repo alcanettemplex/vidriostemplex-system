@@ -29,8 +29,12 @@ const DESCRIPCIONES_COMERCIALES: Record<string, string> = {
         'Tablero de vidrio templado de 6 u 8 mm con bordes pulidos, perforaciones y elevadores; matizado y película opcionales.',
     espejo:
         'Espejo de 4 mm con borde pulido brillado o biselado, con soporte tubular opcional.',
+    pergola:
+        'Vidrio sobre la estructura de pérgola del cliente, con película de seguridad: indica ancho y largo.',
+    'division-fachada':
+        'División de oficina o fachada en solo vidrio o enmarcada en aluminio, batiente o corrediza: ancho, alto y composición.',
     'item-libre':
-        'Para lo que no encaja en los demás (fachadas, divisiones, barandas): arma el ítem línea por línea desde el catálogo.',
+        'Para lo que no encaja en los demás (barandas, pasamanos, trabajos especiales): arma el ítem línea por línea desde el catálogo.',
 };
 
 /** Frase comercial del módulo; si su id no está en el mapa, la descripción
@@ -49,6 +53,8 @@ const SUBTITULO_RIEL: Record<string, string> = {
     'cabinas-batientes': 'Baño · batiente',
     tablero: 'Templado 6 u 8 mm',
     espejo: 'Espejo 4 mm',
+    pergola: 'Vidrio + película',
+    'division-fachada': 'Vidrio o aluminio',
     'item-libre': 'Línea por línea',
 };
 

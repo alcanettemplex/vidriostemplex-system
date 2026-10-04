@@ -1203,6 +1203,8 @@ Reglas del usuario, 2026-09-26. **Reemplazan** la mano de obra "SMO por tipo de 
 | Ventanas y proyectantes | **+ Instalación** si el ítem la lleva, por m² | $25.000 (`mo_instalacion_ventana_m2`) |
 | Cabinas corredizas y batientes | Instalación si la lleva, por unidad; **en L cuenta doble** | $120.000 (`mo_instalacion_cabina_und`) |
 | Espejos y tableros | Instalación si la lleva, por m² | $85.000 (`mo_instalacion_espejo_tablero_m2`) |
+| Pérgolas (2026-10-04) | Instalación si la lleva, por m² | $120.000 (`mo_instalacion_pergola_m2`) |
+| Divisiones y fachadas (2026-10-04) | Instalación si la lleva, por m², las 4 variantes | $120.000 (`mo_instalacion_division_m2`) |
 
 - **Montos antes de AIU e IVA**, editables en Configuración → Parámetros. Las líneas llevan
   **AIU, descuento de la propuesta e IVA**, como un producto (decisión del usuario).
@@ -1988,3 +1990,49 @@ quedó en $26.652,67/m, el costo escrito a mano de la 413 mate (ALF0102): casi 2
 Revisarlo si ese costo manual no es real.
 
 **Pruebas:** `alfajia.test.ts` (16), en `test:cotizador`.
+
+---
+
+## Pérgola y División / Fachada (2026-10-04)
+
+Productos 8 y 9 del Cotizador, pedidos por el usuario; antes solo se cotizaban con el ítem libre (0
+cotizaciones reales así). Reglas dadas y **validadas por el usuario**, no reabrir:
+
+- **2 tarjetas**, no 5: `pergola` (`modules/pergola.ts`) y `division-fachada`
+  (`modules/divisionFachada.ts`, con **Tipo** solo vidrio | enmarcada y **Apertura** batiente | corrediza).
+- **Medidas libres**, sin diseños: no emiten `cortes` (la SAP pide perfiles "medir en obra"; la orden de
+  corte da `SIN_DESPIECE_POR_DISENO`, como un tablero). Medida = ancho × alto total + composición:
+  batiente = puertas (1|2) + ancho de puerta + fijos (0|1|2), el resto del ancho se reparte en los fijos;
+  corrediza = hojas corredizas (1|2) + fijas (0-3), de igual ancho. `composicionDe()` rechaza con mensaje
+  una puerta más ancha que el total o sin espacio para los fijos.
+- **Pérgola** = vidrio sobre la estructura existente del cliente (Templex no hace la estructura) +
+  película de seguridad `PEL0106` obligatoria, ambos por m². El asesor elige el vidrio (templado 6 mm
+  por defecto; 8 y 10 mm; laminados 3+3, 4+4, 5+5).
+
+| Variante | Materiales |
+|---|---|
+| Solo vidrio batiente | CL8MM03SP × m² · por puerta: ESU1102+EIN1102 **o** ZSE0104 × ancho de puerta, TCA0301 × 2, MRO1101, CER0301+CCE0101 **o** CRE1301 · fijos (como la corrediza): U32 × ancho de fijos, PER0301 × alto × nº fijos |
+| Solo vidrio corrediza | CL6MM03SP × m² · ROS0301 × ancho · kit Optiglas por hoja corrediza (KOP0102 60 kg; KOP0101 si la hoja pasa 60 kg; aviso si pasa 80; peso = m² × 6 mm × 2,5 kg) · MRO1101 y CPI0101 por hoja · U32 × ancho de fijos · PER0301 × alto × nº fijos · T-70 × 2 × alto (dos parales) |
+| Enmarcada batiente | CL6MM03SP × m² · T-244 × (perímetro + alto × divisiones) · 175 y 177 × perímetro de cada fijo · EMP1301 × perímetro de todos los paños · U57 × perímetro de la puerta · por puerta: bisagra omega × 4, TCA0301, CHE0101 (Yale mini) |
+| Enmarcada corrediza | CL6MM03SP × m² · RDU0101 × ancho · T-244 × perímetro · 175 y 177 × perímetro de los paños · RDU0102 × 2 por hoja corrediza · EMP1301 × perímetro · CPLEYALE y MMT0101 por hoja corrediza |
+
+- **Colores**: tabla `POR_COLOR` en `divisionFachada.ts`. Un color sin código cae a **mate con aviso**.
+  Faltan en el catálogo: T-244 gris plata; 175/177 negro; U57 crudo, gris plata y negro; U32 negro,
+  crudo y gris plata; T-70 crudo; bisagra omega blanco, crudo y gris plata (`BAO0201` existe sin precio).
+  El perfil F solo existe en mate (`PER0301`).
+- **Formulario**: `soloSiValor` (nuevo, aditivo) muestra un campo solo si otro tiene ciertos valores
+  (`[{campo, valores}]`, todas deben cumplirse). `campoAplica()` en `fichaProducto.ts` lo comparte el
+  formulario (ocultar y no exigir) y la Hoja de Trabajo (no imprimir lo que no aplica).
+- **Script** `2026-10-04_cotizador_pergola_division.ts` (**corrido** el 2026-10-04 con autorización del
+  usuario; la base local es producción): 2 tarifas en `cotizador.parametro`, altas `BAO0101/0301/0602`
+  y `CHE0101` (ACCESORIO, costo del proveedor más alto) y `EMP1301` UND → X METRO (solo rótulo: ya se
+  cobraba por metro; la foto del ERP confirmó que las 112 diferencias eran solo ese rótulo y se
+  regeneró). ⚠️ El modelo `CotizadorParametro` declara las 2 columnas: **sin el script la caché no
+  carga**.
+- **Pruebas**: `pergolaDivision.test.ts` (16); centinela de `cargos.test.ts` 7 → 9 módulos. Suite
+  completa 264/264. Verificado en el navegador (cálculos de las 4 variantes y la pérgola, campos que
+  aparecen y desaparecen, mano de obra, Configuración) sin escrituras.
+- **Perfil F corregido el mismo día**: `PER0301` estaba a $193.721/m PA, que era el precio de la TIRA
+  registrado como metro en Proveedores. Quedó en PA $32.287/m (la división de 3 × 2,4 m en solo vidrio
+  bajó de $3.223.002 a $2.642.471). Ver `docs/modulos/compras.md` → "Perfil F".
+

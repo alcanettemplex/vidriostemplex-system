@@ -300,6 +300,9 @@ const CAMPOS_NUMERICOS_RAIZ = [
   'mo_instalacion_ventana_m2',
   'mo_instalacion_cabina_und',
   'mo_instalacion_espejo_tablero_m2',
+  // Pérgola y División / Fachada (2026-10-04).
+  'mo_instalacion_pergola_m2',
+  'mo_instalacion_division_m2',
 ] as const;
 
 /**
@@ -407,6 +410,8 @@ export const editarParametros = async (req: Request, res: Response) => {
       mo_instalacion_ventana_m2: p.mo_instalacion_ventana_m2,
       mo_instalacion_cabina_und: p.mo_instalacion_cabina_und,
       mo_instalacion_espejo_tablero_m2: p.mo_instalacion_espejo_tablero_m2,
+      mo_instalacion_pergola_m2: p.mo_instalacion_pergola_m2,
+      mo_instalacion_division_m2: p.mo_instalacion_division_m2,
       smo,
     };
   };

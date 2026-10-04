@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 
 import { apiCotizarItem } from '../services/cotizadorApi';
 import { CampoMeta, GrupoCampo, ModuloMeta, OpcionCampo, PersonalizacionItem, ResultadoCalculo, SegmentoCliente } from '../types';
-import { CAMPOS_DERIVADOS_DEL_DISENO, ETIQUETAS_CON_DISENO, MODULOS_CON_DISENO } from '../fichaProducto';
+import { CAMPOS_DERIVADOS_DEL_DISENO, ETIQUETAS_CON_DISENO, MODULOS_CON_DISENO, campoAplica } from '../fichaProducto';
 import CampoDinamico from './CampoDinamico';
 import { ajustarAlfajia, opcionesAlfajia } from '../alfajiaFormulario';
 import SelectorDiseno from './SelectorDiseno';
@@ -155,10 +155,10 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
     const derivados = CAMPOS_DERIVADOS_DEL_DISENO[modulo.id] ?? [];
     const campoOculto = (nombre: string) => {
         if (CAMPOS_DE_LA_COTIZACION.includes(nombre) || (hayDiseno && derivados.includes(nombre))) return true;
-        // `soloSi` (2026-09-27): el campo depende de una casilla (lado Y ↔ "en L").
+        // `soloSi` (2026-09-27, una casilla: lado Y ↔ "en L") y `soloSiValor`
+        // (2026-10-04, el valor de otro campo: ancho de puerta ↔ batiente).
         const campo = modulo.campos.find(c => c.nombre === nombre);
-        const soloSi = campo?.soloSi;
-        if (soloSi && !(input[soloSi] === true || input[soloSi] === 'true')) return true;
+        if (campo && !campoAplica(campo, input)) return true;
         // `soloSiACotizar` (2026-09-27): el costo de una película solo se pide
         // si la elegida no tiene precio de catálogo.
         const deSelect = campo?.soloSiACotizar;

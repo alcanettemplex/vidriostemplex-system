@@ -243,9 +243,11 @@ test("ninguno de los 6 módulos deja ya líneas SMO ni GTFA26 en el BOM (barrido
 // hoja `Formato Digital` del Excel de los asesores, que no tenían contraparte en
 // el ERP). El centinela sigue vigilando lo mismo —que nadie vuelva a declarar
 // `descuentoPct`—; sólo cambió cuántos módulos hay que revisar.
+// 9 y no 7 desde el 2026-10-04: entraron "pergola" y "division-fachada"
+// (productos pedidos por el usuario; antes se cotizaban con el ítem libre).
 test("ningún módulo declara ya `descuentoPct` en su meta.campos (el descuento es de la propuesta)", () => {
   const modulos = listarModulos();
-  assert.equal(modulos.length, 7, "deberían seguir siendo 7 módulos (6 productos + ítem libre)");
+  assert.equal(modulos.length, 9, "deberían ser 9 módulos (8 productos + ítem libre)");
 
   const culpables: string[] = [];
   for (const m of modulos) {

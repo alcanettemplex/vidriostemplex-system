@@ -4,6 +4,24 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-10-04 — Cotizador: precios raros que pesan en los productos nuevos y colores faltantes
+
+**Severidad:** Media (precio al cliente) · **Estimación:** revisión del usuario en Proveedores, sin código
+
+- ~~`PER0301` perfil F mate: **$193.721/m PA**~~ — **RESUELTO el mismo día**: era la tira de 6 m (lo
+  confirmó el usuario) registrada como precio por metro. Ver "Perfil F" en `docs/modulos/compras.md`.
+  Quedó en $20.672/m de costo, PA $32.287/m.
+- `BR6MM02TE` vidrio bronce 6 mm templado a $651.686/m² (5× el claro) y `CL6MM03LM` laminado 3+3 a
+  $47.173/m² (más barato que el crudo, y se ofrece en la pérgola).
+- Colores sin código (el motor cae a mate con aviso): T-244 gris plata; 175/177 negro; U57 crudo, gris
+  plata y negro (`U570201/0303/0604` están en el catálogo general sin importar); U32 negro, crudo y gris
+  plata; T-70 crudo; bisagra omega blanco/crudo/gris plata (`BAO0201` sin precio); perfil F solo mate
+  (`PER0501/0302`, `PEF0106` en el catálogo general).
+- La caja "Vista técnica" de un producto sin diseños (pérgola, división, tablero) dice "Elige un diseño
+  para ver el esquema": en estos productos no hay diseños que elegir.
+
+---
+
 ## 2026-10-03 — Frontend: `npm run build` no corre en la consola de Windows
 
 **Severidad:** Baja · **Estimación:** 10 min

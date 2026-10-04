@@ -178,6 +178,22 @@ const sinUnidad = (etiqueta: string) => etiqueta.replace(/\s*\((mm|cm|%|unidades
  * qué se vendió. Sale del contrato data-driven del módulo, así que sirve para
  * los 7 módulos sin conocer ninguno.
  */
+/**
+ * ¿El campo aplica con lo que hay en el formulario? (2026-10-04). Une las dos
+ * reglas de visibilidad que dependen de otros campos: `soloSi` (una casilla
+ * marcada) y `soloSiValor` (otro campo con uno de ciertos valores, p. ej. el
+ * ancho de puerta solo en una división batiente). La usan el formulario —para
+ * ocultar y no exigir— y la Hoja de Trabajo —para no imprimir lo que no aplica—.
+ */
+export function campoAplica(campo: CampoMeta, input: Record<string, unknown> | null | undefined): boolean {
+    const i = input ?? {};
+    if (campo.soloSi && !(i[campo.soloSi] === true || i[campo.soloSi] === 'true')) return false;
+    for (const cond of campo.soloSiValor ?? []) {
+        if (!cond.valores.some(v => String(v) === String(i[cond.campo] ?? ''))) return false;
+    }
+    return true;
+}
+
 export function especificaciones(
     input: Record<string, unknown> | null | undefined,
     modulo: ModuloMeta | null | undefined,
@@ -191,6 +207,7 @@ export function especificaciones(
     const salida: Especificacion[] = [];
     for (const campo of modulo.campos) {
         if (CAMPOS_FUERA_DE_FICHA.has(campo.nombre) || campo.tipo === 'lineas' || derivados.includes(campo.nombre)) continue;
+        if (!campoAplica(campo, i)) continue;
         const valor = i[campo.nombre];
         const etiqueta = sinUnidad(etiquetas?.[campo.nombre] ?? campo.etiqueta);
         let texto: string | null = null;

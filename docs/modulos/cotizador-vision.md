@@ -40,6 +40,9 @@ quién las hizo. Nada de eso es hoy consultable.
 > asesor arma un ítem con cualquier código del catálogo— y con él las fachadas, divisiones de
 > oficina, barandas y pasamanos. Ver `cotizador.md` → "Ítem libre". Los puntos 2, 3 y 4 (plano y
 > despiece a mano, y re-teclear todo para la SAP) siguen abiertos.
+>
+> **2026-10-04:** pérgolas y divisiones/fachadas tienen producto propio (despiece, mano de obra y
+> frase comercial automáticos); el ítem libre queda para barandas, pasamanos y trabajos especiales.
 
 ---
 

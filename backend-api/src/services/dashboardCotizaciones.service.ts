@@ -47,6 +47,8 @@ export const MODULOS_COTIZADOR = [
   'cabinas-batientes',
   'tablero',
   'espejo',
+  'pergola',
+  'division-fachada',
   'item-libre',
 ] as const;
 
@@ -57,6 +59,8 @@ export const NOMBRE_MODULO: Record<string, string> = {
   'cabinas-batientes': 'Cabinas batientes',
   tablero: 'Tableros',
   espejo: 'Espejos',
+  pergola: 'Pérgolas',
+  'division-fachada': 'Divisiones y fachadas',
   'item-libre': 'Ítems libres',
 };
 

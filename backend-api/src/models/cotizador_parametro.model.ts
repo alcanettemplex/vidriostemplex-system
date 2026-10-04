@@ -36,6 +36,11 @@ CotizadorParametro.init({
   mo_instalacion_ventana_m2: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 25000 },        // + si llevan instalación
   mo_instalacion_cabina_und: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 120000 },       // por cabina; en L, el doble
   mo_instalacion_espejo_tablero_m2: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 85000 }, // si llevan instalación
+  // Pérgola y División / Fachada (decisión del usuario, 2026-10-04). Script
+  // 2026-10-04_cotizador_pergola_division.ts — correrlo ANTES de desplegar:
+  // la caché lee estas columnas al arrancar.
+  mo_instalacion_pergola_m2: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 120000 },
+  mo_instalacion_division_m2: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 120000 },
   clientes: { type: DataTypes.JSONB, allowNull: false }, // ["PA","PM","PB"]
   asesores: { type: DataTypes.JSONB, allowNull: false }, // lista fija de nombres, texto libre
   estados_cotizacion: { type: DataTypes.JSONB, allowNull: false },

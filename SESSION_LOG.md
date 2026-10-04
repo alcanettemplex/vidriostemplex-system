@@ -6375,3 +6375,27 @@ consigna de simplicidad y pocos pasos.
 - **Pendientes nuevos:** `TECH_DEBT.md` (build en Windows, aviso de Contabilidad). La COT-17003 tiene
   total $0 (revisar). Correr el script de tablas cuando el usuario confirme.
 
+## 2026-10-04 — Cotizador: productos Pérgola y División / Fachada
+
+- **Pedido:** agregar pérgola y división de oficinas/fachadas (solo vidrio o enmarcada; batiente o
+  corrediza). El usuario dio los materiales de cada variante; Claude propuso las reglas de cantidad y el
+  usuario las validó. Decisiones: 2 tarjetas; pérgola = vidrio + película de seguridad sobre estructura
+  existente, el asesor elige el vidrio; mano de obra $120.000/m² en ambos; medida = ancho × alto +
+  composición; fijos de la batiente como la corrediza; T-70 = 2 parales. Códigos dados por el usuario:
+  bisagra omega `BAO*`, empaque antirretráctil `EMP1301`, Yale mini `CHE0101`.
+- **Backend:** módulos `pergola.ts` y `divisionFachada.ts`, registro (9 módulos), mano de obra en
+  `cargos.ts`, 2 tarifas (modelo, caché, tipos, controlador de parámetros), frases en
+  `detalleComercial.ts`, Dashboard. Script `2026-10-04_cotizador_pergola_division.ts` **aplicado** con
+  autorización (columnas, 4 altas, rótulo de EMP1301).
+- **Frontend:** `soloSiValor` + `campoAplica()`, icono `Sun`, descripciones, Dashboard, Configuración.
+- **Verificación:** `tsc`, ESLint y builds OK; suite 264/264 (16 nuevas); foto del ERP regenerada (112
+  cambios, todos el rótulo de EMP1301); navegador sin escrituras: 4 variantes + pérgola calculan, campos
+  condicionales, mano de obra y Configuración. Hubo que reiniciar el backend dev (otro `nodemon` que no
+  detectaba cambios); quedó corriendo en segundo plano desde esta sesión.
+- **Pendientes:** precios raros (perfil F $193.721/m) y colores faltantes → `TECH_DEBT.md` 2026-10-04.
+- **Perfil F (mismo día):** el usuario confirmó que $193.721 es la tira de 6 m. Causa en Proveedores: la
+  FE-FE210939 (1 unidad = tira) entró en la única equivalencia de F463M, la de METRO; marcada anómala
+  (+360 %) sin revisión. Script `2026-10-04_proveedores_perfil_f_tira.ts` aplicado: TIRA_6M nueva
+  (#328), METRO de vuelta a $26.974,79, Cotizador a $20.672,27/m (PA $32.287). Supuesto: los $26.974,79
+  del 17-sep son por metro (no lo confirmó el usuario; no afecta al Cotizador, que prefiere la tira).
+

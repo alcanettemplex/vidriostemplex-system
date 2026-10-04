@@ -87,6 +87,9 @@ export interface Parametros {
   mo_instalacion_ventana_m2: number;
   mo_instalacion_cabina_und: number;
   mo_instalacion_espejo_tablero_m2: number;
+  /** 2026-10-04: pérgolas y divisiones/fachadas, por m² con instalación. */
+  mo_instalacion_pergola_m2: number;
+  mo_instalacion_division_m2: number;
   asesores: string[];
   estados_cotizacion: string[];
 }

@@ -108,6 +108,9 @@ export const M2_MINIMO_POR_PIEZA = 1;
 const MODULOS_VENTANERIA = new Set(['ventanas', 'proyectantes']);
 const MODULOS_CABINA = new Set(['cabinas-corredizas', 'cabinas-batientes']);
 const MODULOS_ESPEJO_TABLERO = new Set(['espejo', 'tablero']);
+// 2026-10-04: instalación por m² con tarifa propia (decisión del usuario: $120.000/m²).
+const MODULO_PERGOLA = 'pergola';
+const MODULO_DIVISION = 'division-fachada';
 
 const positivo = (v: unknown): number => {
   const n = Number(v);
@@ -159,6 +162,8 @@ export function conInstalacion(it: ItemParaCargos): boolean {
  *   Instalación cabinas                  Σ piezas con instal.     × mo_instalacion_cabina_und
  *                                        (una cabina en L cuenta DOS)
  *   Instalación espejos y tableros       Σ m² de los con instal.  × mo_instalacion_espejo_tablero_m2
+ *   Instalación pérgolas                 Σ m² de las con instal.  × mo_instalacion_pergola_m2   (2026-10-04)
+ *   Instalación divisiones y fachadas    Σ m² de las con instal.  × mo_instalacion_division_m2  (2026-10-04)
  *
  * m² por pieza con mínimo de 1 m². El AIU se aplica al VALOR UNITARIO
  * (`tarifa / aiu`, igual que `subtotalConAiu` de un producto), así la línea que
@@ -180,6 +185,8 @@ export function calcularManoObraProductos(items: ItemParaCargos[] = []): CargoSu
   let unidadesCabina = 0;
   let cabinasEnL = 0;
   let m2EspejoTablero = 0;
+  let m2Pergola = 0;
+  let m2Division = 0;
 
   for (const it of items) {
     const modulo = String(it?.moduloId ?? '');
@@ -195,6 +202,10 @@ export function calcularManoObraProductos(items: ItemParaCargos[] = []): CargoSu
       if (enL) cabinasEnL += piezas;
     } else if (MODULOS_ESPEJO_TABLERO.has(modulo) && instalar) {
       m2EspejoTablero += m2CobrablesDe(it);
+    } else if (modulo === MODULO_PERGOLA && instalar) {
+      m2Pergola += m2CobrablesDe(it);
+    } else if (modulo === MODULO_DIVISION && instalar) {
+      m2Division += m2CobrablesDe(it);
     }
   }
 
@@ -247,6 +258,15 @@ export function calcularManoObraProductos(items: ItemParaCargos[] = []): CargoSu
     p.mo_instalacion_espejo_tablero_m2,
     m2Texto(round2(m2EspejoTablero))
   );
+  agregar('INSTALACION', 'Instalación pérgolas', m2Pergola, 'M2', p.mo_instalacion_pergola_m2, m2Texto(round2(m2Pergola)));
+  agregar(
+    'INSTALACION',
+    'Instalación divisiones y fachadas',
+    m2Division,
+    'M2',
+    p.mo_instalacion_division_m2,
+    m2Texto(round2(m2Division))
+  );
   return lineas;
 }
 
@@ -271,6 +291,8 @@ export function manoObraPorItem(items: ItemParaCargos[] = []): number[] {
   const instVentana = tarifa(p.mo_instalacion_ventana_m2);
   const instCabina = tarifa(p.mo_instalacion_cabina_und);
   const instEspejo = tarifa(p.mo_instalacion_espejo_tablero_m2);
+  const instPergola = tarifa(p.mo_instalacion_pergola_m2);
+  const instDivision = tarifa(p.mo_instalacion_division_m2);
 
   return items.map((it) => {
     const modulo = String(it?.moduloId ?? '');
@@ -283,6 +305,8 @@ export function manoObraPorItem(items: ItemParaCargos[] = []): number[] {
       return piezasDe(it) * (marcado(it?.input?.enL) ? 2 : 1) * instCabina;
     }
     if (MODULOS_ESPEJO_TABLERO.has(modulo) && instalar) return m2CobrablesDe(it) * instEspejo;
+    if (modulo === MODULO_PERGOLA && instalar) return m2CobrablesDe(it) * instPergola;
+    if (modulo === MODULO_DIVISION && instalar) return m2CobrablesDe(it) * instDivision;
     return 0;
   });
 }

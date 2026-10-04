@@ -1,4 +1,4 @@
-// Registro central de los 7 motores de cálculo (uno por módulo de producto).
+// Registro central de los 9 motores de cálculo (uno por módulo de producto).
 // Cada módulo vive en su propio archivo y exporta:
 //   - meta: { id, nombre, descripcion, campos: [...] }  (para que el frontend arme el formulario)
 //   - calcular(input): usa lineaCatalogo()/totalizar() de ../lib/motorCalculo.js
@@ -17,6 +17,8 @@ import * as cabinasCorredizas from "./cabinasCorredizas";
 import * as cabinasBatientes from "./cabinasBatientes";
 import * as tablero from "./tablero";
 import * as espejo from "./espejo";
+import * as pergola from "./pergola";
+import * as divisionFachada from "./divisionFachada";
 import * as itemLibre from "./itemLibre";
 import { aplicarPersonalizacion } from "../lib/personalizacion";
 import { advertenciasPrecioACotizar } from "../lib/motorCalculo";
@@ -29,7 +31,8 @@ import type { InputModulo } from "../tipos";
 
 // El orden de este objeto es el orden en que el frontend pinta las tarjetas de
 // producto. "item-libre" va último a propósito: es el cajón de lo que no encaja
-// en los seis anteriores, no una opción más al mismo nivel.
+// en los anteriores, no una opción más al mismo nivel. Pérgola y División /
+// Fachada entraron el 2026-10-04.
 export const MODULOS = {
   ventanas,
   proyectantes,
@@ -37,6 +40,8 @@ export const MODULOS = {
   "cabinas-batientes": cabinasBatientes,
   tablero,
   espejo,
+  pergola,
+  "division-fachada": divisionFachada,
   "item-libre": itemLibre,
 };
 

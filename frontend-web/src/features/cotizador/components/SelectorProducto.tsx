@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-    LayoutGrid, PanelTop, DoorOpen, DoorClosed, Square, Sparkles, Package, ListPlus,
+    LayoutGrid, PanelTop, DoorOpen, DoorClosed, Square, Sparkles, Package, ListPlus, Sun, WindowFrame,
 } from '../../../components/ui/icons';
 
 import { ModuloMeta } from '../types';
@@ -35,6 +35,8 @@ const ICONOS_MODULO: Record<string, React.ComponentType<{ className?: string }>>
     'cabinas-batientes': DoorClosed,
     tablero: Square,
     espejo: Sparkles,
+    pergola: Sun,
+    'division-fachada': WindowFrame,
     'item-libre': ListPlus,
 };
 

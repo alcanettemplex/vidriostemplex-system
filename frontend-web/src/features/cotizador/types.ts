@@ -103,6 +103,10 @@ export interface CampoMeta {
     /** Nombre de un campo booleano: este solo se muestra (y solo se exige) si
      * aquel está marcado. P. ej. el lado Y de una cabina, `soloSi: 'enL'`. */
     soloSi?: string;
+    /** Condiciones por VALOR (2026-10-04): el campo solo se muestra (y solo se
+     * exige) si TODAS se cumplen. P. ej. el ancho de puerta de una división,
+     * `[{ campo: 'apertura', valores: ['batiente'] }]`. Ver `campoAplica`. */
+    soloSiValor?: Array<{ campo: string; valores: Array<string | number> }>;
     /** Nombre de un campo select: este solo se muestra si la opción elegida
      * allí se cotiza aparte (`OpcionCampo.precioACotizar`). P. ej. el costo de
      * una película sin precio, `soloSiACotizar: 'pelicula'` (2026-09-27). */
@@ -654,6 +658,8 @@ export interface Parametros {
     mo_instalacion_ventana_m2: number;
     mo_instalacion_cabina_und: number;
     mo_instalacion_espejo_tablero_m2: number;
+    mo_instalacion_pergola_m2: number;
+    mo_instalacion_division_m2: number;
     asesores: string[];
     estados_cotizacion: string[];
 }

@@ -262,6 +262,7 @@ export const apiEditarParametros = (datos: {
     aiu?: number; iva?: number; flete_fijo?: number; alquiler_andamio?: number; huacal?: number;
     mo_ensamble_ventana_m2?: number; mo_instalacion_ventana_m2?: number;
     mo_instalacion_cabina_und?: number; mo_instalacion_espejo_tablero_m2?: number;
+    mo_instalacion_pergola_m2?: number; mo_instalacion_division_m2?: number;
     smo?: Partial<Parametros['smo']>; motivo: string; por?: string;
 }) => axios.put<Parametros>(`${BASE}/parametros`, datos);
 

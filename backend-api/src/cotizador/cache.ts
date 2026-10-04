@@ -198,6 +198,8 @@ async function cargarParametros(): Promise<Parametros> {
     mo_instalacion_ventana_m2: Number(fila.mo_instalacion_ventana_m2),
     mo_instalacion_cabina_und: Number(fila.mo_instalacion_cabina_und),
     mo_instalacion_espejo_tablero_m2: Number(fila.mo_instalacion_espejo_tablero_m2),
+    mo_instalacion_pergola_m2: Number(fila.mo_instalacion_pergola_m2),
+    mo_instalacion_division_m2: Number(fila.mo_instalacion_division_m2),
     asesores: fila.asesores as string[],
     estados_cotizacion: fila.estados_cotizacion as string[],
   };

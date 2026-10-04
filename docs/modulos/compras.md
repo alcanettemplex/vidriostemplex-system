@@ -1589,3 +1589,23 @@ por revisar con ACVICOL la FE-AC55241: cobró la chapeta negra al precio de la d
 - `getPorGestionar` filtra en JS los pedidos ya gestionados; hoy hay 0 pendientes, así que no se tocó.
 - Si otro usuario cambia un pedido dentro de la ventana de 1,5 s tras una acción propia, ese cambio
   llega con el siguiente aviso o al recargar.
+
+---
+
+## Perfil F: una tira registrada como precio por metro (2026-10-04)
+
+`F463M` de VENTANAS Y PUERTAS (perfil F, `PER0301` en el Cotizador) tenía una sola equivalencia, en
+METRO. La FE-FE209611 (17-sep) trajo $26.974,79 por metro; la FE-FE210939 (29-sep) facturó **1 unidad
+a $124.033,61 = la tira de 6 m** con unitCode genérico. Con una sola equivalencia, la regla 3 la aplica
+sin preguntar, así que entró como precio por METRO. Se marcó `precio_anomalo` (+360 %), **nadie lo
+revisó**, y la sincronización lo llevó al Cotizador: $193.721/m PA.
+
+Corregido con `scripts/2026-10-04_proveedores_perfil_f_tira.ts` (aplicado, con auditoría; reversible):
+equivalencia nueva **TIRA_6M** (#328) con la fila de la FE-FE210939, METRO (#216) de vuelta en
+$26.974,79, código `F463M` en las dos, y recálculo del Cotizador (manda la tira ÷ 6: $20.672,27/m).
+Con dos modalidades, la próxima factura de `F463M` con unidad genérica va a "Por Mapear".
+
+**Lección:** el aviso de precio anómalo existe pero no tiene a nadie mirándolo. Un salto de +360 % casi
+siempre es un cambio de modalidad (metro ↔ tira ↔ unidad), no un aumento real. Vale revisar la lista de
+`precio_anomalo = true` cada vez que se carguen facturas.
+

@@ -4,7 +4,8 @@
 export type EstadoCotizacion = 'PENDIENTE' | 'APROBADA' | 'PERDIDO' | 'CANCELADO';
 export type Segmento = 'PA' | 'PM' | 'PB';
 export type ModuloCotizador =
-  | 'ventanas' | 'proyectantes' | 'cabinas-corredizas' | 'cabinas-batientes' | 'tablero' | 'espejo' | 'item-libre';
+  | 'ventanas' | 'proyectantes' | 'cabinas-corredizas' | 'cabinas-batientes' | 'tablero' | 'espejo'
+  | 'pergola' | 'division-fachada' | 'item-libre';
 
 export interface FiltrosCotizaciones {
   desde: string;
@@ -99,6 +100,8 @@ export const NOMBRE_MODULO: Record<ModuloCotizador, string> = {
   'cabinas-batientes': 'Cabinas batientes',
   tablero: 'Tableros',
   espejo: 'Espejos',
+  pergola: 'Pérgolas',
+  'division-fachada': 'Divisiones y fachadas',
   'item-libre': 'Ítems libres',
 };
 
