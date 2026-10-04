@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { AppDispatch } from '../../store/store';
 import { fetchODPById } from './odpSlice';
 import { useODPSocketPatch } from '../../store/useSocketNotifications';
@@ -18,9 +19,9 @@ import ODPFichaModal from './components/ODPFichaModal';
 import AsignarAsesorODPModal from './components/AsignarAsesorODPModal';
 import SeleccionarTipoODPModal from './components/SeleccionarTipoODPModal';
 import SAPModal from './components/SAPModal';
-import COTModal from './components/COTModal';
 import TMModal from './components/TMModal';
 import ExploradorODPPanel from './components/ExploradorODPPanel';
+import { enlaceCotizador } from '../cotizador/vinculo';
 
 interface ODP {
     id: number;
@@ -113,7 +114,9 @@ const ActionsMenu: React.FC<{
 
     const items: { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean; show: boolean }[] = [
         { label: 'Solicitud Accesorios (SAP)', icon: <Package className="w-4 h-4" />, onClick: onSap, show: isAsesor },
-        { label: 'Cotización (COT)',            icon: <DollarSign className="w-4 h-4" />, onClick: onCot, show: isAsesor },
+        // Antes abría el COTModal viejo (retirado el 2026-10-03): ahora lleva al
+        // Cotizador con una cotización nueva ya vinculada a esta ODP.
+        { label: 'Nueva cotización (Cotizador)', icon: <DollarSign className="w-4 h-4" />, onClick: onCot, show: isAsesor },
         { label: 'Solicitar Visita Técnica',   icon: <Ruler className="w-4 h-4" />, onClick: onVisita, show: isAsesor && !['INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA', 'ANULADA'].includes(odp.estado_produccion) },
         { label: 'Toma de Medidas (TM)',        icon: <Ruler className="w-4 h-4" />, onClick: onTm, show: isJefe },
         // Anular reemplaza a Eliminar: conserva el registro y su historial en vez de borrarlos
@@ -197,7 +200,6 @@ const ODPListPage: React.FC = () => {
     const [anulandoOdp, setAnulandoOdp] = useState<ODP | null>(null);
     const [motivoAnulacion, setMotivoAnulacion] = useState('');
     const [sapOdp, setSapOdp] = useState<ODP | null>(null);
-    const [cotOdp, setCotOdp] = useState<ODP | null>(null);
     const [tmOdp, setTmOdp] = useState<ODP | null>(null);
     const [printOdp, setPrintOdp] = useState<ODP | null>(null);
 
@@ -214,6 +216,7 @@ const ODPListPage: React.FC = () => {
     const user = useSelector((state: any) => state.auth.user);
     const userRole = (user?.rol || user?.role)?.toLowerCase() || '';
     const dispatch = useDispatch<AppDispatch>();
+    const navigate = useNavigate();
 
     // El listado trae un perfil ligero (sin descripcion_pedido, direccion_instalacion,
     // servicios_detalle, datos de contacto ni ítems). Todo lo que se abra a partir de una
@@ -221,7 +224,6 @@ const ODPListPage: React.FC = () => {
     //   · ODPForm  — reenvía en el PUT todo lo que recibe, así que abrirlo con el objeto
     //     del listado BORRARÍA esos campos al guardar (mismo bug que hubo con
     //     descripcion_contexto en el CRM, resuelto así en LeadDetalleModal).
-    //   · COTModal — usa descripcion_pedido, direccion_instalacion e items.
     //   · TMModal  — usa direccion_instalacion, tipo_servicio, datos de quien recibe y tomas_medidas.
     // SAPModal solo usa id/numero_odp/cliente, pero pasa por el mismo camino para que no
     // haya dos formas de abrir un modal desde la tabla.
@@ -918,7 +920,7 @@ const ODPListPage: React.FC = () => {
                                                     odp={odp}
                                                     userRole={userRole}
                                                     onSap={() => abrirConDetalle(odp.id, setSapOdp)}
-                                                    onCot={() => abrirConDetalle(odp.id, setCotOdp)}
+                                                    onCot={() => navigate(enlaceCotizador({ nuevo: { tipo: 'odp', id: odp.id } }))}
                                                     onTm={() => abrirConDetalle(odp.id, setTmOdp)}
                                                     onVisita={() => handleSolicitarVisita(odp)}
                                                     onAnular={() => setAnulandoOdp(odp)}
@@ -1025,7 +1027,6 @@ const ODPListPage: React.FC = () => {
             </AnimatePresence>
 
             {sapOdp && <SAPModal odp={sapOdp} onClose={() => setSapOdp(null)} />}
-            {cotOdp && <COTModal odp={cotOdp} onClose={() => setCotOdp(null)} />}
             {tmOdp && <TMModal odp={tmOdp} onClose={() => setTmOdp(null)} />}
             {printOdp && <ODPFichaModal odpId={printOdp.id} initialTab="imprimir" onClose={() => setPrintOdp(null)} />}
 

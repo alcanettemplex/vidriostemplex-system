@@ -19,7 +19,6 @@ const TIPO_VISUAL: Record<string, { icon: (cls: string) => React.ReactNode; dot:
   TM_SOLICITADA:      { icon: (c) => <Ruler className={c} />,        dot: 'bg-amber-500',   peso: 'bajo'  },
   TM_REALIZADA:       { icon: (c) => <CheckCircle2 className={c} />, dot: 'bg-amber-600',   peso: 'medio' },
   SAP_CREADA:         { icon: (c) => <Package className={c} />,      dot: 'bg-violet-500',  peso: 'bajo'  },
-  COT_CREADA:         { icon: (c) => <DollarSign className={c} />,   dot: 'bg-blue-500',    peso: 'medio' },
   ODC_CREADA:         { icon: (c) => <Package className={c} />,      dot: 'bg-purple-500',  peso: 'bajo'  },
   ODC_RECIBIDA:       { icon: (c) => <CheckCircle2 className={c} />, dot: 'bg-green-500',   peso: 'medio' },
   PV_CREADO:          { icon: (c) => <Truck className={c} />,        dot: 'bg-sky-500',     peso: 'bajo'  },
@@ -181,11 +180,6 @@ function renderHistChips(ev: any): React.ReactNode {
 
   if (tipo === 'SA_GENERADA' && meta.fecha_sa)
     return <span className="text-xs text-slate-700">Fecha SA: {fmtDate(meta.fecha_sa)}</span>;
-
-  if (tipo === 'COT_CREADA' && meta.estado) {
-    const c: Record<string, string> = { aprobada: 'bg-emerald-50 text-emerald-700 border-emerald-200', enviada: 'bg-blue-50 text-blue-700 border-blue-200', rechazada: 'bg-rose-50 text-rose-700 border-rose-200' };
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${c[meta.estado] || 'bg-slate-100 text-slate-800 border-slate-200'}`}>{meta.estado}</span>;
-  }
 
   if (tipo === 'GARANTIA_CREADA' && meta.estado_produccion)
     return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${getEstadoODP(meta.estado_produccion).badge}`}>{getEstadoODP(meta.estado_produccion).label}</span>;

@@ -92,7 +92,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
 
   const tabs = [
     { id: 'general',     label: 'Datos Generales', icon: <ClipboardList className="w-4 h-4" /> },
-    { id: 'comercial',   label: 'Comercial',        icon: <DollarSign className="w-4 h-4" />,    badge: (odp?.saps?.length || 0) + (odp?.cotizaciones?.length || 0) },
+    { id: 'comercial',   label: 'Comercial',        icon: <DollarSign className="w-4 h-4" />,    badge: odp?.saps?.length || 0 },
     { id: 'produccion',  label: 'Producción',        icon: <Wrench className="w-4 h-4" />,         badge: odp?.tomas_medidas?.length || 0 },
     { id: 'instalacion', label: 'Instalación',       icon: <Truck className="w-4 h-4" />,          badge: (odp?.evidencias?.length || 0) + (odp?.ruta_odps?.length || 0) },
     { id: 'financiero',  label: 'Financiero',         icon: <TrendingUp className="w-4 h-4" /> },

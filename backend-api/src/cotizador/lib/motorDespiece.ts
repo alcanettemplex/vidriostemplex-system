@@ -49,6 +49,34 @@ import { getMargenes } from "../store/calibracionStore";
 import * as cache from "../cache";
 import type { Diseno, DisenoResumen, Formula, ModeloCorte, OperacionCorte } from "../tipos";
 
+/**
+ * Niveles de corte que permiten emitir una orden de corte. ÚNICA fuente de la
+ * regla (2026-10-03): la usan este motor (`aptoParaCorte`), `aptitudOrden.ts`
+ * (motivo NIVEL_NO_VALIDADO) y el endpoint de despiece, que manda `confiable`
+ * ya calculado a la Hoja de Trabajo. Antes había tres copias — una en el
+ * frontend — y cambiar una sola dejaba al taller con un criterio distinto.
+ *
+ * A y B, por decisión explícita del usuario (2026-09-19). El nivel B significa
+ * "los modelos candidatos de esta pieza coinciden entre sí dentro de 1 mm": la
+ * fórmula no está cerrada del todo, pero su error está ACOTADO en 1 mm. Con la
+ * holgura de instalación configurada en 3 mm, ese milímetro cabe dentro de la
+ * tolerancia, y el usuario lo dio por indiferente en aluminio y en vidrio.
+ *
+ * El nivel C NO se acepta, y la diferencia no es de grado: ahí el error CRECE
+ * con el tamaño del vano (hasta 3,3 mm medidos, sin tope superior) porque la
+ * pieza se sigue calculando con la recta ajustada en vez de con un modelo
+ * entero. Un error acotado se absorbe con holgura; uno que se agranda con la
+ * ventana, no. Un nivel desconocido (blob viejo sin `nivelCorte`) tampoco.
+ *
+ * Para revertir: quitar "B" de este Set. Se mueve junto con
+ * `EXIGIR_SISTEMA_EN_PRODUCCION` de `aptitudOrden.ts` (ver TECH_DEBT 2026-09-19).
+ */
+export const NIVELES_APTOS_PARA_CORTE: ReadonlySet<string> = new Set(["A", "B"]);
+
+export function esNivelAptoParaCorte(nivel: string | null | undefined): boolean {
+  return NIVELES_APTOS_PARA_CORTE.has(nivel ?? "");
+}
+
 // Los diseños ya no se leen de disco: vienen de la caché en memoria, que los
 // reconstruye desde Postgres al arrancar con exactamente la misma forma que
 // tenía disenos.json. El original los cargaba a nivel de módulo con
@@ -431,27 +459,9 @@ export function calcularDespiece({
   }
 
   // --- Aptitud para corte -------------------------------------------------
-  //
-  // NIVELES ACEPTADOS: A y B, por decisión explícita del usuario (2026-09-19).
-  //
-  // El nivel B significa "los modelos candidatos de esta pieza coinciden entre
-  // sí dentro de 1 mm": la fórmula no está cerrada del todo, pero su error está
-  // ACOTADO en 1 mm. Con la holgura de instalación configurada en 3 mm, ese
-  // milímetro cabe dentro de la tolerancia, y el usuario lo dio por indiferente
-  // tanto en aluminio como en vidrio.
-  //
-  // El nivel C NO se acepta, y la diferencia no es de grado: ahí el error CRECE
-  // con el tamaño del vano (hasta 3,3 mm medidos, sin tope superior) porque la
-  // pieza se sigue calculando con la recta ajustada en vez de con un modelo
-  // entero. Un error acotado se absorbe con holgura; uno que se agranda con la
-  // ventana, no.
-  //
-  // Para revertir: quitar "B" de este Set. Es el único punto que decide esto en
-  // el motor; `aptitudOrden.ts` lee el resultado, no lo recalcula.
-  const NIVELES_APTOS_PARA_CORTE = new Set(["A", "B"]);
+  // La regla de niveles vive en `NIVELES_APTOS_PARA_CORTE` (arriba del archivo).
   const hayMedidasInvalidas = items.some((it) => it.error);
-  const aptoParaCorte =
-    NIVELES_APTOS_PARA_CORTE.has(diseno.nivelCorte ?? "") && !hayMedidasInvalidas;
+  const aptoParaCorte = esNivelAptoParaCorte(diseno.nivelCorte) && !hayMedidasInvalidas;
 
   // Las piezas sin modelo entero son las únicas con error no acotado: siguen
   // calculándose con la recta ajustada, que se desvía más cuanto más grande es

@@ -300,7 +300,7 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                             {label('HUACAL')}
                                             {td(odp.huacal ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
                                             {label('COT')}
-                                            {val(odp.numero_cotizacion || odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || '')}
+                                            {val(odp.numero_cotizacion || '')}
                                             {label('ODC')}
                                             {val(odcs[1]?.numero_odc?.split('-').pop() || '')}
                                             {label('PROV')}

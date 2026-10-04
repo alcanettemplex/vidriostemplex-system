@@ -2,7 +2,7 @@
 // medida cualquiera, y plano de un ítem ya guardado.
 import { Request, Response } from 'express';
 import { calcularPlano } from '../cotizador/lib/planoProducto';
-import { getDiseno } from '../cotizador/lib/motorDespiece';
+import { getDiseno, esNivelAptoParaCorte } from '../cotizador/lib/motorDespiece';
 import { ordenarParaTaller } from '../cotizador/lib/ordenCorte';
 import * as cache from '../cotizador/cache';
 import * as store from '../cotizador/store/cotizacionStore';
@@ -161,9 +161,10 @@ export const planoDeItem = async (req: Request, res: Response) => {
  * con el maestro, pero es el único sitio que la aplica, para que el día que se
  * confirme el orden real baste con tocar ahí).
  *
- * `nivelCorte`/`hayErrores` viajan aparte para que el frontend decida si avisa
- * que las medidas no están validadas — son las mismas columnas denormalizadas
- * que ya usa la tabla de "Normal", no un cálculo nuevo.
+ * `nivelCorte`/`hayErrores` viajan aparte (son las columnas denormalizadas que
+ * ya usa la tabla de "Normal"), y `confiable` (2026-10-03) es el veredicto ya
+ * calculado con `esNivelAptoParaCorte`: la Hoja de Trabajo solo lo pinta, para
+ * que la regla de niveles no tenga una copia en el frontend.
  */
 export const despieceDeItem = async (req: Request, res: Response) => {
   try {
@@ -194,6 +195,7 @@ export const despieceDeItem = async (req: Request, res: Response) => {
       vidrios: resultado.cortes.vidrios ?? [],
       nivelCorte: item.nivelCorte ?? null,
       hayErrores: item.hayErrores === true,
+      confiable: esNivelAptoParaCorte(item.nivelCorte) && item.hayErrores !== true,
       // El asesor tocó un perfil: estos cortes ya no son sólo los del diseño.
       perfileriaPersonalizada: resultado.perfileriaPersonalizada === true,
     });

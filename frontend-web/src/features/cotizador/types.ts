@@ -296,6 +296,10 @@ export interface DespieceItem {
     vidrios: CorteDespieceVidrio[];
     nivelCorte: string | null;
     hayErrores: boolean;
+    /** Veredicto del backend (nivel apto para corte y sin errores), 2026-10-03.
+     * La regla de niveles vive solo en `motorDespiece.ts`; no replicarla aquí.
+     * Ausente (backend anterior) = no confiable: falla hacia el aviso. */
+    confiable?: boolean;
     /** El asesor cambió, quitó o agregó un perfil (2026-09-23). */
     perfileriaPersonalizada?: boolean;
 }

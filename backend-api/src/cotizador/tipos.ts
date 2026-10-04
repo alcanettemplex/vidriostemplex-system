@@ -17,8 +17,9 @@
  *
  * Los campos opcionales existen SOLO en los productos provisionales. No se
  * emiten como `null` en los demás: el objeto de un producto de catálogo tiene
- * exactamente 9 claves, igual que en `catalogo.json`, porque el golden master
- * compara con `deepStrictEqual` y una clave de más es una diferencia.
+ * exactamente 9 claves, igual que en `catalogo.json`. Lo exigía el golden master
+ * (retirado el 2026-10-03, reemplazado por `fotoErp.test.ts`); se conserva para
+ * no cambiar la forma que ya consumen la API y las suites.
  */
 export interface Producto {
   codigo: string;

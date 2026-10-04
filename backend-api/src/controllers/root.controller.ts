@@ -293,7 +293,7 @@ export const getAuditoria = async (req: Request, res: Response) => {
 };
 
 const TABLAS_AUDITABLES = new Set([
-  'odp', 'odp_items', 'clientes', 'usuarios', 'cotizaciones', 'cotizacion_items',
+  'odp', 'odp_items', 'clientes', 'usuarios',
   'toma_medidas', 'saps', 'sap_items', 'ordenes_compra', 'odc_items', 'pagos',
   'evidencias_instalacion', 'no_conformidades', 'notas_produccion',
   'historial_estados_odp', 'vehiculos', 'rutas_instalacion', 'ruta_odps',
@@ -312,10 +312,10 @@ const TABLAS_AUDITABLES = new Set([
   // schema.tabla, igual que los graba `auditoria_log`. El punto lo separa
   // `identificadorSql()` al construir el SQL: entrecomillar la cadena entera
   // daría un identificador único llamado "cotizador.producto", no schema+tabla.
-  // Los nombres son los reales (singular): a diferencia de
-  // 'cotizaciones'/'cotizacion_items' de arriba, que no coinciden con las
-  // tablas 'cotizacion'/'cotizacion_items' y por eso revertir Cotizacion falla
-  // siempre — ver TECH_DEBT.md 2026-07-10.
+  // Los nombres son los reales (singular). Las entradas 'cotizaciones'/
+  // 'cotizacion_items' del COTModal viejo (que además no coincidían con las
+  // tablas reales y hacían fallar el revertir) salieron el 2026-10-03 con el
+  // modelo — ver TECH_DEBT.md 2026-07-10.
   'cotizador.producto', 'cotizador.precio_override',
   'cotizador.cotizacion', 'cotizador.cotizacion_item', 'cotizador.parametro',
   // Propuestas y cargos de obra — agregadas 2026-09-20 con la Fase 1
@@ -1155,18 +1155,19 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
-      // 5. Cotizaciones sin respuesta > 30 días (borrador o enviada)
+      // 5. Cotizaciones sin respuesta > 30 días — del Cotizador (2026-10-03).
+      // Antes leía la tabla del COTModal viejo (public.cotizacion, 0 filas
+      // siempre): la alerta nunca pudo dispararse. Misma forma de respuesta.
       sequelize.query<any>(`
-        SELECT ct.id, ct.numero_cot, ct.estado, ct.valor_total, ct.fecha_creacion,
-               COALESCE(cl.nombre_razon_social, p.nombre_contacto, '—') AS cliente,
+        SELECT ct.id, 'COT-' || ct.numero AS numero_cot, ct.estado,
+               ct.total_total AS valor_total, ct.creada_en AS fecha_creacion,
+               COALESCE(NULLIF(ct.cliente_nombre, ''), '—') AS cliente,
                u.nombre_completo AS creado_por_nombre,
-               EXTRACT(DAY FROM NOW() - ct.fecha_creacion)::int AS dias_pendiente
-        FROM cotizacion ct
-        LEFT JOIN clientes cl ON cl.id = ct.cliente_id
-        LEFT JOIN prospectos p ON p.id = ct.prospecto_id
-        LEFT JOIN usuarios u ON u.id = ct.creado_por
-        WHERE ct.estado IN ('borrador','enviada')
-          AND ct.fecha_creacion < NOW() - INTERVAL '30 days'
+               EXTRACT(DAY FROM NOW() - ct.creada_en)::int AS dias_pendiente
+        FROM cotizador.cotizacion ct
+        LEFT JOIN usuarios u ON u.id = ct.asesor_usuario_id
+        WHERE ct.estado = 'PENDIENTE'
+          AND ct.creada_en < NOW() - INTERVAL '30 days'
         ORDER BY dias_pendiente DESC
         LIMIT 200
       `, { type: QueryTypes.SELECT }),

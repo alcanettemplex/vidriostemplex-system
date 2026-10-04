@@ -1,12 +1,18 @@
 import React from 'react';
 import { TemplexLogo } from '../../../components/ui/TemplexLogo';
+import PlanosCotizacionODP from './PlanosCotizacionODP';
 
 interface PrintableDetalleTecnicoProps {
     odp: any;
+    /** Cotización vinculada con opción elegida (2026-10-03): si llega, después
+     * de esta hoja se agregan las de planos (`PlanosCotizacionODP`). La hoja del
+     * croquis no cambia. */
+    cotizacionId?: number | null;
 }
 
-const PrintableDetalleTecnico: React.FC<PrintableDetalleTecnicoProps> = ({ odp }) => {
+const PrintableDetalleTecnico: React.FC<PrintableDetalleTecnicoProps> = ({ odp, cotizacionId = null }) => {
     return (
+        <>
         <div className="print-root block print:block w-[21.5cm] min-h-[29cm] print:min-h-0 bg-white shadow-xl print:shadow-none text-black font-sans text-[10px] mx-auto overflow-hidden print:overflow-visible">
             <style>
                 {`
@@ -88,6 +94,8 @@ const PrintableDetalleTecnico: React.FC<PrintableDetalleTecnicoProps> = ({ odp }
 
             </div>
         </div>
+        {cotizacionId !== null && <PlanosCotizacionODP odp={odp} cotizacionId={cotizacionId} />}
+        </>
     );
 };
 

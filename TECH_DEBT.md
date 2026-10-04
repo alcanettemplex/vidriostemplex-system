@@ -4,6 +4,42 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-10-03 — Frontend: `npm run build` no corre en la consola de Windows
+
+**Severidad:** Baja · **Estimación:** 10 min
+
+El script es `CI=false react-scripts build && cp build/index.html build/404.html`: sintaxis de bash.
+Desde `npm` en Windows (cmd) falla con `"CI" no se reconoce como un comando`. Cloudflare Pages
+compila en Linux y no se entera. En local se compila con `CI=false npx react-scripts build` desde
+bash. Arreglo sin dependencias: `node -e` que fije `process.env.CI` y copie el 404, o `cross-env`
+(dependencia nueva: proponer antes).
+
+---
+
+## 2026-10-03 — Contabilidad: aviso de React por un `<select>` con `value={null}`
+
+**Severidad:** Baja · **Estimación:** 15 min
+
+Al montar `/contabilidad` la consola muestra "`value` prop on `select` should not be null". Apareció
+con el commit `c99e8ce` (buscadores de Contabilidad, traído el 2026-10-03). No rompe nada, pero un
+`select` controlado con `null` pasa a no controlado. Detectado en la verificación de rutas con
+Playwright del 2026-10-03; no se tocó porque no era parte de la tarea.
+
+---
+
+## 2026-10-03 — Cotizador: "Crear ODP" y "Traer ítems a la SAP" nunca se han ejecutado en producción
+
+**Severidad:** Media · **Estimación:** 30 min de prueba coordinada
+
+Al 2026-10-03 ninguna cotización tiene ODP y ninguna fila de `sap_items` tiene `origen_cotizacion_id`:
+los dos caminos que escriben en el ERP solo se verificaron en `dry_run` y con 409 del candado. La
+red de pruebas del 2026-10-03 no los cubre porque escriben en la base de producción (la base local
+es la de producción). Decisión del usuario: dejarla para la primera cotización aprobada real o para
+una prueba coordinada. Qué verificar ese día: número de ODP, `odp_id` en la cotización, evento del
+lead, letras y `CANT.` de la SAP, `recalcularAluminioODP` y el socket.
+
+---
+
 ## 2026-10-02 — Pedidos PV: `PedidosPVPage.tsx` monolítico (~2.200 líneas)
 
 **Severidad:** Media · **Estimación:** ~3-4 h
@@ -127,7 +163,9 @@ de 6 m) está congelado hasta que alguien mapee una factura de esos códigos en 
 
 ---
 
-## 2026-09-23 — Cotizador: los cambios sin guardar se pierden al navegar por el menú lateral
+## ~~2026-09-23 — Cotizador: los cambios sin guardar se pierden al navegar por el menú lateral~~ — RESUELTO 2026-10-03
+
+**Resuelto con la opción (1):** `AppRoutes.tsx` pasó a `createBrowserRouter` + `createRoutesFromElements` (mismas `<Route>`, roles y `RoleRoute`) y `CotizadorPage` usa `useBlocker`, que llama a `asegurarGuardado` y, si no puede guardar, abre `ModalCambiosSinGuardar`. Verificado con Playwright (19 rutas montan; bloqueo, Cancelar y Descartar). Otros formularios largos del ERP pueden usar `useBlocker` desde ahora.
 
 **Severidad:** Media (UX, pérdida de trabajo) · **Estimación:** 3-5 h (migrar el router) o 1 h (parche)
 
@@ -331,6 +369,10 @@ vez de con un modelo entero.
 frena un sistema cuyo corte real esté desviado. **Qué se gana:** 139 de 163 diseños pueden emitir
 orden; antes, ninguno.
 
+**Desde el 2026-10-03 la regla de niveles tiene una sola fuente** (`NIVELES_APTOS_PARA_CORTE` /
+`esNivelAptoParaCorte()` exportadas de `motorDespiece.ts`); `aptitudOrden.ts` y el endpoint de
+despiece (campo `confiable` para la Hoja de Trabajo) la importan en vez de copiarla.
+
 **Cómo revertir:** poner la constante en `true` y quitar `"B"` del Set. Las dos están comentadas en
 sitio con el razonamiento completo. La maquinaria de calibración (tablas, matemática, 13 endpoints y
 la pestaña Calibración) quedó intacta y operativa.
@@ -368,8 +410,10 @@ el porqué, siguiendo la convención del propio archivo. **Suite completa en ver
 nadie lo habría notado. Un guardián que avisa siempre no avisa de nada. Al subir el conteo por una
 razón buena, actualizar el número es parte del trabajo, no una tarea aparte.
 
-**Sigue abierto y es del mismo tipo:** el **golden master** (`test:cotizador:golden`) está obsoleto
-desde el 2026-09-11, 6 de 10 fallan por datos. Ahí la red sigue caída.
+~~**Sigue abierto y es del mismo tipo:** el **golden master** (`test:cotizador:golden`) está obsoleto
+desde el 2026-09-11, 6 de 10 fallan por datos. Ahí la red sigue caída.~~ **Cerrado el 2026-10-03:**
+golden retirado y reemplazado por `fotoErp.test.ts`, que fotografía el ERP actual en vez del origen
+(ver `docs/modulos/cotizador.md` → "Red de pruebas (2026-10-03)").
 
 ---
 
@@ -1138,7 +1182,9 @@ El middleware de contexto de auditoría en `backend-api/src/app.ts:67-80` intent
 
 ---
 
-## 2026-07-10 — Revertir auditoría falla siempre para `Cotizacion`, `SAP` y `RutaODP`
+## 2026-07-10 — Revertir auditoría falla siempre para ~~`Cotizacion`~~, `SAP` y `RutaODP`
+
+**Actualización 2026-10-03:** `Cotizacion` salió del alcance: el modelo y sus entradas en `MODELOS_AUDITADOS` y `TABLAS_AUDITABLES` se retiraron con el COTModal. Quedan `SAP` y `RutaODP`.
 
 **Severidad:** Media
 
@@ -1160,7 +1206,7 @@ Los modelos `Cotizacion`, `SAP` y `RutaODP` tienen `tableName` en singular (`cot
 **Descripción:**
 Tres páginas existen completas en `frontend-web/src/features/` pero no están importadas ni montadas en `AppRoutes.tsx` — inalcanzables desde la UI real:
 - `evidencias/EvidenciasPage.tsx` — captura de evidencias (foto/firma/video + geolocalización) por ODP. CLAUDE.md las documentaba como ruta activa (`/evidencias`) hasta esta auditoría; ya no lo es.
-- `cotizaciones/CotizacionesPage.tsx` — CRUD completo de cotizaciones con `cotizacionesSlice`.
+- ~~`cotizaciones/CotizacionesPage.tsx` — CRUD completo de cotizaciones con `cotizacionesSlice`.~~ **Borrada el 2026-10-03** junto con el slice y el COTModal (decisión del usuario; el Cotizador la reemplaza).
 - `reportes/ReportesPage.tsx` — reportes de ODP con gráficos (`recharts`) y export Excel/PDF.
 
 **Cómo se detectó:** Auditoría forense completa del sistema para actualizar `CLAUDE.md` (2026-07-10), al construir la tabla de rutas reales desde `AppRoutes.tsx` y no encontrar coincidencia para estos 3 componentes.

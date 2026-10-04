@@ -3,9 +3,13 @@ import {
     HardHat, Plus, Trash2, Truck, Package2, Layers, AlertTriangle, Lock, Loader2,
 } from '../../../components/ui/icons';
 
-import { CargoEntrada, CargoPropuesta, LineaManoObra, OrigenCargo, Parametros, TIPOS_MANO_OBRA } from '../types';
+import { CargoPropuesta, LineaManoObra, Parametros } from '../types';
+import { EstadoCargos, LineaOtroCargo, cargosADTO, resumenCargos } from '../totalesContrato';
 import { fmtCOP } from '../format';
 import { Chip, BotonSecundario } from './ui';
+
+export type { EstadoCargos, LineaOtroCargo };
+export { cargosADTO };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Panel de CARGOS DE OBRA de una propuesta — mano de obra (SMO), alquiler de
@@ -60,20 +64,8 @@ import { Chip, BotonSecundario } from './ui';
 // La traducción a filas la hacen `cargosADTO` / `cargosDesdeApi`, y por eso el
 // endpoint es un PUT del juego completo y no un PATCH por línea.
 
-export interface LineaOtroCargo {
-    /** Sólo para la key de React y para poder quitar la línea; no viaja nunca. */
-    key: string;
-    descripcion: string;
-    valor: number;
-    aplicaIva: boolean;
-}
-
-export interface EstadoCargos {
-    andamio: { activo: boolean; dias: number; valorUnitario: number; aplicaIva: boolean };
-    huacal: { activo: boolean; unidades: number; valorUnitario: number; aplicaIva: boolean };
-    flete: { activo: boolean; valor: number; origen: OrigenCargo; aplicaIva: boolean };
-    otros: LineaOtroCargo[];
-}
+// `LineaOtroCargo` y `EstadoCargos` viven en `../totalesContrato.ts` (sin React)
+// para que la prueba de contrato del backend pueda importarlos.
 
 const nuevaKey = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -148,73 +140,7 @@ export const cargosDesdeApi = (cargos: CargoPropuesta[] | undefined, parametros:
     return estado;
 };
 
-/** El juego completo de cargos tal como lo espera `PUT .../cargos`. Una casilla
- * apagada no manda una fila en cero: no manda nada. */
-export const cargosADTO = (e: EstadoCargos): CargoEntrada[] => {
-    const filas: CargoEntrada[] = [];
-    if (e.andamio.activo) {
-        filas.push({
-            tipo: 'ANDAMIO',
-            descripcion: 'Alquiler de andamio',
-            cantidad: Math.max(0, Number(e.andamio.dias) || 0),
-            unidad: 'DIA',
-            valorUnitario: Math.max(0, Number(e.andamio.valorUnitario) || 0),
-            aplicaIva: e.andamio.aplicaIva,
-            origen: 'MANUAL',
-        });
-    }
-    if (e.huacal.activo) {
-        filas.push({
-            tipo: 'HUACAL',
-            descripcion: 'Huacal / embalaje',
-            cantidad: Math.max(0, Number(e.huacal.unidades) || 0),
-            unidad: 'UND',
-            valorUnitario: Math.max(0, Number(e.huacal.valorUnitario) || 0),
-            aplicaIva: e.huacal.aplicaIva,
-            origen: 'MANUAL',
-        });
-    }
-    if (e.flete.activo) {
-        filas.push({
-            tipo: 'FLETE',
-            descripcion: 'Acarreo / Flete',
-            cantidad: 1,
-            unidad: 'GLOBAL',
-            valorUnitario: Math.max(0, Number(e.flete.valor) || 0),
-            aplicaIva: e.flete.aplicaIva,
-            origen: e.flete.origen,
-        });
-    }
-    for (const o of e.otros) {
-        // Una línea sin texto ni monto es una fila que el vendedor abrió y no
-        // llenó: se descarta en vez de imprimirle al cliente un renglón vacío.
-        if (!o.descripcion.trim() && !o.valor) continue;
-        filas.push({
-            tipo: 'OTRO',
-            descripcion: o.descripcion.trim().slice(0, 200) || 'Servicio adicional',
-            cantidad: 1,
-            unidad: 'GLOBAL',
-            valorUnitario: Math.max(0, Number(o.valor) || 0),
-            aplicaIva: o.aplicaIva,
-            origen: 'MANUAL',
-        });
-    }
-    return filas;
-};
-
-/** Base de los cargos (sin IVA) y su IVA, sólo para el pie del panel. El número
- * que manda sigue siendo el que devuelve el backend en `propuesta.totales`. */
-export const resumenCargos = (e: EstadoCargos, ivaPct: number) => {
-    const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-    let base = 0;
-    let iva = 0;
-    for (const f of cargosADTO(e).filter((c) => !TIPOS_MANO_OBRA.has(c.tipo))) {
-        const total = round2((f.cantidad ?? 1) * (f.valorUnitario ?? 0));
-        base = round2(base + total);
-        if (f.aplicaIva !== false) iva = round2(iva + round2(total * ivaPct));
-    }
-    return { base, iva, total: round2(base + iva) };
-};
+// `cargosADTO` y `resumenCargos` viven en `../totalesContrato.ts` (2026-10-03).
 
 // ─── Componente ─────────────────────────────────────────────────────────────
 

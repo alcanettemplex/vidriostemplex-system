@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { getSAPsByODP, createSAP, updateSAP, deleteSAP, buscarCatalogo, traerItemsDeCotizacion } from '../controllers/sap.controller';
-import { getCotizacionesByODP, createCotizacion, updateCotizacion } from '../controllers/cotizacion.controller';
 import { getTMsByODP, getTMPanel, createTM, programarTM, updateTM, deleteTM, uploadFotoTM, retornarTM, getTMsSinODP, vincularTMaODP } from '../controllers/toma_medidas.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
@@ -18,10 +17,8 @@ router.put('/sap/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_
 router.delete('/sap/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), deleteSAP);
 router.get('/sap/catalogo/buscar', authMiddleware, buscarCatalogo);
 
-// Cotización routes — Asesores y admin
-router.get('/cotizacion/odp/:odp_id', authMiddleware, getCotizacionesByODP);
-router.post('/cotizacion', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), createCotizacion);
-router.put('/cotizacion/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), updateCotizacion);
+// Las rutas /cotizacion* del COTModal viejo (tabla public.cotizacion, 0 filas) se
+// retiraron el 2026-10-03: las cotizaciones viven en el Cotizador (/api/cotizador).
 
 // TM routes
 router.get('/tm/panel', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo', 'marketing'), getTMPanel);

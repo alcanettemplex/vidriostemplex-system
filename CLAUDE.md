@@ -208,8 +208,8 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 - **Rutas:** `RutaInstalacion → RutaODP (join) → ruta_instaladores (M:M)`. `forma_pago='credito'` = pago OK automático para instalación.
 - **Salidas Almacén:** `SA-XXXX` por ODP facturada. UNIQUE por ODP.
 - **Socket ODP:** usar `emitirODPPatch(id, accion)` (en `utils/notificaciones.ts`), nunca `emitirCambio('odp')`. `notificarCambioEstadoODP()` para cambios de estado.
-- **Auditoría:** `requestContext.ts` (AsyncLocalStorage). Hooks en `models/index.ts` (array `MODELOS_AUDITADOS`) cubriendo **41 modelos** — excluidos: `AuditoriaLog`, `AlertasUmbral`, `AgendaInstalacion` (planeación volátil), `DetalleSAPImagen`, y los 2 modelos legados fuera de `index.ts` (`Produccion`, `ProgramacionInstalacion`). `beforeUpdate`/`beforeDestroy` guardan snapshot previo; `afterCreate`/`afterUpdate`/`afterDestroy` graban `datos_anteriores` en `auditoria_log`. **Los hooks de instancia NO disparan en operaciones bulk** (`Model.destroy({ where })` / `Model.update({...}, { where })`) salvo `individualHooks: true` — ver `TECH_DEBT.md` 2026-07-02.
-- **Revertir auditoría (panel ROOT):** usa un allow-list independiente, `TABLAS_AUDITABLES` en `root.controller.ts` (33 tablas) — no es 1:1 con `MODELOS_AUDITADOS`. `cotizacion_capturas` y `metas_usuario_mensual` se auditan pero no se pueden revertir desde ahí. **Bug conocido:** revertir un registro de `Cotizacion`, `SAP` o `RutaODP` falla siempre (500) por mismatch entre el nombre de tabla real (`cotizacion`, `sap`, `ruta_odp`, singular) y el string usado en ambos Sets (`cotizaciones`, `saps`, `ruta_odps`, plural) — ver `TECH_DEBT.md` 2026-07-10.
+- **Auditoría:** `requestContext.ts` (AsyncLocalStorage). Hooks en `models/index.ts` (array `MODELOS_AUDITADOS`) cubriendo **47 modelos** (contados el 2026-10-03, incluye 5 del Cotizador) — excluidos: `AuditoriaLog`, `AlertasUmbral`, `AgendaInstalacion` (planeación volátil), `DetalleSAPImagen`, y los 2 modelos legados fuera de `index.ts` (`Produccion`, `ProgramacionInstalacion`). `beforeUpdate`/`beforeDestroy` guardan snapshot previo; `afterCreate`/`afterUpdate`/`afterDestroy` graban `datos_anteriores` en `auditoria_log`. **Los hooks de instancia NO disparan en operaciones bulk** (`Model.destroy({ where })` / `Model.update({...}, { where })`) salvo `individualHooks: true` — ver `TECH_DEBT.md` 2026-07-02.
+- **Revertir auditoría (panel ROOT):** usa un allow-list independiente, `TABLAS_AUDITABLES` en `root.controller.ts` (44 entradas al 2026-10-03) — no es 1:1 con `MODELOS_AUDITADOS`. `cotizacion_capturas` y `metas_usuario_mensual` se auditan pero no se pueden revertir desde ahí. **Bug conocido:** revertir un registro de `SAP` o `RutaODP` falla siempre (500) por mismatch entre el nombre de tabla real (`sap`, `ruta_odp`, singular) y el string usado en ambos Sets (`saps`, `ruta_odps`, plural) — ver `TECH_DEBT.md` 2026-07-10. (`Cotizacion` tenía el mismo bug; el modelo se retiró el 2026-10-03.)
 
 ### API Endpoints (prefijo `/api`)
 
@@ -232,11 +232,10 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 | `/inventario-perfileria` | inventario_perfileria.controller |
 | `/rutas` | rutas.controller |
 | `/dashboard` | dashboard.controller |
-| `/documentos` | sap.controller + cotizacion.controller + toma_medidas.controller (sin controller propio) |
+| `/documentos` | sap.controller + toma_medidas.controller (sin controller propio). Las rutas `/documentos/cotizacion*` del COTModal se retiraron el 2026-10-03 |
 | `/pedidos-pv` | pedido_pv.controller |
 | `/facturas-salidas` | salidas_almacen.controller |
 | `/root` | root.controller (solo rol `root`) |
-| `/cotizaciones` | cotizacion.controller |
 | `/cotizacion-capturas` | cotizacion_captura.controller |
 | `/detalle-sap-imagenes` | detalle_sap.controller |
 | `/proveedores` | proveedor.controller — solo `root`/`admin`/`compras` (compras con acceso igual a admin desde 2026-10-02). Maestro, ingesta de FE (.zip/XML DIAN), **importación de listas de precios en Excel** (`POST /:id/importar-precios`, previsualiza salvo `dry_run: false`), **bitácora de documentos procesados** (`GET /facturas`), **buscador transversal** (`GET /buscar`, mín. 3 caracteres, 5 grupos), **decisión de seguimiento** individual (`PATCH /:id/seguimiento`) y en bloque (`PATCH /seguimiento-masivo`, declarada antes de las rutas con `:id`; al encender el seguimiento **borra las facturas del proveedor que quedaron omitidas** para que puedan volver a subirse), bandeja de mapeo, equivalencias, **reglas de código por proveedor** (`GET /reglas-codigo`, `POST /:id/regla-codigo`, previsualiza salvo `dry_run: false`), **códigos múltiples por equivalencia** (`GET/POST /equivalencias/:id/codigos`, `DELETE /equivalencias/:id/codigos/:codigo_id` — declaradas **antes** de `DELETE /equivalencias/:id` o esta las captura) y comparador de precios |
@@ -248,7 +247,7 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 
 ---
 
-## Modelos de Base de Datos (47 en `backend-api/src/models/`, 41 auditados)
+## Modelos de Base de Datos (69 archivos en `backend-api/src/models/` contando los 21 del Cotizador, 47 auditados — 2026-10-03)
 
 **SIEMPRE importar desde `models/index.ts`** — asociaciones centralizadas. Excepciones (legados, fuera del registro central, sin auditoría): `Produccion` (import directo en `produccion.controller.ts`) y `ProgramacionInstalacion` (en `instalacion.controller.ts`).
 
@@ -258,10 +257,9 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 | `ODPItem` | `odp_items` | `color`, `tipo_vidrio`, `prod`, `estado_compra` |
 | `Cliente` | `clientes` | Campos reales: `nombre_razon_social`, `numero_documento`, `email`, `telefono`, `celular`, `direccion` |
 | `Usuario` | `usuarios` | `puede_gestionar_pv` — booleano para tab "Por Gestionar" PV |
-| `Cotizacion` | `cotizacion` ⚠️ | `odp_id` nullable (Pre-ODP). Tabla en singular — `MODELOS_AUDITADOS`/`TABLAS_AUDITABLES` usan `cotizaciones` (plural): revertir auditoría de este modelo falla (ver Auditoría arriba) |
-| `CotizacionItem` | `cotizacion_items` | Ítems de `Cotizacion` |
+| ~~`Cotizacion` / `CotizacionItem`~~ | `cotizacion` / `cotizacion_items` | **Retirados el 2026-10-03** (COTModal, 0 filas en toda su historia). Las 2 tablas vacías siguen en la BD hasta correr `scripts/2026-10-03_eliminar_tablas_cotizacion_vieja.ts --aplicar`. Las cotizaciones son del Cotizador (`CotizadorCotizacion`, schema `cotizador`) |
 | `TomaMedidas` | `toma_medidas` | Ligada a ODP o Prospecto |
-| `SAP` / `SAPItem` | `sap` ⚠️ / `sap_items` | Aluminio. `SAP` en singular — mismo bug de revertir auditoría que `Cotizacion` |
+| `SAP` / `SAPItem` | `sap` ⚠️ / `sap_items` | Aluminio. `SAP` en singular — bug de revertir auditoría (ver Auditoría arriba) |
 | `OrdenCompra` / `ODCItem` | `ordenes_compra` / `odc_items` | `tipo`: `'perfileria'|'vidrio'`; ODC vidrio: `sap_id=null` |
 | `Pago` | `pagos` | |
 | `EvidenciaInstalacion` | `evidencias_instalacion` | Cloudinary. **`EvidenciasPage.tsx` no está enrutada en frontend — módulo huérfano**, ver Arquitectura Frontend |
@@ -329,11 +327,11 @@ Cada módulo en `frontend-web/src/features/<nombre>/`: página principal + `comp
 | `supervision-crm` | `/supervision-crm` | Solo `root`. Full-screen, sin `AppShell`. Ranking de asesores, lineamientos de coaching diario, radar de leads alto valor, motivos de pérdida, buscador avanzado con export Excel |
 | `root` | `/root` | Solo `root`; tabs: Resumen, BD, Almacenamiento, Servicios, Auditoría, Backup, Mantenimiento, Alertas, Catálogo, Monitoreo |
 
-**Módulos huérfanos (código en disco, sin ruta montada en `AppRoutes.tsx` — no confundir con features activos):** `evidencias/EvidenciasPage.tsx`, `cotizaciones/CotizacionesPage.tsx`, `reportes/ReportesPage.tsx`. Verificar con el usuario si son WIP o descartables antes de tocarlos.
+**Módulos huérfanos (código en disco, sin ruta montada en `AppRoutes.tsx` — no confundir con features activos):** `evidencias/EvidenciasPage.tsx`, `reportes/ReportesPage.tsx` (`cotizaciones/CotizacionesPage.tsx` se borró el 2026-10-03 con el COT viejo). Verificar con el usuario si son WIP o descartables antes de tocarlos.
 
 **Módulo ODP — componentes clave:**
 - `ODPFichaModal.tsx` — recibe solo `odpId`. Busca primero en caché de Redux (`state.odp.cache`, vía `odpSlice`); si no está cacheada, refetcha con `fetchODPById`. (`ODPDetailModal.tsx` ya no existe en el repo — fue reemplazado por este componente.)
-- `ODPForm.tsx`, `TMModal.tsx`, `SAPModal.tsx`, `COTModal.tsx`
+- `ODPForm.tsx`, `TMModal.tsx`, `SAPModal.tsx` (`COTModal.tsx` se retiró el 2026-10-03: la opción del menú de cada fila lleva ahora al Cotizador con la ODP vinculada)
 - Printables activos en `features/odp/components/`: `PrintableTalonario`, `PrintableGarantia`, `PrintableNoConformidad`, `PrintableProduccion`, `PrintableOA`, `PrintableDetalleTecnico`, `PrintableDetSAP`, `PrintableSAP` — todos impresos vía `abrirVentanaImpresion()` (`utils/printWindow.ts`). (`PrintableOP` se eliminó el 2026-07-31: duplicaba la Orden de Producción y además mostraba VALOR/SUBTOTAL/IVA/FORMA DE PAGO al instalador y al conductor; `InstaladorView` y `ConductorView` usan ahora `PrintableProduccion`.)
 - **Impresión:** nunca abrir el popup a mano ni cargar Tailwind desde CDN. Usar `abrirVentanaImpresion({ titulo, contenidoHtml, estilos })` de `frontend-web/src/utils/printWindow.ts`: clona las hojas de estilo ya cargadas por la app (mismo origen), inyecta `<base href>` para que resuelvan los assets (el logo) e imprime en el evento `load`, no con un `setTimeout` fijo. El patrón anterior (`<script src="https://cdn.tailwindcss.com">` + `setTimeout(…, 800)`) imprimía sin estilos cuando la red del cliente bloqueaba o demoraba el CDN. Dentro de la ventana, `METRICA_IMPRESA` devuelve el papel a la fuente del sistema: los imprimibles se maquetaron sobre Segoe UI y la pantalla usa Geist (ver "Sistema visual").
 
@@ -345,7 +343,7 @@ Cada módulo en `frontend-web/src/features/<nombre>/`: página principal + `comp
 - Texto en pantalla: mínimo 11px; nunca `text-slate-300` como texto sobre blanco. Los imprimibles quedan fuera de esa regla.
 - **Gráficas y KPI (2026-09-28): usar siempre el kit `components/charts/`** (`TarjetaKPI`, `ChartCard`, `BarraMagnitud`, `BarraApilada`, `Medidor`, `Sparkline`, colores de `vizTokens`). Paletas validadas con el skill `dataviz`; nunca doble eje Y, nunca colores por posición (`colors[i % n]`), nunca donuts. Reglas en `design/sistema-visual/README.md` § "Gráficas y KPI".
 
-**Redux — 7 slices activos:** `authSlice`, `odpSlice`, `contabilidadSlice`, `usuariosSlice`, `notificationsSlice`, `cotizacionesSlice`, `crmSlice` (no existe `comprasSlice` — compras no usa Redux). HTTP via Axios. Tema MUI en `theme/theme.ts`. Rutas protegidas con `<RoleRoute allowedRoles={rolesDeRuta('/ruta')} />` (roles en `navegacion.ts`).
+**Redux — 6 slices activos:** `authSlice`, `odpSlice`, `contabilidadSlice`, `usuariosSlice`, `notificationsSlice`, `crmSlice` (`cotizacionesSlice` se borró el 2026-10-03) (no existe `comprasSlice` — compras no usa Redux). HTTP via Axios. Tema MUI en `theme/theme.ts`. Rutas protegidas con `<RoleRoute allowedRoles={rolesDeRuta('/ruta')} />` (roles en `navegacion.ts`). **Enrutador de datos desde el 2026-10-03** (`createBrowserRouter` + `createRoutesFromElements` en `AppRoutes.tsx`, antes `<BrowserRouter>`): habilita `useBlocker`, que usa el Cotizador para avisar de cambios sin guardar al salir por el menú.
 
 ---
 
@@ -402,11 +400,11 @@ Existen además dos listas más, menores: `ROLES_VALIDOS` en `server.ts` (12, in
 
 ## Notas Importantes
 
-1. No hay tests automatizados en backend ni frontend. Verificación mediante compilación + pruebas manuales dirigidas.
+1. Pruebas automatizadas solo en dos módulos del backend: `npm --prefix backend-api run test:cotizador` (19 suites, incluye la foto del ERP de los 163 diseños) y `test:proveedores`. Las que precargan la caché del Cotizador se corren de una en una si el backend dev está arriba (pooler de 15 conexiones). El resto del sistema: compilación + pruebas manuales dirigidas. Las pruebas están fuera del `tsc` de producción (`exclude` en `tsconfig.json`).
 2. Scripts one-off en `backend-api/src/scripts/` — ya ejecutados, no correr con `npm run dev`.
 3. `puede_gestionar_pv` en modelo Usuario — debe estar en Sequelize o `toJSON()` no lo incluye en el login.
 4. `configuracion_global` (fila `id=1`): **la BD es la fuente de verdad, no este documento.** Sus valores se editan desde `/configuracion` y cambian sin previo aviso, así que nunca hardcodear ninguno ni asumir el que aparezca aquí — leerlo siempre del modelo. Los números que este archivo listaba (`meta_facturacion_mensual`=120M, `dias_alerta_cartera_vencida`=60) ya estaban desactualizados el 2026-08-02: los reales eran 5.000.000 y 30. Los `defaultValue` de `configuracion.model.ts` (60 días de cartera, entre otros) solo aplican al crear la fila; el `|| 60` que acompaña a cada lectura es un respaldo por si la fila no existe.
-5. "cotizaciones" en conversación = `COTModal` dentro de la ODP, NO el módulo `CotizacionesPage.tsx` (sin ruta montada en `AppRoutes.tsx` — huérfano, ver Arquitectura Frontend).
+5. "cotizaciones" en conversación = el **Cotizador** (`/cotizador`, schema `cotizador`). El `COTModal` y la tabla `public.cotizacion` se retiraron el 2026-10-03 sin haber guardado nunca una fila.
 6. `ordenes_compra.tipo`: `'perfileria'|'vidrio'`. ODC vidrio: `sap_id=null`, usa `odc_items.odp_item_id`.
 7. Al agregar nuevas tablas auditables, agregar el nombre al Set `TABLAS_AUDITABLES` en `root.controller.ts`.
 8. Egress Supabase baseline: ~50-60 MB/día. Usar `attributes` selectivos en includes. Ver `project_egress_estado.md`.

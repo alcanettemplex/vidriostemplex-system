@@ -45,13 +45,6 @@ interface Props {
     despieces: Record<number, DespieceItem | null>;
 }
 
-/** Mismo criterio que `NIVELES_APTOS_PARA_CORTE` (`motorDespiece.ts`): A y B
- * son aceptables, C y "sin nivel" no. Si cambia allá, cambiar aquí también. */
-function esConfiable(despiece: DespieceItem | null | undefined): boolean {
-    if (!despiece) return false;
-    return (despiece.nivelCorte === 'A' || despiece.nivelCorte === 'B') && !despiece.hayErrores;
-}
-
 /**
  * Tamaño de la letra de los cortes según cuántos renglones hay que meter en la
  * caja (2026-09-26, pedido del usuario: "más grande, más llamativo y que
@@ -113,7 +106,8 @@ const PrintableHojaTrabajo: React.FC<Props> = ({ cot, propuesta, modulos, planos
                 const modulo = modulos.find((m) => m.id === it.moduloId);
                 const plano = planos[it.id] ?? null;
                 const despiece = despieces[it.id];
-                const confiable = esConfiable(despiece);
+                // El backend decide (`NIVELES_APTOS_PARA_CORTE`); aquí solo se pinta.
+                const confiable = despiece?.confiable === true;
                 const tieneDiseno = Boolean(it.disenoId);
                 const ficha = leerFicha(it.input, it.resultado, modulo);
                 const specs = tieneDiseno ? [] : especificaciones(it.input, modulo);

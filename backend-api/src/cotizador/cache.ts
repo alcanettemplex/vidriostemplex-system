@@ -113,8 +113,8 @@ async function cargarProductos(): Promise<Map<string, Producto>> {
     };
     // Los metadatos de procedencia solo existen en los provisionales. No se
     // emiten como null en los demás: un producto de catálogo tiene exactamente
-    // 9 claves, igual que en catalogo.json, y el golden master compara con
-    // deepStrictEqual.
+    // 9 claves, igual que en catalogo.json (lo exigía el golden master, retirado
+    // el 2026-10-03; se conserva porque las líneas del BOM y la API lo heredan).
     if (f.origen === 'PROVISIONAL') {
       base.provisional = true;
       if (f.referencia != null) base.referencia = f.referencia as string;

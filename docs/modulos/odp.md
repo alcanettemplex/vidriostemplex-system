@@ -63,3 +63,21 @@ en vez de la tabla vieja `cotizacion`, y la sección SAP tiene "Traer ítems de 
 (`POST /api/documentos/sap/desde-cotizacion`, previsualiza por defecto). "Imprimir ODP" suma el
 formato "Hoja de trabajo". Detalle en `docs/modulos/cotizador.md` → "Integración con la ficha ODP".
 
+### Det. Técnico con planos de la cotización (2026-10-03)
+Si la ODP tiene una cotización del Cotizador vinculada con opción elegida (misma regla y selector que
+la Hoja de trabajo: prefiere las APROBADAS), el formato **Det. Técnico** agrega, **después** de la hoja
+de siempre, hojas de planos: 4 por hoja (2 × 2), con número de ítem (el mismo de la Hoja de trabajo y
+del PDF), descripción comercial, medidas, cantidad y el plano (`DiagramaProducto`, SVG; no se convierte
+a imagen). La hoja del croquis **no cambia**: el croquis a mano (`croquis_url`) se sigue usando (116 de
+287 ODP en los 90 días previos) y convive con los planos (decisión del usuario). Un plano de confianza
+`nula` sale rotulado "Esquema sin escala — no usar para medir"; los ítems sin diseño se nombran al pie.
+Componentes: `PlanosCotizacionODP.tsx` y el hook `useCotizacionTecnica.ts` (carga compartida con
+`HojaTrabajoODP`). Pie "Hoja N de M".
+
+### COT viejo retirado (2026-10-03)
+`COTModal`, la tabla `public.cotizacion` (0 filas siempre) y su include en `getODPById`, en la
+eliminación de ODP, en el historial (`COT_CREADA`) y en las consultas de Rutas se retiraron. La opción
+"Cotización (COT)" del menú de cada fila pasó a "Nueva cotización (Cotizador)" y abre
+`/cotizador?nuevo=1&vinculo=odp:<id>`. El contador de la pestaña Comercial cuenta solo SAPs. Las
+tablas vacías se borran con `scripts/2026-10-03_eliminar_tablas_cotizacion_vieja.ts --aplicar`.
+

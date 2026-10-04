@@ -6322,3 +6322,56 @@ consigna de simplicidad y pocos pasos.
   desconocida→400, cartera 28 con total $224.373.637, asistente: pagos 403. `tsc` back y front y ESLint
   front limpios. **No se probó la pantalla en el navegador.**
 - **Docs:** nuevo `docs/modulos/contabilidad.md` + fila en el índice de CLAUDE.md; 5 ítems en `TECH_DEBT.md`.
+
+### Cotizador: red de pruebas (punto 1 de 10 de los pendientes)
+- **Contexto:** el usuario pidió atacar uno por uno los 10 pendientes del Cotizador; orden aceptado:
+  pruebas → riesgos de precio → largo de pieza/"a cotizar" → aviso al salir → COTModal → márgenes →
+  plano → cotización obligatoria → enlace público (nivel C en espera de datos externos).
+- **Diagnóstico:** 189/189 en verde de partida. El golden master comparaba contra el software de
+  origen (inservible desde el 2026-09-11). Sin pruebas: aptitud para corte, PDF, Hoja de Trabajo.
+  Regla "A y B sirven para cortar" escrita 3 veces (motor, `aptitudOrden`, frontend) y la fórmula de
+  totales duplicada entre pantalla y backend. Uso real: 3 cotizaciones (COT-17001 a 17003), ninguna
+  con ODP ni SAP.
+- **Decisiones del usuario:** mover la regla al backend (sin Jest); la prueba real de Crear ODP/SAP
+  queda pendiente; la COT-17000 la borró él en Supabase.
+- **Backend:** `NIVELES_APTOS_PARA_CORTE` + `esNivelAptoParaCorte()` exportados de `motorDespiece.ts`;
+  `aptitudOrden.ts` los importa; `GET …/items/:itemId/despiece` devuelve `confiable`. Suites nuevas
+  `aptitudOrden` (27), `pdf` (13), `totalesContrato` (14), `fotoErp` (5, foto de 652 casos en
+  `foto/fotoErp.json`). `golden.test.ts` y `test:cotizador:golden` borrados; nuevo
+  `test:cotizador:foto:actualizar`. `tsconfig.json` excluye `src/scripts/pruebas_*` del build.
+- **Frontend:** `totalesContrato.ts` (sin React) con `EstadoCargos`, `cargosADTO`, `resumenCargos` y
+  `calcularTotalesPrevistos`, reexportados desde `PanelCargosObra.tsx` y `totalesPropuesta.ts`;
+  `PrintableHojaTrabajo` usa `despiece.confiable` (se borró `esConfiable()`).
+- **Verificación:** 248/248 (19 suites; las de caché una a una con el backend dev arriba);
+  mutaciones detectadas en las 4 suites nuevas y restauradas; `npm run build` backend OK (las pruebas
+  ya no van a `dist/`); `tsc` y ESLint del módulo frontend limpios. **No se probó la pantalla.**
+- **Despliegue:** primero backend, luego frontend (campo `confiable`; si falta, la hoja avisa en rojo).
+- **Pendiente:** prueba real de Crear ODP/SAP (`TECH_DEBT.md` 2026-10-03). Siguiente: punto 2,
+  riesgos de precio.
+
+### Cotizador: puntos 4, 5 y 7 de los pendientes (3 y 6 aplazados por el usuario)
+- **Hallazgos del análisis:** el Cotizador no tiene pantalla de catálogo/precios (la doc decía que el
+  override del espejo se editaba en "Configuración → precios": no existe) → punto 3 aplazado. La
+  fórmula de márgenes documentada solo cubría PA; leyendo el Excel (`documentation/cotizador
+  excel.xlsb`, Excel por COM en solo lectura) PB tiene ponderaciones propias y reproduce los 12
+  números al dígito → documentado en `cotizador.md`; punto 6 aplazado. El croquis a mano sí se usa
+  (116 de 287 ODP en 90 días).
+- **Punto 5 (COT viejo):** fuera modelo `Cotizacion`/`CotizacionItem`, `cotizacion.controller`,
+  `/api/cotizaciones`, `/documentos/cotizacion*`, includes en `getODPById`/eliminación/historial/
+  Rutas, entradas de auditoría; frontend sin `COTModal`, `features/cotizaciones/` ni
+  `cotizacionesSlice`. La opción del menú de fila lleva al Cotizador con la ODP vinculada. **Fuera de
+  plan, informado:** la alerta ROOT "Cotizaciones sin respuesta > 30 días" leía la tabla vieja por SQL
+  directo (siempre 0) y habría tumbado el monitoreo al borrar las tablas → ahora lee
+  `cotizador.cotizacion` (PENDIENTE). Tablas vacías conservadas; script
+  `2026-10-03_eliminar_tablas_cotizacion_vieja.ts` (simulado, sin `--aplicar`).
+- **Punto 4 (aviso al salir):** `AppRoutes` → enrutador de datos; `useBlocker` en `CotizadorPage`.
+- **Punto 7 (planos en Det. Técnico):** `PlanosCotizacionODP` + hook `useCotizacionTecnica`
+  (compartido con `HojaTrabajoODP`); 4 por hoja, croquis intacto.
+- **Verificación:** `tsc` back/front, ESLint, builds de producción OK. Playwright de solo lectura
+  (todo POST/PUT abortado, 0 escrituras en el log del backend): API vieja 404, 19 rutas montan,
+  Det. Técnico con croquis + hoja de planos de la COT-17001 (listado simulado para la ODP-24395),
+  bloqueo/Cancelar/Descartar. Hubo que reiniciar el backend dev: corrían 2 `nodemon` de sesiones
+  previas que no detectaban cambios.
+- **Pendientes nuevos:** `TECH_DEBT.md` (build en Windows, aviso de Contabilidad). La COT-17003 tiene
+  total $0 (revisar). Correr el script de tablas cuando el usuario confirme.
+

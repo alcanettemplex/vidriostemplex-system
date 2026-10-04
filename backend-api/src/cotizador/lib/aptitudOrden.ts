@@ -32,16 +32,15 @@ import * as cache from "../cache";
 import type { Holguras, Margenes, Sistemas } from "../tipos";
 import { cotizarPorDiseno } from "./cotizarPorDiseno";
 import { alfajiaDeInput } from "./alfajias";
+import { esNivelAptoParaCorte } from "./motorDespiece";
 
 
 const RUTA_CALIBRACION = "/calibracion";
 
-/** Niveles de corte que permiten emitir una orden. Espejo de
- * `NIVELES_APTOS_PARA_CORTE` en `motorDespiece.ts` — ahí está el porqué. Los
- * dos deben moverse juntos: el motor decide `aptoParaCorte` y este archivo
- * redacta el motivo; si divergen, un ítem saldría apto sin explicación o al
- * revés. */
-const NIVELES_ACEPTADOS = new Set(["A", "B"]);
+// Los niveles aptos para corte ya no se replican aquí (2026-10-03): se importa
+// `esNivelAptoParaCorte` de `motorDespiece.ts`, la única fuente de la regla. Así
+// el motor (que decide `aptoParaCorte`) y este archivo (que redacta el motivo)
+// no pueden divergir.
 
 /** ¿La orden de corte exige que el sistema esté calibrado y firmado por el
  * maestro del taller?
@@ -476,12 +475,12 @@ function evaluarItem(
   //
   // Acepta A y B desde 2026-09-19 — ver `NIVELES_APTOS_PARA_CORTE` en
   // `motorDespiece.ts`, que es donde vive la decisión y su razonamiento
-  // completo. Aquí sólo se replica el criterio para redactar el motivo.
+  // completo. Aquí se usa esa misma regla (importada) para redactar el motivo.
   //
   // Sigue bloqueando C (error que crece con el vano, sin tope) y el nivel
   // DESCONOCIDO, que es un blob viejo sin `nivelCorte`: de ése no se sabe nada,
   // y no saber no es lo mismo que estar bien.
-  if (!NIVELES_ACEPTADOS.has(nivel ?? "")) {
+  if (!esNivelAptoParaCorte(nivel)) {
     const culpables = piezasQueBajanElNivel(resultado);
     motivos.push(
       crearMotivo(
@@ -547,7 +546,7 @@ function evaluarItem(
   const aptoReevaluado =
     lineas === null
       ? resultado.aptoParaCorte === true
-      : NIVELES_ACEPTADOS.has(nivel ?? "") && !lineas.some((l: ResultadoGuardado) => l.error);
+      : esNivelAptoParaCorte(nivel) && !lineas.some((l: ResultadoGuardado) => l.error);
 
   if (!aptoReevaluado && !nivelExplicaElNoApto) {
     motivos.push(

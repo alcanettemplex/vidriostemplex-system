@@ -3,7 +3,7 @@ import { Op, QueryTypes, Transaction } from 'sequelize';
 import {
   ODP, Usuario, Vehiculo, EvidenciaInstalacion, HistorialEstadoODP,
   RutaInstalacion, RutaODP, AgendaInstalacion, sequelize,
-  ODPItem, SAP, SAPItem, Cotizacion, TomaMedidas, OrdenCompra, ODCItem, Pago
+  ODPItem, SAP, SAPItem, TomaMedidas, OrdenCompra, ODCItem, Pago
 } from '../models';
 import Cliente from '../models/cliente.model';
 import { notificarCambioEstadoODP, emitirODPPatch } from '../utils/notificaciones';
@@ -117,7 +117,6 @@ const INCLUDE_RUTA_COMPLETA = async (): Promise<any[]> => [
           // anterior tampoco garantizaba. Verificado: mismo contenido, orden determinista.
           { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
           { model: Pago, as: 'pagos', separate: true, order: [['id', 'ASC']], attributes: ['id', 'odp_id', 'monto', 'metodo_pago', 'fecha', 'observaciones'] },
-          { model: Cotizacion, as: 'cotizaciones', separate: true, order: [['id', 'ASC']], attributes: ['id', 'odp_id', 'numero_cot', 'valor_total', 'estado', 'fecha_creacion'] },
           { model: TomaMedidas, as: 'tomas_medidas', separate: true, order: [['id', 'ASC']], attributes: ['id', 'odp_id', 'numero_tm', 'croquis_url'] },
           {
             model: SAP, as: 'saps',
@@ -763,7 +762,6 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
             // el instalador imprime la SAP y sus ítems deben salir siempre igual.
             { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
             { model: Pago, as: 'pagos', separate: true, order: [['id', 'ASC']] },
-            { model: Cotizacion, as: 'cotizaciones', separate: true, order: [['id', 'ASC']] },
             { model: TomaMedidas, as: 'tomas_medidas', separate: true, order: [['id', 'ASC']] },
             {
               model: SAP, as: 'saps',

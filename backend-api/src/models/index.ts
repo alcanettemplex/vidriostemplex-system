@@ -10,8 +10,6 @@ import Vehiculo from './vehiculo.model';
 import HistorialEstadoODP from './historial_estado_odp.model';
 import SAP from './sap.model';
 import SAPItem from './sap_item.model';
-import Cotizacion from './cotizacion.model';
-import CotizacionItem from './cotizacion_item.model';
 import TomaMedidas from './toma_medidas.model';
 import OrdenCompra from './orden_compra.model';
 import ODCItem from './odc_item.model';
@@ -127,7 +125,7 @@ ODP.hasMany(ODP, { foreignKey: 'odp_padre_id', as: 'odps_derivadas' });
 ODP.hasMany(ODP, { foreignKey: 'odp_padre_id', as: 'garantias', scope: { es_garantia: true } });
 ODP.belongsTo(ODP, { foreignKey: 'odp_padre_id', as: 'odp_padre' });
 
-// ─── Bloque B: SAP, Cotizacion, TomaMedidas ──────────────────────────────────
+// ─── Bloque B: SAP, TomaMedidas ──────────────────────────────────
 ODP.hasMany(SAP, { foreignKey: 'odp_id', as: 'saps' });
 SAP.belongsTo(ODP, { foreignKey: 'odp_id' });
 
@@ -137,21 +135,10 @@ SAPItem.belongsTo(SAP, { foreignKey: 'sap_id' });
 Usuario.hasMany(SAP, { foreignKey: 'creado_por', as: 'saps_creadas' });
 SAP.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'asesor' });
 
-ODP.hasMany(Cotizacion, { foreignKey: 'odp_id', as: 'cotizaciones' });
-Cotizacion.belongsTo(ODP, { foreignKey: 'odp_id' });
-
-Usuario.hasMany(Cotizacion, { foreignKey: 'creado_por', as: 'cotizaciones_creadas' });
-Cotizacion.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'asesor' });
-
-// Cotizacion pre-ODP: items, cliente directo y prospecto
-Cotizacion.hasMany(CotizacionItem, { foreignKey: 'cotizacion_id', as: 'items' });
-CotizacionItem.belongsTo(Cotizacion, { foreignKey: 'cotizacion_id' });
-
-Cotizacion.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
-Cliente.hasMany(Cotizacion, { foreignKey: 'cliente_id', as: 'cotizaciones_directas' });
-
-Cotizacion.belongsTo(Prospecto, { foreignKey: 'prospecto_id', as: 'prospecto' });
-Prospecto.hasMany(Cotizacion, { foreignKey: 'prospecto_id', as: 'cotizaciones' });
+// El modelo Cotizacion/CotizacionItem (COTModal, tabla public.cotizacion) se retiró
+// el 2026-10-03 sin haber guardado nunca una fila: las cotizaciones son del
+// Cotizador (CotizadorCotizacion, más abajo). Las 2 tablas vacías siguen en la BD
+// hasta correr scripts/2026-10-03_eliminar_tablas_cotizacion_vieja.ts.
 
 ODP.hasMany(TomaMedidas, { foreignKey: 'odp_id', as: 'tomas_medidas' });
 TomaMedidas.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
@@ -406,8 +393,6 @@ const MODELOS_AUDITADOS = [
   { model: OrdenCompra, tabla: 'ordenes_compra', pk: 'id' },
   { model: ODCItem, tabla: 'odc_items', pk: 'id' },
   { model: Pago, tabla: 'pagos', pk: 'id' },
-  { model: Cotizacion, tabla: 'cotizaciones', pk: 'id' },
-  { model: CotizacionItem, tabla: 'cotizacion_items', pk: 'id' },
   { model: TomaMedidas, tabla: 'toma_medidas', pk: 'id' },
   { model: EvidenciaInstalacion, tabla: 'evidencias_instalacion', pk: 'id' },
   { model: NoConformidad, tabla: 'no_conformidades', pk: 'id' },
@@ -534,8 +519,6 @@ export {
   NoConformidad,
   SAP,
   SAPItem,
-  Cotizacion,
-  CotizacionItem,
   TomaMedidas,
   OrdenCompra,
   ODCItem,

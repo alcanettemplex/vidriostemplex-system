@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useBlocker, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Calculator as IconCotizar, ClipboardList, Archive, Loader2, AlertTriangle, Gauge, Settings } from '../../components/ui/icons';
 
@@ -1268,9 +1268,28 @@ const CotizadorPage: React.FC = () => {
         };
     }), [carrito, modulosPorId]);
 
-    // Cerrar la pestaña o recargar con cambios pendientes: el navegador pregunta.
-    // No cubre los clics en el menú lateral del ERP — la app usa `BrowserRouter`,
-    // y bloquear la navegación interna (`useBlocker`) exige un router de datos.
+    // Salir del Cotizador por dentro del ERP (menú, Ctrl+K, favoritos, un enlace)
+    // con cambios pendientes (2026-10-03, posible desde que AppRoutes usa el
+    // enrutador de datos). Se usa el mismo camino que las demás acciones:
+    // `asegurarGuardado` intenta guardar solo y, si no puede, abre el modal
+    // "Tienes cambios sin guardar" (Guardar y continuar · Descartar · Cancelar).
+    // Cambiar solo la query (?abrir=, ?tab=) no es salir: no se bloquea. Una
+    // cotización nueva sin productos tampoco: no hay nada que perder.
+    const bloqueoSalida = useBlocker(({ currentLocation, nextLocation }) =>
+        sucio && !(!edicion && carrito.length === 0) && currentLocation.pathname !== nextLocation.pathname);
+    const resolviendoSalida = useRef(false);
+    useEffect(() => {
+        if (bloqueoSalida.state !== 'blocked' || resolviendoSalida.current) return;
+        resolviendoSalida.current = true;
+        const bloqueo = bloqueoSalida;
+        asegurarGuardadoRef.current('salir del Cotizador')
+            .then(seguir => (seguir ? bloqueo.proceed() : bloqueo.reset()))
+            .catch(() => bloqueo.reset())
+            .finally(() => { resolviendoSalida.current = false; });
+    }, [bloqueoSalida]);
+
+    // Cerrar la pestaña o recargar con cambios pendientes: el navegador pregunta
+    // (eso no lo puede resolver `useBlocker`).
     useEffect(() => {
         if (!sucio) return;
         const alSalir = (e: BeforeUnloadEvent) => {

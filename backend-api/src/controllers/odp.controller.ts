@@ -12,7 +12,6 @@ import {
   NoConformidad,
   SAP,
   SAPItem,
-  Cotizacion,
   TomaMedidas,
   OrdenCompra,
   ODCItem,
@@ -480,7 +479,7 @@ export const getODP = async (req: Request, res: Response) => {
         },
         // Desde aquí, TODAS las colecciones hasMany llevan `separate: true`.
         //
-        // Sin él, Sequelize resolvía no_conformidades × saps × sap_items × cotizaciones ×
+        // Sin él, Sequelize resolvía no_conformidades × saps × sap_items ×
         // tomas_medidas × evidencias × ruta_odps × notas_produccion × garantias en un
         // ÚNICO JOIN. Medido el 2026-08-02: la mediana es inofensiva (9 filas), pero 14
         // ODPs superan las 50 y el peor caso llega a 320 filas. Como `ruta_odps` trae
@@ -510,12 +509,6 @@ export const getODP = async (req: Request, res: Response) => {
             { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
           ],
           order: [['fecha_creacion', 'DESC']],
-        },
-        {
-          model: Cotizacion, as: 'cotizaciones',
-          separate: true,
-          order: [['id', 'ASC']],
-          include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
         },
         {
           model: TomaMedidas, as: 'tomas_medidas',
@@ -1417,7 +1410,6 @@ export const deleteODP = async (req: Request, res: Response) => {
     // Desvincula NCs donde esta ODP era la ODP hija generada (nueva_odp_id)
     await NoConformidad.update({ nueva_odp_id: null } as any, { where: { nueva_odp_id: odpId }, transaction: t });
     await NoConformidad.destroy({ where: { odp_id: odpId }, transaction: t });
-    await Cotizacion.destroy({ where: { odp_id: odpId }, transaction: t });
     await TomaMedidas.destroy({ where: { odp_id: odpId }, transaction: t });
     await Pago.destroy({ where: { odp_id: odpId }, transaction: t });
     await RutaODP.destroy({ where: { odp_id: odpId }, transaction: t });
@@ -2046,7 +2038,7 @@ export const getHistorialODP = async (req: Request, res: Response) => {
     if (isNaN(odpId)) return res.status(400).json({ error: 'ID inválido' });
 
     const ODPModel = ODP, UsuarioModel = Usuario, HistorialModel = HistorialEstadoODP,
-      SAPModel = SAP, CotizacionModel = Cotizacion, TMModel = TomaMedidas,
+      SAPModel = SAP, TMModel = TomaMedidas,
       EvModel = EvidenciaInstalacion, RutaODPModel = RutaODP, RutaModel = RutaInstalacion,
       VehiculoModel = Vehiculo, PagoModel = Pago, PVModel = PedidoPV,
       NCModel = NoConformidad, NotaModel = NotaProduccion,
@@ -2066,12 +2058,6 @@ export const getHistorialODP = async (req: Request, res: Response) => {
         {
           model: SAPModel, as: 'saps',
           attributes: ['id', 'numero_sap', 'fecha_creacion'],
-          include: [{ model: UsuarioModel, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
-          separate: true, order: [['fecha_creacion', 'ASC']],
-        },
-        {
-          model: CotizacionModel, as: 'cotizaciones',
-          attributes: ['id', 'numero_cot', 'valor_total', 'estado', 'fecha_creacion'],
           include: [{ model: UsuarioModel, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
           separate: true, order: [['fecha_creacion', 'ASC']],
         },
@@ -2294,13 +2280,6 @@ export const getHistorialODP = async (req: Request, res: Response) => {
       }
     }
 
-    // Cotizaciones
-    for (const cot of odpJson.cotizaciones || []) {
-      push({ tipo: 'COT_CREADA', categoria: 'comercial', fecha: cot.fecha_creacion,
-        titulo: `Cotización ${cot.numero_cot} creada`,
-        subtitulo: `${cot.asesor?.nombre_completo} · $${Number(cot.valor_total).toLocaleString('es-CO')}`,
-        meta: { numero_cot: cot.numero_cot, valor_total: cot.valor_total, estado: cot.estado, asesor: cot.asesor } });
-    }
 
     // Pedidos PV
     for (const pv of odpJson.pedidos_pv || []) {

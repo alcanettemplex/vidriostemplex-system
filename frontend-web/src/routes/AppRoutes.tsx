@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, createRoutesFromElements, RouterProvider, Route } from 'react-router-dom';
 import AppShell from '../components/common/AppShell';
 import ProtectedRoute from '../components/common/ProtectedRoute';
 import RoleRoute from '../components/common/RoleRoute';
@@ -28,10 +28,14 @@ import ProveedoresPage from '../features/proveedores/ProveedoresPage';
 import CotizadorPage from '../features/cotizador/CotizadorPage';
 import DetallesTecnicosPage from '../features/detalles-tecnicos/DetallesTecnicosPage';
 
-const AppRoutes: React.FC = () => {
-  return (
-    <Router>
-      <Routes>
+// Enrutador "de datos" (2026-10-03): antes era <BrowserRouter>, que no admite
+// `useBlocker`. El Cotizador lo necesita para avisar de cambios sin guardar al
+// salir por el menú, Ctrl+K o un enlace — no solo al cerrar la pestaña. Las
+// rutas son las mismas <Route> de siempre, envueltas en createRoutesFromElements.
+// Se crea una sola vez, a nivel de módulo, como pide React Router.
+const router = createBrowserRouter(
+  createRoutesFromElements(
+      <>
         <Route path="/login" element={<LoginPage />} />
 
         <Route element={<ProtectedRoute />}>
@@ -108,9 +112,10 @@ const AppRoutes: React.FC = () => {
             <Route path="/manuales" element={<ManualesPage />} />
           </Route>
         </Route>
-      </Routes>
-    </Router>
-  );
-};
+      </>
+  )
+);
+
+const AppRoutes: React.FC = () => <RouterProvider router={router} />;
 
 export default AppRoutes;

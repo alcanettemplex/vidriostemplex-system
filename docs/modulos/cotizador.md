@@ -147,12 +147,14 @@ El frontend **solo renderiza `texto`, no ramifica por `codigo`**.
 
 ### Dos constantes que gobiernan todo esto
 
-- `NIVELES_APTOS_PARA_CORTE` en `motorDespiece.ts` — `{A, B}`
+- `NIVELES_APTOS_PARA_CORTE` / `esNivelAptoParaCorte()` en `motorDespiece.ts` — `{A, B}`
 - `EXIGIR_SISTEMA_EN_PRODUCCION` en `aptitudOrden.ts` — `false`
 
-**Deben moverse juntas con la condición 3**, que replica el criterio para redactar el motivo. Si
-divergen, un ítem sale apto sin explicación o al revés. Ambas están comentadas en sitio con el
-razonamiento y la fecha. Ver `TECH_DEBT.md` 2026-09-19 (2).
+**Una sola fuente desde el 2026-10-03.** La regla de niveles estaba escrita tres veces: local dentro
+de `calcularDespiece`, copiada en `aptitudOrden.ts` (`NIVELES_ACEPTADOS`) y en el frontend
+(`esConfiable()` de la Hoja de Trabajo). Ahora se exporta del motor, `aptitudOrden` la importa y el
+endpoint `GET …/items/:itemId/despiece` devuelve `confiable` ya calculado. Las dos constantes siguen
+moviéndose juntas. Ver `TECH_DEBT.md` 2026-09-19 (2).
 
 ### El artefacto del blob — releer antes de tocar la condición 5
 
@@ -311,7 +313,8 @@ cotización" de la ficha ODP — ver la sección "Integración con la ficha ODP"
 
 ## Pruebas
 
-`npm --prefix backend-api run test:cotizador` — **14 suites, 173 pruebas** desde el 2026-09-28 (entra
+`npm --prefix backend-api run test:cotizador` — **19 suites, 248 pruebas** desde el 2026-10-03 (punto 1
+de la hoja de ruta de pendientes, ver "Red de pruebas (2026-10-03)" abajo). Antes, **14 suites, 173 pruebas** desde el 2026-09-28 (entra
 `sincronizacion`, 13, pura: la regla del proveedor más alto). Antes, 13 suites / 160 pruebas el
 2026-09-27. Histórico: **10 suites, 116 pruebas** desde el 2026-09-26 (2)
 (`cargos` pasó de 18 a 21: salieron las 6 del SMO por tipo de obra y entraron 9 de mano de obra por
@@ -370,10 +373,38 @@ Cada vez que crezca legítimamente hay que **actualizar el número y dejar el re
 qué, como hacen las entradas anteriores del archivo. Un centinela que falla siempre deja de vigilar:
 el fallo que importa se confunde con el ruido de fondo.
 
-⚠️ El **golden master** (`test:cotizador:golden`) sí sigue obsoleto desde el 2026-09-11 — 6 de 10
-fallan por datos, no por código. **No confiar en él como red antes de regenerarlo.** En la máquina
-de la oficina (2026-09-25) ni siquiera corre: las 10 salen `# SKIP` (0 pass, 0 fail) — no es una
-señal verde.
+~~El **golden master** (`test:cotizador:golden`)~~ — **retirado el 2026-10-03.** Comparaba contra los
+motores del software standalone de ORIGEN, de los que el ERP se apartó a propósito más de diez veces;
+llevaba obsoleto desde el 2026-09-11 y solo corría con una carpeta externa que no está en el repo.
+Lo reemplaza `fotoErp.test.ts` (ver abajo).
+
+### Red de pruebas (2026-10-03)
+
+Cuatro piezas nuevas, todas en `test:cotizador`:
+
+| Suite | Qué vigila | BD |
+|---|---|---|
+| `aptitudOrden.test.ts` (27) | Las 9 condiciones con su caso que pasa y el que bloquea, por `codigo`: el artefacto del blob, el bloqueo mudo (supresión solo en C), nivel desconocido, perfilería personalizada sin falso positivo de la 8, propuesta elegida | caché |
+| `pdf.test.ts` (13) | Folio, nombre de archivo, reparto de la mano de obra (suma exacta al peso), resumen de opciones y **generación real**: lee el texto del PDF (inflando los streams con `zlib`; pdfmake dibuja cada palabra en su propio bloque `BT…ET`) | caché |
+| `totalesContrato.test.ts` (14) | El total en vivo de la pantalla contra `calcularTotalesPropuesta()`, importando el archivo REAL del frontend | pura |
+| `fotoErp.test.ts` (5) | **Foto del ERP**: los 163 diseños × 4 combinaciones (120×100, **90,3×60,1** —la medida no redonda que destapa truncamientos—, 240×150 en mate, y 120×100 en negro) = 652 casos. Guarda nivel, apto, cortes, vidrios, BOM sin precio, huella del plano, el resultado del módulo completo y el desglose de accesorios. **No guarda precios** (cambian con cada factura); los verifica por coherencia | caché |
+
+- **La foto** vive en `pruebas_cotizador/foto/fotoErp.json` (~730 KB, una entrada por línea para
+  que el diff de git diga qué caso cambió). Cuando un cambio es intencional:
+  `npm --prefix backend-api run test:cotizador:foto:actualizar` y revisar el diff. El script se
+  reconoce por `npm_lifecycle_event`, porque la consola de Windows no admite `VAR=1 comando`.
+  Depende también de datos (catálogo, holguras): un alta que cambie qué código resuelve un perfil la
+  hace fallar, y eso es lo correcto.
+- **Las pruebas salieron del `tsc` de producción** (`"exclude": [..., "src/scripts/pruebas_*"]` en
+  `tsconfig.json`): `totalesContrato.test.ts` importa `frontend-web/`, que el contenedor del backend
+  no trae. `ts-node` las sigue compilando y chequeando al correrlas. Efecto lateral bueno: ya no
+  viajan a `dist/` ni a la imagen Docker.
+- **Verificación activa** (no solo verde): cada suite nueva se probó rompiendo a propósito lo que
+  vigila — fórmula de IVA del frontend (5 fallos), supresión del motivo en B (2), reparto de la mano
+  de obra en el PDF (1), regla de niveles a solo A (992 diferencias en la foto) — y restaurando.
+- **Pendiente por decisión del usuario:** la prueba REAL de "Crear ODP" y "Traer ítems a la SAP"
+  (0 usos en producción al 2026-10-03). Escriben en la base de producción; queda para la primera
+  cotización aprobada real o una prueba coordinada.
 
 ---
 
@@ -419,7 +450,8 @@ señal verde.
   llegar a ellos. Un número consumido no se reutiliza aunque la cotización se borre.
 - **Reinicio del 2026-09-28** (`scripts/2026-09-28_reiniciar_consecutivo_cotizador.ts`, ya corrido):
   se borraron las 3 cotizaciones de prueba (COT-87, 90, 91), con auditoría de cada fila, y el contador
-  quedó en 16999. **La primera cotización real es la COT-17000.** Se eligió 17000 porque la serie del
+  quedó en 16999. **La primera cotización real es la COT-17000.** ⚠️ Ya no existe: el usuario la
+borró a mano en Supabase (confirmado el 2026-10-03; era de prueba). Las reales arrancan en la COT-17001. Se eligió 17000 porque la serie del
   talonario/sistema anterior, que las ODP guardan a mano en `odp.numero_cotizacion`, llegó a 16808:
   una "16xxx" es de la serie vieja y una "COT-17xxx" es del Cotizador. (En ese campo hay dos valores
   mal digitados, `166364` y `24226`; no chocan con nada, son texto libre.)
@@ -538,9 +570,9 @@ de printables del Cotizador, que son A4.
   distinto (es a propósito).
 - **Aviso de confiabilidad**, sin cambios de criterio: reutiliza `ordenarParaTaller()`
   (`ordenCorte.ts`) para el orden de los perfiles y el mismo corte que `NIVELES_APTOS_PARA_CORTE`
-  en `motorDespiece.ts` (A y B pasan, C o "sin nivel" avisan) — `esConfiable()` en
-  `PrintableHojaTrabajo.tsx` replica ese criterio explícitamente; si `NIVELES_APTOS_PARA_CORTE`
-  cambia, hay que tocar también ahí. **Sale siempre** (sigue sin pasar por `/aptitud`: es el único
+  en `motorDespiece.ts` (A y B pasan, C o "sin nivel" avisan). Desde el 2026-10-03 la hoja ya no
+  replica la regla: pinta el `confiable` que devuelve el endpoint de despiece (ausente = aviso rojo,
+  falla hacia el lado seguro). **Sale siempre** (sigue sin pasar por `/aptitud`: es el único
   documento de taller que existe), avisa en rojo en vez de bloquear la impresión.
 - **100 % lectura, sin recalcular nada.** `cot.items` de la propuesta que se está mirando ya trae
   `input` completo; el plano y el despiece se piden por ítem (mismo patrón: por propuesta activa),
@@ -701,6 +733,20 @@ cotizaciones futuras sin que nadie lo haya pedido.
 **No está implementado.** El ERP sigue guardando el resultado, no el modelo. Consecuencia: si ADMON
 sube del 20,39 % al 22 %, hay que recalcular 12 números a mano.
 
+⚠️ **La tabla de arriba solo cubre PA. PB tiene ponderaciones PROPIAS** (fórmulas leídas del Excel
+`documentation/cotizador excel.xlsb`, hoja `COSTOS`, el 2026-10-03, con Excel en solo lectura):
+
+| Categoría | PB = 1 / (1 − Σ) |
+|---|---|
+| ACABADO | ADMON×37,5 % + VTAS×65 % + comisión 7 % |
+| VIDRIO | PRODUCC×70 % + ADMON×35 % + VTAS×35 % + utilidad 9 % |
+| ACCESORIO | PRODUCC×35 % + ADMON×35 % + VTAS×35 % + comisión 7 % |
+| PERFILERIA | PRODUCC×60 % + ADMON×30 % + VTAS×30 % + comisión 7 % |
+
+`PM = (PA + PB) / 2` (celdas `C2:C5`). FNROS (3,99 %), T. GTOS FIJOS y la fila de comisión de
+VIDRIO no entran en ninguna fórmula. Con PA y PB así, los 12 multiplicadores de la BD salen exactos.
+Implementar el modelo configurable quedó aplazado por el usuario (punto 6).
+
 ### 2. La barra de 6 m ya estaba en el Excel
 
 `cotizador-vision.md` daba el largo de barra como "el dato que falta y bloquea todo", resuelto por
@@ -833,9 +879,12 @@ se manejaban en Actual). **Sólo frontend** — backend, BD y reglas intactos.
 - Avisos: el adaptador `services/configurarNotificaciones.ts` (Sileo) titula todo `success` como
   **"Guardado"** — lo que aún no está guardado (ítem agregado/editado, segmento cambiado sin
   guardar) va como `info`. Sileo acepta JSX en la descripción (aviso con "Ver propuesta").
-- **Aviso al salir** (`beforeunload`) con cambios pendientes. ⚠️ No cubre la navegación interna del
-  ERP (menú lateral): la app usa `BrowserRouter` y `useBlocker` exige router de datos — ver
-  `TECH_DEBT.md` 2026-09-23.
+- **Aviso al salir** con cambios pendientes: `beforeunload` para cerrar la pestaña y, **desde el
+  2026-10-03**, `useBlocker` para la navegación interna (menú, Ctrl+K, favoritos, enlaces), posible
+  porque `AppRoutes.tsx` pasó al enrutador de datos. Al salir llama a `asegurarGuardado`: intenta
+  guardar solo y, si no puede, abre `ModalCambiosSinGuardar`. Cambiar solo la query (`?abrir=`) no
+  bloquea, ni una cotización nueva sin productos. Verificado con Playwright (PUT abortado: sin
+  cambios navega directo; con cambios aparece el modal; Cancelar se queda; Descartar sale).
 - Actual: el tipo de cliente queda de **sólo lectura** ("Se cambia arriba, en la barra"); la tarjeta
   Propuestas conserva elegir / borrar / comparar; el botón de abajo dice "Guardar cotización N.° X"
   (mismo verbo que la barra).
@@ -1121,13 +1170,14 @@ Claude. El orden va de lo que desbloquea cotizar hoy a lo que conecta con el ERP
 4. ~~**El PDF no menciona la personalización**~~ — **cerrado el 2026-09-26**: especificaciones por
    ítem, línea "Personalizado: …", nombre de la opción, valor unitario y paginación (ver "PDF de
    cotización").
-5. **Red de pruebas** — las 3 suites faltantes (`aptitudOrden`, `hojaTrabajo`, `pdf`) y regenerar el
-   golden master, antes de tocar el flujo del ERP.
+5. ~~**Red de pruebas**~~ — **cerrado el 2026-10-03**: `aptitudOrden`, `pdf`, contrato de totales y
+   la foto del ERP en lugar del golden master; la regla de la Hoja de Trabajo pasó al backend (ver
+   "Red de pruebas (2026-10-03)"). Queda la prueba real de Crear ODP / SAP, por decisión del usuario.
 6. ~~**Identidad y acceso de asesores**~~ — **cerrado el 2026-09-27** con la integración al ERP
    (vínculo obligatorio, asesor dueño, permisos por rol).
 7. **Destino** (`cotizador-vision.md`) — ya hecho el 2026-09-27: ODP desde la cotización, ítems a
-   la SAP, estadísticas en el Dashboard. **Falta:** plano al Det. Técnico y enlace público. Requieren
-   orden explícita.
+   la SAP, estadísticas en el Dashboard. **Plano al Det. Técnico: hecho el 2026-10-03** (ver
+   `docs/modulos/odp.md` → "Det. Técnico con planos de la cotización"). **Falta:** enlace público.
 
 Fuera de la fila:
 - **Campos del formato VR09 en el PDF** — en pausa por decisión del usuario (ver "El Excel de los
@@ -1172,9 +1222,11 @@ Reglas del usuario, 2026-09-26. **Reemplazan** la mano de obra "SMO por tipo de 
 - **Previsualización:** `POST /api/cotizador/mano-obra` (ítems = módulo + input, no escribe)
   reemplazó a los dos endpoints `smo-sugerido`. El frontend lo pide con `useManoObra`
   (`totalesPropuesta.ts`) y NO replica la regla.
-- **Total en vivo** (pedido del usuario, opción A): `calcularTotalesPrevistos()` en
-  `frontend-web/src/features/cotizador/totalesPropuesta.ts` es la réplica única del contrato de
-  totales (antes copiada en `TabActual`). La usan la barra superior ("Total", con "sin guardar"
+- **Total en vivo** (pedido del usuario, opción A): `calcularTotalesPrevistos()` es la réplica única
+  del contrato de totales (antes copiada en `TabActual`). Desde el 2026-10-03 vive en
+  `frontend-web/src/features/cotizador/totalesContrato.ts`, **sin React** (junto con `EstadoCargos`,
+  `cargosADTO` y `resumenCargos`), para que `totalesContrato.test.ts` del backend la compare con
+  `calcularTotalesPropuesta()`; `totalesPropuesta.ts` y `PanelCargosObra.tsx` la reexportan. La usan la barra superior ("Total", con "sin guardar"
   mientras hay cambios, solo en Actual), la pestaña Actual y el **resumen fijo de la derecha** de
   Cotizar (`ResumenPropuesta`, mesa de trabajo), que incluye el producto en pantalla aunque no se
   haya agregado (si se edita un ítem, lo reemplaza en vez de sumarlo; uno con errores no cuenta).
@@ -1413,7 +1465,9 @@ biselado siguen aparte y como estaban.
   $62.400, seguidos) y cada factura recalcula PA/PM/PB en `cotizador.producto`: escribir ahí el precio
   duraría hasta la próxima factura. Por eso vive en `cotizador.precio_override` con **solo** los tres
   precios (`costo_unitario` NULL → sigue el de Proveedores). El sync sigue escribiendo la tabla base y
-  su motivo avisa "override activo". Se puede editar desde Configuración → precios.
+  su motivo avisa "override activo". ⚠️ **No hay pantalla para editarlo** (verificado el 2026-10-03):
+  el Cotizador no tiene vista de catálogo ni de precios; los 6 endpoints `/precios` existen sin
+  interfaz. Hoy se cambia por script o por API. Pendiente aplazado por el usuario (punto 3).
 - **"Antes de IVA" = `subtotalConAiu`**: el motor divide la lista entre el AIU (0,96), así que se guarda
   `146.000 × 0,96`:
 

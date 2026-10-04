@@ -40,6 +40,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
   // Solo el listado ligero: la hoja pide el detalle de UNA cotización al elegirse.
   // Se prefieren las APROBADAS (la que se fabrica); si no hay, cualquiera con
   // opción elegida. Sin ninguna, el formato queda deshabilitado con el motivo.
+  // La misma cotización alimenta las hojas de planos del Det. Técnico (2026-10-03).
   const { lista: cotsVinculadas, cargando: cargandoCots } = useCotizacionesDeOdp(odp?.id, { conDetalle: false });
   const cotsHoja = (() => {
     const aprobadas = cotsVinculadas.filter(c => c.estado === 'APROBADA');
@@ -161,7 +162,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
                 </select>
             </div>
         )}
-        {selectedFormat === 'hoja_trabajo' && cotsHoja.length > 1 && (
+        {(selectedFormat === 'hoja_trabajo' || selectedFormat === 'tecnico') && cotsHoja.length > 1 && (
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1 px-3">
                 <span className="text-[11px] font-semibold text-slate-900 uppercase">COTIZACIÓN:</span>
                 <select className="bg-transparent text-xs font-bold outline-none" value={cotHojaActiva?.id ?? ''} onChange={e => setCotHojaId(Number(e.target.value))}>
@@ -233,7 +234,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
       <div className="p-8 overflow-y-auto flex-1 flex flex-col items-center justify-start" id="printable-area">
         {selectedFormat === 'compra' && <PrintableTalonario odp={odp} />}
         {selectedFormat === 'op' && (odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableProduccion odp={odp} />)}
-        {selectedFormat === 'tecnico' && <PrintableDetalleTecnico odp={odp} />}
+        {selectedFormat === 'tecnico' && <PrintableDetalleTecnico odp={odp} cotizacionId={cotHojaActiva?.id ?? null} />}
         {selectedFormat === 'det_sap' && <PrintableDetSAP odp={odp} imagenes={detSapImagenes} />}
         {selectedFormat === 'garantia' && (
           esGarantia

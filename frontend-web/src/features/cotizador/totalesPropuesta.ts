@@ -2,29 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { apiManoObra } from './services/cotizadorApi';
 import { LineaManoObra } from './types';
-import { EstadoCargos, resumenCargos } from './components/PanelCargosObra';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Previsualización del total de una propuesta, en vivo (2026-09-26).
-//
-// Réplica deliberada de `calcularTotalesPropuesta()` de
-// `backend-api/src/cotizador/lib/cargos.ts`. Es el único sitio del frontend que
-// hace esta cuenta (antes vivía copiada dentro de `TabActual`), y la usan la
-// barra superior, el paso 3 de Cotizar y la pestaña Actual. Mientras hay cambios
-// sin guardar no existe en el servidor ninguna propuesta a la que pedirle el
-// número; en cuanto se guarda, lo que manda es `propuesta.totales`.
-//
-//   productos  = Σ subtotalConAiu                       (ya trae AIU)
-//   manoObra   = Σ round2(cantidad × valorUnitario)     (valorUnitario ya trae AIU)
-//   descuento  = round2((productos + manoObra) × pct)
-//   base       = productos + manoObra − descuento
-//   ivaBase    = round2(base × iva)
-//   cargos     = flete, andamio, huacal, otros — sin AIU ni descuento, IVA por línea
-//   total      = base + ivaBase + cargos + ivaCargos
-//
-// Si allá cambia el orden de AIU/descuento/IVA, hay que cambiarlo aquí.
-// La MANO DE OBRA no se calcula aquí: la devuelve el backend (`useManoObra`).
-// ─────────────────────────────────────────────────────────────────────────────
+// La cuenta del total en vivo (`calcularTotalesPrevistos`) vive en
+// `totalesContrato.ts`, sin React, desde el 2026-10-03: así la prueba
+// `totalesContrato.test.ts` del backend la compara contra `calcularTotalesPropuesta()`
+// y un desalineo entre pantalla y PDF se detecta antes de desplegar.
+// Aquí quedan el tipo del borrador y el hook que pide la mano de obra al backend.
+export type { TotalesPrevistos } from './totalesContrato';
+export { calcularTotalesPrevistos, totalLineaManoObra } from './totalesContrato';
 
 /** El producto calculado en Cotizar que todavía no se agregó a la propuesta.
  * Entra en el total en vivo del paso 3 para que el vendedor vea cuánto quedaría. */
@@ -36,67 +21,6 @@ export interface BorradorCotizar {
     total: number;
     /** Si se está editando un ítem del carrito, su idTemp: lo reemplaza, no se suma. */
     reemplazaIdTemp: string | null;
-}
-
-export interface TotalesPrevistos {
-    productos: number;
-    manoObra: number;
-    descuento: number;
-    cargos: number;
-    iva: number;
-    total: number;
-}
-
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
-const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-
-export function totalLineaManoObra(l: Pick<LineaManoObra, 'cantidad' | 'valorUnitario'>): number {
-    return round2(num(l.cantidad) * num(l.valorUnitario));
-}
-
-export function calcularTotalesPrevistos({
-    items,
-    manoObra,
-    cargos,
-    descuentoPct,
-    ivaPct,
-    legado = false,
-}: {
-    /** Solo los tres números que importan de cada ítem. */
-    items: Array<{ subtotalConAiu?: number; iva?: number; total?: number }>;
-    manoObra: LineaManoObra[];
-    cargos: EstadoCargos;
-    descuentoPct: number;
-    ivaPct: number;
-    /** Propuesta anterior al 2026-09-20: sus cargos están dentro de los ítems,
-     * así que es la suma pura de los ítems, sin descuento ni cargos. */
-    legado?: boolean;
-}): TotalesPrevistos {
-    const productos = round2(items.reduce((acc, it) => acc + num(it.subtotalConAiu), 0));
-    if (legado) {
-        return {
-            productos,
-            manoObra: 0,
-            descuento: 0,
-            cargos: 0,
-            iva: round2(items.reduce((acc, it) => acc + num(it.iva), 0)),
-            total: round2(items.reduce((acc, it) => acc + num(it.total), 0)),
-        };
-    }
-    const mo = round2(manoObra.reduce((acc, l) => acc + totalLineaManoObra(l), 0));
-    const baseAntesDescuento = round2(productos + mo);
-    const descuento = round2(baseAntesDescuento * (num(descuentoPct) || 0));
-    const base = round2(baseAntesDescuento - descuento);
-    const ivaBase = round2(base * ivaPct);
-    const c = resumenCargos(cargos, ivaPct);
-    return {
-        productos,
-        manoObra: mo,
-        descuento,
-        cargos: c.base,
-        iva: round2(ivaBase + c.iva),
-        total: round2(base + ivaBase + c.base + c.iva),
-    };
 }
 
 /**
