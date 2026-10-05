@@ -11,6 +11,7 @@ import {
   createRuta,
   updateRuta,
   cancelarRuta,
+  unirRutas,
   getVehiculos,
   getInstaladores,
   getMiAsignacion,
@@ -89,5 +90,7 @@ router.get('/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_c
 router.post('/', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), createRuta);
 router.put('/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), updateRuta);
 router.delete('/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), cancelarRuta);
+// Unir: mueve las paradas de `origen_id` (body) al final de la ruta :id y cancela la origen.
+router.post('/:id/unir', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), unirRutas);
 
 export default router;

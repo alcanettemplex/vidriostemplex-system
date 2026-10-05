@@ -51,7 +51,9 @@ const InstaladorView: React.FC = () => {
 
   // Refresca la asignación si Compras marca/revierte existencia, elimina o edita una ODC —
   // el imprimible de la SAP mostrado aquí debe reflejarlo sin recargar la pantalla.
-  useDataChangedSocket('compras', cargar);
+  // 'rutas' lo emite el backend en cada cambio de rutas, paradas o agenda (emitirCambioRutas).
+  // Antes escuchaba 'compras', que no tiene relación con las rutas y recargaba sin motivo.
+  useDataChangedSocket('rutas', cargar);
 
   // ––– Cálculos de Métricas –––
   const metrics = useMemo(() => {

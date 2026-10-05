@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { X, Plus, Trash2, ArrowUp, ArrowDown, Truck, Users, Calendar } from '../../../components/ui/icons';
+import { X, Plus, Trash2, ArrowUp, ArrowDown, Truck, Users, Calendar, AlertTriangle, Link2 } from '../../../components/ui/icons';
 
 import API from '../../../services/config';
+import { hoyBogotaISO } from '../../../utils/fechas';
+import { fmtDiaCorto } from '../utils/estadoInstalacion';
 
 interface ODPItem { id: number; numero_odp: string; cliente: { nombre_razon_social: string }; direccion_instalacion?: string; }
 interface Vehiculo { id: number; placa: string; tipo: string; }
 interface Personal { id: number; nombre_completo: string; rol: string; }
 interface RutaODPEntry { odp: ODPItem; orden: number; fecha_programada: string; }
 
-// Fecha de hoy en hora local. toISOString() da la fecha UTC: en Colombia, desde las 7 p. m.
-// proponía el día siguiente como fecha programada.
-const hoyLocal = (): string => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+// Choque de equipo: otra ruta activa con parada el mismo día que comparte personas o vehículo.
+interface Choque { ruta: any; fechas: string[]; motivos: string[] }
+
+const PARADA_ACTIVA = (ro: any) => ro.estado === 'pendiente' || ro.estado === 'en_curso';
 
 interface Props {
   odpsDisponibles: ODPItem[];
@@ -29,6 +29,11 @@ interface Props {
 
 const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, instaladorPreseleccionado, odpsPreseleccionadas, fechaPreseleccion, onClose, onSaved }) => {
 
+  // Ruta que se está editando. Empieza en `rutaExistente` y cambia si, al crear, el jefe
+  // elige "Agregar a la ruta #X" desde el aviso de choque: el modal pasa a editar esa ruta.
+  const [rutaBase, setRutaBase] = useState<any>(rutaExistente ?? null);
+  const [rutasActivas, setRutasActivas] = useState<any[]>([]);
+
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [personal, setPersonal] = useState<Personal[]>([]);
   const [vehiculoId, setVehiculoId] = useState<number | ''>(rutaExistente?.vehiculo?.id || '');
@@ -41,7 +46,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
   const [observaciones, setObservaciones] = useState(rutaExistente?.observaciones || '');
   // Solo ODPs pendientes son editables; en_curso/pausada/con_dano no se tocan en el PUT
   const rutaOdpsEditables = rutaExistente?.ruta_odps?.filter((ro: any) => !ro.estado || ro.estado === 'pendiente') ?? [];
-  const rutaOdpsNoEditables = rutaExistente?.ruta_odps?.filter((ro: any) => ro.estado && ro.estado !== 'pendiente') ?? [];
+  const rutaOdpsNoEditables = rutaBase?.ruta_odps?.filter((ro: any) => ro.estado && ro.estado !== 'pendiente') ?? [];
   const [entries, setEntries] = useState<RutaODPEntry[]>(
     rutaExistente
       ? rutaOdpsEditables.map((ro: any) => ({
@@ -53,7 +58,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
       : (odpsPreseleccionadas ?? []).map((odp, i) => ({
           odp,
           orden: i + 1,
-          fecha_programada: fechaPreseleccion || hoyLocal(),
+          fecha_programada: fechaPreseleccion || hoyBogotaISO(),
         }))
   );
   const [saving, setSaving] = useState(false);
@@ -63,15 +68,64 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
       axios.get(`${API}/api/rutas/vehiculos`),
       axios.get(`${API}/api/rutas/personal`),
     ]).then(([v, p]) => { setVehiculos(v.data); setPersonal(p.data); })
-      .catch(() => toast.error('Error al cargar datos'));
+      .catch(() => toast.error('No se pudieron cargar los vehículos y el personal. Cierra el modal y vuelve a abrirlo.'));
+    // Rutas activas para el aviso de choque. Se piden aquí (y no por props) para que los
+    // cuatro lugares que abren este modal tengan el aviso. Si falla, el modal sigue sin él.
+    axios.get(`${API}/api/rutas`).then((r) => setRutasActivas(r.data)).catch(() => {});
   }, []);
+
+  // Choques: otra ruta activa con parada viva en alguno de los días de esta ruta que
+  // comparte oficial, instalador, conductor o vehículo. Solo avisa, nunca bloquea.
+  const choques = useMemo<Choque[]>(() => {
+    const fechas = new Set(entries.map((e) => e.fecha_programada).filter(Boolean));
+    if (!fechas.size) return [];
+    const personas = new Set<number>([
+      ...(oficialId ? [oficialId] : []),
+      ...instaladoresSeleccionados,
+    ]);
+    const lista: Choque[] = [];
+    for (const r of rutasActivas) {
+      if (r.id === rutaBase?.id) continue;
+      const fechasR = Array.from(new Set<string>(
+        (r.ruta_odps ?? []).filter(PARADA_ACTIVA).map((ro: any) => String(ro.fecha_programada).slice(0, 10))
+      )).filter((f) => fechas.has(f));
+      if (!fechasR.length) continue;
+      const motivos: string[] = [];
+      const equipoR: any[] = [...(r.oficial ? [r.oficial] : []), ...(r.instaladores ?? [])];
+      const compartidos = equipoR.filter((p, i) => personas.has(p.id) && equipoR.findIndex((q) => q.id === p.id) === i);
+      if (compartidos.length) motivos.push(compartidos.map((p) => p.nombre_completo).join(', '));
+      if (conductorId && r.conductor?.id === conductorId) motivos.push(`conductor ${r.conductor.nombre_completo}`);
+      if (vehiculoId && r.vehiculo?.id === vehiculoId) motivos.push(`vehículo ${r.vehiculo.placa}`);
+      if (motivos.length) lista.push({ ruta: r, fechas: fechasR, motivos });
+    }
+    return lista;
+  }, [entries, oficialId, instaladoresSeleccionados, conductorId, vehiculoId, rutasActivas, rutaBase]);
+
+  // "Agregar a la ruta #X": el modal pasa a editar esa ruta con sus paradas pendientes
+  // más las ODPs que se estaban programando. Se completa el personal que le falte.
+  const agregarARutaExistente = (destino: any) => {
+    const propias = (destino.ruta_odps ?? []).filter((ro: any) => ro.estado === 'pendiente')
+      .sort((a: any, b: any) => a.orden - b.orden)
+      .map((ro: any) => ({ odp: ro.odp, orden: 0, fecha_programada: String(ro.fecha_programada).slice(0, 10) }));
+    const nuevas = entries.filter((e) => !propias.some((p: RutaODPEntry) => p.odp.id === e.odp.id));
+    setEntries([...propias, ...nuevas].map((e, i) => ({ ...e, orden: i + 1 })));
+    setVehiculoId(destino.vehiculo?.id || vehiculoId);
+    setConductorId(destino.conductor?.id || conductorId);
+    setOficialId(destino.oficial?.id || oficialId);
+    setInstaladoresSeleccionados((prev) => Array.from(new Set([...(destino.instaladores ?? []).map((i: any) => i.id), ...prev]))
+      .filter((id) => id !== (destino.oficial?.id || oficialId)));
+    setObservaciones((prev: string) => [destino.observaciones, prev].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join('\n'));
+    setRutaBase(destino);
+    toast.info(`Ahora editas la ruta #${destino.id}. Revisa el orden y guarda.`);
+  };
 
   const conductores = personal.filter(p => p.rol === 'conductor');
   const instaladores = personal.filter(p => p.rol === 'instalador');
 
   const agregarODP = (odp: ODPItem) => {
     if (entries.find(e => e.odp.id === odp.id)) return;
-    setEntries(prev => [...prev, { odp, orden: prev.length + 1, fecha_programada: hoyLocal() }]);
+    // La ODP nueva toma el día de las que ya están (casi siempre todas van el mismo día).
+    setEntries(prev => [...prev, { odp, orden: prev.length + 1, fecha_programada: prev[prev.length - 1]?.fecha_programada || fechaPreseleccion || hoyBogotaISO() }]);
   };
 
   const quitarODP = (odpId: number) => {
@@ -110,16 +164,16 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
         observaciones,
         odps: entries.map(e => ({ odp_id: e.odp.id, orden: e.orden, fecha_programada: e.fecha_programada })),
       };
-      if (rutaExistente) {
-        await axios.put(`${API}/api/rutas/${rutaExistente.id}`, payload);
-        toast.success('Ruta actualizada');
+      if (rutaBase) {
+        await axios.put(`${API}/api/rutas/${rutaBase.id}`, payload);
+        toast.success(`Ruta #${rutaBase.id} actualizada`);
       } else {
         await axios.post(`${API}/api/rutas`, payload);
         toast.success('Ruta creada');
       }
       onSaved();
     } catch (e: any) {
-      toast.error(e.response?.data?.error || 'Error al guardar ruta');
+      toast.error(e.response?.data?.error || 'No se pudo guardar la ruta. Revisa tu conexión e intenta de nuevo.');
     } finally {
       setSaving(false);
     }
@@ -133,7 +187,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-200">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">{rutaExistente ? 'Editar Ruta' : 'Programar Ruta de Instalación'}</h2>
+            <h2 className="text-lg font-bold text-slate-900">{rutaBase ? `Editar Ruta #${rutaBase.id}` : 'Programar Ruta de Instalación'}</h2>
             <p className="text-xs text-slate-700 mt-0.5">Asigna vehículo, personal y ODPs en orden</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button>
@@ -166,9 +220,13 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
               </label>
               <select value={oficialId} onChange={e => setOficialId(Number(e.target.value) || '')}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-                <option value="">Sin oficial (usa conductor)</option>
+                <option value="">Sin oficial</option>
                 {personal.map(p => <option key={p.id} value={p.id}>{p.nombre_completo}</option>)}
               </select>
+              {/* En la app del instalador solo el oficial inicia y finaliza el trabajo */}
+              {!oficialId && (
+                <p className="text-[11px] text-amber-800 mt-1">Sin oficial, nadie podrá iniciar ni finalizar el trabajo desde la app.</p>
+              )}
             </div>
           </div>
 
@@ -219,6 +277,33 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Aviso de choque de equipo: solo avisa, nunca bloquea */}
+          {choques.length > 0 && (
+            <div className="px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 space-y-2">
+              <p className="flex items-start gap-1.5 font-semibold">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                Este equipo ya tiene {choques.length === 1 ? 'otra ruta' : `${choques.length} rutas`} ese día.
+                {!rutaBase && ' Puedes agregar estas ODPs a la ruta existente en vez de crear otra.'}
+              </p>
+              {choques.map((c) => (
+                <div key={c.ruta.id} className="flex items-center gap-2 flex-wrap pl-5">
+                  <span>
+                    <b>Ruta #{c.ruta.id}</b> · <span className="capitalize">{c.fechas.map(fmtDiaCorto).join(', ')}</span> · {c.motivos.join(' · ')}
+                    {c.ruta.estado === 'en_curso' ? ' · en curso' : ''}
+                  </span>
+                  {!rutaBase && (
+                    <button
+                      onClick={() => agregarARutaExistente(c.ruta)}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-amber-300 font-semibold text-amber-900 hover:bg-amber-100"
+                    >
+                      <Link2 className="w-3.5 h-3.5" /> Agregar a la ruta #{c.ruta.id}
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
@@ -278,7 +363,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
           </button>
           <button onClick={handleSubmit} disabled={saving || !entries.length}
             className="flex-[2] px-4 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 text-sm shadow-lg shadow-indigo-200">
-            {saving ? 'Guardando...' : rutaExistente ? 'Guardar cambios' : 'Crear Ruta'}
+            {saving ? 'Guardando...' : rutaBase ? 'Guardar cambios' : 'Crear Ruta'}
           </button>
         </div>
       </div>

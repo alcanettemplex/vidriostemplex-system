@@ -9,6 +9,7 @@ import ProgramarRutaModal from './ProgramarRutaModal';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
 
 import API from '../../../services/config';
+import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 
 interface Personal { id: number; nombre_completo: string; rol: string; }
 
@@ -225,6 +226,9 @@ const InstaladorGestionTab: React.FC = () => {
     if (instaladorId) cargar(instaladorId);
   }, [instaladorId, cargar]);
 
+  // Tiempo real: recarga al instalador abierto cuando cambia cualquier ruta o parada.
+  useDataChangedSocket('rutas', useCallback(() => { if (instaladorId) cargar(instaladorId); }, [instaladorId, cargar]));
+
   // Agrupar por estado
   const pendientes = asignacion.filter(ro => ro.estado === 'pendiente');
   const enCurso    = asignacion.filter(ro => ro.estado === 'en_curso');
@@ -364,7 +368,7 @@ const InstaladorGestionTab: React.FC = () => {
             {ro => <ODPCard key={ro.id} ro={ro} {...cardProps} />}
           </Seccion>
 
-          <Seccion titulo="Pausadas" color="text-violet-600" items={pausadas} emptyMsg="Sin instalaciones pausadas">
+          <Seccion titulo="Pausadas — por reprogramar" color="text-violet-600" items={pausadas} emptyMsg="Sin instalaciones pausadas por reprogramar">
             {ro => <ODPCard key={ro.id} ro={ro} {...cardProps} />}
           </Seccion>
 

@@ -1,36 +1,131 @@
 import { Request, Response } from 'express';
 import { Op, QueryTypes, Transaction } from 'sequelize';
+import { z } from 'zod';
 import {
   ODP, Usuario, Vehiculo, EvidenciaInstalacion, HistorialEstadoODP,
   RutaInstalacion, RutaODP, AgendaInstalacion, sequelize,
   ODPItem, SAP, SAPItem, TomaMedidas, OrdenCompra, ODCItem, Pago
 } from '../models';
 import Cliente from '../models/cliente.model';
-import { notificarCambioEstadoODP, emitirODPPatch } from '../utils/notificaciones';
+import { notificarCambioEstadoODP, emitirODPPatch, emitirCambioRutas } from '../utils/notificaciones';
 import { hoyBogotaISO, sumarDiasISO, rangoDiasBogota, HOY_BOGOTA_SQL, horaBogotaSQL } from '../utils/fechas';
 import { uploadConfig } from '../config/upload';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-// Cierra la ruta padre cuando ya no le queda ninguna parada pendiente. La usan
-// finalizarInstalacion (flujo normal del instalador) y las dos acciones del panel
-// "Pendientes de cierre" (entregarAtascada, reprogramarAtascada), que cierran la
-// parada (ruta_odp) pero antes no repetían este chequeo — la ruta se quedaba
-// "programada"/"en_curso" para siempre aunque sus ODPs ya estuvieran completadas.
+// Estados de parada (ruta_odp) que todavía "ocupan" la ruta: mientras quede una, la ruta
+// sigue viva y la ODP sigue tomada por ella. `pausada` NO está desde el 2026-10-05:
+// pausar saca la ODP de la ruta (vuelve a su bandeja para programarse en una ruta nueva)
+// y la parada queda solo como registro de lo que pasó. `completada` es el cierre normal.
+const PARADAS_VIVAS = ['pendiente', 'en_curso', 'con_dano'];
+
+// Cierra la ruta padre cuando ya no le queda ninguna parada viva. La usan
+// finalizarInstalacion, pausarInstalacion y las dos acciones del panel
+// "Pendientes de cierre" (entregarAtascada, reprogramarAtascada).
 // El where con estado IN (programada, en_curso) evita resucitar una ruta ya
 // cancelada: cancelarRuta nunca toca ruta_odp.estado, así que una parada
 // "pendiente" de una ruta cancelada puede llegar intacta hasta acá.
 const cerrarRutaSiSinPendientes = async (rutaId: number, fin: Date, t: Transaction) => {
-  const pendientes = await RutaODP.count({
-    where: { ruta_id: rutaId, estado: { [Op.ne]: 'completada' } },
+  const vivas = await RutaODP.count({
+    where: { ruta_id: rutaId, estado: { [Op.in]: PARADAS_VIVAS } },
     transaction: t,
   });
-  if (pendientes === 0) {
+  if (vivas === 0) {
     await RutaInstalacion.update(
       { estado: 'completada', fin_ruta: fin },
       { where: { id: rutaId, estado: { [Op.in]: ['programada', 'en_curso'] } }, transaction: t }
     );
   }
+};
+
+// Payload de crear/editar ruta. Mismas claves que envía ProgramarRutaModal.
+const FECHA_ISO = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Cada parada necesita una fecha válida (AAAA-MM-DD).');
+const idOpcional = z.number().int().positive().nullable().optional();
+const paradaSchema = z.object({
+  odp_id: z.number().int().positive(),
+  orden: z.number().int().min(1),
+  fecha_programada: FECHA_ISO,
+}).strict();
+const sinODPsRepetidas = (odps: { odp_id: number }[]) =>
+  new Set(odps.map((o) => o.odp_id)).size === odps.length;
+
+const crearRutaSchema = z.object({
+  vehiculo_id: idOpcional,
+  conductor_id: idOpcional,
+  oficial_id: idOpcional,
+  instaladores: z.array(z.number().int().positive()).optional().default([]),
+  observaciones: z.string().max(2000).nullable().optional(),
+  odps: z.array(paradaSchema)
+    .min(1, 'La ruta debe incluir al menos una ODP.')
+    .refine(sinODPsRepetidas, 'Una ODP aparece dos veces en la ruta.'),
+}).strict();
+
+const editarRutaSchema = z.object({
+  vehiculo_id: idOpcional,
+  conductor_id: idOpcional,
+  oficial_id: idOpcional,
+  instaladores: z.array(z.number().int().positive()).optional(),
+  observaciones: z.string().max(2000).nullable().optional(),
+  odps: z.array(paradaSchema)
+    .refine(sinODPsRepetidas, 'Una ODP aparece dos veces en la ruta.')
+    .optional(),
+}).strict();
+
+// Inserta el equipo de la ruta en la tabla puente (bulk parametrizado). Sin repetidos:
+// la PK (ruta_id, instalador_id) rechazaría el INSERT entero si llega dos veces el mismo id.
+const insertarInstaladores = async (rutaId: number, ids: number[], t: Transaction) => {
+  const unicos = [...new Set(ids)];
+  if (!unicos.length) return;
+  const placeholders = unicos.map((_, i) => `(:rid, :iid${i})`).join(',');
+  const replacements: Record<string, number> = { rid: rutaId };
+  unicos.forEach((iid, i) => { replacements[`iid${i}`] = iid; });
+  await sequelize.query(
+    `INSERT INTO ruta_instaladores (ruta_id, instalador_id) VALUES ${placeholders}`,
+    { replacements, transaction: t }
+  );
+};
+
+const mensajeZod = (e: z.ZodError): string =>
+  e.issues[0]?.message ?? 'Los datos de la ruta no son válidos.';
+
+// Las ODPs que se agregan a una ruta deben estar listas y libres: en LISTO_INSTALAR y sin
+// parada viva en otra ruta activa. Sin esto, dos jefes programando a la vez podían dejar
+// la misma ODP en dos rutas. Devuelve un mensaje legible o null si todo está bien.
+const validarODPsLibres = async (
+  odpIds: number[],
+  rutaIdExcluida: number | null,
+  t: Transaction
+): Promise<string | null> => {
+  if (!odpIds.length) return null;
+  const odps = (await ODP.findAll({
+    where: { id: { [Op.in]: odpIds } },
+    attributes: ['id', 'numero_odp', 'estado_produccion'],
+    transaction: t,
+  })) as any[];
+  if (odps.length !== odpIds.length) return 'Una de las ODPs ya no existe. Recarga la pantalla e intenta de nuevo.';
+  const noListas = odps.filter((o) => o.estado_produccion !== 'LISTO_INSTALAR');
+  if (noListas.length) {
+    return `Estas ODPs ya no están en "Listo para instalar": ${noListas.map((o) => `${o.numero_odp} (${o.estado_produccion})`).join(', ')}. Recarga la pantalla.`;
+  }
+  const ocupadas: { numero_odp: string; ruta_id: number }[] = await sequelize.query(
+    `SELECT o.numero_odp, ro.ruta_id
+       FROM ruta_odp ro
+       JOIN rutas_instalacion ri ON ri.id = ro.ruta_id
+       JOIN odp o ON o.id = ro.odp_id
+      WHERE ro.odp_id IN (:ids)
+        AND ro.estado IN (:vivas)
+        AND ri.estado IN ('programada', 'en_curso')
+        ${rutaIdExcluida ? 'AND ro.ruta_id <> :rutaId' : ''}`,
+    {
+      replacements: { ids: odpIds, vivas: PARADAS_VIVAS, rutaId: rutaIdExcluida },
+      type: QueryTypes.SELECT,
+      transaction: t,
+    }
+  );
+  if (ocupadas.length) {
+    return `Ya están en otra ruta activa: ${ocupadas.map((o) => `${o.numero_odp} (Ruta #${o.ruta_id})`).join(', ')}.`;
+  }
+  return null;
 };
 
 // Lista: sin SAP/ODC — se usa en getRutas (listado). El detalle por ID usa INCLUDE_RUTA_COMPLETA.
@@ -57,10 +152,13 @@ const INCLUDE_RUTA_LISTA = async (): Promise<any[]> => [
     include: [
       {
         model: ODP, as: 'odp',
-        // Solo los campos que usan getTipoServicio/getPagoBadge y las tarjetas de ruta.
+        // Solo los campos que usan las tarjetas de ruta, las etiquetas de pago/factura
+        // (utils/estadoInstalacion.ts del frontend, espejo de PAGO_OK/FACTURA_OK) y la
+        // Hoja de Ruta impresa (contacto en obra y descripción).
         attributes: ['id', 'numero_odp', 'cliente_id', 'asesor_id', 'direccion_instalacion',
-          'instalacion', 'acarreo', 'es_garantia', 'estado_caja',
-          'autorizacion_especial_despacho'],
+          'instalacion', 'acarreo', 'es_garantia', 'es_no_conformidad', 'estado_caja',
+          'autorizacion_especial_despacho', 'forma_pago', 'estado_facturacion',
+          'nombre_recibe', 'telefono_recibe', 'descripcion_pedido'],
         include: [
           { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
           { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
@@ -235,13 +333,14 @@ const INCLUDE_ODP_BASICO = [
 
 export const getODPsParaGestion = async (_req: Request, res: Response) => {
   try {
-    // ODPs ya asignadas a rutas activas (excluye también pausadas para evitar doble asignación)
+    // ODPs ya tomadas por una ruta activa. Una parada pausada ya no la toma (2026-10-05):
+    // pausar saca la ODP de la ruta, y aquí debe reaparecer para programarse de nuevo.
     const enRutaActiva: any[] = await sequelize.query(
       `SELECT ro.odp_id FROM ruta_odp ro
        JOIN rutas_instalacion ri ON ri.id = ro.ruta_id
-       WHERE ro.estado IN ('pendiente', 'en_curso', 'pausada')
+       WHERE ro.estado IN (:vivas)
        AND ri.estado NOT IN ('cancelada', 'completada')`,
-      { type: QueryTypes.SELECT }
+      { replacements: { vivas: PARADAS_VIVAS }, type: QueryTypes.SELECT }
     );
     const odpIdsEnRuta = enRutaActiva.map((r: any) => r.odp_id);
     const excluirEnRuta = odpIdsEnRuta.length ? { id: { [Op.notIn]: odpIdsEnRuta } } : {};
@@ -313,11 +412,37 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
       }),
     ]);
 
+    // Pausa pendiente de retomar: si la última parada de la ODP quedó pausada, se adjunta
+    // para que la bandeja muestre "Pausada en Ruta #X: motivo" y el jefe sepa que es un
+    // trabajo a medias, no una instalación nueva. Solo la ÚLTIMA parada cuenta: una pausa
+    // vieja ya retomada en otra ruta no debe aparecer.
+    const idsBandeja = [...listos, ...esperaPago, ...esperaFactura].map((o: any) => o.id);
+    const pausas: any[] = idsBandeja.length
+      ? await sequelize.query(
+          `SELECT * FROM (
+             SELECT DISTINCT ON (ro.odp_id)
+                    ro.odp_id, ro.ruta_id, ro.estado, ro.motivo_pausa, ro.fin_instalacion
+               FROM ruta_odp ro
+               JOIN rutas_instalacion ri ON ri.id = ro.ruta_id
+              WHERE ro.odp_id IN (:ids) AND ri.estado <> 'cancelada'
+              ORDER BY ro.odp_id, ro.id DESC
+           ) u WHERE u.estado = 'pausada'`,
+          { replacements: { ids: idsBandeja }, type: QueryTypes.SELECT }
+        )
+      : [];
+    const pausaPorODP = new Map(pausas.map((p) => [p.odp_id, {
+      ruta_id: p.ruta_id, motivo_pausa: p.motivo_pausa, fecha: p.fin_instalacion,
+    }]));
+    const conPausa = (lista: any[]) => lista.map((o: any) => ({
+      ...o.toJSON(),
+      ultima_pausa: pausaPorODP.get(o.id) ?? null,
+    }));
+
     res.json({
-      listos,
-      espera_pago: esperaPago,
+      listos: conPausa(listos),
+      espera_pago: conPausa(esperaPago),
       espera_produccion: esperaProduccion,
-      espera_factura: esperaFactura,
+      espera_factura: conPausa(esperaFactura),
     });
   } catch (e: any) {
     console.error('getODPsParaGestion:', e.message);
@@ -466,16 +591,22 @@ export const createRuta = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const user = req.user!;
-    const { vehiculo_id, conductor_id, oficial_id, instaladores = [], observaciones, odps = [] } = req.body;
-
-    if (!odps.length) {
+    const parsed = crearRutaSchema.safeParse(req.body);
+    if (!parsed.success) {
       await t.rollback();
-      return res.status(400).json({ error: 'Debe incluir al menos una ODP' });
+      return res.status(400).json({ error: mensajeZod(parsed.error) });
+    }
+    const { vehiculo_id, conductor_id, oficial_id, instaladores, observaciones, odps } = parsed.data;
+
+    const errorLibres = await validarODPsLibres(odps.map((o) => o.odp_id), null, t);
+    if (errorLibres) {
+      await t.rollback();
+      return res.status(409).json({ error: errorLibres });
     }
 
     // Validación defensiva: pago y factura aprobados antes de programar
     const { sinPago, sinFactura } = await validarElegibilidadProgramacion(
-      odps.map((o: any) => o.odp_id),
+      odps.map((o) => o.odp_id),
       t
     );
     if (sinPago.length) {
@@ -489,24 +620,21 @@ export const createRuta = async (req: Request, res: Response) => {
 
     // Crear la ruta
     const ruta = await RutaInstalacion.create(
-      { vehiculo_id, conductor_id, oficial_id: oficial_id || null, creado_por: user.id, observaciones },
+      {
+        vehiculo_id: vehiculo_id ?? null,
+        conductor_id: conductor_id ?? null,
+        oficial_id: oficial_id ?? null,
+        creado_por: user.id,
+        observaciones: observaciones ?? null,
+      },
       { transaction: t }
     );
     const rutaId = (ruta as any).id;
 
-    // Asignar instaladores (bulk insert parametrizado para junction table)
-    if (instaladores.length) {
-      const placeholders = instaladores.map((_: number, i: number) => `(:rid, :iid${i})`).join(',');
-      const replacements: Record<string, number> = { rid: rutaId };
-      instaladores.forEach((iid: number, i: number) => { replacements[`iid${i}`] = iid; });
-      await sequelize.query(
-        `INSERT INTO ruta_instaladores (ruta_id, instalador_id) VALUES ${placeholders}`,
-        { replacements, transaction: t }
-      );
-    }
+    await insertarInstaladores(rutaId, instaladores, t);
 
     // Agregar ODPs a la ruta
-    const rutaODPs = odps.map((o: any) => ({
+    const rutaODPs = odps.map((o) => ({
       ruta_id: rutaId,
       odp_id: o.odp_id,
       orden: o.orden,
@@ -515,7 +643,7 @@ export const createRuta = async (req: Request, res: Response) => {
     await RutaODP.bulkCreate(rutaODPs, { transaction: t });
 
     // Cambiar ODPs a PROGRAMADA
-    const odpIds = odps.map((o: any) => o.odp_id);
+    const odpIds = odps.map((o) => o.odp_id);
     await ODP.update(
       { estado_produccion: 'PROGRAMADA' },
       { where: { id: { [Op.in]: odpIds } }, transaction: t }
@@ -549,6 +677,7 @@ export const createRuta = async (req: Request, res: Response) => {
         mensaje: `ODP ${odp.numero_odp} programada para instalación`,
       }).catch(() => {});
     }
+    emitirCambioRutas();
 
     // Payload de listado, no de detalle: ProgramarRutaModal descarta esta respuesta
     // (hace `await axios.post(...)` sin leer `.data` y llama a onSaved()), y ningún otro
@@ -561,48 +690,128 @@ export const createRuta = async (req: Request, res: Response) => {
   } catch (e: any) {
     await t.rollback();
     console.error('createRuta:', e.message);
-    res.status(500).json({ error: 'Error al crear ruta', detail: e.message });
+    res.status(500).json({ error: 'No se pudo crear la ruta. Ningún cambio quedó guardado; intenta de nuevo y, si se repite, avisa a soporte.' });
   }
+};
+
+// Estados de ruta en los que el jefe todavía puede editarla, cancelarla o recibir paradas.
+const RUTA_ABIERTA = ['programada', 'en_curso'];
+
+const ESTADO_RUTA_TEXTO: Record<string, string> = {
+  completada: 'completada',
+  cancelada: 'cancelada',
+};
+
+// ODP que cambió de estado por una acción del jefe sobre la ruta; se notifica tras el commit.
+type CambioODP = { id: number; numero_odp: string; asesor_id: number; estado_nuevo: string; mensaje: string };
+
+const notificarCambios = (cambios: CambioODP[]) => {
+  for (const c of cambios) {
+    notificarCambioEstadoODP({
+      numero_odp: c.numero_odp,
+      odp_id: c.id,
+      asesor_id: c.asesor_id,
+      estado_nuevo: c.estado_nuevo,
+      mensaje: c.mensaje,
+    }).catch(() => {});
+  }
+};
+
+// Devuelve a "Listo para instalar" las ODPs de paradas pendientes que salen de una ruta
+// (quitadas al editar, o la ruta entera al cancelar). Solo las que siguen en PROGRAMADA:
+// una ODP que ya se movió a otro estado —p. ej. una pausa reprogramada en otra ruta— no
+// se pisa. Registra el historial de cada una y devuelve los cambios para notificar.
+const liberarODPsDeRuta = async (
+  odpIds: number[],
+  motivo: string,
+  usuarioId: number,
+  t: Transaction
+): Promise<CambioODP[]> => {
+  if (!odpIds.length) return [];
+  const odps = (await ODP.findAll({
+    where: { id: { [Op.in]: odpIds }, estado_produccion: 'PROGRAMADA' },
+    attributes: ['id', 'numero_odp', 'asesor_id'],
+    transaction: t,
+  })) as any[];
+  if (!odps.length) return [];
+  await ODP.update(
+    { estado_produccion: 'LISTO_INSTALAR' },
+    { where: { id: { [Op.in]: odps.map((o) => o.id) } }, transaction: t }
+  );
+  const ahora = new Date();
+  for (const o of odps) {
+    await HistorialEstadoODP.create({
+      odp_id: o.id,
+      estado_anterior: 'PROGRAMADA',
+      estado_nuevo: 'LISTO_INSTALAR',
+      usuario_id: usuarioId,
+      fecha: ahora,
+      observacion: motivo,
+    }, { transaction: t });
+  }
+  return odps.map((o) => ({
+    id: o.id, numero_odp: o.numero_odp, asesor_id: o.asesor_id,
+    estado_nuevo: 'LISTO_INSTALAR', mensaje: `${o.numero_odp} volvió a "Listo para instalar" (${motivo.toLowerCase()})`,
+  }));
 };
 
 export const updateRuta = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
-    const { id } = req.params;
-    const { vehiculo_id, conductor_id, oficial_id, instaladores, observaciones, odps } = req.body;
+    const rutaId = Number(req.params.id);
+    const user = req.user!;
+    const parsed = editarRutaSchema.safeParse(req.body);
+    if (!parsed.success) {
+      await t.rollback();
+      return res.status(400).json({ error: mensajeZod(parsed.error) });
+    }
+    const { vehiculo_id, conductor_id, oficial_id, instaladores, observaciones, odps } = parsed.data;
 
-    const ruta = await RutaInstalacion.findByPk(id, { transaction: t });
-    if (!ruta) { await t.rollback(); return res.status(404).json({ error: 'Ruta no encontrada' }); }
+    const ruta = await RutaInstalacion.findByPk(rutaId, { transaction: t, lock: t.LOCK.UPDATE }) as any;
+    if (!ruta) { await t.rollback(); return res.status(404).json({ error: 'La ruta ya no existe. Recarga la pantalla.' }); }
+    if (!RUTA_ABIERTA.includes(ruta.estado)) {
+      await t.rollback();
+      return res.status(400).json({ error: `La ruta #${rutaId} ya está ${ESTADO_RUTA_TEXTO[ruta.estado] ?? ruta.estado} y no se puede editar. Recarga la pantalla.` });
+    }
 
     // Actualizar cabecera
-    const upd: any = {};
+    const upd: Record<string, unknown> = {};
     if (vehiculo_id !== undefined) upd.vehiculo_id = vehiculo_id;
     if (conductor_id !== undefined) upd.conductor_id = conductor_id;
-    if (oficial_id !== undefined) upd.oficial_id = oficial_id || null;
+    if (oficial_id !== undefined) upd.oficial_id = oficial_id;
     if (observaciones !== undefined) upd.observaciones = observaciones;
     if (Object.keys(upd).length) await ruta.update(upd, { transaction: t });
 
     // Reemplazar instaladores
     if (Array.isArray(instaladores)) {
-      await sequelize.query(`DELETE FROM ruta_instaladores WHERE ruta_id = :rid`, { replacements: { rid: id }, transaction: t });
-      if (instaladores.length) {
-        const placeholders = instaladores.map((_: number, i: number) => `(:rid, :iid${i})`).join(',');
-        const replacements: Record<string, number> = { rid: Number(id) };
-        instaladores.forEach((iid: number, i: number) => { replacements[`iid${i}`] = iid; });
-        await sequelize.query(`INSERT INTO ruta_instaladores (ruta_id, instalador_id) VALUES ${placeholders}`, { replacements, transaction: t });
-      }
+      await sequelize.query(`DELETE FROM ruta_instaladores WHERE ruta_id = :rid`, { replacements: { rid: rutaId }, transaction: t });
+      await insertarInstaladores(rutaId, instaladores, t);
     }
 
-    // Reemplazar ODPs (solo las que siguen en pendiente)
-    if (Array.isArray(odps)) {
-      // ODPs pendientes actuales → restaurar a LISTO_INSTALAR si se quitan
-      const actuales = await RutaODP.findAll({ where: { ruta_id: id, estado: 'pendiente' }, transaction: t }) as any[];
-      const nuevosIds = odps.map((o: any) => o.odp_id);
-      const quitadas = actuales.filter((ro: any) => !nuevosIds.includes(ro.odp_id)).map((ro: any) => ro.odp_id);
+    const cambios: CambioODP[] = [];
 
-      // Validación defensiva: solo las ODPs nuevas que se agregan a la ruta
-      const idsActuales = actuales.map((ro: any) => ro.odp_id);
-      const idsNuevas = nuevosIds.filter((oid: number) => !idsActuales.includes(oid));
+    // Reemplazar ODPs (solo las paradas pendientes son editables)
+    if (odps) {
+      const actuales = await RutaODP.findAll({ where: { ruta_id: rutaId, estado: 'pendiente' }, transaction: t }) as any[];
+      const nuevosIds = odps.map((o) => o.odp_id);
+      const idsActuales = actuales.map((ro) => ro.odp_id as number);
+      const quitadas = idsActuales.filter((oid) => !nuevosIds.includes(oid));
+      const idsNuevas = nuevosIds.filter((oid) => !idsActuales.includes(oid));
+
+      // Quitar todas las paradas de una ruta sin empezar la dejaría vacía: eso es cancelarla.
+      if (!nuevosIds.length) {
+        const otras = await RutaODP.count({ where: { ruta_id: rutaId, estado: { [Op.ne]: 'pendiente' } }, transaction: t });
+        if (!otras) {
+          await t.rollback();
+          return res.status(400).json({ error: 'La ruta quedaría sin ODPs. Si ya no va, usa "Cancelar ruta".' });
+        }
+      }
+
+      const errorLibres = await validarODPsLibres(idsNuevas, null, t);
+      if (errorLibres) {
+        await t.rollback();
+        return res.status(409).json({ error: errorLibres });
+      }
       const { sinPago, sinFactura } = await validarElegibilidadProgramacion(idsNuevas, t);
       if (sinPago.length) {
         await t.rollback();
@@ -614,21 +823,36 @@ export const updateRuta = async (req: Request, res: Response) => {
       }
 
       if (quitadas.length) {
-        await ODP.update({ estado_produccion: 'LISTO_INSTALAR' }, { where: { id: { [Op.in]: quitadas } }, transaction: t });
-        await RutaODP.destroy({ where: { ruta_id: id, odp_id: { [Op.in]: quitadas } }, transaction: t });
+        cambios.push(...await liberarODPsDeRuta(quitadas, `Quitada de la ruta de instalación #${rutaId}`, user.id, t));
+        await RutaODP.destroy({ where: { ruta_id: rutaId, odp_id: { [Op.in]: quitadas }, estado: 'pendiente' }, transaction: t });
       }
 
       // Upsert de cada ODP
       for (const o of odps) {
-        const existe = actuales.find((ro: any) => ro.odp_id === o.odp_id);
-        if (existe) {
+        if (idsActuales.includes(o.odp_id)) {
           await RutaODP.update(
             { orden: o.orden, fecha_programada: o.fecha_programada },
-            { where: { ruta_id: id, odp_id: o.odp_id }, transaction: t }
+            { where: { ruta_id: rutaId, odp_id: o.odp_id, estado: 'pendiente' }, transaction: t }
           );
         } else {
-          await RutaODP.create({ ruta_id: Number(id), odp_id: o.odp_id, orden: o.orden, fecha_programada: o.fecha_programada }, { transaction: t });
-          await ODP.update({ estado_produccion: 'PROGRAMADA' }, { where: { id: o.odp_id }, transaction: t });
+          await RutaODP.create({ ruta_id: rutaId, odp_id: o.odp_id, orden: o.orden, fecha_programada: o.fecha_programada }, { transaction: t });
+        }
+      }
+
+      if (idsNuevas.length) {
+        await ODP.update({ estado_produccion: 'PROGRAMADA' }, { where: { id: { [Op.in]: idsNuevas } }, transaction: t });
+        const agregadas = await ODP.findAll({ where: { id: { [Op.in]: idsNuevas } }, attributes: ['id', 'numero_odp', 'asesor_id'], transaction: t }) as any[];
+        const ahora = new Date();
+        for (const o of agregadas) {
+          await HistorialEstadoODP.create({
+            odp_id: o.id,
+            estado_anterior: 'LISTO_INSTALAR',
+            estado_nuevo: 'PROGRAMADA',
+            usuario_id: user.id,
+            fecha: ahora,
+            observacion: `Programada en ruta de instalación #${rutaId}`,
+          }, { transaction: t });
+          cambios.push({ id: o.id, numero_odp: o.numero_odp, asesor_id: o.asesor_id, estado_nuevo: 'PROGRAMADA', mensaje: `ODP ${o.numero_odp} programada para instalación` });
         }
       }
 
@@ -636,53 +860,161 @@ export const updateRuta = async (req: Request, res: Response) => {
       if (nuevosIds.length) {
         await AgendaInstalacion.destroy({ where: { odp_id: { [Op.in]: nuevosIds } }, transaction: t });
       }
+
+      // Si se quitaron todas las pendientes y lo que queda ya terminó, la ruta se cierra.
+      await cerrarRutaSiSinPendientes(rutaId, new Date(), t);
     }
 
     await t.commit();
+    notificarCambios(cambios);
+    emitirCambioRutas();
+
     // Igual que en createRuta: el modal descarta esta respuesta. Ver nota allí.
     const includes = await INCLUDE_RUTA_LISTA();
-    const rutaActualizada = await RutaInstalacion.findByPk(id, { include: includes });
+    const rutaActualizada = await RutaInstalacion.findByPk(rutaId, { include: includes });
     res.json(rutaActualizada);
   } catch (e: any) {
     await t.rollback();
     console.error('updateRuta:', e.message);
-    res.status(500).json({ error: 'Error al actualizar ruta', detail: e.message });
+    res.status(500).json({ error: 'No se pudo guardar la ruta. Ningún cambio quedó guardado; intenta de nuevo.' });
   }
 };
 
 export const cancelarRuta = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
-    const { id } = req.params;
-    const ruta = await RutaInstalacion.findByPk(id, { transaction: t });
-    if (!ruta) { await t.rollback(); return res.status(404).json({ error: 'Ruta no encontrada' }); }
+    const rutaId = Number(req.params.id);
+    const user = req.user!;
+    const ruta = await RutaInstalacion.findByPk(rutaId, { transaction: t, lock: t.LOCK.UPDATE }) as any;
+    if (!ruta) { await t.rollback(); return res.status(404).json({ error: 'La ruta ya no existe. Recarga la pantalla.' }); }
+    if (!RUTA_ABIERTA.includes(ruta.estado)) {
+      await t.rollback();
+      return res.status(400).json({ error: `La ruta #${rutaId} ya está ${ESTADO_RUTA_TEXTO[ruta.estado] ?? ruta.estado}; no hay nada que cancelar.` });
+    }
 
     // No se puede cancelar si hay instalaciones en curso
-    const enCurso = await RutaODP.count({ where: { ruta_id: id, estado: 'en_curso' }, transaction: t });
+    const enCurso = await RutaODP.count({ where: { ruta_id: rutaId, estado: 'en_curso' }, transaction: t });
     if (enCurso > 0) {
       await t.rollback();
-      return res.status(400).json({ error: 'Hay instalaciones en curso. No se puede cancelar.' });
+      return res.status(400).json({ error: 'Hay una instalación en curso en esta ruta. Pídele al oficial que la finalice o la pause antes de cancelar.' });
     }
 
-    // Restaurar ODPs activas a LISTO_INSTALAR (excluye solo completadas)
-    const activas = await RutaODP.findAll({
-      where: { ruta_id: id, estado: { [Op.ne]: 'completada' } },
-      transaction: t
-    }) as any[];
-    if (activas.length) {
-      const ids = activas.map((ro: any) => ro.odp_id);
-      await ODP.update({ estado_produccion: 'LISTO_INSTALAR' }, {
-        where: { id: { [Op.in]: ids } },
-        transaction: t
-      });
-    }
+    // Solo vuelven a la bandeja las ODPs de paradas pendientes. Una parada pausada ya soltó
+    // su ODP al pausar; una con daño deja la ODP en INSTALANDO y se resuelve desde
+    // "Pendientes de cierre" — devolverla a LISTO_INSTALAR escondería el daño.
+    const pendientes = await RutaODP.findAll({ where: { ruta_id: rutaId, estado: 'pendiente' }, attributes: ['odp_id'], transaction: t }) as any[];
+    const cambios = await liberarODPsDeRuta(
+      pendientes.map((ro) => ro.odp_id as number),
+      `Ruta de instalación #${rutaId} cancelada`,
+      user.id,
+      t
+    );
 
     await ruta.update({ estado: 'cancelada' }, { transaction: t });
     await t.commit();
+    notificarCambios(cambios);
+    emitirCambioRutas();
     res.json({ ok: true, message: 'Ruta cancelada' });
   } catch (e: any) {
     await t.rollback();
-    res.status(500).json({ error: 'Error al cancelar ruta' });
+    console.error('cancelarRuta:', e.message);
+    res.status(500).json({ error: 'No se pudo cancelar la ruta. Intenta de nuevo.' });
+  }
+};
+
+// ─── JEFE: unir dos rutas del mismo día ───────────────────────────────────────
+// El equipo suele crear una ruta por ODP (474 de 515 rutas tienen una sola parada al
+// 2026-10-05), y el mismo oficial termina con varias rutas el mismo día. Unir mueve las
+// paradas de la ruta origen al final de la destino, suma su personal y cancela la origen.
+// Las ODPs no cambian de estado (siguen PROGRAMADA): solo cambian de ruta.
+const unirSchema = z.object({ origen_id: z.number().int().positive() }).strict();
+
+export const unirRutas = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const destinoId = Number(req.params.id);
+    const user = req.user!;
+    const parsed = unirSchema.safeParse(req.body);
+    if (!parsed.success) { await t.rollback(); return res.status(400).json({ error: 'Indica la ruta que se va a unir.' }); }
+    const origenId = parsed.data.origen_id;
+    if (origenId === destinoId) { await t.rollback(); return res.status(400).json({ error: 'No se puede unir una ruta consigo misma.' }); }
+
+    // Bloqueo en orden de id para que dos uniones cruzadas no se bloqueen entre sí.
+    const rutas = await RutaInstalacion.findAll({
+      where: { id: { [Op.in]: [origenId, destinoId] } },
+      order: [['id', 'ASC']],
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    }) as any[];
+    const origen = rutas.find((r) => r.id === origenId);
+    const destino = rutas.find((r) => r.id === destinoId);
+    if (!origen || !destino) { await t.rollback(); return res.status(404).json({ error: 'Una de las rutas ya no existe. Recarga la pantalla.' }); }
+    if (!RUTA_ABIERTA.includes(destino.estado)) {
+      await t.rollback();
+      return res.status(400).json({ error: `La ruta #${destinoId} ya está ${ESTADO_RUTA_TEXTO[destino.estado] ?? destino.estado}; no puede recibir paradas.` });
+    }
+
+    const paradas = await RutaODP.findAll({ where: { ruta_id: origenId }, order: [['orden', 'ASC']], transaction: t }) as any[];
+    if (origen.estado !== 'programada' || !paradas.length || paradas.some((p) => p.estado !== 'pendiente')) {
+      await t.rollback();
+      return res.status(400).json({ error: `La ruta #${origenId} ya empezó o no tiene paradas pendientes. Solo se unen rutas que aún no han salido.` });
+    }
+
+    const maxOrden = (await RutaODP.max('orden', { where: { ruta_id: destinoId }, transaction: t })) as number | null;
+    let orden = maxOrden ?? 0;
+    for (const p of paradas) {
+      orden += 1;
+      await p.update({ ruta_id: destinoId, orden }, { transaction: t });
+    }
+
+    // Personal: la destino conserva el suyo y suma el de la origen. Si la origen tenía otro
+    // oficial, entra como instalador: así sigue viendo esas paradas en su app.
+    const equipoOrigen: { instalador_id: number }[] = await sequelize.query(
+      `SELECT instalador_id FROM ruta_instaladores WHERE ruta_id = :rid`,
+      { replacements: { rid: origenId }, type: QueryTypes.SELECT, transaction: t }
+    );
+    const equipoDestino: { instalador_id: number }[] = await sequelize.query(
+      `SELECT instalador_id FROM ruta_instaladores WHERE ruta_id = :rid`,
+      { replacements: { rid: destinoId }, type: QueryTypes.SELECT, transaction: t }
+    );
+    const yaEnDestino = new Set<number>([...equipoDestino.map((e) => e.instalador_id), ...(destino.oficial_id ? [destino.oficial_id] : [])]);
+    const sumar = equipoOrigen.map((e) => e.instalador_id);
+    if (origen.oficial_id && destino.oficial_id && origen.oficial_id !== destino.oficial_id) sumar.push(origen.oficial_id);
+    await insertarInstaladores(destinoId, sumar.filter((id) => !yaEnDestino.has(id)), t);
+
+    const updDestino: Record<string, unknown> = {};
+    if (!destino.oficial_id && origen.oficial_id) updDestino.oficial_id = origen.oficial_id;
+    if (!destino.conductor_id && origen.conductor_id) updDestino.conductor_id = origen.conductor_id;
+    if (!destino.vehiculo_id && origen.vehiculo_id) updDestino.vehiculo_id = origen.vehiculo_id;
+    if (origen.observaciones) {
+      updDestino.observaciones = [destino.observaciones, origen.observaciones].filter(Boolean).join('\n');
+    }
+    if (Object.keys(updDestino).length) await destino.update(updDestino, { transaction: t });
+
+    await origen.update({
+      estado: 'cancelada',
+      observaciones: [origen.observaciones, `Unida a la ruta #${destinoId}`].filter(Boolean).join('\n'),
+    }, { transaction: t });
+
+    const ahora = new Date();
+    for (const p of paradas) {
+      await HistorialEstadoODP.create({
+        odp_id: p.odp_id,
+        estado_anterior: 'PROGRAMADA',
+        estado_nuevo: 'PROGRAMADA',
+        usuario_id: user.id,
+        fecha: ahora,
+        observacion: `Movida de la ruta #${origenId} a la ruta #${destinoId} (rutas unidas)`,
+      }, { transaction: t });
+    }
+
+    await t.commit();
+    emitirCambioRutas();
+    res.json({ ok: true, destino_id: destinoId, paradas_movidas: paradas.length });
+  } catch (e: any) {
+    await t.rollback();
+    console.error('unirRutas:', e.message);
+    res.status(500).json({ error: 'No se pudieron unir las rutas. Ningún cambio quedó guardado; intenta de nuevo.' });
   }
 };
 
@@ -715,8 +1047,6 @@ export const getInstaladores = async (_req: Request, res: Response) => {
 export const getMiAsignacion = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
 
     // Obtener rutas donde está asignado: como ayudante (ruta_instaladores) o como oficial (oficial_id)
     const rutaIds: any[] = await sequelize.query(
@@ -806,9 +1136,14 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
 
     const rutaODP = await RutaODP.findByPk(id, { transaction: t }) as any;
     if (!rutaODP) { await t.rollback(); return res.status(404).json({ error: 'Entrada de ruta no encontrada' }); }
-    if (!['pendiente', 'pausada'].includes(rutaODP.estado)) {
+    // Solo desde 'pendiente'. Una parada pausada ya soltó su ODP (2026-10-05): retomar el
+    // trabajo es programarla en una ruta nueva, que crea una parada pendiente nueva.
+    if (rutaODP.estado !== 'pendiente') {
       await t.rollback();
-      return res.status(400).json({ error: `Estado actual: ${rutaODP.estado}. Solo se puede iniciar desde 'pendiente' o 'pausada'` });
+      const msg = rutaODP.estado === 'pausada'
+        ? 'Esta instalación se pausó y salió de la ruta. El jefe debe programarla en una ruta nueva para retomarla.'
+        : `Esta parada ya está ${String(rutaODP.estado).replace('_', ' ')}; no se puede iniciar de nuevo.`;
+      return res.status(400).json({ error: msg });
     }
 
     // Verificar que el instalador está asignado a esta ruta (ayudante o oficial)
@@ -820,15 +1155,13 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
     );
     if (!asignado) { await t.rollback(); return res.status(403).json({ error: 'No estás asignado a esta ruta' }); }
 
-    const esReanudacion = rutaODP.estado === 'pausada';
     await rutaODP.update({
       estado: 'en_curso',
-      inicio_instalacion: esReanudacion ? rutaODP.inicio_instalacion : new Date(),
+      inicio_instalacion: new Date(),
       fin_instalacion: null,
     }, { transaction: t });
 
     // ODP → INSTALANDO: el instalador está en obra, el trabajo aún no culmina.
-    // (desde PROGRAMADA en inicio normal, desde LISTO_INSTALAR en reanudación)
     const odp = await ODP.findByPk(rutaODP.odp_id, { transaction: t }) as any;
     if (odp) {
       const estadoAnteriorODP = odp.getDataValue('estado_produccion');
@@ -859,6 +1192,7 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
         mensaje: `Instalación de ${odp.numero_odp} iniciada`,
       }).catch(() => {});
     }
+    emitirCambioRutas();
 
     res.json({ ok: true, inicio_instalacion: new Date() });
   } catch (e: any) {
@@ -954,6 +1288,7 @@ export const finalizarInstalacion = async (req: Request, res: Response) => {
         mensaje: `ODP ${odp.numero_odp} entregada exitosamente`,
       }).catch(() => {});
     }
+    emitirCambioRutas();
 
     res.json({ ok: true, fin_instalacion: ahora });
   } catch (e: any) {
@@ -1002,6 +1337,7 @@ export const reportarDano = async (req: Request, res: Response) => {
     if (odp) {
       await odp.update({ tiene_dano_instalacion: true });
     }
+    emitirCambioRutas();
 
     res.json({ ok: true, mensaje: 'Daño registrado correctamente' });
   } catch (e: any) {
@@ -1109,6 +1445,7 @@ export const iniciarRutaConductor = async (req: Request, res: Response) => {
     if (ruta.estado !== 'programada') return res.status(400).json({ error: 'La ruta ya fue iniciada' });
 
     await ruta.update({ estado: 'en_curso', inicio_ruta: new Date() });
+    emitirCambioRutas();
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Error al iniciar ruta' });
@@ -1130,6 +1467,7 @@ export const llegadaConductor = async (req: Request, res: Response) => {
     if (rutaODP.llegada_conductor) return res.status(400).json({ error: 'Ya registraste tu llegada a esta parada' });
 
     await rutaODP.update({ llegada_conductor: new Date() });
+    emitirCambioRutas();
     res.json({ ok: true, llegada_conductor: rutaODP.llegada_conductor });
   } catch (e) {
     res.status(500).json({ error: 'Error al registrar llegada' });
@@ -1137,7 +1475,11 @@ export const llegadaConductor = async (req: Request, res: Response) => {
 };
 
 // ─── OFICIAL / JEFE: Pausar instalación en curso ─────────────────────────────
-// La ODP vuelve a LISTO_INSTALAR para poder ser reasignada a una nueva ruta
+// Pausar SACA la ODP de la ruta (decisión del 2026-10-05): la ODP vuelve a LISTO_INSTALAR
+// y reaparece en su bandeja para programarse en una ruta nueva; la parada queda en
+// 'pausada' solo como registro (motivo y horas). Si era la última parada viva, la ruta
+// se cierra. Antes la parada pausada seguía "ocupando" la ruta: la ODP no salía en
+// ninguna bandeja y la ruta quedaba en curso para siempre (rutas #393 y #505).
 
 export const pausarInstalacion = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
@@ -1187,11 +1529,14 @@ export const pausarInstalacion = async (req: Request, res: Response) => {
         odp_id: odp.id,
         asesor_id: odp.asesor_id,
         estado_nuevo: 'LISTO_INSTALAR',
-        mensaje: `Instalación de ${odp.numero_odp} pausada — pendiente continuar`,
+        mensaje: `Instalación de ${odp.numero_odp} pausada — vuelve a la bandeja para reprogramar`,
       }).catch(() => {});
     }
 
+    await cerrarRutaSiSinPendientes(rutaODP.ruta_id, ahora, t);
+
     await t.commit();
+    emitirCambioRutas();
     res.json({ ok: true });
   } catch (e: any) {
     await t.rollback();
@@ -1216,10 +1561,16 @@ export const getAsignacionInstalador = async (req: Request, res: Response) => {
 
     const ids = rutaIds.map((r: any) => r.ruta_id);
 
+    // Las pausadas son registro histórico desde el 2026-10-05: solo se muestran mientras su
+    // ODP sigue esperando reprogramarse (LISTO_INSTALAR). Sin este filtro la sección
+    // "Pausadas" acumularía todas las pausas viejas del instalador.
     const asignacion = await RutaODP.findAll({
       where: {
         ruta_id: { [Op.in]: ids },
-        estado: { [Op.in]: ['pendiente', 'en_curso', 'pausada', 'con_dano'] },
+        [Op.or]: [
+          { estado: { [Op.in]: ['pendiente', 'en_curso', 'con_dano'] } },
+          { estado: 'pausada', '$odp.estado_produccion$': 'LISTO_INSTALAR' },
+        ],
       },
       // Vista de gestión del jefe: no muestra la firma del receptor. Ver nota en
       // INCLUDE_RUTA_COMPLETA sobre por qué se excluye y sobre `separate`.
@@ -1360,6 +1711,7 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
       };
       io.emit('notification', msg);
     }).catch(() => {});
+    emitirCambioRutas();
 
     res.json({ ok: true, fin_ruta: finRuta });
   } catch (e: any) {
@@ -1376,8 +1728,9 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
 //      finalizó) o PROGRAMADA con la fecha ya vencida. La orden sigue abierta.
 //
 //   b) La ODP terminó pero su ruta quedó mal cerrada.  Está en INSTALADA —trabajo
-//      culminado— y aun así arrastra una parada de ruta abierta: un daño sin resolver,
-//      una pausa que nadie retomó, o una parada que quedó pendiente. El trabajo está
+//      culminado— y aun así arrastra una parada de ruta abierta: un daño sin resolver
+//      o una parada que quedó pendiente. (Una parada 'pausada' ya no cuenta como abierta
+//      desde el 2026-10-05: pausar saca la ODP de la ruta.) El trabajo está
 //      hecho, pero el historial de instalaciones queda sucio.
 //
 // Una ODP en INSTALADA sin ninguna parada abierta NO entra: es una instalación marcada
@@ -1400,9 +1753,8 @@ export const getODPsAtascadas = async (_req: Request, res: Response) => {
                    CASE ro.estado
                      WHEN 'en_curso'  THEN 1
                      WHEN 'con_dano'  THEN 2
-                     WHEN 'pausada'   THEN 3
-                     WHEN 'pendiente' THEN 4
-                     ELSE 5
+                     WHEN 'pendiente' THEN 3
+                     ELSE 4
                    END,
                    ro.id DESC
        )
@@ -1417,7 +1769,6 @@ export const getODPsAtascadas = async (_req: Request, res: Response) => {
               CASE
                 WHEN o.estado_produccion = 'INSTALANDO'                 THEN 'INICIADA_SIN_FINALIZAR'
                 WHEN p.estado_parada = 'con_dano'                       THEN 'DANO_SIN_RESOLVER'
-                WHEN p.estado_parada = 'pausada'                        THEN 'PAUSADA_SIN_RETOMAR'
                 WHEN p.estado_parada = 'pendiente'
                      AND p.estado_ruta = 'completada'                   THEN 'RUTA_CERRADA_SIN_INSTALAR'
                 WHEN p.estado_parada = 'pendiente'                      THEN 'PARADA_VENCIDA'
@@ -1437,7 +1788,7 @@ export const getODPsAtascadas = async (_req: Request, res: Response) => {
                    OR p.fecha_programada < ${HOY_BOGOTA_SQL}))
                 -- (b) Terminó, pero dejó una parada de ruta abierta
              OR (o.estado_produccion = 'INSTALADA'
-                 AND p.estado_parada IN ('pendiente', 'en_curso', 'pausada', 'con_dano'))
+                 AND p.estado_parada IN ('pendiente', 'en_curso', 'con_dano'))
           )
         ORDER BY p.fecha_programada ASC NULLS FIRST, o.numero_odp`,
       { type: QueryTypes.SELECT }
@@ -1466,12 +1817,11 @@ const buscarParadaActiva = async (odpId: number, t: Transaction) => {
        FROM ruta_odp ro
        JOIN rutas_instalacion ri ON ri.id = ro.ruta_id
       WHERE ro.odp_id = :odpId
-        AND ro.estado IN ('pendiente', 'en_curso', 'pausada', 'con_dano')
+        AND ro.estado IN ('pendiente', 'en_curso', 'con_dano')
       ORDER BY CASE ro.estado
                  WHEN 'en_curso'  THEN 1
                  WHEN 'con_dano'  THEN 2
-                 WHEN 'pausada'   THEN 3
-                 ELSE 4
+                 ELSE 3
                END,
                ro.id DESC
       LIMIT 1`,
@@ -1531,6 +1881,7 @@ export const reprogramarAtascada = async (req: Request, res: Response) => {
       mensaje: `${odp.numero_odp} reprogramada — lista para nueva ruta`,
     }).catch(() => {});
     emitirODPPatch(Number(odpId), 'update').catch(() => {});
+    emitirCambioRutas();
 
     res.json({ ok: true });
   } catch (e: any) {
@@ -1614,6 +1965,7 @@ export const entregarAtascada = async (req: Request, res: Response) => {
     }).catch(() => {});
     emitirODPPatch(Number(odpId), 'update').catch(() => {});
     if (odp.odp_padre_id) emitirODPPatch(Number(odp.odp_padre_id), 'update').catch(() => {});
+    emitirCambioRutas();
 
     res.json({ ok: true });
   } catch (e: any) {

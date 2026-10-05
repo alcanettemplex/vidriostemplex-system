@@ -76,6 +76,20 @@ export const emitirODPPatch = async (id: number, accion: 'create' | 'update' | '
 };
 
 /**
+ * Avisa a las vistas de Instalaciones (jefe, instalador, conductor) que algo cambió en
+ * rutas, paradas o agenda, para que recarguen (`useDataChangedSocket('rutas', …)`).
+ * Vive aquí y no en el controlador para que rutas.controller no importe `../server`
+ * (ver nota del ciclo server → app → routes → controller en CLAUDE.md).
+ */
+export const emitirCambioRutas = (): void => {
+  try {
+    emitirEvento('data_changed', { modulo: 'rutas' });
+  } catch (err) {
+    console.error('[emitirCambioRutas] Error:', err);
+  }
+};
+
+/**
  * Emite notificación dirigida al asesor de la ODP + roles jefe_produccion y compras.
  */
 export const notificarCambioEstadoODP = async (params: {

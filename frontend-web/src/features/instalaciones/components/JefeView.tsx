@@ -4,17 +4,21 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
 import { toast } from 'react-toastify';
 import {
-  CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar,
-  Pencil, Trash2, Plus, RefreshCw, PackageCheck, PauseCircle, Search,
-  Route, History, ChevronDown, ChevronUp, HardHat, Upload, X as XIcon, Receipt,
-  AlertOctagon, Info,
+  CheckCircle2, Clock, AlertTriangle, MapPin, Calendar,
+  Plus, RefreshCw, PackageCheck, PauseCircle, Search,
+  Route, History, HardHat, Upload, X as XIcon, Receipt,
+  AlertOctagon,
 } from '../../../components/ui/icons';
 import ProgramarRutaModal from './ProgramarRutaModal';
 import InstaladorGestionTab from './InstaladorGestionTab';
 import CerrarAtascadaModal from './CerrarAtascadaModal';
 import AgendaTab from './AgendaTab';
+import RutaCard from './RutaCard';
+import ProgramadosTab, { SubTabProg } from './ProgramadosTab';
 import FolderTabs, { FOLDER_BODY } from '../../../components/FolderTabs';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
+import { useDataChangedSocket } from '../../../store/useSocketNotifications';
+import { TONO_CLS, estadoPago } from '../utils/estadoInstalacion';
 
 import API from '../../../services/config';
 import { hoyBogotaISO, sumarDiasISO, isoLocal, fmtDia } from '../../../utils/fechas';
@@ -38,268 +42,15 @@ const getFinMes = (): string => {
   return isoLocal(new Date(a, m, 0));
 };
 
-const formatFecha = (iso: string | null | undefined): string => {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-
-const formatDuracion = (msOrInicio: string | null, fin?: string | null): string | null => {
-  if (!msOrInicio) return null;
-  const inicio = new Date(msOrInicio).getTime();
-  const hastaMs = fin ? new Date(fin).getTime() : Date.now();
-  const ms = hastaMs - inicio;
-  if (ms < 0) return null;
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  return h > 0 ? `${h}h ${m}min` : `${m}min`;
-};
-
-// ─── Helpers de estado / badges ───────────────────────────────────────────────
-
-const ESTADO_RUTA_STYLES: Record<string, string> = {
-  programada: 'bg-blue-100 text-blue-800',
-  en_curso:   'bg-amber-100 text-amber-800',
-  completada: 'bg-emerald-100 text-emerald-800',
-  cancelada:  'bg-slate-100 text-slate-800',
-};
-
-const ESTADO_RUTA_LABEL: Record<string, string> = {
-  programada: 'Programada',
-  en_curso:   'En curso',
-  completada: 'Completada',
-  cancelada:  'Cancelada',
-};
-
-const ESTADO_ODP_RUTA_STYLES: Record<string, string> = {
-  pendiente:  'bg-slate-100 text-slate-800',
-  en_curso:   'bg-amber-100 text-amber-800',
-  pausada:    'bg-violet-100 text-violet-800',
-  completada: 'bg-emerald-100 text-emerald-800',
-  con_dano:   'bg-orange-100 text-orange-800',
-};
-
 // Por qué una instalación quedó sin cerrar. Los códigos los calcula getODPsAtascadas
 // en el backend; aquí solo se traducen a lenguaje del jefe de producción.
+// (PAUSADA_SIN_RETOMAR dejó de existir el 2026-10-05: pausar saca la ODP de la ruta.)
 const MOTIVO_ATASCADA: Record<string, { label: string; cls: string; detalle: string }> = {
   INICIADA_SIN_FINALIZAR:    { label: 'Instalando sin finalizar', cls: 'bg-orange-100 text-orange-800', detalle: 'El instalador entró a la obra pero nunca finalizó en la app. La orden sigue abierta.' },
   RUTA_CERRADA_SIN_INSTALAR: { label: 'Ruta cerrada sin instalar', cls: 'bg-rose-100 text-rose-800',    detalle: 'El conductor cerró la ruta y esta parada nunca se atendió.' },
   DANO_SIN_RESOLVER:         { label: 'Daño sin resolver',        cls: 'bg-red-100 text-red-800',       detalle: 'Se reportó un daño en la instalación y sigue sin resolverse.' },
-  PAUSADA_SIN_RETOMAR:       { label: 'Pausada sin retomar',      cls: 'bg-violet-100 text-violet-800', detalle: 'La instalación se pausó y nunca se retomó.' },
   PARADA_VENCIDA:            { label: 'Parada vencida',           cls: 'bg-amber-100 text-amber-800',   detalle: 'La fecha programada ya pasó y la parada sigue pendiente.' },
   SIN_RUTA:                  { label: 'Sin ruta asociada',        cls: 'bg-slate-200 text-slate-800',   detalle: 'No tiene ninguna parada de ruta que pueda cerrarla.' },
-};
-
-const getTipoServicio = (odp: any) => {
-  if (odp?.instalacion && odp?.acarreo) return { label: 'Instalación + Acarreo', cls: 'bg-indigo-100 text-indigo-800', icon: '🔧' };
-  if (odp?.instalacion) return { label: 'Instalación', cls: 'bg-indigo-100 text-indigo-800', icon: '🔧' };
-  if (odp?.acarreo)     return { label: 'Acarreo', cls: 'bg-sky-100 text-sky-800', icon: '🚚' };
-  return { label: 'Entrega taller', cls: 'bg-slate-100 text-slate-800', icon: '📦' };
-};
-
-const getPagoBadge = (odp: any) => {
-  if (odp?.es_garantia)                          return { label: 'Garantía', cls: 'bg-blue-100 text-blue-800' };
-  if (odp?.estado_caja === 'CANCELADO')           return { label: '✓ Pagado', cls: 'bg-emerald-100 text-emerald-800' };
-  if (odp?.estado_caja === 'CREDITO_APROBADO')    return { label: 'Crédito', cls: 'bg-blue-100 text-blue-800' };
-  if (odp?.autorizacion_especial_despacho)        return { label: 'Autorización', cls: 'bg-purple-100 text-purple-800' };
-  return { label: 'Pago pendiente', cls: 'bg-amber-100 text-amber-800' };
-};
-
-// ─── Tarjeta de ruta ──────────────────────────────────────────────────────────
-
-const RutaCard: React.FC<{
-  ruta: any;
-  readOnly: boolean;
-  historial?: boolean;
-  onEditar?: (r: any) => void;
-  onCancelar?: (id: number) => void;
-  onFinalizar?: (rutaOdpId: number, numero: string) => void;
-  onPausar?: (rutaOdpId: number, numero: string) => void;
-  onVerODP?: (id: number) => void;
-}> = ({ ruta, readOnly, historial = false, onEditar, onCancelar, onFinalizar, onPausar, onVerODP }) => {
-  const [expandida, setExpandida] = useState(true);
-
-  const totalOdps      = ruta.ruta_odps?.length ?? 0;
-  const completadasOdp = ruta.ruta_odps?.filter((ro: any) => ro.estado === 'completada').length ?? 0;
-  const pct            = totalOdps > 0 ? Math.round((completadasOdp / totalOdps) * 100) : 0;
-
-  const duracion = ruta.estado === 'en_curso'
-    ? formatDuracion(ruta.inicio_ruta)
-    : ruta.estado === 'completada'
-    ? formatDuracion(ruta.inicio_ruta, ruta.fin_ruta)
-    : null;
-
-  const puedeEditar    = !readOnly && !historial && (ruta.estado === 'programada' || ruta.estado === 'en_curso');
-  const puedeCancelar  = puedeEditar;
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
-      {/* Header */}
-      <div className="p-4 space-y-2.5">
-        {/* Fila 1: estado + vehículo + conductor + fecha + acciones */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase ${ESTADO_RUTA_STYLES[ruta.estado] ?? 'bg-slate-100 text-slate-800'}`}>
-            {ESTADO_RUTA_LABEL[ruta.estado] ?? ruta.estado}
-          </span>
-          {ruta.vehiculo && (
-            <span className="flex items-center gap-1 text-xs text-slate-800">
-              <Truck className="w-3.5 h-3.5 text-slate-600" />{ruta.vehiculo.tipo} — {ruta.vehiculo.placa}
-            </span>
-          )}
-          {ruta.conductor && (
-            <span className="text-xs text-slate-800">🧑‍✈️ {ruta.conductor.nombre_completo}</span>
-          )}
-          <span className="text-xs text-slate-700 ml-auto flex items-center gap-1">
-            <Calendar className="w-3.5 h-3.5 text-slate-600" />{formatFecha(ruta.creado_en)}
-          </span>
-          {puedeEditar && (
-            <button onClick={() => onEditar?.(ruta)} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400" title="Editar ruta">
-              <Pencil className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {puedeCancelar && (
-            <button onClick={() => onCancelar?.(ruta.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400" title="Cancelar ruta">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <button onClick={() => setExpandida(v => !v)} className="p-1.5 rounded-lg hover:bg-slate-50 text-slate-500">
-            {expandida ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-
-        {/* Fila 2: oficial + instaladores */}
-        {(ruta.oficial || ruta.instaladores?.length > 0) && (
-          <div className="flex flex-wrap gap-3 text-xs">
-            {ruta.oficial && (
-              <span className="flex items-center gap-1 text-indigo-800 font-semibold">
-                ⭐ Oficial: {ruta.oficial.nombre_completo}
-              </span>
-            )}
-            {ruta.instaladores?.length > 0 && (
-              <span className="flex items-center gap-1 text-slate-800">
-                <Users className="w-3.5 h-3.5 text-slate-600" />
-                {ruta.instaladores.map((i: any) => i.nombre_completo).join(', ')}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Fila 3: progreso + duración */}
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <div className="flex justify-between text-[11px] mb-1">
-              <span className="text-slate-700">{completadasOdp}/{totalOdps} ODPs completadas</span>
-              <span className="font-bold text-slate-900">{pct}%</span>
-            </div>
-            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-indigo-400'}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-          {duracion && (
-            <span className="text-xs font-semibold text-slate-700 whitespace-nowrap flex items-center gap-1">
-              ⏱ {ruta.estado === 'en_curso' ? `En ruta: ${duracion}` : `Duración: ${duracion}`}
-            </span>
-          )}
-        </div>
-
-        {/* Fila 4: contexto — por qué sigue acá */}
-        <p className="text-xs text-slate-700 flex items-center gap-1.5">
-          <Info className="w-3.5 h-3.5 shrink-0" />
-          {ruta.estado === 'en_curso'
-            ? `En ruta · Conductor: ${ruta.conductor?.nombre_completo || 'Sin conductor asignado'} · Faltan ${totalOdps - completadasOdp} de ${totalOdps} parada${totalOdps === 1 ? '' : 's'}`
-            : `Agendada para el ${ruta.ruta_odps?.[0]?.fecha_programada ?? '—'} · Conductor: ${ruta.conductor?.nombre_completo || 'Sin conductor asignado'} · Faltan ${totalOdps - completadasOdp} de ${totalOdps} parada${totalOdps === 1 ? '' : 's'}`}
-        </p>
-      </div>
-
-      {/* ODPs en la ruta */}
-      {expandida && (
-        <div className="divide-y divide-slate-50 border-t border-slate-100">
-          {(ruta.ruta_odps ?? []).map((ro: any) => {
-            const tipo = getTipoServicio(ro.odp);
-            const pago = getPagoBadge(ro.odp);
-            return (
-              <div key={ro.id} className="flex items-start gap-3 px-4 py-3">
-                <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-900 text-xs flex items-center justify-center font-bold flex-shrink-0 mt-0.5">
-                  {ro.orden}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className="text-sm font-bold text-slate-900 hover:text-indigo-700 cursor-pointer hover:underline underline-offset-2"
-                      onClick={() => ro.odp?.id && onVerODP?.(ro.odp.id)}
-                    >
-                      {ro.odp?.numero_odp}
-                    </span>
-                    <span className="text-sm font-medium text-slate-900 truncate">{ro.odp?.cliente?.nombre_razon_social}</span>
-                  </div>
-                  {ro.odp?.direccion_instalacion && (
-                    <p className="text-xs text-slate-700 flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3 flex-shrink-0 text-rose-500" />
-                      {ro.odp.direccion_instalacion}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${tipo.cls}`}>
-                      {tipo.icon} {tipo.label}
-                    </span>
-                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${pago.cls}`}>
-                      {pago.label}
-                    </span>
-                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase ${ESTADO_ODP_RUTA_STYLES[ro.estado] ?? ''}`}>
-                      {ro.estado?.replace('_', ' ')}
-                    </span>
-                    {ro.fecha_programada && (
-                      <span className="text-[11px] text-slate-700 flex items-center gap-0.5">
-                        <Calendar className="w-2.5 h-2.5" />{ro.fecha_programada}
-                      </span>
-                    )}
-                  </div>
-                  {ro.estado === 'pausada' && ro.motivo_pausa && (
-                    <p className="text-xs text-violet-800 mt-1 flex items-start gap-1">
-                      <PauseCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                      {ro.motivo_pausa}
-                    </p>
-                  )}
-                </div>
-
-                {/* Acciones por ODP */}
-                {!readOnly && !historial && (
-                  <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
-                    {ro.estado === 'en_curso' && (
-                      <button
-                        onClick={() => onPausar?.(ro.id, ro.odp?.numero_odp)}
-                        className="p-1 rounded hover:bg-violet-50 text-violet-400 hover:text-violet-600"
-                        title="Pausar instalación"
-                      >
-                        <PauseCircle className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {ro.estado === 'en_curso' && (
-                      <button
-                        onClick={() => onFinalizar?.(ro.id, ro.odp?.numero_odp)}
-                        className="p-1 rounded hover:bg-emerald-50 text-emerald-400 hover:text-emerald-600"
-                        title="Registrar entrega"
-                      >
-                        <PackageCheck className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {ruta.observaciones && (
-        <div className="px-4 py-2 bg-amber-50 border-t border-amber-100">
-          <p className="text-xs text-amber-700">{ruta.observaciones}</p>
-        </div>
-      )}
-    </div>
-  );
 };
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -311,7 +62,6 @@ const RutaCard: React.FC<{
 const ROLES_PENDIENTES_CIERRE = ['root', 'admin', 'gerencia', 'jefe_produccion', 'produccion'];
 
 type MainTab = 'agenda' | 'listos' | 'pago' | 'factura' | 'produccion' | 'programados' | 'completados' | 'instaladores' | 'atascadas';
-type SubTabProg = 'programada' | 'en_curso';
 type SubTabComp = 'completadas' | 'canceladas';
 
 const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
@@ -381,6 +131,14 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Tiempo real: el backend emite 'rutas' en cada cambio de rutas, paradas o agenda
+  // (emitirCambioRutas). El hook espera 600 ms y no recarga con la pestaña oculta.
+  const refrescarPorSocket = useCallback(() => {
+    cargar();
+    if (mainTab === 'completados') cargarHistorial(fechaDesde, fechaHasta);
+  }, [cargar, cargarHistorial, mainTab, fechaDesde, fechaHasta]);
+  useDataChangedSocket('rutas', refrescarPorSocket);
+
   useEffect(() => {
     if (mainTab === 'completados') {
       setHistorialCargado(false);
@@ -448,10 +206,29 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     setShowModal(true);
   };
   const handleCancelar = async (rutaId: number) => {
-    if (!window.confirm('¿Cancelar esta ruta? Las ODPs volverán a "Listo para instalar".')) return;
+    if (!window.confirm(`¿Cancelar la ruta #${rutaId}? Sus ODPs pendientes volverán a "Listo para instalar".`)) return;
     try { await axios.delete(`${API}/api/rutas/${rutaId}`, { headers }); toast.success('Ruta cancelada'); cargar(); }
     catch (e: any) { toast.error(e.response?.data?.error || 'Error al cancelar'); }
   };
+  // Unir: cada origen se mueve a la destino con su propia llamada (cada una es atómica en el
+  // backend). Si una falla, las anteriores ya quedaron unidas y la pantalla se recarga igual.
+  const handleUnir = async (destino: any, origenes: any[]) => {
+    const lista = origenes.map((o) => `#${o.id}`).join(', ');
+    if (!window.confirm(`¿Unir ${origenes.length === 1 ? 'la ruta' : 'las rutas'} ${lista} en la ruta #${destino.id}?\n\nSus paradas pasan al final de la ruta #${destino.id}, se suma su personal y ${origenes.length === 1 ? 'esa ruta queda cancelada' : 'esas rutas quedan canceladas'}. Las ODPs siguen programadas.`)) return;
+    let unidas = 0;
+    try {
+      for (const o of origenes) {
+        await axios.post(`${API}/api/rutas/${destino.id}/unir`, { origen_id: o.id }, { headers });
+        unidas += 1;
+      }
+      toast.success(`Rutas unidas en la #${destino.id}`);
+    } catch (e: any) {
+      toast.error(`${unidas ? `Se unieron ${unidas} de ${origenes.length}. ` : ''}${e.response?.data?.error || 'No se pudieron unir las rutas.'}`);
+    } finally {
+      cargar();
+    }
+  };
+
   const handleFinalizarODP = (rutaOdpId: number, numeroOdp: string) => {
     setFotosFinalizar([]);
     setDatosReceptor('');
@@ -541,7 +318,6 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   // Rutas por sub-tab, ya filtradas por la búsqueda
   const rutasProgFiltradas = { programada: filtrarRutas(rutasProgramadas), en_curso: filtrarRutas(rutasEnCurso) };
   const rutasCompFiltradas = { completadas: filtrarRutas(rutasCompletadas), canceladas: filtrarRutas(rutasCanceladas) };
-  const rutasProg = rutasProgFiltradas[subTabProg];
   const rutasComp = rutasCompFiltradas[subTabComp];
 
   // Coincidencias por pestaña (solo con búsqueda activa). Agenda e Instaladores no participan:
@@ -668,13 +444,18 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                       >
                         {odp.numero_odp}
                       </span>
-                      {odp.es_garantia && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800">🛡 Garantía</span>}
-                      {!odp.es_garantia && (
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase ${odp.estado_caja === 'CANCELADO' ? 'bg-emerald-100 text-emerald-800' : odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
-                          {odp.estado_caja === 'CANCELADO' ? 'Pagado' : odp.estado_caja === 'CREDITO_APROBADO' ? 'Crédito' : odp.estado_caja}
+                      {(() => { const pago = estadoPago(odp); return (
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${TONO_CLS[pago.tono]}`}>{pago.label}</span>
+                      ); })()}
+                      {odp.ultima_pausa && (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-violet-800 flex items-center gap-1"
+                          title={odp.ultima_pausa.motivo_pausa ? `Motivo: ${odp.ultima_pausa.motivo_pausa}` : undefined}
+                        >
+                          <PauseCircle className="w-3 h-3" />
+                          Pausada en Ruta #{odp.ultima_pausa.ruta_id} — retomar
                         </span>
                       )}
-                      {odp.autorizacion_especial_despacho && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-800">Autorización especial</span>}
                       {odp.agenda && (
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800 flex items-center gap-1">
                           <Calendar className="w-2.5 h-2.5" />
@@ -684,6 +465,9 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                       {mainTab === 'factura' && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-800">Sin factura</span>}
                     </div>
                     <p className="text-sm text-slate-900 font-semibold">{odp.cliente?.nombre_razon_social}</p>
+                    {odp.ultima_pausa?.motivo_pausa && (
+                      <p className="text-xs text-violet-800 mt-0.5">Motivo de la pausa: «{odp.ultima_pausa.motivo_pausa}»</p>
+                    )}
                     {odp.direccion_instalacion && (
                       <p className="text-xs text-slate-800 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3 text-rose-500" />{odp.direccion_instalacion}</p>
                     )}
@@ -714,38 +498,15 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
 
         {/* ── Contenido tab Programados ── */}
         {mainTab === 'programados' && (
-          <div className="p-4 space-y-4">
-            {/* Sub-tabs */}
-            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
-              {([
-                { key: 'programada', label: 'Programada', count: rutasProgFiltradas.programada.length, cls: 'text-blue-700 bg-white' },
-                { key: 'en_curso',   label: 'En curso',   count: rutasProgFiltradas.en_curso.length,   cls: 'text-amber-700 bg-white' },
-              ] as const).map(st => (
-                <button
-                  key={st.key}
-                  onClick={() => setSubTabProg(st.key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${subTabProg === st.key ? st.cls + ' shadow-sm' : 'text-slate-700 hover:text-slate-900'}`}
-                >
-                  {st.label}
-                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${subTabProg === st.key ? 'bg-slate-100' : 'bg-slate-200 text-slate-700'}`}>
-                    {st.count}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {loading ? (
-              <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600" /></div>
-            ) : rutasProg.length === 0 ? (
-              <div className="py-10 text-center text-slate-700 text-sm">
-                {q ? 'Sin resultados para la búsqueda.' : `No hay rutas ${subTabProg === 'programada' ? 'programadas' : 'en curso'}.`}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {rutasProg.map((r: any) => <RutaCard key={r.id} ruta={r} {...propsRutaCard} />)}
-              </div>
-            )}
-          </div>
+          <ProgramadosTab
+            rutasFiltradas={rutasProgFiltradas}
+            subTab={subTabProg}
+            onSubTab={setSubTabProg}
+            loading={loading}
+            hayBusqueda={!!q}
+            cardProps={propsRutaCard}
+            onUnir={handleUnir}
+          />
         )}
 
         {/* ── Contenido tab Pendientes de cierre ── */}
@@ -1064,7 +825,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
               </div>
               <div>
                 <p className="font-bold text-slate-900 text-sm">Pausar instalación</p>
-                <p className="text-xs text-slate-700">{pauseModal.numeroOdp} — La ODP volverá a "Listo para instalar"</p>
+                <p className="text-xs text-slate-700">{pauseModal.numeroOdp} — Sale de esta ruta y vuelve a la bandeja para programarse de nuevo</p>
               </div>
             </div>
             <div>

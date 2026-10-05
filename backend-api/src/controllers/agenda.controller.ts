@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Op, QueryTypes } from 'sequelize';
 import { z } from 'zod';
 import { AgendaInstalacion, ODP, Cliente, sequelize } from '../models';
+import { emitirCambioRutas } from '../utils/notificaciones';
 
 // ─── Elegibilidad ─────────────────────────────────────────────────────────────
 // La agenda es planeación tentativa: acepta las tres pestañas que ya están
@@ -15,12 +16,14 @@ import { AgendaInstalacion, ODP, Cliente, sequelize } from '../models';
 const requiereServicio = (o: any) => o.instalacion === true || o.acarreo === true;
 
 // Verifica que la ODP no esté tomada por una ruta activa (no cancelada/completada).
+// Una parada 'pausada' no la toma: desde el 2026-10-05 pausar saca la ODP de la ruta
+// (ver docs/modulos/rutas-instalaciones.md § Pausa).
 const estaEnRutaActiva = async (odpId: number): Promise<boolean> => {
   const filas: any[] = await sequelize.query(
     `SELECT 1 FROM ruta_odp ro
      JOIN rutas_instalacion ri ON ri.id = ro.ruta_id
      WHERE ro.odp_id = :oid
-       AND ro.estado IN ('pendiente', 'en_curso', 'pausada')
+       AND ro.estado IN ('pendiente', 'en_curso')
        AND ri.estado NOT IN ('cancelada', 'completada')
      LIMIT 1`,
     { replacements: { oid: odpId }, type: QueryTypes.SELECT }
@@ -137,6 +140,7 @@ export const colocarEnAgenda = async (req: Request, res: Response) => {
     }
 
     const completa = await AgendaInstalacion.findByPk((entrada as any).id, { include: INCLUDE_ODP_AGENDA });
+    emitirCambioRutas();
     res.status(existente ? 200 : 201).json(completa);
   } catch (e: any) {
     if (e instanceof z.ZodError) return res.status(400).json({ error: 'Datos inválidos', detalles: e.issues });
@@ -170,6 +174,7 @@ export const actualizarAgenda = async (req: Request, res: Response) => {
     if (Object.keys(upd).length) await entrada.update(upd);
 
     const completa = await AgendaInstalacion.findByPk(id, { include: INCLUDE_ODP_AGENDA });
+    emitirCambioRutas();
     res.json(completa);
   } catch (e: any) {
     if (e instanceof z.ZodError) return res.status(400).json({ error: 'Datos inválidos', detalles: e.issues });
@@ -192,6 +197,7 @@ export const reordenarAgenda = async (req: Request, res: Response) => {
       await AgendaInstalacion.update({ orden: it.orden }, { where: { id: it.id }, transaction: t });
     }
     await t.commit();
+    emitirCambioRutas();
     res.json({ ok: true });
   } catch (e: any) {
     await t.rollback();
@@ -209,6 +215,7 @@ export const quitarDeAgenda = async (req: Request, res: Response) => {
     const entrada = (await AgendaInstalacion.findByPk(id)) as any;
     if (!entrada) return res.status(404).json({ error: 'Entrada de agenda no encontrada' });
     await entrada.destroy();
+    emitirCambioRutas();
     res.json({ ok: true });
   } catch (e: any) {
     console.error('quitarDeAgenda:', e.message);

@@ -6493,3 +6493,34 @@ consigna de simplicidad y pocos pasos.
 - **Pendientes:** prueba manual en navegador (listado, ficha, OP impresa, Producción, JefeView, Dashboard);
   decisión de negocio sobre el significado de `fecha_entrega` y la definición única de "atrasada"
   (`TECH_DEBT.md` 2026-10-05); commit + push cuando el usuario lo ordene.
+
+---
+
+## 2026-10-05 — Instalaciones: pestaña Programados, pausa que saca la ODP de la ruta, unir rutas y Hoja de Ruta
+
+- **Análisis:** de las 3 rutas "En curso", ninguna tenía actividad (#322 con su parada completada; #393 y #505 solo con
+  paradas pausadas), y la #411 "Programada" ya había terminado. ODP-24203 y ODP-24313 no aparecían en ninguna
+  bandeja: la parada pausada seguía ocupando una ruta activa. ODP-24345 salía como "Pago pendiente" siendo
+  `forma_pago='credito'`. 474 de 515 rutas tienen una sola parada: el equipo crea una ruta por ODP.
+- **Decisiones del usuario:** el conductor es opcional; **pausar saca la ODP de la ruta** (opción A); el choque de
+  equipo solo avisa y sugiere unir; entran la vista por equipo y la Hoja de Ruta; se autorizó el script de limpieza.
+- **Backend (`rutas.controller.ts`):** `PARADAS_VIVAS` sin `pausada`; `pausarInstalacion` cierra la ruta si no le
+  queda nada vivo; `iniciarInstalacion` solo desde `pendiente`; `getODPsParaGestion` devuelve `ultima_pausa`;
+  pendientes de cierre ignoran la pausada (`PAUSADA_SIN_RETOMAR` retirado); crear y editar con Zod `.strict()`,
+  `validarODPsLibres` (409) y guardas de estado; `liberarODPsDeRuta` con historial y notificación al quitar o
+  cancelar (ya no pisa ODPs que no están en `PROGRAMADA` ni libera las `con_dano`); nuevo `POST /:id/unir`;
+  `emitirCambioRutas()` en todas las escrituras (también agenda). `INCLUDE_RUTA_LISTA` suma forma de pago,
+  facturación, contacto en obra y descripción. Errores 500 sin `e.message` crudo.
+- **Frontend:** `RutaCard` y `ProgramadosTab` nuevos (lista agrupada por día con vencidas en rojo; vista Por equipo
+  con Hoja de Ruta y "Unir en una ruta"); `utils/estadoInstalacion.ts` (espejo de `PAGO_OK`/`FACTURA_OK`) y
+  `utils/hojaRuta.ts`; bandeja con etiqueta "Pausada en Ruta #X — retomar"; aviso de choque en `ProgramarRutaModal`
+  con "Agregar a la ruta #X" y aviso de ruta sin oficial; socket `rutas` en JefeView, InstaladorGestionTab,
+  InstaladorView y ConductorView (las dos últimas escuchaban `compras`).
+- **BD:** sin cambios de esquema. Script `2026-10-05_cerrar_rutas_sin_pendientes.ts` **aplicado**: 4 rutas cerradas
+  (#322, #393, #411, #505); una segunda corrida no encuentra nada. Ninguna ODP sale de "Pendientes de cierre" por el
+  cambio de regla.
+- **Verificación:** `tsc` backend OK; `tsc`, ESLint y build de producción del frontend OK; consultas nuevas
+  (asignación del instalador y pausas por retomar) probadas en solo lectura contra la BD. Sin prueba en navegador.
+- **Pendientes:** prueba manual en navegador (crear con choque y "agregar a ruta", unir, pausar parada intermedia y
+  última, cancelar, Hoja de Ruta, refresco con dos pestañas); decidir las 28 paradas pendientes en rutas completadas
+  y rastrear ODP-24276 (`TECH_DEBT.md` 2026-10-05); commit + push cuando el usuario lo ordene.

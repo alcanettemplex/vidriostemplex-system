@@ -4,6 +4,29 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-10-05 — Instalaciones: 28 paradas `pendiente` en rutas ya completadas
+
+**Severidad:** Baja · **Estimación:** 30 min (script de vista previa + decisión)
+
+El conductor cerró esas rutas (`terminarRutaConductor`) sin que la parada se atendiera; la parada
+quedó `pendiente` para siempre (p. ej. ODP-24345 en la ruta #516, hoy reprogramada en la #520). Desde
+el 2026-10-05 no bloquean nada —las validaciones de programar solo miran rutas abiertas—, pero
+`getAsignacionInstalador` las lista en "Pendientes" del instalador. Opciones: marcarlas con un estado
+de cierre (no hay `cancelada` en el ENUM de `ruta_odp`: requeriría ALTER TYPE + CHECK) o filtrar por
+`ruta.estado` en esa consulta. Decidir con el usuario.
+
+---
+
+## 2026-10-05 — ODP-24276 en INSTALADA aunque su historial termina en ENTREGADA
+
+**Severidad:** Baja · **Estimación:** 30 min de rastreo
+
+El historial registra `PROGRAMADA → ENTREGADA` (cierre administrativo, 2026-09-02) y nada después,
+pero la ODP está en `INSTALADA`. Algún camino cambió `estado_produccion` sin escribir
+`historial_estados_odp`. Rastrear en `auditoria_log` (tabla `odp`) quién y desde dónde.
+
+---
+
 ## 2026-10-04 — Cotizador: precios raros que pesan en los productos nuevos y colores faltantes
 
 **Severidad:** Media (precio al cliente) · **Estimación:** revisión del usuario en Proveedores, sin código
