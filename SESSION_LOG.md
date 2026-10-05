@@ -6404,3 +6404,19 @@ consigna de simplicidad y pocos pasos.
   Materiales y cantidades sin cambio; la frase comercial cita la configuración ("… (OPO)"). Suite
   `pergolaDivision` 18/18; navegador 11/11 sin escrituras.
 
+
+## 2026-10-05 — Instalaciones: llamar y WhatsApp al contacto en obra
+
+- **Pedido:** en las vistas de conductor e instalador, mostrar el número del contacto en obra con
+  botones de llamar y WhatsApp. Decisiones del usuario: el número es `odp.telefono_recibe` (sin
+  respaldo al teléfono del cliente); mensaje de WhatsApp listo, distinto según el rol (conductor "Vamos
+  en camino", instalador "Estamos por llegar"); en el instalador solo se **agrega** WhatsApp, el botón
+  de llamar existente (con respaldo al cliente) no se toca.
+- **Frontend:** `utils/telefono.ts` nuevo (`telefonoWhatsApp` movido desde `cotizador/documentos.ts`
+  sin cambio de comportamiento, + `primerTelefono`, `celularWhatsApp`, `abrirChatWhatsApp`). Icono
+  `WhatsApp` en el registro. `ConductorView`: bloque `ContactoObra` bajo la dirección, solo en la
+  asignación activa. `InstaladorView`: botón WhatsApp bajo el de llamar, oculto en historial/completadas.
+- **Casos borde:** fijo (60X…) → sin WhatsApp; dos números en el campo → se usa el primero; sin
+  `telefono_recibe` → no aparece. Backend sin cambios (ambos endpoints ya enviaban el campo).
+- **Verificación:** `tsc` OK, dev server sin advertencias, helpers probados con 9 formatos de número.
+  Pendiente: probar en un celular real con una ruta activa.

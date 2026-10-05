@@ -203,6 +203,7 @@ import {
     HandIcon,
     LinkBreakIcon,
     ArrowUUpRightIcon,
+    WhatsappLogoIcon,
 } from '@phosphor-icons/react';
 
 export type { Icon as IconComponent, IconProps, IconWeight } from '@phosphor-icons/react';
@@ -410,4 +411,6 @@ export {
     HandIcon as Hand,
     LinkBreakIcon as LinkBreak,
     ArrowUUpRightIcon as Redo2,
+    // Instalaciones (2026-10-05): escribir al contacto en obra.
+    WhatsappLogoIcon as WhatsApp,
 };

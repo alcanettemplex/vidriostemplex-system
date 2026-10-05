@@ -6,8 +6,9 @@ import {
   MapPin, Truck, Users, CheckCircle2, Clock,
   RefreshCw, LogIn, Printer, FileText, LayoutDashboard,
   History, Calendar, TrendingUp, Star, Award,
-  Target, Zap, Flag, Search
+  Target, Zap, Flag, Search, Phone, WhatsApp
 } from '../../../components/ui/icons';
+import { abrirChatWhatsApp, celularWhatsApp, primerTelefono } from '../../../utils/telefono';
 import PrintableProduccion from '../../odp/components/PrintableProduccion';
 import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
@@ -383,6 +384,38 @@ const RutaCard = ({ ruta, onIniciar, onTerminar, registrarLlegada, abrirDocument
   );
 };
 
+/** Contacto en obra con llamar y WhatsApp. WhatsApp solo si el número es un
+ * celular: con un fijo `wa.me` no abre chat. */
+const ContactoObra = ({ odp }: { odp: { numero_odp: string; nombre_recibe?: string | null; telefono_recibe: string } }) => {
+  const telefono = primerTelefono(odp.telefono_recibe);
+  const whatsapp = celularWhatsApp(telefono);
+  const mensaje = `Hola, le escribimos de Vidrios Templex por la instalación ${odp.numero_odp}. Vamos en camino.`;
+
+  return (
+    <div className="bg-white p-3 rounded-2xl border border-slate-200 space-y-2">
+      <div className="min-w-0">
+        <p className="text-[11px] text-slate-900 font-semibold flex items-center gap-1 mb-1 uppercase tracking-wider">
+          <Phone className="w-3.5 h-3.5 text-emerald-700" /> Contacto en obra
+        </p>
+        {odp.nombre_recibe && <p className="text-sm text-slate-900 truncate">{odp.nombre_recibe}</p>}
+        <p className="text-base font-bold text-slate-900">{telefono}</p>
+      </div>
+      <div className="flex gap-2">
+        <a href={`tel:${telefono.replace(/[^\d+]/g, '')}`}
+          className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wide transition-colors">
+          <Phone className="w-4 h-4" /> Llamar
+        </a>
+        {whatsapp && (
+          <button type="button" onClick={() => abrirChatWhatsApp(whatsapp, mensaje)}
+            className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 text-xs font-bold uppercase tracking-wide transition-colors">
+            <WhatsApp className="w-4 h-4" /> WhatsApp
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const StopItem = ({ stop, idx, registrarLlegada, abrirDocumento, abrirMapa, enCurso, loading }: any) => {
   const isDone = !!stop.llegada_conductor;
   const odp = stop.odp;
@@ -409,6 +442,12 @@ const StopItem = ({ stop, idx, registrarLlegada, abrirDocumento, abrirMapa, enCu
             <p className="text-[11px] text-slate-900 font-semibold flex items-center gap-1 mb-1 uppercase tracking-wider"><MapPin className="w-3.5 h-3.5 text-rose-600" /> Dirección</p>
             <p className="text-sm text-slate-900 line-clamp-2">{odp.direccion_instalacion}</p>
           </div>
+        )}
+
+        {/* Solo en la asignación activa (mismo criterio que los documentos): el
+            payload del historial no trae el contacto y la ruta ya está cerrada. */}
+        {abrirDocumento && odp?.telefono_recibe && (
+          <ContactoObra odp={odp} />
         )}
       </div>
 

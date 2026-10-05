@@ -2,6 +2,7 @@ import { toast } from 'react-toastify';
 
 import { apiDescargarPdfPropuesta } from './services/cotizadorApi';
 import { numeroCotizacion } from './format';
+import { telefonoWhatsApp } from '../../utils/telefono';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enviar la cotización al cliente (2026-10-01): PDF y WhatsApp.
@@ -42,14 +43,6 @@ export async function descargarPdfPropuesta(cotizacionId: number, propuestaId: n
         toast.error('No se pudo generar el PDF de la cotización. Inténtalo de nuevo en un momento.');
         return false;
     }
-}
-
-/** Teléfono para `wa.me`: solo dígitos, con el 57 de Colombia si viene un
- * celular de 10 cifras sin indicativo. Vacío si no hay número utilizable. */
-export function telefonoWhatsApp(telefono: string | null | undefined): string {
-    const digitos = String(telefono ?? '').replace(/\D/g, '');
-    if (digitos.length === 10 && digitos.startsWith('3')) return `57${digitos}`;
-    return digitos.length >= 10 ? digitos : '';
 }
 
 /** Si la opción que se envía lleva instalación. Lo dice la casilla "Con

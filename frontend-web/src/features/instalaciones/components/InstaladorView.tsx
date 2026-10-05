@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin, FileText, CheckCircle2, Phone,
   AlertTriangle, RefreshCw, Printer, LayoutDashboard, History, Calendar, TrendingUp,
-  Award, Target, Zap, ShieldCheck, Camera, PauseCircle, Search
+  Award, Target, Zap, ShieldCheck, Camera, PauseCircle, Search, WhatsApp
 } from '../../../components/ui/icons';
+import { abrirChatWhatsApp, celularWhatsApp } from '../../../utils/telefono';
 import ReportarEntregaModal from './ReportarEntregaModal';
 import ReportarDanoModal from './ReportarDanoModal';
 import PrintableProduccion from '../../odp/components/PrintableProduccion';
@@ -364,6 +365,8 @@ const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, onPausar, abri
   const esOficial = item.ruta?.oficial?.id === currentUserId;
 
   const telefono = odp?.telefono_recibe || odp?.cliente?.celular || odp?.cliente?.telefono;
+  // WhatsApp va solo al contacto en obra, sin el respaldo del cliente que sí usa "llamar".
+  const whatsappObra = celularWhatsApp(odp?.telefono_recibe);
 
   return (
     <div className={`bg-white rounded-3xl border-2 shadow-card overflow-hidden transition-all duration-300
@@ -427,6 +430,13 @@ const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, onPausar, abri
                 <p className="text-base font-bold text-emerald-900">{telefono}</p>
               </div>
             </a>
+          )}
+          {whatsappObra && !isHistory && !completada && (
+            <button type="button"
+              onClick={() => abrirChatWhatsApp(whatsappObra, `Hola, le escribimos de Vidrios Templex por la instalación ${odp.numero_odp}. Estamos por llegar.`)}
+              className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-3 bg-white rounded-2xl border border-emerald-300 hover:bg-emerald-50 text-emerald-800 text-xs font-bold uppercase tracking-wide transition-all">
+              <WhatsApp className="w-4 h-4" /> WhatsApp contacto en obra
+            </button>
           )}
           {item.ruta?.vehiculo && (
             <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-2xl text-xs font-semibold text-indigo-800 uppercase tracking-wider">
