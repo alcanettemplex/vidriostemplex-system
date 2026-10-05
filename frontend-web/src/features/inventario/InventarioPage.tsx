@@ -9,6 +9,7 @@ import { getCatalogoCached } from '../../services/listasCache';
 
 import API from '../../services/config';
 import { useSoloLectura } from '../../utils/permisos';
+import { hoyBogotaISO } from '../../utils/fechas';
 
 interface PerfilItem {
   id: number;
@@ -146,7 +147,7 @@ const InventarioPage: React.FC = () => {
     ws['!cols'] = [{ wch: 14 }, { wch: 40 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Reporte MM Perfilería');
-    const fecha = new Date().toISOString().split('T')[0];
+    const fecha = hoyBogotaISO();
     XLSX.writeFile(wb, `reporte_mm_perfileria_${fecha}.xlsx`);
   };
 
@@ -215,7 +216,7 @@ const InventarioPage: React.FC = () => {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
 
-      const fecha = new Date().toISOString().split('T')[0];
+      const fecha = hoyBogotaISO();
       XLSX.writeFile(wb, `inventario_perfileria_${fecha}.xlsx`);
     } catch {
       toast.error('Error al exportar el inventario');

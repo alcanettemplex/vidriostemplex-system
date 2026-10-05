@@ -13,6 +13,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import API from '../../services/config';
+import { hoyBogotaISO } from '../../utils/fechas';
 
 const fmtFecha = (f: string | null | undefined) => {
   if (!f) return '—';
@@ -180,17 +181,17 @@ const FacturasSalidasPage: React.FC = () => {
 
   const abrirCrearODP = (odp: ODPFacturada) => {
     setModalSA({ odp, esOA: false });
-    setFormSA({ numero: '', fecha: hoy.toISOString().split('T')[0] });
+    setFormSA({ numero: '', fecha: hoyBogotaISO() });
   };
 
   const abrirCrearOA = (oa: OAPendiente) => {
     setModalSA({ odp: oa as any, esOA: true });
-    setFormSA({ numero: '', fecha: hoy.toISOString().split('T')[0] });
+    setFormSA({ numero: '', fecha: hoyBogotaISO() });
   };
 
   const abrirCrearNc = (nc: ODPNoConformidad) => {
     setModalSA({ odp: nc, esOA: false });
-    setFormSA({ numero: '', fecha: hoy.toISOString().split('T')[0] });
+    setFormSA({ numero: '', fecha: hoyBogotaISO() });
   };
 
   const abrirEditar = (salida: SalidaAlmacen, esOA: boolean) => {

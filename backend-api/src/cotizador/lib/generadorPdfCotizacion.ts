@@ -274,10 +274,13 @@ export async function generarPdfCotizacion({
 }): Promise<Buffer> {
   const items = (propuesta.items ?? []).slice().sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
   const cargos = propuesta.cargos ?? [];
+  // Zona explícita: el PDF lo genera el servidor (Render, en UTC) y una cotización creada
+  // de noche salía con la fecha de mañana.
   const fecha = new Date(cotizacion.creadaEn).toLocaleDateString("es-CO", {
     day: "2-digit",
     month: "long",
     year: "numeric",
+    timeZone: "America/Bogota",
   });
   const variasOpciones = otrasPropuestas.length > 0;
   const folio = folioCotizacion(cotizacion.numero, propuesta.etiqueta, variasOpciones);

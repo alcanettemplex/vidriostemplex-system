@@ -5,6 +5,7 @@ import { X, DollarSign, Search, Loader2 } from '../../../../components/ui/icons'
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 import { RADIUS, FONT } from '../../styleTokens';
+import { hoyBogotaISO } from '../../../../utils/fechas';
 
 interface Proveedor { id: number; nombre_comercial: string; nit: string | null; }
 interface ProductoCatalogo { id: number; codigo: string; nombre: string; porcentaje_iva: number; es_aluminio: boolean; }
@@ -33,7 +34,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
     descripcion_proveedor: '',
     unidad_compra: 'UNIDAD',
     precio: '',
-    fecha_precio: new Date().toISOString().split('T')[0],
+    fecha_precio: hoyBogotaISO(),
   });
   const [guardando, setGuardando] = useState(false);
 

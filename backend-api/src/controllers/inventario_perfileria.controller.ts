@@ -3,6 +3,7 @@ import { Op, Transaction } from 'sequelize';
 import { z } from 'zod';
 import sequelize from '../config/database';
 import { InventarioPerfileria, CatalogoProducto } from '../models';
+import { hoyBogotaISO } from '../utils/fechas';
 
 export const getInventario = async (req: Request, res: Response) => {
   try {
@@ -114,7 +115,7 @@ export const bulkInsertPerfileria = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Se requiere al menos un ítem' });
 
     const maxConsecutivo = ((await InventarioPerfileria.max('consecutivo')) as number) || 0;
-    const hoy = new Date().toISOString().split('T')[0];
+    const hoy = hoyBogotaISO();
 
     const toInsert = items.map((item: any, idx: number) => ({
       consecutivo: maxConsecutivo + idx + 1,
@@ -196,7 +197,7 @@ export const bulkInsertManual = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Revisa el lote: cada fila necesita consecutivo (entero mayor que 0), código y longitud mayor que 0.' });
   }
   const { items } = parsed.data;
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = hoyBogotaISO();
 
   const rechazados: { consecutivo: number; motivo: string }[] = [];
   const vistos = new Set<number>();

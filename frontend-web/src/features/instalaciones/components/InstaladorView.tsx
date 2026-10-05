@@ -22,6 +22,7 @@ import { Images } from '../../../components/ui/icons';
 import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 
 import API from '../../../services/config';
+import { hoyBogotaISO, diaBogotaISO } from '../../../utils/fechas';
 
 const InstaladorView: React.FC = () => {
   const currentUser = useSelector((state: any) => state.auth.user);
@@ -57,8 +58,10 @@ const InstaladorView: React.FC = () => {
     const total = asignacion.length;
     const terminadas = asignacion.filter(a => a.estado === 'completada').length;
     const hoyCount = asignacion.filter(a => {
-        const d = new Date(a.fecha_programada || a.creado_en);
-        return d.toDateString() === new Date().toDateString();
+        // `fecha_programada` es un día de calendario ('YYYY-MM-DD'): con `new Date()` se leía
+        // en UTC, caía en el día anterior y el contador "Hoy" siempre daba 0.
+        const dia = a.fecha_programada ? a.fecha_programada.slice(0, 10) : (a.creado_en ? diaBogotaISO(a.creado_en) : null);
+        return dia === hoyBogotaISO();
     }).length;
     
     const efectividad = total > 0 ? Math.round((terminadas / total) * 100) : 100;

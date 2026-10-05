@@ -17,6 +17,7 @@ import {
 } from '../models';
 import { procesarBufferFactura, derivarCodigo, FacturaParseada } from '../utils/dianXmlParser';
 import { siguePrecios } from '../utils/proveedorReglas';
+import { hoyBogotaISO } from '../utils/fechas';
 import {
   resolverEquivalenciasPorCodigo,
   codigoEnOtroProducto,
@@ -297,7 +298,7 @@ async function vincularPendientePorRegla(
   const precio = aNumero(pendiente.getDataValue('precio_detectado'));
   let resultado: ResultadoPrecio = { cambio: false, anomalo: false, variacionPct: null, retroactivo: false };
   if (precio !== null && precio > 0) {
-    const fecha = aFechaISO(pendiente.getDataValue('fecha_deteccion')) || new Date().toISOString().split('T')[0];
+    const fecha = aFechaISO(pendiente.getDataValue('fecha_deteccion')) || hoyBogotaISO();
     resultado = await actualizarPrecio(pp, precio, fecha, {
       origen: 'FACTURA',
       registradoPor: userId,
@@ -1425,7 +1426,7 @@ export const agregarPrecioManual = async (req: Request, res: Response) => {
       return fallar(res, 404, 'El producto ya no está en el catálogo. Actualiza la búsqueda e inténtalo de nuevo.');
     }
 
-    const fechaVigencia = datos.fecha_precio ?? new Date().toISOString().split('T')[0];
+    const fechaVigencia = datos.fecha_precio ?? hoyBogotaISO();
 
     const [pp, creado] = await ProveedorProducto.findOrCreate({
       where: { proveedor_id, catalogo_producto_id: datos.catalogo_producto_id, unidad_compra: datos.unidad_compra },
@@ -1578,7 +1579,7 @@ export const editarPrecio = async (req: Request, res: Response) => {
 
     let resultado: ResultadoPrecio | null = null;
     if (datos.precio !== undefined) {
-      const fechaVigencia = datos.fecha_precio ?? new Date().toISOString().split('T')[0];
+      const fechaVigencia = datos.fecha_precio ?? hoyBogotaISO();
       resultado = await actualizarPrecio(pp, datos.precio, fechaVigencia, {
         origen: 'MANUAL',
         registradoPor: userId,
@@ -1800,7 +1801,7 @@ export const vincularPendiente = async (req: Request, res: Response) => {
 
     // La fecha vigente es la de la factura donde se detectó, no la de hoy
     const fechaFactura = aFechaISO(pendiente.getDataValue('fecha_deteccion'));
-    const fechaVigencia = datos.fecha_precio || fechaFactura || new Date().toISOString().split('T')[0];
+    const fechaVigencia = datos.fecha_precio || fechaFactura || hoyBogotaISO();
 
     const codigoPendiente = pendiente.getDataValue('codigo_proveedor');
 
@@ -2667,7 +2668,7 @@ export const importarListaPrecios = async (req: Request, res: Response) => {
     const unidadDefecto = (UNIDADES_COMPRA as readonly string[]).includes(unidadPedida) ? unidadPedida : 'UNIDAD';
 
     const fechaPedida = String(req.body?.fecha_lista ?? '');
-    const fechaLista = /^\d{4}-\d{2}-\d{2}$/.test(fechaPedida) ? fechaPedida : new Date().toISOString().split('T')[0];
+    const fechaLista = /^\d{4}-\d{2}-\d{2}$/.test(fechaPedida) ? fechaPedida : hoyBogotaISO();
 
     // ── 1. Localizar la fila de encabezados ────────────────────────────────────
     // Las listas de proveedor traen logo, título y notas antes de la tabla, así que

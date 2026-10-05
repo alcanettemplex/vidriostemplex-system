@@ -1,6 +1,7 @@
 import React from 'react';
 import { format, addMonths, isValid } from 'date-fns';
 import { TemplexLogo } from '../../../components/ui/TemplexLogo';
+import { diaCalendario, fmtFechaNumerica } from '../../../utils/fechas';
 
 interface PrintableGarantiaProps {
     odp?: any;       // ODP padre (para imprimir desde la ficha del padre)
@@ -11,17 +12,15 @@ const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp, garantia }) 
     // Si se pasa garantia directamente, usarla; si no, usar odp (compatibilidad con uso anterior)
     const src = garantia || odp;
 
-    const formatDate = (dateStr: string) => {
-        if (!dateStr) return '—';
-        const d = new Date(dateStr);
-        return isValid(d) ? format(d, 'dd/MM/yyyy') : '—';
-    };
+    // `fecha_entrega` (día de calendario) se lee sin convertir de zona; `fecha_creacion`
+    // (momento) en hora de Bogotá — `fmtFechaNumerica` aplica a cada una su regla.
+    const formatDate = (dateStr: string) => fmtFechaNumerica(dateStr, '—');
 
     // Vencimiento: 6 meses desde la fecha de instalación del padre
     const getExpiryDate = (dateStr: string) => {
         if (!dateStr) return '—';
-        const d = new Date(dateStr);
-        return isValid(d) ? format(addMonths(d, 6), 'dd/MM/yyyy') : '—';
+        const d = diaCalendario(dateStr);
+        return d && isValid(d) ? format(addMonths(d, 6), 'dd/MM/yyyy') : '—';
     };
 
     // Para la garantía el padre tiene la fecha de entrega/instalación original

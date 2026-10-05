@@ -33,6 +33,7 @@ import { generarNumeroODP } from '../utils/generarNumeroODP';
 import { propagarProveedorAPedidosPV, normalizarProveedor, mismoProveedor } from '../utils/pedidoPvCapacidad';
 import { evaluarListoInstalar, evaluarRetroceso } from '../utils/checksAutomaticos';
 import { codigosDeAluminio } from '../utils/sapAluminio';
+import { hoyBogotaISO, sumarDiasISO } from '../utils/fechas';
 import {
   construirWhereODP, includeBuscadorODP, mapearFilaBuscadorODP, calcularTotalesODP,
   CAMPOS_ORDEN_ODP,
@@ -1018,15 +1019,13 @@ export const updateODP = async (req: Request, res: Response) => {
     if (data.fecha_factura) {
       const formaPago = data.forma_pago || odp.getDataValue('forma_pago');
       if (formaPago === 'credito') {
-        const fechaFe = new Date(data.fecha_factura);
-        fechaFe.setDate(fechaFe.getDate() + 30);
-        (data as any).fecha_vencimiento_credito = fechaFe.toISOString().split('T')[0];
+        (data as any).fecha_vencimiento_credito = sumarDiasISO(String(data.fecha_factura), 30);
       }
     }
 
     // Registrar fecha cuando se activa chk_accesorios por primera vez
     if (data.chk_accesorios === true && !odp.getDataValue('fecha_chk_accesorios')) {
-      (data as any).fecha_chk_accesorios = new Date().toISOString().split('T')[0];
+      (data as any).fecha_chk_accesorios = hoyBogotaISO();
     }
 
     // Registrar fecha cada vez que se llega a LISTO_INSTALAR (manual o re-liberación)
@@ -1689,9 +1688,7 @@ export const facturarODP = async (req: Request, res: Response) => {
 
       // Calcular vencimiento a 30 días para ODPs de crédito
       if (data.fecha_factura && odp.getDataValue('forma_pago') === 'credito') {
-        const fechaFe = new Date(data.fecha_factura + 'T12:00:00.000Z');
-        fechaFe.setUTCDate(fechaFe.getUTCDate() + 30);
-        updates.fecha_vencimiento_credito = fechaFe.toISOString().split('T')[0];
+        updates.fecha_vencimiento_credito = sumarDiasISO(data.fecha_factura, 30);
       }
     } else {
       // Al revertir a PENDIENTE: no se permite si existen FE adicionales (dejarían montos

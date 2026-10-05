@@ -6,6 +6,7 @@ import {
 } from '../../components/ui/icons';
 
 import API from '../../services/config';
+import { hoyBogotaISO, sumarDiasISO } from '../../utils/fechas';
 const headers = () => ({
   'Content-Type': 'application/json',
   Authorization: `Bearer ${sessionStorage.getItem('token')}`,
@@ -16,28 +17,22 @@ const headers = () => ({
 const COP = (n: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 
+// Rangos rápidos en días de Bogotá (utils/fechas.ts). `toISOString()` convertía a UTC:
+// después de las 7 p.m. "hoy" era mañana y "fin del mes pasado" el día 1 del mes actual.
 function hoy() {
-  return new Date().toISOString().split('T')[0];
+  return hoyBogotaISO();
 }
 function hace7dias() {
-  const d = new Date();
-  d.setDate(d.getDate() - 6);
-  return d.toISOString().split('T')[0];
+  return sumarDiasISO(hoyBogotaISO(), -6);
 }
 function inicioMes() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  return `${hoyBogotaISO().slice(0, 8)}01`;
 }
 function inicioMesPasado() {
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  return `${sumarDiasISO(inicioMes(), -1).slice(0, 8)}01`;
 }
 function finMesPasado() {
-  const d = new Date();
-  d.setDate(0);
-  return d.toISOString().split('T')[0];
+  return sumarDiasISO(inicioMes(), -1);
 }
 
 // ─── Componentes base ─────────────────────────────────────────────────────────

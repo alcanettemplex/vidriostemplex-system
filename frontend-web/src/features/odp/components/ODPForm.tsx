@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
 import API from '../../../services/config';
+import { hoyBogotaISO } from '../../../utils/fechas';
 import PartirDeCotizacion, { DatosDeCotizacion } from '../../cotizador/components/PartirDeCotizacion';
 import { apiActualizarCotizacion } from '../../cotizador/services/cotizadorApi';
 import { numeroCotizacion } from '../../cotizador/format';
@@ -474,7 +475,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const [calY, calM] = calendarMes.split('-').map(Number);
     const calPrimerDia = new Date(calY, calM - 1, 1).getDay();
     const calTotalDias = new Date(calY, calM, 0).getDate();
-    const hoy = new Date().toISOString().split('T')[0];
+    const hoy = hoyBogotaISO();
 
     return (
         <>

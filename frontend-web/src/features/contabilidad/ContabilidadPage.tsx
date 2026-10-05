@@ -15,6 +15,7 @@ import {
 import { useDataChangedSocket, useODPSocketPatch } from '../../store/useSocketNotifications';
 
 import API from '../../services/config';
+import { diasHasta } from '../../utils/fechas';
 // Helpers y modales compartidos: los mismos que consume la ficha de la ODP.
 import {
   headers, fmt, fmtFecha, formatMiles, parseMiles, calcPendiente,
@@ -296,9 +297,8 @@ const ContabilidadPage: React.FC = () => {
   // ─── Datos derivados ─────────────────────────────────────────────────────
   const diasParaVencer = (o: any): number | null => {
     if (o.estado_caja !== 'CREDITO_APROBADO' || !o.fecha_vencimiento_credito) return null;
-    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-    const vence = new Date(o.fecha_vencimiento_credito); vence.setHours(0, 0, 0, 0);
-    return Math.ceil((vence.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+    // Día de calendario: `new Date()` lo leía en UTC y el crédito "vencía" un día antes.
+    return diasHasta(o.fecha_vencimiento_credito);
   };
 
   const rowColorCredito = (o: any): string => {

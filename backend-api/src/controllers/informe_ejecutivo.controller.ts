@@ -6,20 +6,20 @@ import {
 } from '../models';
 import sequelize from '../config/database';
 import { whereTieneFacturaEnRango, sqlFacturadoEnRango } from '../utils/facturacion';
+import {
+  hoyBogotaISO, sumarDiasISO, inicioDiaBogota, finDiaBogota, diaBogotaISO,
+  diaCalendarioISO, diferenciaDias,
+} from '../utils/fechas';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Días completos de Bogotá. Antes `new Date('YYYY-MM-DDT00:00:00')` se leía en la zona
+// del proceso: en Render (UTC) el rango empezaba a las 7 p.m. del día anterior.
 function parseDates(req: Request) {
-  const today = new Date();
-  const hastaStr = req.query.hasta as string;
-  const desdeStr = req.query.desde as string;
-  const hasta = hastaStr
-    ? new Date(hastaStr + 'T23:59:59')
-    : new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-  const desde = desdeStr
-    ? new Date(desdeStr + 'T00:00:00')
-    : new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6, 0, 0, 0);
-  return { desde, hasta };
+  const hoy = hoyBogotaISO();
+  const hastaStr = (req.query.hasta as string) || hoy;
+  const desdeStr = (req.query.desde as string) || sumarDiasISO(hoy, -6);
+  return { desde: inicioDiaBogota(desdeStr), hasta: finDiaBogota(hastaStr) };
 }
 
 function prevPeriod(desde: Date, hasta: Date) {
@@ -39,13 +39,15 @@ function buildBuscadorWhere(busqueda?: string) {
   return { numero_odp: { [Op.iLike]: `%${busqueda}%` } };
 }
 
+// Meses de Bogotá que toca el rango (el fin de un día de Bogotá ya es el día siguiente en UTC).
 function mesesEntre(desde: Date, hasta: Date) {
   const meses: { anio: number; mes: number }[] = [];
-  let d = new Date(desde.getFullYear(), desde.getMonth(), 1);
-  const fin = new Date(hasta.getFullYear(), hasta.getMonth(), 1);
-  while (d <= fin) {
-    meses.push({ anio: d.getFullYear(), mes: d.getMonth() + 1 });
-    d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  let [anio, mes] = diaBogotaISO(desde).split('-').map(Number);
+  const [anioFin, mesFin] = diaBogotaISO(hasta).split('-').map(Number);
+  while (anio < anioFin || (anio === anioFin && mes <= mesFin)) {
+    meses.push({ anio, mes });
+    mes++;
+    if (mes > 12) { mes = 1; anio++; }
   }
   return meses;
 }
@@ -55,7 +57,7 @@ export const getResumen = async (req: Request, res: Response) => {
   try {
     const { desde, hasta } = parseDates(req);
     const { prevDesde, prevHasta } = prevPeriod(desde, hasta);
-    const today = new Date();
+    const hoy = hoyBogotaISO();
     const asesorId = req.query.asesor_id ? Number(req.query.asesor_id) : null;
     const asesorFiltro = asesorId ? { asesor_id: asesorId } : {};
 
@@ -105,7 +107,7 @@ export const getResumen = async (req: Request, res: Response) => {
 
     const odps_atrasadas = await ODP.count({
       where: {
-        fecha_entrega: { [Op.lt]: today },
+        fecha_entrega: { [Op.lt]: hoy },
         estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR', 'ANULADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro
@@ -255,6 +257,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
   try {
     const { desde, hasta } = parseDates(req);
     const today = new Date();
+    const hoy = hoyBogotaISO();
     const asesorId = req.query.asesor_id ? Number(req.query.asesor_id) : null;
     const busqueda = req.query.busqueda as string | undefined;
     const asesorFiltro = asesorId ? { asesor_id: asesorId } : {};
@@ -355,7 +358,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
     // C) Atrasadas (fecha_entrega vencida, no entregadas)
     const atrasadas_raw = await ODP.findAll({
       where: {
-        fecha_entrega: { [Op.lt]: today },
+        fecha_entrega: { [Op.lt]: hoy },
         estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR', 'ANULADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro, ...buscadorFiltro,
@@ -366,7 +369,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
     });
 
     const atrasadasData = atrasadas_raw.map(o => {
-      const dias = Math.ceil((today.getTime() - new Date(o.getDataValue('fecha_entrega')).getTime()) / (1000 * 3600 * 24));
+      const dias = diferenciaDias(diaCalendarioISO(o.getDataValue('fecha_entrega')), hoy);
       return {
         id:               o.getDataValue('id'),
         numero_odp:       o.getDataValue('numero_odp'),
@@ -644,6 +647,7 @@ export const getRecomendaciones = async (req: Request, res: Response) => {
   try {
     const { desde, hasta } = parseDates(req);
     const today = new Date();
+    const hoy = hoyBogotaISO();
     const alertas: {
       nivel: 'critico' | 'moderado' | 'atencion';
       area:  'produccion' | 'comercial' | 'finanzas' | 'calidad';
@@ -655,7 +659,7 @@ export const getRecomendaciones = async (req: Request, res: Response) => {
     // ── PRODUCCIÓN ────────────────────────────────────────────
     const atrasadas_count = await ODP.count({
       where: {
-        fecha_entrega: { [Op.lt]: today },
+        fecha_entrega: { [Op.lt]: hoy },
         estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR', 'ANULADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
       },

@@ -32,6 +32,7 @@
  */
 import { Op, Transaction } from 'sequelize';
 import { ODP, ODPItem, SAP, SAPItem, TomaMedidas, PedidoPV, HistorialEstadoODP } from '../models';
+import { hoyBogotaISO } from './fechas';
 
 /** Estados en los que el taller está trabajando la orden. */
 export const ESTADOS_PRODUCTIVOS = ['MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS'];
@@ -322,7 +323,7 @@ export const recalcularChecksODP = async (
   const aEscribir: Record<string, unknown> = { ...cambios };
   // Paridad con updateODP: la fecha se sella la primera vez que se activa el check.
   if (cambios.chk_accesorios === true && !odp.getDataValue('fecha_chk_accesorios')) {
-    aEscribir.fecha_chk_accesorios = new Date().toISOString().split('T')[0];
+    aEscribir.fecha_chk_accesorios = hoyBogotaISO();
   }
   // update de instancia (no bulk) para que los hooks de auditoría disparen.
   await odp.update(aEscribir, { transaction });

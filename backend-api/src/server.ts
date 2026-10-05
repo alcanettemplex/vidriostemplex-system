@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import cron from 'node-cron';
 import { Op } from 'sequelize';
 import PedidoPV from './models/pedido_pv.model';
+import { hoyBogotaISO, sumarDiasISO } from './utils/fechas';
 import { precargar as precargarCotizador } from './cotizador/cache';
 
 const PORT = process.env.PORT || 3001;
@@ -91,14 +92,14 @@ export const cronPVStatus = {
 
 export const getWSCount = () => io.sockets.sockets.size;
 
-// ─── Cron: alertas de tardanza de pedidos PV (diario a las 8am) ─────────────
+// ─── Cron: alertas de tardanza de pedidos PV (diario a las 8am de Bogotá) ────
+// `timezone` explícito: sin él node-cron usa la zona del proceso, y en Render (UTC)
+// "las 8" eran las 3 a.m. de Bogotá.
 cron.schedule('0 8 * * *', async () => {
   cronPVStatus.ultima_ejecucion = new Date();
   cronPVStatus.error_mensaje = null;
   try {
-    const manana = new Date();
-    manana.setDate(manana.getDate() + 1);
-    const mananaStr = manana.toISOString().split('T')[0];
+    const mananaStr = sumarDiasISO(hoyBogotaISO(), 1);
 
     const pedidosPorVencer = await PedidoPV.findAll({
       where: {
@@ -134,7 +135,7 @@ cron.schedule('0 8 * * *', async () => {
     cronPVStatus.error_mensaje = err?.message || 'Error desconocido';
     console.error('[Cron PV] Error en alerta de tardanza:', err);
   }
-});
+}, { timezone: 'America/Bogota' });
 
 (async () => {
   try {

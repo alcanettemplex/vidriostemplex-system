@@ -374,7 +374,7 @@ Existen además dos listas más, menores: `ROLES_VALIDOS` en `server.ts` (12, in
 
 **Producción:**
 - Frontend: Cloudflare Pages — `https://vidriostemplex-system.pages.dev`
-- Backend: Docker multi-stage (node:20-alpine), puerto 3001
+- Backend: **Render** (configurado desde su panel; no hay `render.yaml` en el repo). `backend-api/Dockerfile` multi-stage (node:20-alpine), puerto 3001. **El servidor corre en UTC** — nada debe depender de la zona del proceso (ver "Fechas" en Convenciones de Código)
 - CORS HTTP: dominio exacto `https://vidriostemplex-system.pages.dev` + localhost
 - CORS WS: más restrictivo que HTTP
 
@@ -391,6 +391,11 @@ Existen además dos listas más, menores: `ROLES_VALIDOS` en `server.ts` (12, in
 ## Convenciones de Código
 
 **Fechas en BD:** filtros con raw SQL y cast `::date` — `DataTypes.DATE` mapea a `TIMESTAMPTZ`, no `DATE`.
+
+**Fechas — todo en hora de Bogotá (2026-10-05):** fuente única `utils/fechas.ts`, en backend y en frontend (espejo). Dos tipos y una regla para cada uno:
+- **Día de calendario** (`odp.fecha_entrega` —TIMESTAMPTZ, siempre a las 00:00 UTC—, todo `DATEONLY`: `fecha_factura`, vencimiento de crédito, fechas del Pedido PV, `fecha_programada`, agenda…): se muestra **sin convertir de zona** (`fmtDia`, `fmtDiaNumerico`, `diaCalendario`) y se compara contra `hoyBogotaISO()` como `'YYYY-MM-DD'`. **Nunca `new Date(v).toLocaleDateString()`**: lo lee como medianoche UTC y muestra un día menos.
+- **Momento con hora** (`fecha_creacion`, historial, pagos…): se muestra en Bogotá (`fmtMomento`; `fmtFecha` detecta el tipo cuando una pantalla mezcla los dos). Los cortes de día/mes se hacen en Bogotá: `rangoDiasBogota`, `rangoMesesBogota`, `construirFiltroFecha` (`utils/rangoFechas.ts`, con tipo `'dia'` para `fecha_entrega`), y en SQL `HOY_BOGOTA_SQL` / `diaBogotaSQL()` / `horaBogotaSQL()`.
+- **Prohibido** para calcular "hoy" o cortes: `new Date().toISOString().split('T')[0]`, `CURRENT_DATE`, `new Date(anio, mes, 1)` y `setHours` en el servidor (Render corre en UTC: cambian de día a las 7 p.m.). Los `cron.schedule` llevan `{ timezone: 'America/Bogota' }`. Detalle en `docs/modulos/odp.md` § Fechas.
 
 **Includes Sequelize:** al agregar campo a modelo, revisar TODOS los includes con `attributes: [...]` que retornan ese modelo y agregar el campo.
 

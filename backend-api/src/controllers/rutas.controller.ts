@@ -7,6 +7,7 @@ import {
 } from '../models';
 import Cliente from '../models/cliente.model';
 import { notificarCambioEstadoODP, emitirODPPatch } from '../utils/notificaciones';
+import { hoyBogotaISO, sumarDiasISO, rangoDiasBogota, HOY_BOGOTA_SQL, horaBogotaSQL } from '../utils/fechas';
 import { uploadConfig } from '../config/upload';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -379,20 +380,17 @@ export const getRutasHistorial = async (req: Request, res: Response) => {
       return;
     }
 
-    // Default: semana actual (lunes a domingo)
-    const hoy = new Date();
-    const diaSemana = hoy.getDay();
-    const difLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
-    const lunes = new Date(hoy);
-    lunes.setDate(hoy.getDate() + difLunes);
-    lunes.setHours(0, 0, 0, 0);
+    // Default: semana actual de Bogotá (lunes a domingo). Los días se cortan a medianoche
+    // de Bogotá: `creado_en` es un momento y el proceso corre en UTC en Render.
+    const hoy = hoyBogotaISO();
+    const diaSemana = new Date(`${hoy}T00:00:00Z`).getUTCDay();
+    const lunesISO = sumarDiasISO(hoy, diaSemana === 0 ? -6 : 1 - diaSemana);
+    const domingoISO = sumarDiasISO(lunesISO, 6);
 
-    const domingo = new Date(lunes);
-    domingo.setDate(lunes.getDate() + 6);
-    domingo.setHours(23, 59, 59, 999);
-
-    const desdeDate = desde ? new Date(`${desde}T00:00:00`) : lunes;
-    const hastaDate = hasta ? new Date(`${hasta}T23:59:59`) : domingo;
+    const { inicio: desdeDate, fin: hastaDate } = rangoDiasBogota(
+      desde ? String(desde) : lunesISO,
+      hasta ? String(hasta) : domingoISO,
+    );
 
     const includes = await INCLUDE_RUTA_LISTA();
     const rutas = await RutaInstalacion.findAll({
@@ -413,7 +411,7 @@ export const getRutasHistorial = async (req: Request, res: Response) => {
 export const getRutasProgramacion = async (req: Request, res: Response) => {
   try {
     const { fecha } = req.query;
-    const fechaBusqueda = fecha ? String(fecha) : new Date().toISOString().split('T')[0];
+    const fechaBusqueda = fecha ? String(fecha) : hoyBogotaISO();
 
     const rutas = await RutaInstalacion.findAll({
       where: { estado: { [Op.ne]: 'cancelada' } },
@@ -1051,7 +1049,7 @@ export const getMiRutaConductor = async (req: Request, res: Response) => {
          count(DISTINCT r.id)::int                                             AS total_rutas,
          count(DISTINCT r.id) FILTER (WHERE r.estado = 'completada')::int      AS rutas_terminadas,
          count(DISTINCT r.id) FILTER (
-           WHERE date_trunc('month', r.creado_en) = date_trunc('month', CURRENT_DATE)
+           WHERE date_trunc('month', ${horaBogotaSQL('r.creado_en')}) = date_trunc('month', ${HOY_BOGOTA_SQL})
          )::int                                                                AS rutas_mes,
          count(ro.id)::int                                                     AS total_paradas,
          count(ro.id) FILTER (WHERE ro.llegada_conductor IS NOT NULL)::int     AS paradas_llegadas
@@ -1415,7 +1413,7 @@ export const getODPsAtascadas = async (_req: Request, res: Response) => {
               u.nombre_completo AS asesor,
               p.ruta_odp_id, p.estado_parada, p.ruta_id, p.estado_ruta,
               p.fecha_programada, p.motivo_pausa, p.descripcion_dano,
-              (CURRENT_DATE - p.fecha_programada) AS dias_vencida,
+              (${HOY_BOGOTA_SQL} - p.fecha_programada) AS dias_vencida,
               CASE
                 WHEN o.estado_produccion = 'INSTALANDO'                 THEN 'INICIADA_SIN_FINALIZAR'
                 WHEN p.estado_parada = 'con_dano'                       THEN 'DANO_SIN_RESOLVER'
@@ -1436,7 +1434,7 @@ export const getODPsAtascadas = async (_req: Request, res: Response) => {
              OR (o.estado_produccion = 'PROGRAMADA'
                  AND (p.ruta_odp_id IS NULL
                    OR p.estado_ruta = 'cancelada'
-                   OR p.fecha_programada < CURRENT_DATE))
+                   OR p.fecha_programada < ${HOY_BOGOTA_SQL}))
                 -- (b) Terminó, pero dejó una parada de ruta abierta
              OR (o.estado_produccion = 'INSTALADA'
                  AND p.estado_parada IN ('pendiente', 'en_curso', 'pausada', 'con_dano'))

@@ -16,18 +16,23 @@ import {
 } from '../models';
 import sequelize from '../config/database';
 import { sqlCobradoEnRango } from '../utils/facturacion';
+import {
+  hoyBogotaISO, sumarDiasISO, mesActualBogota, rangoMesesBogota, inicioDiaBogota,
+  diaCalendarioISO, diferenciaDias, HOY_BOGOTA_SQL, diaBogotaSQL, horaBogotaSQL,
+} from '../utils/fechas';
 
 // ─── Helpers de periodo ───────────────────────────────────────────────────────
 
+// Los meses se cortan a medianoche de Bogotá, no a la del proceso: en Render (UTC)
+// `new Date(anio, mes, 1)` empezaba el mes a las 7 p.m. del día anterior. Ver utils/fechas.ts.
 function parsePeriod(req: Request) {
-  const today = new Date();
-  const mesInicio  = parseInt(req.query.mes_inicio  as string) || (today.getMonth() + 1);
-  const anioInicio = parseInt(req.query.anio_inicio as string) || today.getFullYear();
+  const actual = mesActualBogota();
+  const mesInicio  = parseInt(req.query.mes_inicio  as string) || actual.mes;
+  const anioInicio = parseInt(req.query.anio_inicio as string) || actual.anio;
   const mesFin     = parseInt(req.query.mes_fin     as string) || mesInicio;
   const anioFin    = parseInt(req.query.anio_fin    as string) || anioInicio;
 
-  const firstDay = new Date(anioInicio, mesInicio - 1, 1);
-  const lastDay  = new Date(anioFin, mesFin, 0, 23, 59, 59, 999);
+  const { firstDay, lastDay } = rangoMesesBogota(anioInicio, mesInicio, anioFin, mesFin);
 
   return { firstDay, lastDay, mesInicio, anioInicio, mesFin, anioFin };
 }
@@ -46,12 +51,12 @@ function generateMonthList(mesInicio: number, anioInicio: number, mesFin: number
 // ─── 1. PANEL GENERAL ────────────────────────────────────────────────────────
 export const getGeneralData = async (req: Request, res: Response) => {
   try {
-    const today = new Date();
     const { firstDay, lastDay, mesInicio, anioInicio, mesFin, anioFin } = parsePeriod(req);
 
     const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
     const diasAlertaCartera = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
-    const fechaUmbralCartera = new Date(today.getTime() - diasAlertaCartera * 24 * 3600 * 1000);
+    // Día de calendario: se compara contra `fecha_factura` (DATE) sin pasar por la zona del proceso.
+    const fechaUmbralCartera = sumarDiasISO(hoyBogotaISO(), -diasAlertaCartera);
 
     // Meta de facturación: suma de metas individuales del periodo
     const monthList = generateMonthList(mesInicio, anioInicio, mesFin, anioFin);
@@ -178,12 +183,12 @@ export const getGeneralData = async (req: Request, res: Response) => {
 
     // Gráfico mensual: cantidad ODPs, abono, pendiente, cancelado, crédito por mes
     const estadisticasMensualesRaw = await sequelize.query<{
-      mes: Date; cantidad_odps: string;
+      mes: string; cantidad_odps: string;
       total_abono: string; total_pendiente: string;
       total_cancelado: string; total_credito: string;
     }>(`
       SELECT
-        DATE_TRUNC('month', fecha_creacion) AS mes,
+        to_char(DATE_TRUNC('month', ${horaBogotaSQL('fecha_creacion')}), 'YYYY-MM-DD') AS mes,
         COUNT(*)::int                        AS cantidad_odps,
         SUM(abono)                           AS total_abono,
         SUM(pendiente)                       AS total_pendiente,
@@ -191,12 +196,13 @@ export const getGeneralData = async (req: Request, res: Response) => {
         SUM(CASE WHEN forma_pago  = 'credito'    THEN abono + pendiente ELSE 0 END) AS total_credito
       FROM odp
       WHERE fecha_creacion BETWEEN :firstDay AND :lastDay
-      GROUP BY DATE_TRUNC('month', fecha_creacion)
+      GROUP BY 1
       ORDER BY mes ASC
     `, { replacements: { firstDay, lastDay }, type: QueryTypes.SELECT });
 
     const estadisticas_mensuales = estadisticasMensualesRaw.map(row => ({
-      mes:              new Date(row.mes).toLocaleDateString('es-CO', { month: 'short', year: '2-digit' }),
+      // `mes` es el primer día del mes de Bogotá ('YYYY-MM-DD'); se formatea en UTC para no correrlo.
+      mes:              new Date(`${row.mes}T00:00:00Z`).toLocaleDateString('es-CO', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
       cantidad_odps:    Number(row.cantidad_odps)  || 0,
       total_abono:      Number(row.total_abono)    || 0,
       total_pendiente:  Number(row.total_pendiente)|| 0,
@@ -258,12 +264,12 @@ export const getGeneralData = async (req: Request, res: Response) => {
 // ─── 2. PANEL VENTAS ─────────────────────────────────────────────────────────
 export const getVentasData = async (req: Request, res: Response) => {
   try {
-    const today = new Date();
+    const hoy = hoyBogotaISO();
     const { firstDay, lastDay, mesInicio, anioInicio, mesFin, anioFin } = parsePeriod(req);
 
     const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
     const diasAlertaCartera   = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
-    const fechaUmbralCartera  = new Date(today.getTime() - diasAlertaCartera * 24 * 3600 * 1000);
+    const fechaUmbralCartera  = sumarDiasISO(hoy, -diasAlertaCartera);
 
     const periodWhere = { fecha_creacion: { [Op.between]: [firstDay, lastDay] } };
 
@@ -320,7 +326,7 @@ export const getVentasData = async (req: Request, res: Response) => {
       limit: 10
     });
     const cartera_vencida_detalle = carteraRaw.map(o => {
-      const diff = Math.ceil((today.getTime() - new Date(o.getDataValue('fecha_entrega')).getTime()) / (1000 * 3600 * 24));
+      const diff = diferenciaDias(diaCalendarioISO(o.getDataValue('fecha_entrega')), hoy);
       return {
         cliente_id:   o.getDataValue('cliente_id'),
         nombre:       (o as any).cliente?.nombre_razon_social || 'Cliente desconocido',
@@ -402,7 +408,7 @@ export const getVentasData = async (req: Request, res: Response) => {
     // ODPs atrasadas — snapshot (no filtro de periodo)
     const odps_atrasadas = await ODP.count({
       where: {
-        fecha_entrega:    { [Op.lt]: today },
+        fecha_entrega:    { [Op.lt]: hoy },
         estado_produccion:{ [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'ANULADA'] },
         estado_caja:      { [Op.ne]: 'CANCELADO' }
       }
@@ -434,11 +440,13 @@ export const getVentasData = async (req: Request, res: Response) => {
 export const getProduccionData = async (req: Request, res: Response) => {
   try {
     const today   = new Date();
-    const nextWeek = new Date(today.getTime() + (7 * 24 * 3600 * 1000));
+    // `fecha_entrega` es un día de calendario: "esta semana" = de hoy (incluido) a hoy+7, en Bogotá.
+    const hoy      = hoyBogotaISO();
+    const nextWeek = sumarDiasISO(hoy, 7);
     const { firstDay, lastDay } = parsePeriod(req);
 
     const odps_en_taller         = await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'EN_ESPERA', 'ANULADA'] } } });
-    const odps_vencen_esta_semana = await ODP.count({ where: { fecha_entrega: { [Op.between]: [today, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'ANULADA'] } } });
+    const odps_vencen_esta_semana = await ODP.count({ where: { fecha_entrega: { [Op.between]: [hoy, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'ANULADA'] } } });
 
     const entregadasPeriodo = await ODP.findAll({
       where: { estado_produccion: 'ENTREGADA', fecha_creacion: { [Op.between]: [firstDay, lastDay] } },
@@ -494,13 +502,13 @@ export const getProduccionData = async (req: Request, res: Response) => {
     ].map(c => ({ ...c, total: totalActivas, pct: totalActivas > 0 ? Math.round((c.completadas / totalActivas) * 100) : 0 }));
 
     const proximas_vencer_raw = await ODP.findAll({
-      where: { fecha_entrega: { [Op.between]: [today, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'ANULADA'] } },
+      where: { fecha_entrega: { [Op.between]: [hoy, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'ANULADA'] } },
       include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
       order: [['fecha_entrega', 'ASC']],
       limit: 10
     });
     const odps_proximas_vencer = proximas_vencer_raw.map(o => {
-      const rest = Math.ceil((new Date(o.getDataValue('fecha_entrega')).getTime() - today.getTime()) / (1000 * 3600 * 24));
+      const rest = diferenciaDias(hoy, diaCalendarioISO(o.getDataValue('fecha_entrega')));
       return {
         odp_id:           o.getDataValue('id'),
         numero_odp:       o.getDataValue('numero_odp'),
@@ -549,10 +557,8 @@ export const getProduccionData = async (req: Request, res: Response) => {
 // ─── 4. PANEL EQUIPO ────────────────────────────────────────────────────────
 export const getEquipoData = async (req: Request, res: Response) => {
   try {
-    const today = new Date();
     const { firstDay, lastDay, mesInicio, anioInicio, mesFin, anioFin } = parsePeriod(req);
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const todayStr        = today.toISOString().split('T')[0];
+    const todayStr        = hoyBogotaISO();
     const periodWhere     = { fecha_creacion: { [Op.between]: [firstDay, lastDay] } };
 
     const total_asesores     = await Usuario.count({ where: { rol: 'asesor_comercial' } });
@@ -659,7 +665,7 @@ export const getEquipoData = async (req: Request, res: Response) => {
       SELECT u.id AS instalador_id, u.nombre_completo AS nombre,
              COUNT(e.id) AS instalaciones_mes,
              ROUND(AVG(EXTRACT(EPOCH FROM (ro.fin_instalacion - ro.inicio_instalacion)) / 60)::numeric, 1) AS avg_minutos_instalacion,
-             COUNT(CASE WHEN ro.fin_instalacion::date = CURRENT_DATE THEN 1 END) AS completadas_hoy
+             COUNT(CASE WHEN ${diaBogotaSQL('ro.fin_instalacion')} = ${HOY_BOGOTA_SQL} THEN 1 END) AS completadas_hoy
       FROM evidencias_instalacion e
       JOIN ruta_odp ro ON ro.odp_id = e.odp_id AND ro.estado = 'completada'
       JOIN usuarios u ON e.instalador_id = u.id
@@ -674,7 +680,7 @@ export const getEquipoData = async (req: Request, res: Response) => {
              COUNT(ri.id) AS rutas_mes,
              COUNT(CASE WHEN ri.estado = 'completada' THEN 1 END) AS rutas_completadas,
              ROUND(AVG(EXTRACT(EPOCH FROM ((SELECT MAX(ro2.fin_instalacion) FROM ruta_odp ro2 WHERE ro2.ruta_id = ri.id) - ri.inicio_ruta)) / 60)::numeric, 0) AS avg_minutos_ruta,
-             ROUND(AVG(EXTRACT(EPOCH FROM (ro.llegada_conductor - (ro.fecha_programada::timestamp))) / 3600)::numeric, 1) AS avg_horas_puntualidad
+             ROUND(AVG(EXTRACT(EPOCH FROM (ro.llegada_conductor - (ro.fecha_programada::timestamp AT TIME ZONE 'America/Bogota'))) / 3600)::numeric, 1) AS avg_horas_puntualidad
       FROM rutas_instalacion ri
       JOIN usuarios u ON ri.conductor_id = u.id
       LEFT JOIN ruta_odp ro ON ro.ruta_id = ri.id AND ro.llegada_conductor IS NOT NULL
@@ -745,6 +751,8 @@ export const getEquipoData = async (req: Request, res: Response) => {
 //
 // Los días se calculan en SQL con `::date`: `fecha_entrega` es DataTypes.DATE, que en
 // Postgres es TIMESTAMPTZ, y restar fechas en JS introduce desfases de zona horaria.
+// "Hoy" es HOY_BOGOTA_SQL y no CURRENT_DATE: la sesión de Postgres va en UTC y a las
+// 7 p.m. de Bogotá `CURRENT_DATE` ya es mañana (2026-10-05).
 export const getAlertas = async (_req: Request, res: Response) => {
   try {
     const config = await ConfiguracionGlobal.findOne({
@@ -757,11 +765,11 @@ export const getAlertas = async (_req: Request, res: Response) => {
     const produccion: any[] = await sequelize.query(
       `SELECT o.id, o.numero_odp, o.estado_produccion,
               o.fecha_entrega::date                        AS fecha,
-              (CURRENT_DATE - o.fecha_entrega::date)::int  AS dias_atraso,
+              (${HOY_BOGOTA_SQL} - o.fecha_entrega::date)::int  AS dias_atraso,
               c.nombre_razon_social                        AS cliente_nombre
          FROM odp o
          LEFT JOIN clientes c ON c.id = o.cliente_id
-        WHERE o.fecha_entrega::date <= CURRENT_DATE + 2
+        WHERE o.fecha_entrega::date <= ${HOY_BOGOTA_SQL} + 2
           AND o.estado_produccion NOT IN ('ENTREGADA', 'INSTALANDO', 'INSTALADA', 'LISTO_INSTALAR', 'ANULADA')
         ORDER BY o.fecha_entrega ASC`,
       { type: QueryTypes.SELECT }
@@ -786,13 +794,13 @@ export const getAlertas = async (_req: Request, res: Response) => {
     const cartera: any[] = await sequelize.query(
       `SELECT o.id, o.numero_odp, o.cliente_id,
               o.pendiente::float8                          AS pendiente,
-              (CURRENT_DATE - o.fecha_entrega::date)::int  AS dias_mora,
+              (${HOY_BOGOTA_SQL} - o.fecha_entrega::date)::int  AS dias_mora,
               c.nombre_razon_social                        AS cliente_nombre
          FROM odp o
          LEFT JOIN clientes c ON c.id = o.cliente_id
         WHERE o.forma_pago = 'credito'
           AND o.pendiente > 0
-          AND o.fecha_entrega::date < CURRENT_DATE - :dias
+          AND o.fecha_entrega::date < ${HOY_BOGOTA_SQL} - :dias
           AND o.estado_caja <> 'CANCELADO'
         ORDER BY o.pendiente DESC`,
       { replacements: { dias: diasAlertaCartera }, type: QueryTypes.SELECT }
@@ -831,10 +839,10 @@ export const getAlertas = async (_req: Request, res: Response) => {
 // ─── 6. CARTERA VENCIDA DETALLE (on-demand) ──────────────────────────────────
 export const getCarteraVencida = async (_req: Request, res: Response) => {
   try {
-    const today = new Date();
+    const hoy = hoyBogotaISO();
     const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
     const diasAlerta = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
-    const fechaUmbral = new Date(today.getTime() - diasAlerta * 24 * 3600 * 1000);
+    const fechaUmbral = sumarDiasISO(hoy, -diasAlerta);
 
     const items = await ODP.findAll({
       where: {
@@ -850,8 +858,7 @@ export const getCarteraVencida = async (_req: Request, res: Response) => {
     });
 
     const result = items.map(o => {
-      const fechaFe = new Date(o.getDataValue('fecha_factura'));
-      const diasVencido = Math.ceil((today.getTime() - fechaFe.getTime()) / (1000 * 3600 * 24));
+      const diasVencido = diferenciaDias(diaCalendarioISO(o.getDataValue('fecha_factura')), hoy);
       return {
         id:                  o.getDataValue('id'),
         numero_odp:          o.getDataValue('numero_odp'),
@@ -947,11 +954,11 @@ export const getPedidosFacturados = async (req: Request, res: Response) => {
 // ─── 7. DASHBOARD TRADICIONAL (COMPATIBILIDAD) ───────────────────────────────
 export const getDashboardData = async (_req: Request, res: Response) => {
   try {
-    const today           = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const hoy             = hoyBogotaISO();
+    const firstDayOfMonth = inicioDiaBogota(`${hoy.slice(0, 8)}01`);
     const facturadoMes    = await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } }) || 0;
     const enProduccion    = await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'EN_ESPERA', 'ANULADA'] } } });
-    const pedidos_atrasados = await ODP.count({ where: { fecha_entrega: { [Op.lt]: today }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'ANULADA'] } } });
+    const pedidos_atrasados = await ODP.count({ where: { fecha_entrega: { [Op.lt]: hoy }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'ANULADA'] } } });
     res.json({
       ventas_mes: facturadoMes,
       en_produccion: enProduccion,

@@ -1580,6 +1580,9 @@ Nuevos, detectados por los agentes y **no corregidos** (fuera de "solo presentac
    en el mes siguiente en producción y en el correcto en local. Decidir una zona única (fijar
    `TZ=America/Bogota` en el Dockerfile o construir los rangos en hora Colombia explícita) — media,
    requiere verificar KPIs de meses cerrados antes y después.
+   **Resuelto el 2026-10-05** (decisión: rangos en hora Colombia explícita, sin `TZ`; el backend corre
+   en Render, en UTC): `utils/fechas.ts` en backend y frontend. Verificado contra la BD: ningún registro
+   histórico de ODP ni de lead cambia de mes. Ver la entrada 2026-10-05.
 3. **El ERP no valida el número de FE** (8 FE de septiembre digitadas con error, una FE "0000") ni modela
    notas crédito — baja/media, a decidir con contabilidad.
 
@@ -1598,3 +1601,26 @@ Nuevos, detectados por los agentes y **no corregidos** (fuera de "solo presentac
    media, ~30 min (migrar la configuración y revisar las reglas que empiecen a fallar).
 5. **Cuatro copias de "normalizar sin tildes"** fuera de Contabilidad (`navegacion.ts`, `Galeria.tsx`,
    `CotizacionesODPSection.tsx`, `ManualVisor.tsx`) que podrían usar `utils/busqueda.ts` — baja, ~20 min.
+
+## 2026-10-05 — Fechas en hora de Bogotá (lo que quedó señalado)
+
+Se unificó el manejo de fechas en `utils/fechas.ts` (backend y frontend). Quedó fuera, a propósito:
+
+1. **`odp.fecha_entrega` sigue siendo TIMESTAMPTZ** con todas sus filas a las 00:00 UTC. El código la
+   trata como día de calendario; convertirla a `DATE` (`USING (fecha_entrega AT TIME ZONE 'UTC')::date`)
+   la alinearía con su significado, pero cambia lo que la API devuelve a ~30 archivos — media, ~2 h.
+   Mientras tanto, toda comparación con `'YYYY-MM-DD'` asume la sesión de Postgres en UTC (hoy lo está).
+2. **Sigue sin decidir qué significa `fecha_entrega`**: se captura como "listo material" y se mide como
+   entrega al cliente (atrasadas, entregadas a tiempo, mora de cartera). Hay además 4 definiciones de
+   "ODP atrasada" y el KPI "entregadas a tiempo" toma una fila de historial al azar (`limit` dentro de
+   un `include` hasMany). Decisión de negocio pendiente con el usuario.
+3. **84 ODPs creadas desde el CRM tienen `fecha_creacion` a medianoche UTC** (se guardaba solo el día).
+   El origen se corrigió; el usuario decidió no restaurar las existentes. `fmtFecha` del frontend las
+   muestra en el día correcto.
+4. **Los momentos (fecha con hora) se siguen mostrando con la zona del navegador** en la mayoría de
+   pantallas (`toLocaleString` sin `timeZone`). Correcto para usuarios en Colombia; usar `fmtMomento`
+   al tocar esas pantallas — baja.
+5. **`fechaLimiteVigencia` del Cotizador** (ventana de 6 meses de precios) sigue calculando el día en
+   UTC: desfase de horas sobre una ventana de meses, sin efecto práctico — baja.
+6. **`getUrgency` de Producción marca "VENCIDA" una ODP sin `fecha_entrega`** (comportamiento previo,
+   conservado) — baja.

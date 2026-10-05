@@ -1,6 +1,6 @@
 import React from 'react';
-import { format } from 'date-fns';
 import { TemplexLogo } from '../../../components/ui/TemplexLogo';
+import { fmtDiaNumerico, fmtFechaNumerica } from '../../../utils/fechas';
 
 interface PrintableProduccionProps {
     odp: any;
@@ -92,7 +92,7 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                 <table className="excel-table thick-b mb-1">
                                     <tbody>
                                         <tr>
-                                            <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{odp.fecha_creacion ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy') : ''}</span></td>
+                                            <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{fmtFechaNumerica(odp.fecha_creacion)}</span></td>
                                             <td className="w-[45%] font-bold">CLIENTE: <span className="font-normal uppercase ml-1">{odp.cliente?.nombre_razon_social}</span></td>
                                             <td className="w-[25%] font-bold">TEL: <span className="font-normal uppercase ml-1">{odp.cliente?.telefono}</span></td>
                                         </tr>
@@ -103,7 +103,7 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                         </tr>
                                         <tr>
                                             <td className="w-[20%] font-bold border-r-0">
-                                                <span className="whitespace-nowrap">LISTO MATERIAL: <span className="font-normal uppercase ml-1">{odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : ''}</span></span>
+                                                <span className="whitespace-nowrap">LISTO MATERIAL: <span className="font-normal uppercase ml-1">{fmtDiaNumerico(odp.fecha_entrega)}</span></span>
                                             </td>
                                             <td className="font-bold">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></td>
                                             <td className="font-bold">SEGM: <span className="font-normal uppercase ml-1">{odp.cliente?.segmento}</span></td>
@@ -131,7 +131,7 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                 <table className="excel-table thick-b mb-1">
                                     <tbody>
                                         <tr>
-                                            <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{odp.fecha_creacion ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy') : ''}</span></td>
+                                            <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{fmtFechaNumerica(odp.fecha_creacion)}</span></td>
                                             <td className="w-[45%] font-bold">CLIENTE: <span className="font-normal uppercase ml-1">{odp.cliente?.nombre_razon_social}</span></td>
                                             <td className="w-[25%] font-bold">TEL: <span className="font-normal uppercase ml-1">{odp.cliente?.telefono}</span></td>
                                         </tr>

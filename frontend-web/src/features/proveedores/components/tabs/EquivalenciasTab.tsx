@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 import { ProveedorCompacto } from '../../ProveedoresPage';
 import { RADIUS, FONT } from '../../styleTokens';
+import { hoyBogotaISO } from '../../../../utils/fechas';
 
 interface EquivalenciaItem {
   id: number;
@@ -206,7 +207,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
     setEditando(item);
     setFormEdicion({
       precio: item.precio_actual !== null ? String(item.precio_actual) : '',
-      fecha_precio: new Date().toISOString().split('T')[0],
+      fecha_precio: hoyBogotaISO(),
       unidad_compra: item.unidad_compra,
     });
   };

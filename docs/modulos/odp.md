@@ -103,3 +103,30 @@ avance ni al motor de checks y no mueve estados. Sin condiciones de material ni 
   Aluminio sin marcar con alguna SAP pasada se pinta **ámbar** (tooltip con SAP y fecha); el clic sigue
   marcando `chk_corte`. Panel derecho: botón "Pasar a corte de aluminio" en cada tarjeta SAP con
   aluminio, o "Pasada a corte · fecha · usuario" + Deshacer.
+
+## Fechas de la ODP y hora de Bogotá (2026-10-05)
+Fuente única: `utils/fechas.ts` (backend y frontend). El backend corre en **Render, en UTC**; el PC de
+desarrollo en hora de Bogotá — por eso estos errores no se veían en local.
+
+| Campo | Tipo real | Significado | Regla |
+|---|---|---|---|
+| `fecha_entrega` | TIMESTAMPTZ, **todas las filas a 00:00 UTC** | Se captura como "Fecha ODP listo material" (ODPForm, Aprobar Prospecto) | Día de calendario |
+| `fecha_factura`, `fecha_vencimiento_credito`, `fecha_chk_accesorios` | DATE | — | Día de calendario |
+| `fecha_creacion`, `fecha_listo_instalar`, `fecha_impresion_op` | TIMESTAMPTZ | Momento | Momento (Bogotá) |
+
+- **Por qué se veía un día menos:** `new Date('2026-10-10T00:00:00Z')` en Bogotá es el 9 a las 7 p.m.
+  Afectaba listado (y su filtro de mes), ficha, OP impresa, Talonario, OA, SAP impresa, Explorador,
+  JefeView, Garantía, Toma de Medidas, Pedido PV en Producción, contador "Hoy" del instalador y el
+  vencimiento de crédito en Contabilidad.
+- **"Hoy" en el servidor:** `fecha_entrega < hoyBogotaISO()` (no `< new Date()`, que daba por atrasada
+  una ODP desde las 00:00 UTC de su propio día). En SQL, `HOY_BOGOTA_SQL` en vez de `CURRENT_DATE`.
+  Aplica a Dashboard (atrasadas, vencen esta semana —ahora incluye hoy—, alertas, cartera), Informe
+  Ejecutivo, Contabilidad, ROOT y rutas pendientes de cierre.
+- **Fechas que se guardaban mal de noche** (día UTC = mañana después de las 7 p.m.): `fecha_chk_accesorios`
+  (`updateODP` y `checksAutomaticos`), `fecha_vencimiento_credito`, envío/llegada del Pedido PV, corte de
+  inventario, vigencia de precio de proveedor, y `fecha_creacion` de la ODP que nace del CRM (se guardaba
+  solo el día; ahora el instante). Las filas ya guardadas no se corrigieron (decisión del usuario).
+- **Cron de alertas PV:** `{ timezone: 'America/Bogota' }` — antes corría a las 3 a.m. de Bogotá.
+- **Pendiente de decisión (no es zona horaria):** `fecha_entrega` se mide en Dashboard/Informe como
+  entrega al cliente y como inicio de mora, aunque se captura como "listo material"; hay 4 definiciones
+  distintas de "atrasada". Ver `TECH_DEBT.md` 2026-10-05.

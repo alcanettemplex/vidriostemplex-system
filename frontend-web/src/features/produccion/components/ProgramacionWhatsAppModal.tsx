@@ -3,6 +3,7 @@ import axios from 'axios';
 import { X, Copy, Check, Calendar, MessageCircle } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import API from '../../../services/config';
+import { hoyBogotaISO } from '../../../utils/fechas';
 
 interface ODPItemData {
     item: string;
@@ -127,7 +128,7 @@ interface Props {
 }
 
 const ProgramacionWhatsAppModal: React.FC<Props> = ({ onClose }) => {
-    const hoy = new Date().toISOString().split('T')[0];
+    const hoy = hoyBogotaISO();
     const [fecha, setFecha] = useState(hoy);
     const [loading, setLoading] = useState(false);
     const [texto, setTexto] = useState('');

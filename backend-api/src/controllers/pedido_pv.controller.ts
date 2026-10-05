@@ -9,7 +9,7 @@ import { emitirNotificacion } from '../server';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { esTemplacol, bloquesPorProveedor, proveedorParaFormato, mismoProveedor } from '../utils/pedidoPvCapacidad';
 import { recalcularChecksODP } from '../utils/checksAutomaticos';
-import { hoyBogotaISO } from '../utils/crmSupervision';
+import { hoyBogotaISO, diaBogotaISO } from '../utils/fechas';
 
 // ─── Esquema de validación ────────────────────────────────────────────────────
 
@@ -466,7 +466,7 @@ export const marcarEnviado = async (req: Request, res: Response) => {
 
     await pedido.update({
       estado: 'ENVIADO',
-      fecha_envio: fecha_envio || new Date().toISOString().split('T')[0],
+      fecha_envio: fecha_envio || hoyBogotaISO(),
       hora_envio: hora_envio || new Date().toTimeString().split(' ')[0],
       fecha_entrega_prometida,
       confirmado_proveedor: confirmado_proveedor ?? false,
@@ -507,7 +507,7 @@ export const registrarLlegada = async (req: Request, res: Response) => {
     const pedido = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
     if (!pedido) return res.status(404).json({ error: 'Pedido PV no encontrado' });
 
-    const fecha_llegada_real = req.body.fecha_llegada_real || new Date().toISOString().split('T')[0];
+    const fecha_llegada_real = req.body.fecha_llegada_real || hoyBogotaISO();
     const fecha_prometida = pedido.getDataValue('fecha_entrega_prometida');
 
     let dias_diferencia = null;
@@ -667,7 +667,7 @@ export const registrarReposicion = async (req: Request, res: Response) => {
     await pedido.update({
       estado: 'LLEGADO',
       estado_reposicion: 'REPUESTO',
-      fecha_llegada_real: new Date().toISOString().split('T')[0],
+      fecha_llegada_real: hoyBogotaISO(),
     });
 
     const odp = pedido.getDataValue('odp') as any;
@@ -982,7 +982,8 @@ const llenarPlantillaVitelsa = (wb: ExcelJS.Workbook, d: DatosExcelPV): string |
 
   const sc = (addr: string, value: ExcelJS.CellValue) => { ws.getCell(addr).value = value; };
 
-  sc('D10', d.fmtDate(d.creadoEn));
+  // `creado_en` es un momento: se lleva al día de Bogotá (fmtDate lee en UTC, como corresponde a los DATEONLY).
+  sc('D10', d.fmtDate(d.creadoEn ? diaBogotaISO(new Date(d.creadoEn)) : null));
   sc('N10', d.numeroPedido);
   sc('L24', d.obra);
 

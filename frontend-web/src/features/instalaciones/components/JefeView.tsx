@@ -17,21 +17,25 @@ import FolderTabs, { FOLDER_BODY } from '../../../components/FolderTabs';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
 
 import API from '../../../services/config';
+import { hoyBogotaISO, sumarDiasISO, isoLocal, fmtDia } from '../../../utils/fechas';
 
 // ─── Helpers de fecha ─────────────────────────────────────────────────────────
 
+// Semana y mes de Bogotá. `toISOString()` convertía a UTC: después de las 7 p.m. el
+// "lunes" o el "domingo" podían correrse un día.
 const getLunes = (): string => {
-  const d = new Date();
-  const diff = d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1);
-  d.setDate(diff);
-  return d.toISOString().split('T')[0];
+  const hoy = hoyBogotaISO();
+  const dia = new Date(`${hoy}T00:00:00Z`).getUTCDay();
+  return sumarDiasISO(hoy, dia === 0 ? -6 : 1 - dia);
 };
 
-const getDomingo = (): string => {
-  const d = new Date();
-  const diff = d.getDate() - d.getDay() + (d.getDay() === 0 ? 0 : 7);
-  d.setDate(diff);
-  return d.toISOString().split('T')[0];
+const getDomingo = (): string => sumarDiasISO(getLunes(), 6);
+
+const getInicioMes = (): string => `${hoyBogotaISO().slice(0, 8)}01`;
+
+const getFinMes = (): string => {
+  const [a, m] = hoyBogotaISO().split('-').map(Number);
+  return isoLocal(new Date(a, m, 0));
 };
 
 const formatFecha = (iso: string | null | undefined): string => {
@@ -674,7 +678,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                       {odp.agenda && (
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800 flex items-center gap-1">
                           <Calendar className="w-2.5 h-2.5" />
-                          Agendada {new Date(`${odp.agenda.fecha_tentativa}T00:00:00`).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                          Agendada {fmtDia(odp.agenda.fecha_tentativa, { day: '2-digit', month: 'short' })}
                         </span>
                       )}
                       {mainTab === 'factura' && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-800">Sin factura</span>}
@@ -688,7 +692,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                     <div className="text-right flex-shrink-0">
                       <p className="text-xs text-slate-700">Entrega</p>
                       <p className="text-sm font-semibold text-slate-900">
-                        {new Date(odp.fecha_entrega).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                        {fmtDia(odp.fecha_entrega, { day: '2-digit', month: 'short' })}
                       </p>
                     </div>
                   )}
@@ -873,7 +877,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
               <div className="flex gap-1.5">
                 {[
                   { label: 'Esta semana', desde: getLunes(), hasta: getDomingo() },
-                  { label: 'Este mes',    desde: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], hasta: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0] },
+                  { label: 'Este mes',    desde: getInicioMes(), hasta: getFinMes() },
                 ].map(atajo => (
                   <button
                     key={atajo.label}

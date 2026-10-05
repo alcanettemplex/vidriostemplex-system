@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { DollarSign, Pencil, X, Search } from '../../../components/ui/icons';
 import API from '../../../services/config';
+import { hoyBogotaISO, diaBogotaISO } from '../../../utils/fechas';
 import {
   headers, fmt, fmtFecha, formatMiles, parseMiles, calcPendiente, coincideODP,
   BANCOS_COLOMBIA, METODOS_PAGO,
@@ -142,7 +143,8 @@ const AbonoFormModal: React.FC<Props> = ({ pago, odpFija, odpsDisponibles, onClo
         banco: esBanco ? pago.metodo_pago : '',
         referencia_pago: pago.referencia_pago || '',
         observaciones: pago.observaciones || '',
-        fecha: pago.fecha ? new Date(pago.fecha).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        // `pagos.fecha` es un momento (se guarda a las 12:00 UTC): su día es el de Bogotá.
+        fecha: pago.fecha ? diaBogotaISO(pago.fecha) : hoyBogotaISO(),
       };
     }
     return {
@@ -153,7 +155,7 @@ const AbonoFormModal: React.FC<Props> = ({ pago, odpFija, odpsDisponibles, onClo
       banco: '',
       referencia_pago: '',
       observaciones: '',
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: hoyBogotaISO(),
     };
   });
 

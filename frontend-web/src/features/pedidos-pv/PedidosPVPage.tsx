@@ -22,6 +22,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import API from '../../services/config';
+import { diasHasta } from '../../utils/fechas';
 import { getEstadoODP } from '../../utils/estadosODP';
 import { useSoloLectura } from '../../utils/permisos';
 
@@ -71,13 +72,10 @@ const fmtFecha = (fecha: string | null) => {
 const fmtHora = (hora: string | null) => hora ? hora.substring(0, 5) : '—';
 
 // Días vencido para el modal "Vencidos sin Llegar" — solo para mostrar en pantalla,
-// el filtrado real ya lo hace el backend con `hoyBogotaISO()` (mismo criterio: Bogotá
-// fija UTC-5 todo el año, sin horario de verano). `fecha_entrega_prometida` es
-// DATEONLY ("YYYY-MM-DD"): parsear ambos lados como medianoche UTC evita que la zona
-// horaria del navegador del usuario corra el conteo un día.
-const hoyBogotaISO = () => new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString().split('T')[0];
-const diasVencido = (fechaPrometida: string) =>
-  Math.floor((new Date(hoyBogotaISO()).getTime() - new Date(fechaPrometida).getTime()) / (1000 * 60 * 60 * 24));
+// el filtrado real ya lo hace el backend con `hoyBogotaISO()`. `fecha_entrega_prometida`
+// es DATEONLY ("YYYY-MM-DD"): `diasHasta` cuenta días de calendario contra el hoy de
+// Bogotá (utils/fechas.ts), sin pasar por la zona del navegador.
+const diasVencido = (fechaPrometida: string) => -(diasHasta(fechaPrometida) ?? 0);
 
 const toFloat = (v: unknown) => parseFloat(String(v ?? 0)) || 0;
 

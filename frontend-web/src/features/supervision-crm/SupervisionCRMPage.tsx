@@ -20,15 +20,14 @@ import {
 import { apiRegisterLeadSeguimiento } from '../crm/crmService';
 import { useAsesoresCRM } from '../crm/hooks/useAsesoresCRM';
 import { SupervisionLeadItem, SupervisionResumen, AdherenciaLineamiento, RankingAsesorItem } from './types';
+import { hoyBogotaISO } from '../../utils/fechas';
 
 type Tab = 'primer_contacto' | 'seguimiento' | 'alto_valor' | 'lineamiento' | 'motivos' | 'buscador';
 
-const primerDiaMesActual = (): string => {
-  const hoy = new Date();
-  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
-};
+const primerDiaMesActual = (): string => `${hoyBogotaISO().slice(0, 8)}01`;
 
-const hoyISO = (): string => new Date().toISOString().split('T')[0];
+// Hoy en Bogotá: `toISOString()` daba la fecha de mañana después de las 7 p.m.
+const hoyISO = hoyBogotaISO;
 
 const fmtCOP = (v: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(v);

@@ -1,6 +1,6 @@
 import React from 'react';
-import { format } from 'date-fns';
 import { TemplexLogo } from '../../../components/ui/TemplexLogo';
+import { fmtDia, fmtDiaNumerico } from '../../../utils/fechas';
 
 interface PrintableSAPProps {
     odp: any;
@@ -218,7 +218,7 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                             FECHA LISTO:{' '}
                             {odp.fecha_entrega ? (
                                 <span className="font-bold text-red-600 ml-1">
-                                    {format(new Date(odp.fecha_entrega), 'dd/MM/yyyy')}
+                                    {fmtDiaNumerico(odp.fecha_entrega)}
                                 </span>
                             ) : (
                                 <span className="font-normal ml-1 text-slate-400">—</span>
@@ -252,7 +252,7 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                 {odp?.fecha_chk_accesorios && (
                                     <p className="text-[11px] uppercase font-bold text-red-600 mt-1">
                                         Accesorios separados —{' '}
-                                        {new Date(odp.fecha_chk_accesorios + 'T12:00:00').toLocaleDateString('es-CO')}
+                                        {fmtDia(odp.fecha_chk_accesorios)}
                                     </p>
                                 )}
                             </td>

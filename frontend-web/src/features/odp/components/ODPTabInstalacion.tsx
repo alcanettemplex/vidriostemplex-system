@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 import { Badge } from './ODPFichaModal.utils';
 import API from '../../../services/config';
+import { fmtDia } from '../../../utils/fechas';
 
 const ESTADO_RUTA_ODP: Record<string, { label: string; cls: string }> = {
   pendiente:   { label: 'Pendiente',  cls: 'bg-slate-100 text-slate-800 border-slate-200' },
@@ -124,7 +125,7 @@ const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <p className="text-xs text-slate-900 font-semibold uppercase">Fecha programada</p>
-                  <p className="font-bold">{prog.fecha_programada ? new Date(prog.fecha_programada).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</p>
+                  <p className="font-bold">{fmtDia(prog.fecha_programada, { day: '2-digit', month: 'short', year: 'numeric' }, '—')}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-900 font-semibold uppercase">Vehículo</p>

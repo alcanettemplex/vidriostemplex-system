@@ -10,7 +10,17 @@ import {
 import ODP from '../models/odp.model';
 import { v2 as cloudinary } from 'cloudinary';
 import '../config/upload'; // garantiza que cloudinary está configurado
-import { diasDesde, calcularAccionSugerida, FECHA_POR_ESTADO, hoyBogotaISO } from '../utils/crmSupervision';
+import { diasDesde, calcularAccionSugerida, FECHA_POR_ESTADO } from '../utils/crmSupervision';
+import {
+  hoyBogotaISO, rangoDiasBogota, diferenciaMeses, sumarMesesISO, diaBogotaISO,
+  inicioDiaBogota, finDiaBogota, ultimoDiaMesISO, diaCalendarioISO,
+} from '../utils/fechas';
+
+// Día de calendario (DATE o `fecha_entrega` a medianoche UTC) como d/m/aaaa, sin convertir de zona.
+const fmtDiaCalendario = (v: Date | string): string => {
+  const [a, m, d] = diaCalendarioISO(v).split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, d)).toLocaleDateString('es-CO', { timeZone: 'UTC' });
+};
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
 import { construirFiltroFecha } from '../utils/rangoFechas';
@@ -445,11 +455,10 @@ export const getLeads = async (req: Request, res: Response) => {
 
     // Filtro por rango de fechas (máx 4 meses)
     if (fecha_desde && fecha_hasta) {
-      const start = new Date(fecha_desde as string);
-      const end = new Date(fecha_hasta as string);
-      end.setHours(23, 59, 59, 999);
+      // Días completos de Bogotá (ver utils/fechas.ts): `setHours` usaba la zona del proceso.
+      const { inicio: start, fin: end } = rangoDiasBogota(String(fecha_desde), String(fecha_hasta));
 
-      const diffMeses = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      const diffMeses = diferenciaMeses(String(fecha_desde), String(fecha_hasta));
       if (diffMeses > 4) {
         return res.status(400).json({
           error: 'Rango demasiado amplio',
@@ -607,15 +616,11 @@ export const getCRMStats = async (req: Request, res: Response) => {
     let periodStart: Date | null = null;
     let periodEnd: Date | null = null;
     if (fecha_desde && fecha_hasta) {
-      periodStart = new Date(fecha_desde as string);
-      periodEnd = new Date(fecha_hasta as string);
-      // setUTCHours (no setHours): fecha_desde/fecha_hasta llegan como "YYYY-MM-DD" y se
-      // parsean en medianoche UTC. Mutar con setters de hora LOCAL en un servidor con TZ
-      // distinto de UTC desfasa el límite del período varias horas (llegó a excluir casi
-      // todo el último día del rango) — ver TECH_DEBT 2026-07-12.
-      periodEnd.setUTCHours(23, 59, 59, 999);
+      // Días completos de Bogotá, sin depender de la zona del proceso (utils/fechas.ts).
+      // Reemplaza el corte a medianoche UTC de TECH_DEBT 2026-07-12.
+      ({ inicio: periodStart, fin: periodEnd } = rangoDiasBogota(String(fecha_desde), String(fecha_hasta)));
 
-      const diffMeses = (periodEnd.getUTCFullYear() - periodStart.getUTCFullYear()) * 12 + (periodEnd.getUTCMonth() - periodStart.getUTCMonth());
+      const diffMeses = diferenciaMeses(String(fecha_desde), String(fecha_hasta));
       if (diffMeses > 4) {
         return res.status(400).json({
           error: 'Rango demasiado amplio',
@@ -848,15 +853,12 @@ export const getCRMStats = async (req: Request, res: Response) => {
     // Comparativo vs período anterior (mes anterior al seleccionado)
     let vsAnterior: any = null;
     if (periodStart) {
-      // setUTC*/getUTC* (no setMonth/getMonth locales): periodStart ya está en medianoche
-      // UTC — mezclar aritmética local con un valor UTC desfasaba "mes anterior" varias
-      // horas, llegando a devolver una ventana casi vacía en vez del mes completo.
-      const prevStart = new Date(periodStart);
-      prevStart.setUTCMonth(prevStart.getUTCMonth() - 1);
-      const prevEnd = new Date(prevStart);
-      prevEnd.setUTCMonth(prevEnd.getUTCMonth() + 1);
-      prevEnd.setUTCDate(0);
-      prevEnd.setUTCHours(23, 59, 59, 999);
+      // Aritmética sobre el día de Bogotá ('YYYY-MM-DD'), no sobre el instante: mezclar
+      // setters locales/UTC con el instante desfasaba "mes anterior" varias horas.
+      const prevInicioISO = sumarMesesISO(diaBogotaISO(periodStart), -1);
+      const [prevAnio, prevMes] = prevInicioISO.split('-').map(Number);
+      const prevStart = inicioDiaBogota(prevInicioISO);
+      const prevEnd = finDiaBogota(ultimoDiaMesISO(prevAnio, prevMes));
       const prevWhere: any = esGlobal
         ? (asesorIdTarget ? { asesor_id: asesorIdTarget, respondio: { [Op.ne]: 'No responde' } } : { respondio: { [Op.ne]: 'No responde' } })
         : { asesor_id: user.id, respondio: { [Op.ne]: 'No responde' } };
@@ -1094,11 +1096,10 @@ export const getReporteAsesor = async (req: Request, res: Response) => {
       ? { asesor_id: asesorIdTarget, respondio: { [Op.ne]: 'No responde' } }
       : { respondio: { [Op.ne]: 'No responde' } };
     if (fecha_desde && fecha_hasta) {
-      const start = new Date(fecha_desde as string);
-      const end = new Date(fecha_hasta as string);
-      end.setHours(23, 59, 59, 999);
+      // Días completos de Bogotá (ver utils/fechas.ts): `setHours` usaba la zona del proceso.
+      const { inicio: start, fin: end } = rangoDiasBogota(String(fecha_desde), String(fecha_hasta));
 
-      const diffMeses = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      const diffMeses = diferenciaMeses(String(fecha_desde), String(fecha_hasta));
       if (diffMeses > 4) {
         return res.status(400).json({
           error: 'Rango demasiado amplio',
@@ -1196,11 +1197,10 @@ export const getStatsProspectos = async (req: Request, res: Response) => {
       ? (puedeFiltrarPorAsesor && asesor_id ? { asesor_id: parseInt(asesor_id as string) } : {})
       : { asesor_id: user.id };
     if (fecha_desde && fecha_hasta) {
-      const start = new Date(fecha_desde as string);
-      const end = new Date(fecha_hasta as string);
-      end.setHours(23, 59, 59, 999);
+      // Días completos de Bogotá (ver utils/fechas.ts): `setHours` usaba la zona del proceso.
+      const { inicio: start, fin: end } = rangoDiasBogota(String(fecha_desde), String(fecha_hasta));
 
-      const diffMeses = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      const diffMeses = diferenciaMeses(String(fecha_desde), String(fecha_hasta));
       if (diffMeses > 4) {
         return res.status(400).json({
           error: 'Rango demasiado amplio',
@@ -1367,7 +1367,9 @@ export async function crearODPParaLead(
         estado_produccion: 'EN_ESPERA',
         estado_facturacion: 'PENDIENTE',
         estado_caja: 'PENDIENTE',
-        fecha_creacion: new Date().toISOString().split('T')[0],
+        // Instante real, como el resto de creaciones. Guardar solo el día UTC dejaba la
+        // ODP a medianoche UTC: un día antes en pantalla, o mañana si se convertía de noche.
+        fecha_creacion: new Date(),
         descripcion_pedido: ajustes.descripcion_pedido || lead.getDataValue('descripcion_contexto') || lead.getDataValue('producto_interes') || `Lead CRM #${id}`,
         tipo_servicio: lead.getDataValue('producto_interes') || null,
         valor_total: ajustes.valor_total ?? parseFloat(lead.getDataValue('monto_real_venta') || lead.getDataValue('monto_proyectado_cotizacion') || '0'),
@@ -1644,11 +1646,10 @@ export const getEmbudoAsesores = async (req: Request, res: Response) => {
     const where: any = { asesor_id: { [Op.ne]: null } };
 
     if (fecha_desde && fecha_hasta) {
-      const start = new Date(fecha_desde as string);
-      const end = new Date(fecha_hasta as string);
-      end.setHours(23, 59, 59, 999);
+      // Días completos de Bogotá (ver utils/fechas.ts): `setHours` usaba la zona del proceso.
+      const { inicio: start, fin: end } = rangoDiasBogota(String(fecha_desde), String(fecha_hasta));
 
-      const diffMeses = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      const diffMeses = diferenciaMeses(String(fecha_desde), String(fecha_hasta));
       if (diffMeses > 4) {
         return res.status(400).json({
           error: 'Rango demasiado amplio',
@@ -1894,23 +1895,21 @@ export const getMonitorAsesores = async (req: Request, res: Response) => {
 // (prev_odps_activas) para poder comparar deltas período-contra-período.
 function calcularPeriodoAnterior(fecha_desde: any, fecha_hasta: any): { prevInicio: Date; prevFin: Date } | null {
   if (!fecha_desde || !fecha_hasta) return null;
-  const inicio = new Date(fecha_desde as string);
-  const fin = new Date(fecha_hasta as string);
-  fin.setUTCHours(23, 59, 59, 999);
+  const { inicio, fin } = rangoDiasBogota(String(fecha_desde), String(fecha_hasta));
   const periodoMs = fin.getTime() - inicio.getTime();
   const prevFin = new Date(inicio.getTime() - 1);
   const prevInicio = new Date(prevFin.getTime() - periodoMs);
   return { prevInicio, prevFin };
 }
 
-// Meses (mes/año, UTC) que toca el rango [periodStart, periodEnd] — usado para sumar
-// metas mensuales por asesor. Mismo criterio que generateMonthList en dashboard.controller.ts.
+// Meses de Bogotá que toca el rango [periodStart, periodEnd] — usado para sumar metas
+// mensuales por asesor. Mismo criterio que generateMonthList en dashboard.controller.ts.
+// Se lee el día de Bogotá: el fin de un día de Bogotá ya es el día siguiente en UTC, y
+// con getUTCMonth un rango que termina el 31 sumaba la meta del mes siguiente.
 function mesesEnRango(periodStart: Date, periodEnd: Date): { mes: number; anio: number }[] {
   const meses: { mes: number; anio: number }[] = [];
-  let m = periodStart.getUTCMonth() + 1;
-  let y = periodStart.getUTCFullYear();
-  const mFin = periodEnd.getUTCMonth() + 1;
-  const yFin = periodEnd.getUTCFullYear();
+  let [y, m] = diaBogotaISO(periodStart).split('-').map(Number);
+  const [yFin, mFin] = diaBogotaISO(periodEnd).split('-').map(Number);
   while (y < yFin || (y === yFin && m <= mFin)) {
     meses.push({ mes: m, anio: y });
     m++;
@@ -1933,9 +1932,7 @@ export const getSupervisionResumen = async (req: Request, res: Response) => {
     let periodStart: Date | null = null;
     let periodEnd: Date | null = null;
     if (rangoFecha) {
-      periodStart = new Date(fecha_desde as string);
-      periodEnd = new Date(fecha_hasta as string);
-      periodEnd.setUTCHours(23, 59, 59, 999);
+      ({ inicio: periodStart, fin: periodEnd } = rangoDiasBogota(String(fecha_desde), String(fecha_hasta)));
     }
 
     // Población unificada con Pipeline/Métricas CRM (jul-2026): etapas activas siempre
@@ -2095,9 +2092,7 @@ export const getRankingAsesores = async (req: Request, res: Response) => {
     let periodStart: Date | null = null;
     let periodEnd: Date | null = null;
     if (rangoFecha) {
-      periodStart = new Date(fecha_desde as string);
-      periodEnd = new Date(fecha_hasta as string);
-      periodEnd.setUTCHours(23, 59, 59, 999);
+      ({ inicio: periodStart, fin: periodEnd } = rangoDiasBogota(String(fecha_desde), String(fecha_hasta)));
       if (periodStart >= METRICAS_CRM_V2_CUTOFF) {
         where[Op.and] = whereLeadsPipeline(periodStart, periodEnd);
       } else {
@@ -2560,9 +2555,11 @@ export const exportarBuscadorODPExcel = async (req: Request, res: Response) => {
     for (const item of items) {
       ws.addRow({
         ...item,
-        fecha_factura: item.fecha_factura ? new Date(item.fecha_factura).toLocaleDateString('es-CO') : '',
-        fecha_entrega: item.fecha_entrega ? new Date(item.fecha_entrega).toLocaleDateString('es-CO') : '',
-        fecha_creacion: item.fecha_creacion ? new Date(item.fecha_creacion).toLocaleDateString('es-CO') : '',
+        // Días de calendario (factura, entrega) sin convertir de zona; la creación es un
+        // momento y se muestra en Bogotá. El Excel lo arma el servidor, que corre en UTC.
+        fecha_factura: item.fecha_factura ? fmtDiaCalendario(item.fecha_factura) : '',
+        fecha_entrega: item.fecha_entrega ? fmtDiaCalendario(item.fecha_entrega) : '',
+        fecha_creacion: item.fecha_creacion ? new Date(item.fecha_creacion).toLocaleDateString('es-CO', { timeZone: 'America/Bogota' }) : '',
         acarreo: item.acarreo ? 'Sí' : 'No',
         instalacion: item.instalacion ? 'Sí' : 'No',
         es_no_conformidad: item.es_no_conformidad ? 'Sí' : 'No',
@@ -2696,7 +2693,7 @@ export const exportarBuscadorLeadsExcel = async (req: Request, res: Response) =>
     ];
     ws.getRow(1).font = { bold: true };
     for (const item of items) {
-      ws.addRow({ ...item, createdAt: item.createdAt ? new Date(item.createdAt).toLocaleDateString('es-CO') : '' });
+      ws.addRow({ ...item, createdAt: item.createdAt ? new Date(item.createdAt).toLocaleDateString('es-CO', { timeZone: 'America/Bogota' }) : '' });
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

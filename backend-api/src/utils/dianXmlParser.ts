@@ -1,6 +1,7 @@
 import AdmZip from 'adm-zip';
 import { createHash } from 'crypto';
 import { XMLParser } from 'fast-xml-parser';
+import { hoyBogotaISO } from './fechas';
 
 export type TipoDocumentoDIAN = 'FACTURA' | 'NOTA_CREDITO' | 'NOTA_DEBITO';
 
@@ -178,7 +179,7 @@ export function parsearXmlFactura(xmlString: string): FacturaParseada {
   const invoice = parsed['Invoice'] || parsed['CreditNote'] || parsed['DebitNote'] || parsed;
 
   const numero = extraerTexto(invoice['cbc:ID']) || 'S/N';
-  const fechaEmision = extraerTexto(invoice['cbc:IssueDate']) || new Date().toISOString().split('T')[0];
+  const fechaEmision = extraerTexto(invoice['cbc:IssueDate']) || hoyBogotaISO();
   const cufe = extraerTexto(invoice['cbc:UUID']) || null;
   const moneda = extraerTexto(invoice['cbc:DocumentCurrencyCode']) || 'COP';
 

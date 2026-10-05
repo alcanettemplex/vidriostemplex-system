@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { FileCheck, X, Plus, Trash2 } from '../../../components/ui/icons';
 import API from '../../../services/config';
+import { hoyBogotaISO } from '../../../utils/fechas';
 import { headers, fmt, fmtFecha, formatMiles, parseMiles } from './contabilidad.utils';
 
 interface Props {
@@ -38,7 +39,7 @@ const FacturaElectronicaModal: React.FC<Props> = ({ odp, onClose, onSaved, onAdi
 
   const [feForm, setFeForm] = useState({
     numero_fe: odp.factura_electronica || '',
-    fecha_fe: odp.fecha_factura ? String(odp.fecha_factura).split('T')[0] : new Date().toISOString().split('T')[0],
+    fecha_fe: odp.fecha_factura ? String(odp.fecha_factura).split('T')[0] : hoyBogotaISO(),
     // Monto de la FE principal: precargado con lo ya facturado o, si es nueva, el valor_total.
     monto: formatMiles(Math.round(Number(odp.monto_factura_principal != null ? odp.monto_factura_principal : valorTotal))),
   });

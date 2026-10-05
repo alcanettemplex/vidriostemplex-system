@@ -1,6 +1,7 @@
 import React from 'react';
 import { TemplexLogo } from '../../../components/ui/TemplexLogo';
 import PlanosCotizacionODP from './PlanosCotizacionODP';
+import { fmtFecha } from '../../../utils/fechas';
 
 interface PrintableDetalleTecnicoProps {
     odp: any;
@@ -55,7 +56,7 @@ const PrintableDetalleTecnico: React.FC<PrintableDetalleTecnicoProps> = ({ odp, 
                 <table className="excel-table thick-b mb-1 border-t-2 border-l-2 border-r-2 border-black">
                     <tbody>
                         <tr>
-                            <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{odp.fecha_creacion ? new Date(odp.fecha_creacion).toLocaleDateString() : ''}</span></td>
+                            <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{fmtFecha(odp.fecha_creacion)}</span></td>
                             <td className="w-[45%] font-bold">CLIENTE: <span className="font-normal uppercase ml-1">{odp.cliente?.nombre_razon_social}</span></td>
                             <td className="w-[25%] font-bold">TEL: <span className="font-normal uppercase ml-1">{odp.cliente?.telefono}</span></td>
                         </tr>

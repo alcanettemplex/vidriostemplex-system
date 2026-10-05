@@ -53,6 +53,7 @@ import MovimientosAutomaticosTab from './components/MovimientosAutomaticosTab';
 import socket from '../../store/socket';
 import API from '../../services/config';
 import { useSoloLectura } from '../../utils/permisos';
+import { diasHasta, fmtDia, fmtFecha } from '../../utils/fechas';
 
 interface Nota {
     id: number;
@@ -659,8 +660,11 @@ const ProduccionPage: React.FC = () => {
         }
     };
 
+    // Días de CALENDARIO en Bogotá, no horas: contar desde el instante actual marcaba
+    // "VENCE HOY" una ODP de mañana después de las 7 p.m. Sin fecha se conserva el
+    // comportamiento previo (cuenta como vencida).
     const getUrgency = (fecha: string) => {
-        const diff = Math.ceil((new Date(fecha).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        const diff = diasHasta(fecha) ?? -1;
         if (diff <= 1) return { label: diff === 0 ? 'VENCE HOY' : diff < 0 ? 'VENCIDA' : 'VENCE MAÑANA', color: 'rose', weight: 3 };
         if (diff <= 3) return { label: `En ${diff} días`, color: 'orange', weight: 2 };
         return { label: `En ${diff} días`, color: 'emerald', weight: 1 };
@@ -1033,7 +1037,6 @@ const ProduccionPage: React.FC = () => {
                     )}
 
                     {!panelDetailLoading && panelDetail && panelDetail.pedidos_pv.length > 0 && (() => {
-                        const hoy = new Date();
                         return (
                             <div>
                                 <h4 className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -1045,7 +1048,7 @@ const ProduccionPage: React.FC = () => {
                                         const cfg = pvEstadoConfig[pv.estado] ?? { label: pv.estado, cls: 'bg-slate-100 text-slate-700' };
                                         let diasLabel: React.ReactNode = null;
                                         if (pv.fecha_entrega_prometida && pv.estado !== 'VERIFICADO') {
-                                            const diff = Math.ceil((new Date(pv.fecha_entrega_prometida).getTime() - hoy.getTime()) / 86400000);
+                                            const diff = diasHasta(pv.fecha_entrega_prometida) ?? 0;
                                             diasLabel = diff < 0
                                                 ? <span className="text-rose-700 font-semibold">Vencida hace {Math.abs(diff)}d</span>
                                                 : diff === 0
@@ -1065,14 +1068,14 @@ const ProduccionPage: React.FC = () => {
                                                     {pv.fecha_envio && (
                                                         <div className="flex items-center justify-between text-[11px]">
                                                             <span className="flex items-center gap-1 text-slate-700"><Clock className="w-3 h-3" /> Enviado</span>
-                                                            <span className="font-semibold text-slate-900">{new Date(pv.fecha_envio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</span>
+                                                            <span className="font-semibold text-slate-900">{fmtDia(pv.fecha_envio, { day: '2-digit', month: 'short' })}</span>
                                                         </div>
                                                     )}
                                                     {pv.fecha_entrega_prometida && (
                                                         <div className="flex items-center justify-between text-[11px]">
                                                             <span className="flex items-center gap-1 text-slate-700"><Calendar className="w-3 h-3" /> Prometida</span>
                                                             <span className="font-semibold text-slate-900 flex items-center gap-1.5">
-                                                                {new Date(pv.fecha_entrega_prometida).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                                {fmtDia(pv.fecha_entrega_prometida, { day: '2-digit', month: 'short' })}
                                                                 {diasLabel && <span className="text-[11px]">({diasLabel})</span>}
                                                             </span>
                                                         </div>
@@ -1081,7 +1084,7 @@ const ProduccionPage: React.FC = () => {
                                                         <div className="flex items-center justify-between text-[11px]">
                                                             <span className="flex items-center gap-1 text-slate-700"><CheckCircle2 className="w-3 h-3 text-emerald-600" /> Llegó</span>
                                                             <span className="font-semibold text-emerald-700">
-                                                                {new Date(pv.fecha_llegada_real).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                                {fmtDia(pv.fecha_llegada_real, { day: '2-digit', month: 'short' })}
                                                                 {pv.dias_diferencia !== null && (
                                                                     <span className={`ml-1 ${pv.dias_diferencia > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
                                                                         ({pv.dias_diferencia > 0 ? `+${pv.dias_diferencia}d tarde` : `${Math.abs(pv.dias_diferencia)}d antes`})
@@ -2061,7 +2064,7 @@ const ProduccionPage: React.FC = () => {
                                                 {/* Fecha creación */}
                                                 <td className="px-4 py-3">
                                                     <p className="text-sm text-slate-800">
-                                                        {odp.fecha_creacion ? new Date(odp.fecha_creacion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                                        {fmtFecha(odp.fecha_creacion, { day: '2-digit', month: 'short', year: 'numeric' }, '—')}
                                                     </p>
                                                 </td>
                                                 {/* ODP Hija */}

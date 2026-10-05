@@ -19,6 +19,7 @@ import TabHistorial from './ODPTabHistorial';
 import TabImprimir from './ODPTabImprimir';
 import { fetchODPById } from '../odpSlice';
 import { RootState, AppDispatch } from '../../../store/store';
+import { fmtFecha } from '../../../utils/fechas';
 
 const TabButton: React.FC<{ active: boolean; icon: React.ReactNode; label: string; badge?: number; onClick: () => void }> = ({ active, icon, label, badge, onClick }) => (
   <button onClick={onClick}
@@ -185,7 +186,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                   <p className="text-sm text-slate-700 font-medium mt-1">
                     <span className="font-bold text-slate-900">{odp.cliente?.nombre_razon_social}</span>
                     {' · '}Asesor: {odp.asesor?.nombre_completo}
-                    {' · '}Creado: {new Date(odp.fecha_creacion).toLocaleDateString('es-CO')}
+                    {' · '}Creado: {fmtFecha(odp.fecha_creacion)}
                   </p>
                 </div>
               </div>

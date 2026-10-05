@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import API from '../../../services/config';
 import { ProveedorCompacto } from '../ProveedoresPage';
 import { RADIUS, FONT } from '../styleTokens';
+import { hoyBogotaISO } from '../../../utils/fechas';
 
 /**
  * Fase 3 del módulo: actualización masiva de precios por lista del proveedor.
@@ -71,7 +72,7 @@ const formatCOP = (val: number | null | undefined): string => {
 const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado }) => {
   const [proveedorId, setProveedorId] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
-  const [fechaLista, setFechaLista] = useState(new Date().toISOString().split('T')[0]);
+  const [fechaLista, setFechaLista] = useState(hoyBogotaISO());
   const [unidadDefecto, setUnidadDefecto] = useState('UNIDAD');
   const [preciosConIva, setPreciosConIva] = useState(false);
   const [crearPendientes, setCrearPendientes] = useState(true);

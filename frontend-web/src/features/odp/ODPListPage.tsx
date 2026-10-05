@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
 import { getEstadoODP } from '../../utils/estadosODP';
+import { diaCalendario, fmtDia, fmtFecha } from '../../utils/fechas';
 import FolderTabs from '../../components/FolderTabs';
 import ODPFichaModal from './components/ODPFichaModal';
 import AsignarAsesorODPModal from './components/AsignarAsesorODPModal';
@@ -433,7 +434,7 @@ const ODPListPage: React.FC = () => {
 
     // Listas de asesores y años únicos para filtros
     const asesoresUnicos = Array.from(new Set(currentRows.map(o => o.asesor?.nombre_completo).filter(Boolean)));
-    const aniosUnicos = Array.from(new Set(currentRows.map(o => o.fecha_entrega ? new Date(o.fecha_entrega).getFullYear() : null).filter(Boolean) as number[])).sort((a, b) => b - a);
+    const aniosUnicos = Array.from(new Set(currentRows.map(o => diaCalendario(o.fecha_entrega)?.getFullYear() ?? null).filter(Boolean) as number[])).sort((a, b) => b - a);
 
     // Segmentación por tabs
     const ESTADOS_LISTAS = ['LISTO_INSTALAR', 'PROGRAMADA'];
@@ -459,7 +460,8 @@ const ODPListPage: React.FC = () => {
             odp.cliente.nombre_razon_social.toLowerCase().includes(searchQuery.toLowerCase());
         const matchAsesor = !filterAsesor || odp.asesor?.nombre_completo === filterAsesor;
         const matchEstado = !filterEstado || odp.estado_produccion === filterEstado;
-        const fechaListo = odp.fecha_entrega ? new Date(odp.fecha_entrega) : null;
+        // Día de calendario: `new Date()` lo leía en UTC y una ODP del día 1 caía en el mes anterior.
+        const fechaListo = diaCalendario(odp.fecha_entrega);
         const matchMes = !filterMes || (fechaListo && (fechaListo.getMonth() + 1) === parseInt(filterMes));
         const matchAnio = !filterAnio || (fechaListo && fechaListo.getFullYear() === parseInt(filterAnio));
         return matchSearch && matchAsesor && matchEstado && matchMes && matchAnio;
@@ -836,7 +838,7 @@ const ODPListPage: React.FC = () => {
                                                 {/* Fecha Creación */}
                                                 <td className="px-3 py-3 text-xs font-mono">
                                                     {(odp as any).fecha_creacion
-                                                        ? <span className="text-slate-900 font-semibold">{new Date((odp as any).fecha_creacion).toLocaleDateString('es-CO')}</span>
+                                                        ? <span className="text-slate-900 font-semibold">{fmtFecha((odp as any).fecha_creacion)}</span>
                                                         : <span className="text-slate-400">—</span>}
                                                 </td>
                                             </>
@@ -872,7 +874,7 @@ const ODPListPage: React.FC = () => {
                                                 {/* Listo Material */}
                                                 <td className="px-3 py-3 text-xs font-mono">
                                                     {odp.fecha_entrega
-                                                        ? <span className="text-slate-900 font-semibold">{new Date(odp.fecha_entrega).toLocaleDateString('es-CO')}</span>
+                                                        ? <span className="text-slate-900 font-semibold">{fmtDia(odp.fecha_entrega)}</span>
                                                         : <span className="text-slate-400">—</span>}
                                                 </td>
                                             </>

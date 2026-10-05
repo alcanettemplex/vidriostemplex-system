@@ -7,6 +7,7 @@ import AuditoriaLog from '../models/auditoria_log.model';
 import AlertasUmbral from '../models/alertas_umbral.model';
 import { Op } from 'sequelize';
 import jwt from 'jsonwebtoken';
+import { hoyBogotaISO, HOY_BOGOTA_SQL } from '../utils/fechas';
 import { cronPVStatus, getWSCount } from '../server';
 import { getRateLimitStats } from '../middlewares/rateLimiter';
 
@@ -467,7 +468,7 @@ export const descargarBackup = async (req: Request, res: Response) => {
 
     sql += `COMMIT;\n`;
 
-    const fecha = new Date().toISOString().slice(0, 10);
+    const fecha = hoyBogotaISO();
     res.setHeader('Content-Type', 'application/sql');
     res.setHeader('Content-Disposition', `attachment; filename="backup_templex_${fecha}.sql"`);
     res.send(sql);
@@ -908,12 +909,12 @@ export const getOperativoResumen = async (_req: Request, res: Response) => {
         SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
                u.nombre_completo AS asesor,
                o.fecha_vencimiento_credito, o.valor_total, o.pendiente,
-               CURRENT_DATE - o.fecha_vencimiento_credito AS dias_vencido
+               ${HOY_BOGOTA_SQL} - o.fecha_vencimiento_credito AS dias_vencido
         FROM odp o
         JOIN clientes c ON c.id = o.cliente_id
         JOIN usuarios u ON u.id = o.asesor_id
         WHERE o.fecha_vencimiento_credito IS NOT NULL
-          AND o.fecha_vencimiento_credito < CURRENT_DATE
+          AND o.fecha_vencimiento_credito < ${HOY_BOGOTA_SQL}
           AND o.estado_facturacion = 'PENDIENTE'
         ORDER BY dias_vencido DESC LIMIT 50
       `, { type: QueryTypes.SELECT }),
@@ -1236,14 +1237,14 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
                u.nombre_completo AS asesor,
                o.valor_total, o.pendiente, o.estado_caja,
                o.fecha_entrega,
-               EXTRACT(DAY FROM NOW() - o.fecha_entrega)::int AS dias_sin_cobrar
+               (${HOY_BOGOTA_SQL} - o.fecha_entrega::date)::int AS dias_sin_cobrar
         FROM odp o
         JOIN clientes c ON c.id = o.cliente_id
         JOIN usuarios u ON u.id = o.asesor_id
         WHERE o.estado_produccion = 'ENTREGADA'
           AND o.estado_caja IN ('PENDIENTE','ABONADO')
           AND o.fecha_entrega IS NOT NULL
-          AND o.fecha_entrega < NOW() - INTERVAL '30 days'
+          AND o.fecha_entrega::date < ${HOY_BOGOTA_SQL} - 30
         ORDER BY dias_sin_cobrar DESC
         LIMIT 200
       `, { type: QueryTypes.SELECT }),

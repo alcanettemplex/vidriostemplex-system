@@ -152,7 +152,9 @@ export async function construirWhereODP(query: Record<string, any>) {
 
   // ─── Rango de fechas ───────────────────────────────────────────────────────
   const campoFecha = CAMPOS_FECHA_ODP[campo_fecha as string] || 'fecha_factura';
-  const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
+  // `fecha_entrega` es un día de calendario guardado a medianoche UTC; el resto son
+  // momentos (o, `fecha_factura`, se lleva a medianoche de Bogotá en facturacion.ts).
+  const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta, campoFecha === 'fecha_entrega' ? 'dia' : 'momento');
   if (rangoFecha) {
     if (campoFecha === 'fecha_factura') {
       // Por PRESENCIA de FE (principal o adicional) en el rango, consistente con el KPI

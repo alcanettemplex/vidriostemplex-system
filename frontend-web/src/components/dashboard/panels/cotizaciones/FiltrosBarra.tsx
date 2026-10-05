@@ -4,6 +4,7 @@ import type { EstadoCotizacion, FiltrosCotizaciones, ModuloCotizador, Segmento }
 import { NOMBRE_ESTADO, NOMBRE_MODULO, NOMBRE_SEGMENTO } from './tipos';
 import { hoyISO } from './formato';
 import { filtrosIniciales } from './useCotizacionesDashboard';
+import { sumarDiasISO } from '../../../../utils/fechas';
 
 interface Props {
   filtros: FiltrosCotizaciones;
@@ -24,9 +25,7 @@ function rango(tipo: 'mes' | '90' | 'anio' | 'anio_ant'): { desde: string; hasta
   if (tipo === 'mes') return { desde: `${a}-${String(m).padStart(2, '0')}-01`, hasta: hoy };
   if (tipo === 'anio') return { desde: `${a}-01-01`, hasta: hoy };
   if (tipo === 'anio_ant') return { desde: `${a - 1}-01-01`, hasta: `${a - 1}-12-31` };
-  const d = new Date(`${hoy}T12:00:00`);
-  d.setDate(d.getDate() - 89);
-  return { desde: d.toISOString().slice(0, 10), hasta: hoy };
+  return { desde: sumarDiasISO(hoy, -89), hasta: hoy };
 }
 
 const RANGOS: Array<{ id: 'mes' | '90' | 'anio' | 'anio_ant'; label: string }> = [

@@ -10,6 +10,7 @@ import {
 import { invalidarCatalogo } from '../../services/listasCache';
 
 import API from '../../services/config';
+import { hoyBogotaISO } from '../../utils/fechas';
 
 const headers = () => ({
   'Content-Type': 'application/json',
@@ -1023,7 +1024,7 @@ const TabBackup: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `backup_templex_${new Date().toISOString().slice(0, 10)}.sql`;
+      a.download = `backup_templex_${hoyBogotaISO()}.sql`;
       a.click();
       URL.revokeObjectURL(url);
     } finally { setDownloading(false); }

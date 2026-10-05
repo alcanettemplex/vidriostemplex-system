@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { Op } from 'sequelize';
 import { ODP, Cliente, Usuario, Pago, FacturaAdicionalODP, sequelize } from '../models';
+import { hoyBogotaISO, inicioDiaBogota, diaCalendarioISO, diferenciaDias } from '../utils/fechas';
 
 // Helper: recalcula abono/pendiente/estado_caja de una ODP a partir de sus pagos actuales
 const recalcularFinanciero = async (odp_id: number, t: any) => {
@@ -117,8 +118,11 @@ const mensajeQueryInvalida = (error: z.ZodError) =>
  */
 export const getResumenFinanciero = async (_req: Request, res: Response) => {
   try {
-    const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    // `fecha_entrega` y `fecha_vencimiento_credito` son días de calendario: se comparan
+    // contra el hoy de Bogotá, no contra el instante actual (que las daba por vencidas
+    // desde las 00:00 UTC del mismo día).
+    const today = hoyBogotaISO();
+    const firstDayOfMonth = inicioDiaBogota(`${today.slice(0, 8)}01`);
 
     // Totales generales
     const totalAbonado = (await ODP.sum('abono')) || 0;
@@ -192,12 +196,7 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
     const carteraDetalle = carteraVencidaRecords.map((odp: any) => {
       const esCreditoVencido = odp.estado_caja === 'CREDITO_APROBADO';
       const fechaRefStr = esCreditoVencido ? odp.fecha_vencimiento_credito : odp.fecha_entrega;
-      const todayTime = new Date().setHours(0,0,0,0);
-      const fechaRef = fechaRefStr ? new Date(fechaRefStr) : new Date(todayTime);
-      fechaRef.setHours(0,0,0,0);
-      
-      const diffTime = todayTime - fechaRef.getTime();
-      const diffDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+      const diffDays = fechaRefStr ? Math.max(0, diferenciaDias(diaCalendarioISO(fechaRefStr), today)) : 0;
 
       return {
         id: odp.id,

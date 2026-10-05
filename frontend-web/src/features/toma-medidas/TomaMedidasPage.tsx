@@ -13,6 +13,7 @@ import ProspectoModal from '../prospectos/components/ProspectoModal';
 
 import API from '../../services/config';
 import { tmRetornable, tmVisitaRealizada } from '../../utils/tmEstado';
+import { hoyBogotaISO, diasHasta, sumarDiasISO } from '../../utils/fechas';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -89,17 +90,10 @@ interface PanelData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const hoyEnBogota = (): string =>
-  new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Bogota' });
+const hoyEnBogota = hoyBogotaISO;
 
-const diasRestantes = (fecha: string | null): number | null => {
-  if (!fecha) return null;
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const entrega = new Date(fecha);
-  entrega.setHours(0, 0, 0, 0);
-  return Math.ceil((entrega.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-};
+// `fecha_entrega` es un día de calendario: `new Date()` lo leía en UTC y daba un día menos.
+const diasRestantes = (fecha: string | null): number | null => diasHasta(fecha);
 
 const BadgeDias: React.FC<{ fecha: string | null }> = ({ fecha }) => {
   const dias = diasRestantes(fecha);
@@ -112,9 +106,7 @@ const BadgeDias: React.FC<{ fecha: string | null }> = ({ fecha }) => {
 
 const formatChipLabel = (fecha: string, hoy: string): string => {
   if (fecha === hoy) return 'Hoy';
-  const d = new Date(hoy + 'T00:00:00');
-  d.setDate(d.getDate() + 1);
-  if (fecha === d.toLocaleDateString('sv-SE')) return 'Mañana';
+  if (fecha === sumarDiasISO(hoy, 1)) return 'Mañana';
   return new Date(fecha + 'T00:00:00').toLocaleDateString('es-CO', {
     weekday: 'short', day: 'numeric', month: 'short',
   });

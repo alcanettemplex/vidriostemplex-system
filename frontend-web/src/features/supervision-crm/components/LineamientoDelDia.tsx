@@ -6,6 +6,7 @@ import {
   apiGuardarNotasLineamiento, apiGetAdherenciaLineamiento,
 } from '../supervisionService';
 import { Lineamiento, LineamientoItem } from '../types';
+import { hoyBogotaISO, sumarDiasISO } from '../../../utils/fechas';
 
 const PRIORIDAD_BADGE: Record<string, string> = {
   alta: 'bg-apple-red/10 text-apple-red',
@@ -25,9 +26,7 @@ const PRIORIDAD_RANK: Record<string, number> = { alta: 0, media: 1, baja: 2 };
 // Aritmética de fecha "a salvo" de husos horarios: se ancla al mediodía para
 // que sumar/restar un día nunca cruce un límite de DST/UTC y cambie el día.
 function sumarDias(fechaISO: string, delta: number): string {
-  const d = new Date(`${fechaISO}T12:00:00`);
-  d.setDate(d.getDate() + delta);
-  return d.toISOString().split('T')[0];
+  return sumarDiasISO(fechaISO, delta);
 }
 
 interface Props {
@@ -62,7 +61,7 @@ const LineamientoDelDia: React.FC<Props> = ({ asesorId, asesorNombre }) => {
   const cargarAdherencia = useCallback(async () => {
     if (!asesorId) return;
     try {
-      const hasta = fechaCursor || new Date().toISOString().split('T')[0];
+      const hasta = fechaCursor || hoyBogotaISO();
       const desde = sumarDias(hasta, -7);
       const { data } = await apiGetAdherenciaLineamiento({ fecha_desde: desde, fecha_hasta: hasta, asesor_id: asesorId });
       setAdherencia(data);
@@ -83,7 +82,7 @@ const LineamientoDelDia: React.FC<Props> = ({ asesorId, asesorNombre }) => {
     );
   }
 
-  const fechaBase = fechaCursor || lineamiento?.fecha || new Date().toISOString().split('T')[0];
+  const fechaBase = fechaCursor || lineamiento?.fecha || hoyBogotaISO();
 
   const handleGenerar = async () => {
     setGenerando(true);

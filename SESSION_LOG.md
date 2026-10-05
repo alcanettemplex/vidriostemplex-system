@@ -6459,3 +6459,37 @@ consigna de simplicidad y pocos pasos.
 - **Verificación:** `tsc` backend y frontend OK, ESLint limpio. Sin prueba en navegador (requiere aplicar
   el script sobre la BD, que es producción).
 - **Pendiente:** prueba manual en el navegador (escribe notas reales), commit + push.
+
+
+## 2026-10-05 — Fechas en hora de Bogotá en todo el sistema
+
+- **Pedido:** el usuario vio inconsistencias de fechas entre ODP, Producción e Instalaciones. Diagnóstico
+  forense (código + BD): (1) `fecha_entrega` se captura como "listo material" pero los KPI la miden como
+  entrega al cliente; (2) **todas las fechas de calendario se mostraban un día antes** (567/567
+  `fecha_entrega` a 00:00 UTC, leídas con `new Date()` en Bogotá); (3) 4 definiciones de "atrasada";
+  (4) KPI "entregadas a tiempo" con `limit` ignorado; (5) datos de estado incoherentes. Decisión del
+  usuario: corregir **solo la zona horaria, en todo el sistema**; sin script para las 84 ODPs del CRM con
+  `fecha_creacion` a medianoche; sin tocar el KPI "a tiempo". Dato nuevo: **el backend corre en Render**
+  (UTC) — guardado en CLAUDE.md.
+- **Backend:** nuevo `utils/fechas.ts` (hoy Bogotá, días de calendario, cortes de día/mes en Bogotá, SQL
+  `HOY_BOGOTA_SQL`). `crmSupervision.hoyBogotaISO` reexporta de ahí. Corregidos: `dashboard` (`parsePeriod`,
+  atrasadas, vencen esta semana, cartera, alertas, operaciones de hoy, puntualidad de conductores,
+  gráfico mensual), `informe_ejecutivo` (`parseDates`, `mesesEntre`, atrasadas), `contabilidad` (cartera
+  vencida), `root` (créditos vencidos, cartera), `rutas` (historial semanal, pendientes de cierre, rutas
+  del mes, programación del día), `crm` (6 rangos de fecha, mes anterior, `mesesEnRango`, Excel, ODP desde
+  lead con instante real), `rangoFechas.construirFiltroFecha` (tipo `'dia'`/`'momento'`), `odpFiltros`,
+  `odp` (chk accesorios, vencimiento crédito), `checksAutomaticos`, `pedido_pv` (envío, llegada, Excel
+  D10), `inventario`, `proveedor`, `dianXmlParser`, PDF del Cotizador, cron PV con `timezone`.
+- **Frontend:** nuevo `utils/fechas.ts` (espejo). 30 archivos: listado/ficha/explorador ODP, imprimibles
+  (Producción, Talonario, OA, SAP, Garantía, Det. Técnico, Det. SAP), Producción (urgencia por días de
+  calendario, Pedido PV), Toma de Medidas, JefeView, InstaladorView (contador "Hoy"), Contabilidad,
+  abonos, FE, Salidas de Almacén, ODPForm, Pedidos PV, programación WhatsApp, Informe Ejecutivo,
+  Supervisión CRM, Lineamiento, Inventario, Proveedores (3), ROOT, filtros de cotizaciones.
+- **BD:** sin cambios de esquema ni de datos.
+- **Verificación:** `tsc` backend y frontend OK; `test:cotizador` 268/268, `test:proveedores` 17/17;
+  helpers probados con el proceso en Bogotá y en UTC (15/15 backend, 9/9 frontend). Contra la BD: hoy los
+  conteos de atrasadas (37) y "vencen esta semana" (16) no cambian (ninguna ODP vence hoy); ningún
+  registro histórico de ODP ni de lead cambia de mes. Sin prueba en navegador.
+- **Pendientes:** prueba manual en navegador (listado, ficha, OP impresa, Producción, JefeView, Dashboard);
+  decisión de negocio sobre el significado de `fecha_entrega` y la definición única de "atrasada"
+  (`TECH_DEBT.md` 2026-10-05); commit + push cuando el usuario lo ordene.

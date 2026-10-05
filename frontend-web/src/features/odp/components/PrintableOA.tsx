@@ -1,6 +1,6 @@
 import React from 'react';
-import { format } from 'date-fns';
 import { TemplexLogo } from '../../../components/ui/TemplexLogo';
+import { fmtDiaNumerico, fmtFechaNumerica } from '../../../utils/fechas';
 
 interface PrintableOAProps {
   odp: any;
@@ -32,8 +32,8 @@ const PrintableOA: React.FC<PrintableOAProps> = ({ odp }) => {
 
   const numero      = odp.numero_odp?.split('-').pop() || odp.numero_odp;
   const cliente     = odp.cliente?.nombre_razon_social || '';
-  const fechaElab   = odp.fecha_creacion ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy') : '';
-  const fechaEntrega = odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : '';
+  const fechaElab   = fmtFechaNumerica(odp.fecha_creacion);
+  const fechaEntrega = fmtDiaNumerico(odp.fecha_entrega);
 
   const thStyle: React.CSSProperties = {
     backgroundColor: BLUE_LIGHT,

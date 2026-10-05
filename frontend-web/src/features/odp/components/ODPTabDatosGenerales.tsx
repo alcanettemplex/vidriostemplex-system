@@ -3,6 +3,7 @@ import {
   FileText, MapPin, Calendar, User, Phone, Building2, CheckCircle2
 } from '../../../components/ui/icons';
 import { Badge, InfoRow } from './ODPFichaModal.utils';
+import { fmtDia, fmtFecha } from '../../../utils/fechas';
 
 const TabDatosGenerales: React.FC<{ odp: any }> = ({ odp }) => {
   const servicios: string[] = [];
@@ -20,8 +21,8 @@ const TabDatosGenerales: React.FC<{ odp: any }> = ({ odp }) => {
         <InfoRow label="N° ODP" value={<span className="text-indigo-700 font-bold text-base">{odp.numero_odp}</span>} />
         <InfoRow label="Tipo de Servicio" value={odp.tipo_servicio?.replace(/_/g, ' ')} />
         <InfoRow label="Dirección de Instalación" value={odp.direccion_instalacion} icon={<MapPin className="w-3.5 h-3.5" />} />
-        <InfoRow label="Fecha de Entrega" value={(() => { const d = odp.fecha_entrega ? new Date(odp.fecha_entrega.includes('T') ? odp.fecha_entrega : odp.fecha_entrega + 'T00:00:00') : null; return d && !isNaN(d.getTime()) ? d.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : null; })()} icon={<Calendar className="w-3.5 h-3.5" />} />
-        <InfoRow label="Creado el" value={new Date(odp.fecha_creacion).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })} />
+        <InfoRow label="Fecha de Entrega" value={fmtDia(odp.fecha_entrega, { day: '2-digit', month: 'long', year: 'numeric' }) || null} icon={<Calendar className="w-3.5 h-3.5" />} />
+        <InfoRow label="Creado el" value={fmtFecha(odp.fecha_creacion, { day: '2-digit', month: 'long', year: 'numeric' })} />
         <InfoRow label="Descripción" value={odp.descripcion_pedido} />
         {odp.observaciones && <InfoRow label="Observaciones" value={odp.observaciones} />}
       </div>

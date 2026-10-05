@@ -5,6 +5,7 @@ import { X, Shield, AlertTriangle, CheckCircle, Send } from '../../../components
 import { differenceInMonths, isValid } from 'date-fns';
 
 import API from '../../../services/config';
+import { diaCalendario, fmtDia } from '../../../utils/fechas';
 
 interface Props {
   odp: any; // ODP padre
@@ -31,8 +32,8 @@ const GarantiaFormModal: React.FC<Props> = ({ odp, onClose, onCreada }) => {
   // Calcular si la garantía está vigente (6 meses desde fecha_entrega de la ODP padre)
   const garantiaVigente = (() => {
     if (!odp?.fecha_entrega) return null; // sin fecha no sabemos
-    const fechaEntrega = new Date(odp.fecha_entrega);
-    if (!isValid(fechaEntrega)) return null;
+    const fechaEntrega = diaCalendario(odp.fecha_entrega);
+    if (!fechaEntrega || !isValid(fechaEntrega)) return null;
     const mesesTranscurridos = differenceInMonths(new Date(), fechaEntrega);
     return mesesTranscurridos <= 6;
   })();
@@ -119,7 +120,7 @@ const GarantiaFormModal: React.FC<Props> = ({ odp, onClose, onCreada }) => {
                 <div>
                   <p className="font-bold text-amber-800">Garantía posiblemente vencida</p>
                   <p className="text-amber-700 text-xs mt-0.5">
-                    Han pasado más de 6 meses desde la instalación ({new Date(odp.fecha_entrega).toLocaleDateString('es-CO')}).
+                    Han pasado más de 6 meses desde la instalación ({fmtDia(odp.fecha_entrega)}).
                     Puedes continuar si aplica garantía extendida o por criterio comercial.
                   </p>
                 </div>

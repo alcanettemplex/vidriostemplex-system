@@ -2,6 +2,7 @@
 // Extraídos de ContabilidadPage para que los modales (FE, abonos) puedan reutilizarse
 // también desde la ficha de la ODP sin duplicar formato ni reglas de cálculo.
 import { coincideBusqueda } from '../../../utils/busqueda';
+import { fmtFecha as fmtFechaBogota } from '../../../utils/fechas';
 
 export const getToken = () => sessionStorage.getItem('token');
 export const headers = () => ({ Authorization: `Bearer ${getToken()}` });
@@ -17,19 +18,12 @@ export const formatMiles = (input: string | number) => {
 
 export const parseMiles = (val: string) => Number(String(val).replace(/\D/g, '')) || 0;
 
-export const fmtFecha = (f: string | null | undefined): string => {
-  if (!f) return '—';
-  try {
-    // Extraer YYYY-MM-DD del string ISO para evitar el offset UTC→Bogotá (UTC-5)
-    // que convierte medianoche UTC al día anterior en Colombia.
-    const datePart = typeof f === 'string' ? f.substring(0, 10) : '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
-      const [y, m, d] = datePart.split('-').map(Number);
-      return new Date(y, m - 1, d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
-    }
-    return new Date(f).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Bogota' });
-  } catch { return String(f); }
-};
+// Recibe días de calendario (fecha_factura, vencimiento) y momentos (fecha_creacion,
+// pagos): `fmtFecha` de utils/fechas.ts muestra cada uno en su regla, en hora de Bogotá.
+// Antes se cortaban los 10 primeros caracteres a todo, y un momento de después de las
+// 7 p.m. salía con la fecha de mañana.
+export const fmtFecha = (f: string | null | undefined): string =>
+  fmtFechaBogota(f, { day: '2-digit', month: 'short', year: 'numeric' }, '—');
 
 // Usa el pendiente almacenado en BD (ya descuenta diferencia/retención).
 // Fallback a valor_total-abono solo si pendiente no está disponible (ODPs antiguas).

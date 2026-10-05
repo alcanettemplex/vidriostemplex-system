@@ -7,6 +7,7 @@ import {
 } from '../../../components/ui/icons';
 
 import API from '../../../services/config';
+import { fmtFecha as fmtFechaBogota, isoLocal } from '../../../utils/fechas';
 import { badgeEstadoODP, ESTADO_LABELS_CORTOS } from '../../../utils/estadosODP';
 import {
     apiGetExploradorODP, FiltrosExplorador, FilaExplorador,
@@ -30,18 +31,13 @@ import {
 const fmtCOP = (v: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
 
+// Recibe `fecha_creacion` (momento) y `fecha_entrega` (día de calendario): el `fmtFecha`
+// de utils/fechas.ts aplica a cada una su regla. Con `new Date(v)` la entrega salía un día antes.
 const fmtFecha = (v?: string | null) =>
-    v ? new Date(v).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
+    fmtFechaBogota(v, { day: '2-digit', month: '2-digit', year: '2-digit' }, '—');
 
-/**
- * Fecha local en formato YYYY-MM-DD.
- *
- * NO usar `toISOString().slice(0,10)`: convierte a UTC, y en Bogotá (UTC-5) una fecha
- * local a medianoche retrocede al día anterior. Es la misma clase de bug documentada
- * en TECH_DEBT 2026-07-12 para los rangos del CRM.
- */
-const iso = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Fecha local → YYYY-MM-DD (nunca `toISOString()`, que convierte a UTC). Ver utils/fechas.ts.
+const iso = isoLocal;
 
 // Los 13 estados reales, en orden de flujo. PEDIDO_PROVEEDOR existe en el ENUM de
 // Postgres pero está retirado del código desde el 2026-08-01: no se ofrece como filtro.
