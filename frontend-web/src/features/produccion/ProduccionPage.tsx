@@ -91,6 +91,11 @@ interface SAPDetalle {
     estado: 'borrador' | 'enviada' | 'aprobada';
     fecha_creacion: string;
     ordenes_compra: ODCDetalle[];
+    /** Calculado por getODPById con la regla de `odp.tiene_aluminio`. Solo estas SAP ofrecen el pase a corte. */
+    tiene_aluminio?: boolean;
+    /** Pase a corte de aluminio (2026-10-05): nota del taller, NO es `chk_corte`. NULL = sin pasar. */
+    fecha_pase_corte?: string | null;
+    pase_corte_por?: { id: number; nombre_completo: string } | null;
 }
 
 interface ODPDetalle {
@@ -125,7 +130,7 @@ interface ODP {
     es_garantia?: boolean;
     tiene_aluminio?: boolean;
     tomas_medidas?: { id: number; numero_tm: string; croquis_url: string | null }[];
-    saps?: { id: number }[];
+    saps?: { id: number; numero_sap?: string; fecha_pase_corte?: string | null }[];
     instalacion?: boolean;
     acarreo?: boolean;
     forma_pago?: string;
@@ -251,6 +256,24 @@ const TOOLTIP_AUTOMATICO: Record<string, string> = {
         + 'o por una ODC recibida— y cae si el material se revierte. También puedes marcarla a mano.',
 };
 
+const fmtDiaHora = (iso: string): string =>
+    new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })
+    + ' ' + new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+
+/**
+ * SAP de la ODP ya pasadas a corte de aluminio (2026-10-05). Alimenta el tercer
+ * aspecto de la celda Aluminio, "en corte": aluminio pendiente de marcar como
+ * cortado pero cuya perfilería ya salió para el corte. Es solo una nota —no cuenta
+ * para el avance ni para Listo para Instalar—.
+ */
+const sapsEnCorte = (odp: ODP) => (odp.saps || []).filter(s => !!s.fecha_pase_corte);
+
+const tooltipEnCorte = (odp: ODP): string =>
+    'En corte: ' + sapsEnCorte(odp)
+        .map(s => `${s.numero_sap ?? 'SAP'} desde ${fmtDiaHora(s.fecha_pase_corte as string)}`)
+        .join(' · ')
+    + '. Clic para marcar el aluminio como cortado.';
+
 const isPagoOk = (odp: ODP): boolean =>
     odp.forma_pago === 'credito' ||
     odp.estado_caja === 'CANCELADO' ||
@@ -304,6 +327,8 @@ const ProduccionPage: React.FC = () => {
     const [pvObsAccion, setPvObsAccion]             = useState('');
     const [pvLoadingAccion, setPvLoadingAccion]     = useState(false);
     const [marcandoListo, setMarcandoListo]         = useState(false);
+    /** id de la SAP cuyo pase a corte se está guardando (deshabilita su botón). */
+    const [paseCorteSapId, setPaseCorteSapId]       = useState<number | null>(null);
     const [showProgramacion, setShowProgramacion]   = useState(false);
 
     // ─── Pestaña "Por Imprimir" ─────────────────────────────────────────────
@@ -598,6 +623,39 @@ const ProduccionPage: React.FC = () => {
             toast.error(error.response?.data?.error || 'Error al actualizar estado');
         } finally {
             setMarcandoListo(false);
+        }
+    };
+
+    /**
+     * Pasa a corte de aluminio una SAP (o lo deshace). Es una nota del taller: el
+     * backend marca la SAP y deja la nota en la bitácora en la misma transacción, y
+     * emite el odp_patch que pinta la celda Aluminio en ámbar en todos los tableros.
+     */
+    const handlePaseCorte = async (sap: SAPDetalle, deshacer: boolean) => {
+        if (!panelOdp) return;
+        if (!puedeEditarTaller) { avisarSinEdicion(); return; }
+        if (deshacer && !window.confirm(`¿Deshacer el pase a corte de la ${sap.numero_sap}?\nQuedará constancia en la bitácora.`)) return;
+        const odpId = panelOdp.id;
+        setPaseCorteSapId(sap.id);
+        try {
+            const token = sessionStorage.getItem('token');
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const url = `${API}/api/documentos/sap/${sap.id}/pase-corte`;
+            const res = deshacer ? await axios.delete(url, config) : await axios.patch(url, {}, config);
+            const sapResp = res.data?.sap;
+            setPanelDetail(prev => prev ? {
+                ...prev,
+                saps: prev.saps.map(s => s.id === sap.id
+                    ? { ...s, fecha_pase_corte: sapResp?.fecha_pase_corte ?? null, pase_corte_por: sapResp?.pase_corte_por ?? null }
+                    : s),
+            } : prev);
+            if (res.data?.nota) setNotes(prev => ({ ...prev, [odpId]: [res.data.nota, ...(prev[odpId] || [])] }));
+            toast.success(deshacer ? `Se deshizo el pase a corte de la ${sap.numero_sap}` : `${sap.numero_sap} pasada a corte de aluminio`);
+        } catch (e: any) {
+            toast.error(e.response?.data?.error || 'No se pudo registrar el pase a corte. Intenta de nuevo.');
+            fetchPanelDetail(odpId); // la SAP pudo cambiar en otro equipo (409): se muestra lo real
+        } finally {
+            setPaseCorteSapId(null);
         }
     };
 
@@ -1098,6 +1156,45 @@ const ProduccionPage: React.FC = () => {
                                                 {sap.estado}
                                             </span>
                                         </div>
+                                        {/* Pase a corte de aluminio (2026-10-05): nota del taller por SAP.
+                                            La marca se muestra aunque la SAP ya no tenga aluminio, para poder deshacerla. */}
+                                        {(sap.tiene_aluminio || sap.fecha_pase_corte) && (
+                                            <div className="px-3 py-2 bg-white border-b border-slate-100">
+                                                {sap.fecha_pase_corte ? (
+                                                    <div className="flex items-center justify-between gap-2 text-[11px]">
+                                                        <span className="flex items-center gap-1.5 text-amber-800 font-semibold min-w-0">
+                                                            <Scissors className="w-3.5 h-3.5 shrink-0" />
+                                                            <span className="truncate">
+                                                                Pasada a corte · {fmtDiaHora(sap.fecha_pase_corte)}
+                                                                {sap.pase_corte_por && <span className="font-normal text-slate-700"> · {sap.pase_corte_por.nombre_completo}</span>}
+                                                            </span>
+                                                        </span>
+                                                        {puedeEditarTaller && (
+                                                            <button
+                                                                onClick={() => handlePaseCorte(sap, true)}
+                                                                disabled={paseCorteSapId === sap.id}
+                                                                className="shrink-0 text-[11px] font-semibold text-slate-700 hover:text-rose-700 underline disabled:opacity-40"
+                                                            >
+                                                                Deshacer
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ) : puedeEditarTaller ? (
+                                                    <button
+                                                        onClick={() => handlePaseCorte(sap, false)}
+                                                        disabled={paseCorteSapId === sap.id}
+                                                        className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition disabled:opacity-40"
+                                                    >
+                                                        {paseCorteSapId === sap.id
+                                                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                            : <Scissors className="w-3.5 h-3.5" />}
+                                                        Pasar a corte de aluminio
+                                                    </button>
+                                                ) : (
+                                                    <p className="text-[11px] text-slate-700 italic">Aluminio sin pasar a corte</p>
+                                                )}
+                                            </div>
+                                        )}
                                         {sap.ordenes_compra.filter(o => o.tipo === 'perfileria').length > 0 ? (
                                             <div className="bg-slate-50 px-3 py-2 space-y-1.5">
                                                 {sap.ordenes_compra.filter(o => o.tipo === 'perfileria').map(odc => (
@@ -1354,15 +1451,20 @@ const ProduccionPage: React.FC = () => {
                                             </td>
                                         );
                                     }
+                                    // Aluminio pasado a corte pero sin marcar como cortado: ámbar.
+                                    const enCorte = col.key === 'chk_corte' && !checked && sapsEnCorte(odp).length > 0;
                                     return (
                                         <td key={col.key} className="px-2 py-3 text-center"
-                                            title={!puedeEditarTaller
+                                            title={enCorte
+                                                ? tooltipEnCorte(odp)
+                                                : !puedeEditarTaller
                                                 ? 'Solo consulta: tu rol no modifica las etapas'
                                                 : (TOOLTIP_AUTOMATICO[col.key] || undefined)}
                                             onClick={e => { e.stopPropagation(); toggleCheck(odp, col.key); }}>
                                             <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 transition-all mx-auto
                                                 ${checked ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-600/25'
                                                 : locked  ? 'bg-slate-100 border-slate-200 cursor-not-allowed'
+                                                : enCorte ? `bg-amber-100 border-amber-400 text-amber-800 ${puedeEditarTaller ? 'hover:bg-amber-200 cursor-pointer' : 'cursor-help'}`
                                                 : !puedeEditarTaller ? 'bg-white border-slate-200 text-slate-400 cursor-help'
                                                 : 'bg-white border-slate-300 text-slate-600 hover:border-indigo-500 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer'}`}>
                                                 {locked   ? <Lock className="w-4 h-4 text-slate-400" />

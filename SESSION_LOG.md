@@ -6420,3 +6420,42 @@ consigna de simplicidad y pocos pasos.
   `telefono_recibe` → no aparece. Backend sin cambios (ambos endpoints ya enviaban el campo).
 - **Verificación:** `tsc` OK, dev server sin advertencias, helpers probados con 9 formatos de número.
   Pendiente: probar en un celular real con una ruta activa.
+
+
+## 2026-10-05 — Cotizador: mano de obra de divisiones y fachadas
+
+- **Pedido:** bajar la mano de obra de la división de $120.000/m² a ensamble $60.000/m² + instalación
+  $25.000/m² ($85.000/m² con instalación). Decisiones del usuario: **mismas tarifas de ventanería**
+  (`mo_ensamble_ventana_m2` / `mo_instalacion_ventana_m2`, sin parámetros propios); el ensamble se cobra
+  **siempre**, también sin instalación; las propuestas ya guardadas **no se recalculan** (cambian solo si
+  se vuelven a editar).
+- **Backend:** `lib/cargos.ts` — `calcularManoObraProductos` emite "Ensamble divisiones y fachadas" y
+  "Instalación divisiones y fachadas" (renglones propios, no mezclados con ventanas); `manoObraPorItem`
+  (reparto del PDF) usa la fórmula de ventanería. Comentario de `divisionFachada.ts` actualizado.
+- **Frontend:** `TabConfiguracion.tsx` — las dos tarifas de ventanas se rotulan "… ventanas, proyectantes
+  y divisiones"; "Instalación divisiones y fachadas" se oculta (ya no manda nada).
+- **BD:** sin migración. `mo_instalacion_division_m2` queda en BD/modelo/caché sin uso, como las `smo_*`.
+- **Verificación:** `test:cotizador` 268/268 (`pergolaDivision` 18 → 20 pruebas), `tsc` backend y frontend OK.
+  Ejemplo 3 × 2,4 m antes de AIU: con instalación $864.000 → $612.000; sin instalación $0 → $432.000.
+- **Riesgos:** fachadas cambian igual (mismo módulo); cambiar la tarifa de ventanas mueve divisiones;
+  una propuesta vieja que se reabra y edite cambia de total.
+- **Pendiente:** commit + push cuando el usuario lo ordene; verificar en el navegador una propuesta nueva.
+
+
+## 2026-10-05 — Control Taller: pase a corte de aluminio por SAP
+
+- **Pedido:** desde el panel derecho del Control Taller, un botón en cada SAP con aluminio para anotar
+  que pasó a corte. Decisiones del usuario: es **una nota para la bitácora** (no `chk_corte`, no mueve
+  estados), **por SAP**, visible en la **celda Aluminio**, **sin condiciones**. Decisión propia aceptada
+  en el plan: deshacer agrega nota en vez de borrar.
+- **BD:** `sap.fecha_pase_corte`, `sap.pase_corte_por_id`. Script `2026-10-05_sap_pase_corte.ts`
+  (**aplicado** el 2026-10-05 con autorización del usuario; verificado: 2 columnas nullable, FK `sap_pase_corte_por_id_fkey`, lectura con el modelo OK).
+- **Backend:** `utils/sapAluminio.ts` (regla única de aluminio, ahora también en `recalcularAluminioODP`);
+  `marcarPaseCorte` / `deshacerPaseCorte` en `sap.controller` (`PATCH`/`DELETE /api/documentos/sap/:id/pase-corte`,
+  transacción + FOR UPDATE + nota de bitácora + `emitirODPPatch`); `getODPById` marca `saps[].tiene_aluminio`
+  e incluye `pase_corte_por`; includes del tablero y del patch con `numero_sap` + `fecha_pase_corte`.
+- **Frontend:** `ProduccionPage.tsx` — botón / "Pasada a corte · fecha · usuario" + Deshacer en cada
+  tarjeta SAP; celda Aluminio ámbar con tooltip cuando hay SAP en corte y no está cortado.
+- **Verificación:** `tsc` backend y frontend OK, ESLint limpio. Sin prueba en navegador (requiere aplicar
+  el script sobre la BD, que es producción).
+- **Pendiente:** prueba manual en el navegador (escribe notas reales), commit + push.

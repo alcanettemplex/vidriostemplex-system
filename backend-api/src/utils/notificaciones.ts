@@ -39,7 +39,7 @@ const getODPListaIncludes = async (): Promise<any[]> => {
     { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
     { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
     { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
-    { model: SAP, as: 'saps', attributes: ['id'], separate: true },
+    { model: SAP, as: 'saps', attributes: ['id', 'numero_sap', 'fecha_pase_corte'], separate: true },
     // Sin este include, el patch reemplazaba la fila de Contabilidad con un objeto sin
     // facturas_adicionales: el badge "+N" desaparecía y el modal FE abría con la lista vacía.
     { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura', 'monto'], separate: true },

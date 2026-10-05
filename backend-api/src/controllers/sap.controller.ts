@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { SAP, SAPItem, ODP, Usuario, CatalogoProducto, ODCItem, CotizadorCotizacion, CotizadorProducto } from '../models';
+import { SAP, SAPItem, ODP, Usuario, CatalogoProducto, ODCItem, CotizadorCotizacion, CotizadorProducto, NotaProduccion } from '../models';
+import { sapTieneAluminio } from '../utils/sapAluminio';
 import sequelize from '../config/database';
 import { Op, Transaction } from 'sequelize';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
@@ -21,12 +22,7 @@ const recalcularAluminioODP = async (odp_id: number): Promise<void> => {
     include: [{ model: SAPItem, as: 'items', attributes: ['codigo'] }],
   });
   const codigos = saps.flatMap((s: any) => s.items.map((i: any) => i.codigo));
-  if (codigos.length === 0) {
-    await ODP.update({ tiene_aluminio: false }, { where: { id: odp_id } });
-    return;
-  }
-  const count = await CatalogoProducto.count({ where: { codigo: { [Op.in]: codigos }, es_aluminio: true } });
-  await ODP.update({ tiene_aluminio: count > 0 }, { where: { id: odp_id } });
+  await ODP.update({ tiene_aluminio: await sapTieneAluminio(codigos) }, { where: { id: odp_id } });
 };
 
 // Generar número SAP consecutivo
@@ -291,6 +287,133 @@ export const deleteSAP = async (req: Request, res: Response) => {
     res.json({ ok: true });
   } catch (error: any) {
     res.status(500).json({ error: 'Error al eliminar SAP', detail: error.message });
+  }
+};
+
+// ─── Pase a corte de aluminio (2026-10-05) ───────────────────────────────────
+//
+// Nota del taller por SAP: "la perfilería de esta SAP ya pasó al corte". Se marca
+// desde el panel del Control de Taller y deja su nota en la bitácora en la misma
+// transacción. NO toca `chk_corte` ("aluminio cortado") ni el motor de checks:
+// el usuario lo pidió como nota, no como etapa. Sin condiciones de material ni de
+// estado de la SAP; basta con que tenga aluminio.
+
+const paramsPaseCorte = z.object({ id: z.coerce.number().int().positive() }).strict();
+
+/** Carga la SAP con sus códigos y verifica que lleve aluminio. Devuelve un error legible si no. */
+const cargarSapParaCorte = async (id: number, t: Transaction) => {
+  // El bloqueo va sin includes: FOR UPDATE sobre un LEFT JOIN de hasMany falla en Postgres.
+  // Serializa dos clics simultáneos sobre la misma SAP (el segundo ve la marca y recibe 409).
+  const sap = await SAP.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE });
+  if (!sap) return { error: { status: 404, mensaje: 'La SAP ya no existe. Recarga el tablero.' } } as const;
+  const items = await SAPItem.findAll({ where: { sap_id: id }, attributes: ['codigo'], transaction: t });
+  const codigos = items.map((i) => i.getDataValue('codigo') as string | null);
+  if (!(await sapTieneAluminio(codigos, t))) {
+    return {
+      error: {
+        status: 409,
+        mensaje: `La ${sap.getDataValue('numero_sap')} no tiene perfilería de aluminio: no hay nada que pasar a corte.`,
+      },
+    } as const;
+  }
+  return { sap } as const;
+};
+
+const responderPaseCorte = async (sap: SAP) => {
+  const fresca = await SAP.findByPk(sap.getDataValue('id'), {
+    attributes: ['id', 'numero_sap', 'odp_id', 'fecha_pase_corte', 'pase_corte_por_id'],
+    include: [{ model: Usuario, as: 'pase_corte_por', attributes: ['id', 'nombre_completo'] }],
+  });
+  const odpId = Number(sap.getDataValue('odp_id'));
+  // El tablero pinta la celda Aluminio con `saps[].fecha_pase_corte`: se reparte a todos.
+  import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
+  return fresca;
+};
+
+export const marcarPaseCorte = async (req: Request, res: Response) => {
+  const params = paramsPaseCorte.safeParse(req.params);
+  if (!params.success) return res.status(400).json({ error: 'SAP inválida.' });
+  const usuarioId = req.user!.id;
+
+  const t = await sequelize.transaction();
+  try {
+    const cargada = await cargarSapParaCorte(params.data.id, t);
+    if ('error' in cargada) {
+      await t.rollback();
+      return res.status(cargada.error!.status).json({ error: cargada.error!.mensaje });
+    }
+    const { sap } = cargada;
+    const numero = sap.getDataValue('numero_sap');
+
+    if (sap.getDataValue('fecha_pase_corte')) {
+      const porId = sap.getDataValue('pase_corte_por_id');
+      const quien = porId
+        ? (await Usuario.findByPk(porId, { attributes: ['nombre_completo'], transaction: t }))?.getDataValue('nombre_completo')
+        : null;
+      await t.rollback();
+      return res.status(409).json({
+        error: `La ${numero} ya fue pasada a corte${quien ? ` por ${quien}` : ''}. Recarga el panel para verlo.`,
+      });
+    }
+
+    await sap.update({ fecha_pase_corte: new Date(), pase_corte_por_id: usuarioId }, { transaction: t });
+    const nota = await NotaProduccion.create({
+      odp_id: sap.getDataValue('odp_id'),
+      usuario_id: usuarioId,
+      texto: `${numero} pasada a corte de aluminio.`,
+      fecha: new Date(),
+    }, { transaction: t });
+    await t.commit();
+
+    const notaConUsuario = await NotaProduccion.findByPk(nota.getDataValue('id'), {
+      include: [{ model: Usuario, as: 'usuario', attributes: ['id', 'nombre_completo'] }],
+    });
+    res.json({ sap: await responderPaseCorte(sap), nota: notaConUsuario });
+  } catch (error: any) {
+    await t.rollback().catch(() => {});
+    console.error('marcarPaseCorte:', error);
+    res.status(500).json({ error: 'No se pudo marcar la SAP como pasada a corte. Intenta de nuevo; si persiste, avisa a sistemas.' });
+  }
+};
+
+export const deshacerPaseCorte = async (req: Request, res: Response) => {
+  const params = paramsPaseCorte.safeParse(req.params);
+  if (!params.success) return res.status(400).json({ error: 'SAP inválida.' });
+  const usuarioId = req.user!.id;
+
+  const t = await sequelize.transaction();
+  try {
+    // Deshacer no exige que la SAP siga teniendo aluminio: si le quitaron la
+    // perfilería después, la marca vieja debe poder limpiarse igual.
+    const sap = await SAP.findByPk(params.data.id, { transaction: t, lock: t.LOCK.UPDATE });
+    if (!sap) {
+      await t.rollback();
+      return res.status(404).json({ error: 'La SAP ya no existe. Recarga el tablero.' });
+    }
+    const numero = sap.getDataValue('numero_sap');
+    if (!sap.getDataValue('fecha_pase_corte')) {
+      await t.rollback();
+      return res.status(409).json({ error: `La ${numero} no está marcada como pasada a corte. Recarga el panel.` });
+    }
+
+    await sap.update({ fecha_pase_corte: null, pase_corte_por_id: null }, { transaction: t });
+    // La bitácora solo se agrega: la nota del pase queda y se deja constancia del deshacer.
+    const nota = await NotaProduccion.create({
+      odp_id: sap.getDataValue('odp_id'),
+      usuario_id: usuarioId,
+      texto: `Se deshizo el pase a corte de aluminio de la ${numero}.`,
+      fecha: new Date(),
+    }, { transaction: t });
+    await t.commit();
+
+    const notaConUsuario = await NotaProduccion.findByPk(nota.getDataValue('id'), {
+      include: [{ model: Usuario, as: 'usuario', attributes: ['id', 'nombre_completo'] }],
+    });
+    res.json({ sap: await responderPaseCorte(sap), nota: notaConUsuario });
+  } catch (error: any) {
+    await t.rollback().catch(() => {});
+    console.error('deshacerPaseCorte:', error);
+    res.status(500).json({ error: 'No se pudo deshacer el pase a corte. Intenta de nuevo; si persiste, avisa a sistemas.' });
   }
 };
 

@@ -134,6 +134,8 @@ SAPItem.belongsTo(SAP, { foreignKey: 'sap_id' });
 
 Usuario.hasMany(SAP, { foreignKey: 'creado_por', as: 'saps_creadas' });
 SAP.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'asesor' });
+// Quién pasó la SAP a corte de aluminio (2026-10-05). Sin hasMany inverso: nadie lo consulta.
+SAP.belongsTo(Usuario, { foreignKey: 'pase_corte_por_id', as: 'pase_corte_por' });
 
 // El modelo Cotizacion/CotizacionItem (COTModal, tabla public.cotizacion) se retiró
 // el 2026-10-03 sin haber guardado nunca una fila: las cotizaciones son del

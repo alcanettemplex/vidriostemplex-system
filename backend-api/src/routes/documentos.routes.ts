@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getSAPsByODP, createSAP, updateSAP, deleteSAP, buscarCatalogo, traerItemsDeCotizacion } from '../controllers/sap.controller';
+import { getSAPsByODP, createSAP, updateSAP, deleteSAP, buscarCatalogo, traerItemsDeCotizacion, marcarPaseCorte, deshacerPaseCorte } from '../controllers/sap.controller';
 import { getTMsByODP, getTMPanel, createTM, programarTM, updateTM, deleteTM, uploadFotoTM, retornarTM, getTMsSinODP, vincularTMaODP } from '../controllers/toma_medidas.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
@@ -13,6 +13,10 @@ router.post('/sap', authMiddleware, requireRole('admin', 'gerencia', 'asesor_com
 // Traer ítems de la cotización del Cotizador vinculada a la ODP (2026-09-27). Mismos roles
 // que crear/editar una SAP; `dry_run` (por defecto) solo previsualiza.
 router.post('/sap/desde-cotizacion', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), traerItemsDeCotizacion);
+// Pase a corte de aluminio (2026-10-05): nota del taller por SAP. Mismos roles que marcar
+// un check en Control Taller (PUT /api/odp/:id) — espejo de `puedeEditarTaller`.
+router.patch('/sap/:id/pase-corte', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion'), marcarPaseCorte);
+router.delete('/sap/:id/pase-corte', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion'), deshacerPaseCorte);
 router.put('/sap/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), updateSAP);
 router.delete('/sap/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), deleteSAP);
 router.get('/sap/catalogo/buscar', authMiddleware, buscarCatalogo);

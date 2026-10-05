@@ -32,6 +32,7 @@ import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
 import { propagarProveedorAPedidosPV, normalizarProveedor, mismoProveedor } from '../utils/pedidoPvCapacidad';
 import { evaluarListoInstalar, evaluarRetroceso } from '../utils/checksAutomaticos';
+import { codigosDeAluminio } from '../utils/sapAluminio';
 import {
   construirWhereODP, includeBuscadorODP, mapearFilaBuscadorODP, calcularTotalesODP,
   CAMPOS_ORDEN_ODP,
@@ -197,7 +198,7 @@ const construirVistaODP = (vista?: string) => {
         // No se traen pagos ni facturas_adicionales: el tablero no los referencia.
         { model: ODPItem, as: 'items', attributes: ['id', 'odp_id', 'cantidad', 'tipo_vidrio', 'espesor', 'ancho_mm', 'alto_mm'], separate: true, order: [['id', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'odp_id', 'numero_tm', 'croquis_url'], separate: true },
-        { model: SAP, as: 'saps', attributes: ['id', 'odp_id'], separate: true },
+        { model: SAP, as: 'saps', attributes: ['id', 'odp_id', 'numero_sap', 'fecha_pase_corte'], separate: true },
         // Quién imprimió la OP: alimenta el tooltip de la fila amarilla del tablero.
         // Dos campos por fila; el mismo include debe existir en getODPListaIncludes
         // (utils/notificaciones.ts) o el primer odp_patch borra el nombre de la fila.
@@ -218,7 +219,7 @@ const construirVistaODP = (vista?: string) => {
       { model: ODPItem, as: 'items', attributes: { exclude: ['accesorios', 'observaciones_pv', 'dt', 'mts_pt_a', 'mts_pt_h'] }, separate: true, order: [['id', 'ASC']] },
       { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
       { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
-      { model: SAP, as: 'saps', attributes: ['id'], separate: true },
+      { model: SAP, as: 'saps', attributes: ['id', 'numero_sap', 'fecha_pase_corte'], separate: true },
       { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura', 'monto'], separate: true },
     ],
   };
@@ -393,7 +394,7 @@ const buscarODPsEspeciales = async (where: any, req: Request, res: Response) => 
           { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
           { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
           { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
-          { model: SAP, as: 'saps', attributes: ['id'], separate: true },
+          { model: SAP, as: 'saps', attributes: ['id', 'numero_sap', 'fecha_pase_corte'], separate: true },
         ],
       order: [['fecha_creacion', 'DESC']],
       limit: 100,
@@ -507,6 +508,7 @@ export const getODP = async (req: Request, res: Response) => {
           include: [
             { model: SAPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
             { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            { model: Usuario, as: 'pase_corte_por', attributes: ['id', 'nombre_completo'] },
           ],
           order: [['fecha_creacion', 'DESC']],
         },
@@ -623,8 +625,17 @@ export const getODP = async (req: Request, res: Response) => {
     }
 
     if (odpJson.saps && odpJson.saps.length > 0) {
+      // Pase a corte (2026-10-05): el panel del Control Taller ofrece el botón solo en
+      // las SAP con aluminio. Misma regla que `odp.tiene_aluminio`, una consulta para todas.
+      const aluminio = await codigosDeAluminio(
+        odpJson.saps.flatMap((s: any) => (s.items || []).map((i: any) => i.codigo))
+      );
+      for (const sap of odpJson.saps) {
+        sap.tiene_aluminio = (sap.items || []).some((i: any) => aluminio.has(i.codigo));
+      }
+
       const allSapItemIds: number[] = [];
-      
+
       for (const sap of odpJson.saps) {
         if (sap.items) sap.items.forEach((item: any) => allSapItemIds.push(item.id));
         sap.ordenes_compra = []; // Inicializamos vacío siempre

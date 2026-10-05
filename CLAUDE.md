@@ -259,7 +259,7 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 | `Usuario` | `usuarios` | `puede_gestionar_pv` — booleano para tab "Por Gestionar" PV |
 | ~~`Cotizacion` / `CotizacionItem`~~ | `cotizacion` / `cotizacion_items` | **Retirados el 2026-10-03** (COTModal, 0 filas en toda su historia). Las 2 tablas vacías siguen en la BD hasta correr `scripts/2026-10-03_eliminar_tablas_cotizacion_vieja.ts --aplicar`. Las cotizaciones son del Cotizador (`CotizadorCotizacion`, schema `cotizador`) |
 | `TomaMedidas` | `toma_medidas` | Ligada a ODP o Prospecto |
-| `SAP` / `SAPItem` | `sap` ⚠️ / `sap_items` | Aluminio. `SAP` en singular — bug de revertir auditoría (ver Auditoría arriba) |
+| `SAP` / `SAPItem` | `sap` ⚠️ / `sap_items` | Aluminio. `SAP` en singular — bug de revertir auditoría (ver Auditoría arriba). `fecha_pase_corte` + `pase_corte_por_id` (2026-10-05): nota "pasada a corte de aluminio" del Control Taller, no es `chk_corte` — ver `docs/modulos/odp.md` |
 | `OrdenCompra` / `ODCItem` | `ordenes_compra` / `odc_items` | `tipo`: `'perfileria'|'vidrio'`; ODC vidrio: `sap_id=null` |
 | `Pago` | `pagos` | |
 | `EvidenciaInstalacion` | `evidencias_instalacion` | Cloudinary. **`EvidenciasPage.tsx` no está enrutada en frontend — módulo huérfano**, ver Arquitectura Frontend |

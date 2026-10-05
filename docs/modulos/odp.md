@@ -81,3 +81,25 @@ eliminación de ODP, en el historial (`COT_CREADA`) y en las consultas de Rutas 
 `/cotizador?nuevo=1&vinculo=odp:<id>`. El contador de la pestaña Comercial cuenta solo SAPs. Las
 tablas vacías se borran con `scripts/2026-10-03_eliminar_tablas_cotizacion_vieja.ts --aplicar`.
 
+
+## Pase a corte de aluminio (2026-10-05)
+Nota del taller **por SAP**: "la perfilería de esta SAP ya pasó al corte". Decisión del usuario: es
+**una nota para la bitácora, no una etapa** — no toca `chk_corte` ("aluminio cortado"), no entra al
+avance ni al motor de checks y no mueve estados. Sin condiciones de material ni de estado de la SAP.
+
+- **BD:** `sap.fecha_pase_corte` (NULL = sin pasar) + `sap.pase_corte_por_id → usuarios`. Script
+  `2026-10-05_sap_pase_corte.ts` — **correr antes de desplegar**: el modelo declara las columnas y sin
+  ellas falla toda consulta de SAP.
+- **Endpoints:** `PATCH` / `DELETE /api/documentos/sap/:id/pase-corte` (`sap.controller`), roles de
+  `PUT /api/odp/:id` (espejo de `puedeEditarTaller`). En una transacción con `FOR UPDATE` (sin includes:
+  sobre un LEFT JOIN de hasMany falla en Postgres): marca la SAP y crea la `NotaProduccion`
+  ("SAP-XXXX pasada a corte de aluminio."). Deshacer limpia la marca y **agrega** otra nota — la
+  bitácora no se borra. Repetir → 409 legible. Emite `emitirODPPatch`.
+- **"Tiene aluminio" por SAP:** `utils/sapAluminio.ts` (`codigosDeAluminio`, `sapTieneAluminio`) es la
+  regla única —código del catálogo con `es_aluminio = true`—; la usa también `recalcularAluminioODP`.
+  `getODPById` devuelve `saps[].tiene_aluminio` y `pase_corte_por`.
+- **Tablero:** el include `SAP` de `getODPs` y de `getODPListaIncludes` (`notificaciones.ts`) trae
+  `numero_sap` + `fecha_pase_corte`; deben ir en ambos o el primer `odp_patch` borra la marca. La celda
+  Aluminio sin marcar con alguna SAP pasada se pinta **ámbar** (tooltip con SAP y fecha); el clic sigue
+  marcando `chk_corte`. Panel derecho: botón "Pasar a corte de aluminio" en cada tarjeta SAP con
+  aluminio, o "Pasada a corte · fecha · usuario" + Deshacer.
