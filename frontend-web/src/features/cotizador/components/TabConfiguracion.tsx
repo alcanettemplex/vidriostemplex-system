@@ -400,21 +400,24 @@ const CAMPOS_RAIZ: Array<{
 /** Mano de obra por producto (2026-09-26). Montos ANTES de AIU e IVA: el
  * sistema les aplica AIU, el descuento de la propuesta e IVA. Reemplazan a las
  * tarifas SMO por tipo de obra, que siguen en la BD solo para las propuestas
- * guardadas antes de ese día y ya no se muestran aquí. */
+ * guardadas antes de ese día y ya no se muestran aquí.
+ *
+ * 2026-10-05: divisiones y fachadas cobran con las tarifas de ventanería, por
+ * eso esas dos etiquetas las nombran. `mo_instalacion_division_m2` sigue en la
+ * BD pero ya no manda nada y no se muestra (editarla no movería ningún precio). */
 const CAMPOS_MANO_OBRA: Array<{
     clave:
         | 'mo_ensamble_ventana_m2' | 'mo_instalacion_ventana_m2' | 'mo_instalacion_cabina_und' | 'mo_instalacion_espejo_tablero_m2'
-        | 'mo_instalacion_pergola_m2' | 'mo_instalacion_division_m2';
+        | 'mo_instalacion_pergola_m2';
     label: string;
     ayuda: string;
 }> = [
-    { clave: 'mo_ensamble_ventana_m2', label: 'Ensamble ventanas y proyectantes', ayuda: 'por m², siempre' },
-    { clave: 'mo_instalacion_ventana_m2', label: 'Instalación ventanas y proyectantes', ayuda: 'por m², si llevan instalación' },
+    { clave: 'mo_ensamble_ventana_m2', label: 'Ensamble ventanas, proyectantes y divisiones', ayuda: 'por m², siempre' },
+    { clave: 'mo_instalacion_ventana_m2', label: 'Instalación ventanas, proyectantes y divisiones', ayuda: 'por m², si llevan instalación' },
     { clave: 'mo_instalacion_cabina_und', label: 'Instalación cabinas', ayuda: 'por unidad; en L, el doble' },
     { clave: 'mo_instalacion_espejo_tablero_m2', label: 'Instalación espejos y tableros', ayuda: 'por m², si llevan instalación' },
-    // 2026-10-04: productos Pérgola y División / Fachada.
+    // 2026-10-04: producto Pérgola.
     { clave: 'mo_instalacion_pergola_m2', label: 'Instalación pérgolas', ayuda: 'por m², si llevan instalación' },
-    { clave: 'mo_instalacion_division_m2', label: 'Instalación divisiones y fachadas', ayuda: 'por m², si llevan instalación' },
 ];
 
 const SeccionParametros: React.FC = () => {

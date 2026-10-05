@@ -1204,7 +1204,18 @@ Reglas del usuario, 2026-09-26. **Reemplazan** la mano de obra "SMO por tipo de 
 | Cabinas corredizas y batientes | Instalación si la lleva, por unidad; **en L cuenta doble** | $120.000 (`mo_instalacion_cabina_und`) |
 | Espejos y tableros | Instalación si la lleva, por m² | $85.000 (`mo_instalacion_espejo_tablero_m2`) |
 | Pérgolas (2026-10-04) | Instalación si la lleva, por m² | $120.000 (`mo_instalacion_pergola_m2`) |
-| Divisiones y fachadas (2026-10-04) | Instalación si la lleva, por m², las 4 variantes | $120.000 (`mo_instalacion_division_m2`) |
+| Divisiones y fachadas (2026-10-05) | **Ensamble, siempre**, por m², las 4 variantes | $60.000 — **la misma tarifa de ventanas** (`mo_ensamble_ventana_m2`) |
+| Divisiones y fachadas (2026-10-05) | **+ Instalación** si la lleva, por m² | $25.000 — **la misma tarifa de ventanas** (`mo_instalacion_ventana_m2`) |
+
+**Divisiones y fachadas, cambio del 2026-10-05** (decisión del usuario): del 2026-10-04 al 2026-10-05
+cobraban solo instalación a $120.000/m² (`mo_instalacion_division_m2`). Ahora siguen el esquema de
+ventanería con **sus mismas tarifas**: con instalación $85.000/m², sin instalación $60.000/m² (antes $0).
+Renglones propios ("Ensamble divisiones y fachadas" / "Instalación divisiones y fachadas") para
+que el cliente no lea "ventanas". Consecuencias: mover la tarifa de ventanas en Configuración mueve
+también la de divisiones (las etiquetas lo dicen); `mo_instalacion_division_m2` quedó en la BD, el
+modelo y la caché **sin uso** y oculto en Configuración, como las `smo_*`. Las fachadas cambian igual
+porque son el mismo módulo. Las propuestas guardadas antes conservan sus líneas de $120.000
+hasta que se editen (decisión del usuario: no se recalcularon).
 
 - **Montos antes de AIU e IVA**, editables en Configuración → Parámetros. Las líneas llevan
   **AIU, descuento de la propuesta e IVA**, como un producto (decisión del usuario).
@@ -2039,4 +2050,7 @@ cotizaciones reales así). Reglas dadas y **validadas por el usuario**, no reabr
 - **Perfil F corregido el mismo día**: `PER0301` estaba a $193.721/m PA, que era el precio de la TIRA
   registrado como metro en Proveedores. Quedó en PA $32.287/m (la división de 3 × 2,4 m en solo vidrio
   bajó de $3.223.002 a $2.642.471). Ver `docs/modulos/compras.md` → "Perfil F".
+- **Mano de obra de la división cambiada el 2026-10-05**: de $120.000/m² solo con instalación a las
+  tarifas de ventanería (ensamble $60.000 siempre + instalación $25.000). Detalle en "Mano de obra por
+  producto". La pérgola sigue en $120.000/m². `pergolaDivision.test.ts` pasó de 18 a 20 pruebas; suite 268/268.
 

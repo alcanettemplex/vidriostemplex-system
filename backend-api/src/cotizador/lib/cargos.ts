@@ -163,7 +163,14 @@ export function conInstalacion(it: ItemParaCargos): boolean {
  *                                        (una cabina en L cuenta DOS)
  *   Instalación espejos y tableros       Σ m² de los con instal.  × mo_instalacion_espejo_tablero_m2
  *   Instalación pérgolas                 Σ m² de las con instal.  × mo_instalacion_pergola_m2   (2026-10-04)
- *   Instalación divisiones y fachadas    Σ m² de las con instal.  × mo_instalacion_division_m2  (2026-10-04)
+ *   Ensamble divisiones y fachadas       Σ m² de TODAS            × mo_ensamble_ventana_m2      (2026-10-05)
+ *   Instalación divisiones y fachadas    Σ m² de las con instal.  × mo_instalacion_ventana_m2   (2026-10-05)
+ *
+ * Divisiones y fachadas (2026-10-05, decisión del usuario): mismo esquema y
+ * MISMAS tarifas que ventanería — ensamble siempre + instalación si la lleva
+ * ($60.000 + $25.000 = $85.000/m²). Renglones propios para que el cliente no lea
+ * "ventanas" en una división. `mo_instalacion_division_m2` ($120.000 del
+ * 2026-10-04) quedó en la BD sin uso, como las `smo_*`.
  *
  * m² por pieza con mínimo de 1 m². El AIU se aplica al VALOR UNITARIO
  * (`tarifa / aiu`, igual que `subtotalConAiu` de un producto), así la línea que
@@ -187,6 +194,7 @@ export function calcularManoObraProductos(items: ItemParaCargos[] = []): CargoSu
   let m2EspejoTablero = 0;
   let m2Pergola = 0;
   let m2Division = 0;
+  let m2DivisionInstalada = 0;
 
   for (const it of items) {
     const modulo = String(it?.moduloId ?? '');
@@ -204,8 +212,10 @@ export function calcularManoObraProductos(items: ItemParaCargos[] = []): CargoSu
       m2EspejoTablero += m2CobrablesDe(it);
     } else if (modulo === MODULO_PERGOLA && instalar) {
       m2Pergola += m2CobrablesDe(it);
-    } else if (modulo === MODULO_DIVISION && instalar) {
-      m2Division += m2CobrablesDe(it);
+    } else if (modulo === MODULO_DIVISION) {
+      const m2 = m2CobrablesDe(it);
+      m2Division += m2;
+      if (instalar) m2DivisionInstalada += m2;
     }
   }
 
@@ -259,13 +269,14 @@ export function calcularManoObraProductos(items: ItemParaCargos[] = []): CargoSu
     m2Texto(round2(m2EspejoTablero))
   );
   agregar('INSTALACION', 'Instalación pérgolas', m2Pergola, 'M2', p.mo_instalacion_pergola_m2, m2Texto(round2(m2Pergola)));
+  agregar('ENSAMBLE', 'Ensamble divisiones y fachadas', m2Division, 'M2', p.mo_ensamble_ventana_m2, m2Texto(round2(m2Division)));
   agregar(
     'INSTALACION',
     'Instalación divisiones y fachadas',
-    m2Division,
+    m2DivisionInstalada,
     'M2',
-    p.mo_instalacion_division_m2,
-    m2Texto(round2(m2Division))
+    p.mo_instalacion_ventana_m2,
+    m2Texto(round2(m2DivisionInstalada))
   );
   return lineas;
 }
@@ -292,12 +303,12 @@ export function manoObraPorItem(items: ItemParaCargos[] = []): number[] {
   const instCabina = tarifa(p.mo_instalacion_cabina_und);
   const instEspejo = tarifa(p.mo_instalacion_espejo_tablero_m2);
   const instPergola = tarifa(p.mo_instalacion_pergola_m2);
-  const instDivision = tarifa(p.mo_instalacion_division_m2);
 
   return items.map((it) => {
     const modulo = String(it?.moduloId ?? '');
     const instalar = conInstalacion(it);
-    if (MODULOS_VENTANERIA.has(modulo)) {
+    // Divisiones y fachadas cobran igual que ventanería (2026-10-05).
+    if (MODULOS_VENTANERIA.has(modulo) || modulo === MODULO_DIVISION) {
       const m2 = m2CobrablesDe(it);
       return m2 * ensamble + (instalar ? m2 * instVentana : 0);
     }
@@ -306,7 +317,6 @@ export function manoObraPorItem(items: ItemParaCargos[] = []): number[] {
     }
     if (MODULOS_ESPEJO_TABLERO.has(modulo) && instalar) return m2CobrablesDe(it) * instEspejo;
     if (modulo === MODULO_PERGOLA && instalar) return m2CobrablesDe(it) * instPergola;
-    if (modulo === MODULO_DIVISION && instalar) return m2CobrablesDe(it) * instDivision;
     return 0;
   });
 }

@@ -15,8 +15,10 @@
 // 2026-10-04 (tabla en docs/modulos/cotizador.md → "Pérgola y División /
 // Fachada"). Si un material cambia, se cambia aquí y en esa tabla.
 //
-// Mano de obra: $120.000/m² (`mo_instalacion_division_m2`), una sola tarifa
-// para las cuatro variantes; la calcula lib/cargos.ts, nunca este BOM.
+// Mano de obra (2026-10-05): las MISMAS tarifas de ventanería, para las cuatro
+// variantes — ensamble siempre ($60.000/m², `mo_ensamble_ventana_m2`) + instalación
+// si la lleva ($25.000/m², `mo_instalacion_ventana_m2`). La calcula lib/cargos.ts,
+// nunca este BOM. `mo_instalacion_division_m2` quedó en la BD sin uso.
 
 import { lineaCatalogo, totalizar, areaM2 } from "../lib/motorCalculo";
 import type { LineaBOM } from "../lib/motorCalculo";

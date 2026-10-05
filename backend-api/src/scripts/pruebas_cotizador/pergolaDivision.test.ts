@@ -194,30 +194,62 @@ test("frase comercial de la división", () => {
 
 // ─── Mano de obra ───────────────────────────────────────────────────────────
 
-test("mano de obra: $120.000/m² en pérgola y división, mínimo 1 m², solo con instalación", () => {
+const conAiu = (tarifa: number, aiu: number) => Math.round((tarifa / aiu) * 100) / 100;
+
+test("mano de obra pérgola: $120.000/m², mínimo 1 m², solo con instalación", () => {
   const p = getParametros();
   assert.equal(p.mo_instalacion_pergola_m2, 120000);
-  assert.equal(p.mo_instalacion_division_m2, 120000);
   const lineas = calcularManoObraProductos([
     { moduloId: "pergola", input: { anchoCm: 300, altoCm: 400, cantidadPiezas: 1, conInstalacion: true } },
     { moduloId: "pergola", input: { anchoCm: 50, altoCm: 50, cantidadPiezas: 2, conInstalacion: true } }, // 2 × mínimo 1 m²
-    { moduloId: "division-fachada", input: { anchoCm: 300, altoCm: 240, cantidadPiezas: 1, conInstalacion: true } },
-    { moduloId: "division-fachada", input: { anchoCm: 300, altoCm: 240, cantidadPiezas: 1, conInstalacion: false } },
+    { moduloId: "pergola", input: { anchoCm: 300, altoCm: 400, cantidadPiezas: 1, conInstalacion: false } },
   ]);
   const pergola = lineas.find((l) => l.descripcion === "Instalación pérgolas");
-  const division = lineas.find((l) => l.descripcion === "Instalación divisiones y fachadas");
   assert.equal(pergola?.cantidad, 14);
-  assert.equal(division?.cantidad, 7.2);
-  assert.equal(pergola?.valorUnitario, Math.round((120000 / Number(p.aiu)) * 100) / 100);
+  assert.equal(pergola?.valorUnitario, conAiu(120000, Number(p.aiu)));
+});
+
+// 2026-10-05: divisiones y fachadas cobran con las tarifas de ventanería —
+// ensamble siempre + instalación si la lleva — en renglones propios.
+test("mano de obra división: ensamble de ventanería siempre + instalación de ventanería si la lleva", () => {
+  const p = getParametros();
+  const aiu = Number(p.aiu);
+  const lineas = calcularManoObraProductos([
+    { moduloId: "division-fachada", input: { anchoCm: 300, altoCm: 240, cantidadPiezas: 1, conInstalacion: true } },
+    { moduloId: "division-fachada", input: { anchoCm: 300, altoCm: 240, cantidadPiezas: 1, conInstalacion: false } },
+    { moduloId: "division-fachada", input: { anchoCm: 50, altoCm: 50, cantidadPiezas: 1, conInstalacion: false } }, // mínimo 1 m²
+  ]);
+  const ensamble = lineas.find((l) => l.descripcion === "Ensamble divisiones y fachadas");
+  const instalacion = lineas.find((l) => l.descripcion === "Instalación divisiones y fachadas");
+  assert.equal(ensamble?.tipo, "ENSAMBLE");
+  assert.equal(ensamble?.cantidad, 15.4); // 7,2 + 7,2 + 1
+  assert.equal(ensamble?.valorUnitario, conAiu(p.mo_ensamble_ventana_m2, aiu));
+  assert.equal(instalacion?.tipo, "INSTALACION");
+  assert.equal(instalacion?.cantidad, 7.2); // solo la que lleva instalación
+  assert.equal(instalacion?.valorUnitario, conAiu(p.mo_instalacion_ventana_m2, aiu));
+  // No se mezclan con los renglones de ventanas ni usan la tarifa vieja de $120.000.
+  assert.ok(!lineas.some((l) => /ventanas/i.test(l.descripcion ?? "")));
+});
+
+test("división sin instalación sigue cobrando ensamble", () => {
+  const lineas = calcularManoObraProductos([
+    { moduloId: "division-fachada", input: { anchoCm: 300, altoCm: 240, cantidadPiezas: 2, conInstalacion: false } },
+  ]);
+  assert.equal(lineas.length, 1);
+  assert.equal(lineas[0].descripcion, "Ensamble divisiones y fachadas");
+  assert.equal(lineas[0].cantidad, 14.4);
 });
 
 test("mano de obra por ítem (reparto del PDF) coincide con las líneas", () => {
   const items = [
     { moduloId: "pergola", input: { anchoCm: 300, altoCm: 400, cantidadPiezas: 1, conInstalacion: true } },
     { moduloId: "division-fachada", input: { anchoCm: 300, altoCm: 240, cantidadPiezas: 1, conInstalacion: true } },
+    { moduloId: "division-fachada", input: { anchoCm: 300, altoCm: 240, cantidadPiezas: 1, conInstalacion: false } },
   ];
   const porItem = manoObraPorItem(items);
   const total = calcularManoObraProductos(items).reduce((a, l) => a + l.cantidad * l.valorUnitario, 0);
-  assert.ok(Math.abs(porItem[0] + porItem[1] - total) < 0.05);
-  assert.ok(porItem[0] > 0 && porItem[1] > 0);
+  assert.ok(Math.abs(porItem.reduce((a, b) => a + b, 0) - total) < 0.05);
+  assert.ok(porItem.every((v) => v > 0));
+  // La división con instalación pesa más que la que no la lleva.
+  assert.ok(porItem[1] > porItem[2]);
 });
