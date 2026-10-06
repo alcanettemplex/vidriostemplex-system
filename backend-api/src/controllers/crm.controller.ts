@@ -1307,6 +1307,10 @@ export interface AjustesODPDesdeLead {
   valor_total?: number;
   descripcion_pedido?: string;
   forma_pago?: string;
+  /** "Crear ODP" del Cotizador (2026-10-06): la propuesta dice si lleva flete o
+   * instalación. Sin ellos la ODP no aparece en Instalaciones. */
+  acarreo?: boolean;
+  instalacion?: boolean;
 }
 
 /** Cuerpo de `crearODPDesdeLead`, reutilizable ("Crear ODP" del Cotizador). */
@@ -1376,6 +1380,8 @@ export async function crearODPParaLead(
         // En minúsculas como el resto de ODP (ODPForm, filtros): 'CONTADO' dejaba
         // esas ODP fuera del filtro "Contado" y el selector vacío al editarlas (2026-09-27).
         forma_pago: ajustes.forma_pago || 'contado',
+        acarreo: ajustes.acarreo ?? false,
+        instalacion: ajustes.instalacion ?? false,
       } as any);
     });
 

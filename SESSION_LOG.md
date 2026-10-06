@@ -6548,3 +6548,27 @@ consigna de simplicidad y pocos pasos.
 - Probar en navegador ambos botones (Programados y Control de Taller) y el copiado en el celular/WhatsApp Web.
 - Sin commit (esperando orden del usuario).
 
+
+---
+
+## 2026-10-06 — Cotizador: el acarreo se desmarcaba solo, y "Crear ODP" sin acarreo/instalación
+
+### Diagnóstico
+- Reporte del asesor: "al cambiar entre ítems el check de acarreo se desactiva y toca marcarlo de nuevo". Se descartó que el flete se cobre por ítem: es una línea global por propuesta y las 7 propuestas con flete en la BD tienen una sola (la #113, con 11 ítems, una de $10.000).
+- Causa real: carrera del autoguardado en `CotizadorPage.persistir`. Al terminar un guardado automático apagaba `cargosTocados` sin mirar si el asesor tocó los cargos mientras el guardado viajaba; el siguiente guardado ya no subía el flete y la propuesta quedaba sin él en el servidor (la casilla se veía desmarcada al recargar). En cotización nueva, la respuesta de la creación pisaba la casilla en el acto.
+- Hallazgo adicional: "Crear ODP" del Cotizador creaba la ODP con `acarreo` e `instalacion` en `false`, así que nunca aparecería en Instalaciones (Rutas y Agenda solo listan ODP con alguno de los dos). Ninguna ODP se había creado aún desde el Cotizador.
+
+### Cambios realizados
+- **frontend `CotizadorPage.tsx`:** `versionCargos` + `cargosRef`. Un guardado solo apaga `cargosTocados` si no hubo cambios de cargos durante el viaje y si el `PUT .../cargos` no falló; tras crear o guardar manual, `conservarCargosRecientes()` devuelve los cargos de pantalla y los deja pendientes.
+- **backend `cotizador/lib/vinculos.ts`:** `detalleParaODP` calcula `acarreo` (la opción elegida tiene FLETE) e `instalacion` (algún ítem "Con instalación") y se pasan en los tres caminos (prospecto, lead, cliente).
+- **backend `crm.controller.ts`:** `AjustesODPDesdeLead` acepta `acarreo`/`instalacion` y `crearODPParaLead` los escribe (por defecto `false`, como antes).
+
+### Verificación
+- `tsc --noEmit` backend y frontend: OK. ESLint de `CotizadorPage.tsx`: sin avisos.
+- `test:cotizador`: 268/268 OK.
+- Indicadores que recibirían las 7 cotizaciones actuales (solo lectura): 6 con acarreo + instalación; la COT 17006 (2 ítems con instalación) no tiene flete — posible víctima del bug, revisar con el asesor.
+
+### Pendientes
+- Probar en navegador: marcar el flete justo mientras dice "Guardando…" y confirmar que persiste al cambiar de opción.
+- Revisar la COT 17006 con el asesor.
+- Sin commit (esperando orden del usuario).

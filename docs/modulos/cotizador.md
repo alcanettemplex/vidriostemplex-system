@@ -1315,6 +1315,19 @@ ningún total** pese a guardarse y mostrarse). Desde hoy hay uno, `propuesta.des
 aplica sobre los productos y **no** sobre los cargos. `descuentoPct` salió de `meta.campos` de los
 6 módulos y `cotizacion.descuento_pct` queda como columna **legada**: se conserva, se escribe 0.
 
+### El flete es UNO por propuesta (confirmado 2026-10-06)
+
+Un asesor reportó que "el acarreo se desmarca al cambiar de ítem" y se sospechó que se cobraba por
+ítem. No: la línea FLETE es global (cantidad 1) y las 7 propuestas con flete en la BD tienen una sola
+(la #113 con 11 ítems, una de $10.000). La causa era una **carrera del autoguardado** en
+`CotizadorPage.persistir`: al terminar un guardado automático se apagaba `cargosTocados` aunque el
+asesor hubiera marcado el flete MIENTRAS ese guardado viajaba (1–3 s en Render). El siguiente guardado
+ya no subía los cargos, la propuesta quedaba sin flete en el servidor y la casilla aparecía desmarcada
+al recargar (cambiar de opción, reabrir). En una cotización nueva era visible al instante: la respuesta
+de la creación pisaba la casilla. Corregido con `versionCargos` + `cargosRef`: un guardado solo apaga
+la marca si nadie tocó los cargos durante el viaje, y si los tocaron se conservan los de pantalla
+(`conservarCargosRecientes`). Si falla el `PUT .../cargos`, la marca también queda encendida.
+
 ### `legado_cargos_en_items` — por qué existe
 
 Las 4 cotizaciones anteriores al cambio tienen su SMO y su flete **dentro** del blob `resultado` de
@@ -1705,6 +1718,13 @@ Parte de la integración del Cotizador al ERP (permisos y migración: fase A del
   `POST /api/odp` (admin, gerencia, asesor_comercial, jefe_produccion); prospecto: su asesor o admin/gerencia.
   Los cuatro handlers (`createLead`, `crearODPDesdeLead`, `aprobarProspecto`, `createODP`) se partieron en
   handler + función exportable **sin cambiar su comportamiento**.
+- **Acarreo e instalación de la ODP** (2026-10-06, `detalleParaODP`): la ODP nace con `acarreo = true`
+  si la opción elegida tiene la línea FLETE (aunque valga $0) e `instalacion = true` si algún ítem está
+  "Con instalación". Hasta ese día nacía con los dos en `false`, y Rutas/Agenda —que solo listan ODP
+  con instalación o acarreo— no la mostraban nunca. Se pasan en los tres caminos (`crearODPParaLead`
+  ganó los dos campos en `AjustesODPDesdeLead`). Una propuesta legada no tiene línea de flete: queda en
+  `false` y se marca a mano. Ninguna ODP se había creado aún desde el Cotizador, así que no hubo datos
+  que corregir.
 - **Candado contra la doble ODP** (2026-09-29, `crearODPDesdeCotizacion`): antes era "comprobar y
   luego crear" sin bloqueo, así que dos pestañas, o un reintento tras un corte de red, podían crear
   dos ODP de la misma cotización. Los tres flujos abren su propia transacción y no se pueden

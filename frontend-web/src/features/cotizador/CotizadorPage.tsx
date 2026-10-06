@@ -284,6 +284,15 @@ const CotizadorPage: React.FC = () => {
      * callback no puede leer el valor de estado sin quedarse con el del primer
      * render. */
     const cargosTocadosRef = useRef(false);
+    /** Cuenta cada cambio de cargos del vendedor, y `cargosRef` guarda los últimos.
+     * Un guardado anota el contador al empezar: si el vendedor tocó los cargos
+     * MIENTRAS el guardado viajaba, al terminar no se le apaga `cargosTocados` ni
+     * se le pisan con los del servidor (bug reportado el 2026-10-06: el acarreo se
+     * desmarcaba solo al cambiar de ítem, porque el autoguardado en curso olvidaba
+     * el cambio y la propuesta quedaba sin flete en el servidor). */
+    const versionCargos = useRef(0);
+    const cargosRef = useRef<EstadoCargos>(cargos);
+    useEffect(() => { cargosRef.current = cargos; }, [cargos]);
     /** Hay cambios en el carrito/cabecera/cargos que todavía no se guardaron. Se
      * usa para pedir confirmación antes de una acción de propuesta, que recarga
      * desde el servidor y los descartaría en silencio. */
@@ -400,6 +409,8 @@ const CotizadorPage: React.FC = () => {
     }, []);
 
     const cambiarCargos = useCallback((v: EstadoCargos) => {
+        versionCargos.current += 1;
+        cargosRef.current = v;
         setCargos(v);
         setCargosTocados(true);
         cargosTocadosRef.current = true;
@@ -566,6 +577,17 @@ const CotizadorPage: React.FC = () => {
         }
         const mostrarAvisosCRM = (cot: unknown) => avisosCRMDe(cot).forEach(a => toast.info(a, { autoClose: 7000 }));
         const revisionAlEmpezar = revision.current;
+        const versionCargosAlEmpezar = versionCargos.current;
+        /** Tras volcar la respuesta del servidor: si el vendedor cambió los cargos
+         * mientras se guardaba, se le devuelven los suyos y quedan pendientes para
+         * el siguiente autoguardado. */
+        const conservarCargosRecientes = () => {
+            if (versionCargos.current === versionCargosAlEmpezar) return;
+            setCargos(cargosRef.current);
+            setCargosTocados(true);
+            cargosTocadosRef.current = true;
+            setSucio(true);
+        };
         setGuardando(true);
         try {
             const items = carrito.map(it => ({
@@ -608,11 +630,14 @@ const CotizadorPage: React.FC = () => {
                 if (conCierre) setCierrePerdida(null);
                 mostrarAvisosCRM(data);
                 let cot = data;
+                let cargosPendientes = false;
                 if (cargosTocados && destino) {
                     try {
                         const r = await apiGuardarCargos(edicion.id, destino, cargosADTO(cargos));
                         cot = r.data;
                     } catch (e) {
+                        // Siguen pendientes: apagar la marca los perdería en silencio.
+                        cargosPendientes = true;
                         conError(e, 'Los productos se guardaron, pero los cargos de obra no.');
                     }
                 }
@@ -625,14 +650,17 @@ const CotizadorPage: React.FC = () => {
                         asesorUsuarioId: cot.asesorUsuarioId ?? e.asesorUsuarioId,
                     } : e));
                     if (cot.propuestas) setPropuestas(cot.propuestas);
-                    setCargosTocados(false);
-                    cargosTocadosRef.current = false;
+                    if (!cargosPendientes && versionCargos.current === versionCargosAlEmpezar) {
+                        setCargosTocados(false);
+                        cargosTocadosRef.current = false;
+                    }
                     if (revision.current === revisionAlEmpezar) setSucio(false);
                     setRecientes(registrarReciente({ id: cot.id, numero: cot.numero, cliente: cot.cliente?.nombre ?? '' }));
                 } else {
                     // `PUT /cotizaciones/:id` responde con la propuesta que se
                     // escribió (`obtener(id, {propuesta})` en el store).
                     aplicarCotizacion(cot);
+                    conservarCargosRecientes();
                 }
                 setErrorGuardado(null);
                 return cot;
@@ -656,6 +684,7 @@ const CotizadorPage: React.FC = () => {
                     }],
                 });
                 aplicarCotizacion(data);
+                conservarCargosRecientes();
                 toast.success(`Cotización ${numeroCotizacion(data.numero)} creada y guardada.`);
                 mostrarAvisosCRM(data);
                 return data;

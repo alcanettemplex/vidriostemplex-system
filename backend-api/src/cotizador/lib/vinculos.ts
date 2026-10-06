@@ -36,6 +36,7 @@ import { crearLeadRegistro, crearODPParaLead } from '../../controllers/crm.contr
 import { aprobarProspectoRegistro } from '../../controllers/prospecto.controller';
 import { crearODPRegistro } from '../../controllers/odp.controller';
 import { getModulo } from '../modules/registry';
+import { conInstalacion } from './cargos';
 import { ROLES_CONTROL_TOTAL, ROLES_EDITAN_PROPIAS } from './permisos';
 
 type Fila = Record<string, any>;
@@ -610,10 +611,20 @@ export async function planCrearODP(cotizacionId: number, user: NonNullable<Expre
   return { ...plan, puede: true, motivo: null };
 }
 
-/** Descripción del pedido y servicios de la ODP a partir de la opción elegida. */
+/**
+ * Descripción del pedido y servicios de la ODP a partir de la opción elegida, y
+ * los dos indicadores que deciden si la ODP pasa por Instalaciones (2026-10-06):
+ *   acarreo     = la propuesta tiene la línea de flete (aunque valga $0)
+ *   instalacion = algún ítem está marcado "Con instalación"
+ * Sin ellos la ODP nacía con los dos en false y Rutas/Agenda —que solo listan
+ * ODP con instalación o acarreo— nunca la mostraban. Una propuesta legada (flete
+ * dentro de los ítems, anterior al 2026-09-20) no tiene la línea: queda en false
+ * y se marca a mano en la ODP, como antes.
+ */
 async function detalleParaODP(cotizacionId: number, numero: number, etiqueta: string | null) {
   const filas = (await sequelize.query(
     `SELECT i.modulo_id, i.descripcion_item, i.cantidad_piezas,
+            i.input->>'conInstalacion' AS con_instalacion,
             i.resultado->>'descripcionComercial' AS descripcion_comercial
        FROM cotizador.cotizacion_item i
        JOIN cotizador.propuesta p ON p.id = i.propuesta_id
@@ -631,7 +642,20 @@ async function detalleParaODP(cotizacionId: number, numero: number, etiqueta: st
   });
   const cabecera = `Cotización N.° ${numero}${etiqueta ? ` (Opción ${etiqueta})` : ''} del Cotizador`;
   const descripcion = [cabecera, ...servicios.map((s) => `${s.cantidad}x ${s.descripcion}`)].join('\n');
-  return { servicios, descripcion, cabecera };
+
+  const fletes = (await sequelize.query(
+    `SELECT 1
+       FROM cotizador.propuesta_cargo c
+       JOIN cotizador.propuesta p ON p.id = c.propuesta_id
+      WHERE p.cotizacion_id = :id AND p.elegida = true AND c.tipo = 'FLETE'
+      LIMIT 1`,
+    { replacements: { id: cotizacionId }, type: QueryTypes.SELECT }
+  )) as Fila[];
+  const servicioObra = {
+    acarreo: fletes.length > 0,
+    instalacion: filas.some((f) => conInstalacion({ input: { conInstalacion: f.con_instalacion } })),
+  };
+  return { servicios, descripcion, cabecera, servicioObra };
 }
 
 export const FORMAS_PAGO = ['contado', 'credito', '50_50'] as const;
@@ -707,7 +731,7 @@ async function crearODPBajoCandado(
     throw new ErrorVinculo(404, 'El cliente elegido ya no existe. Búscalo de nuevo.');
   }
 
-  const { servicios, descripcion, cabecera } = await detalleParaODP(cotizacionId, plan.cotizacion.numero, plan.cotizacion.etiqueta);
+  const { servicios, descripcion, cabecera, servicioObra } = await detalleParaODP(cotizacionId, plan.cotizacion.numero, plan.cotizacion.etiqueta);
   const valor = plan.cotizacion.total;
   const asesorId = plan.asesor.id ?? undefined;
 
@@ -722,6 +746,7 @@ async function crearODPBajoCandado(
         valor_total: valor,
         forma_pago: datos.formaPago,
         observaciones: cabecera,
+        ...servicioObra,
         ...(plan.cliente ? {} : { cliente_id: clienteId }),
         ...(asesorId ? { asesor_id: asesorId } : {}),
       },
@@ -734,7 +759,7 @@ async function crearODPBajoCandado(
       plan.lead!.id,
       clienteId ? { cliente_id: clienteId } : { nombre: datos.nombre?.trim() || plan.lead!.nombre, telefono: datos.telefono?.trim() },
       user,
-      { asesor_id: asesorId, valor_total: valor, descripcion_pedido: descripcion, forma_pago: datos.formaPago }
+      { asesor_id: asesorId, valor_total: valor, descripcion_pedido: descripcion, forma_pago: datos.formaPago, ...servicioObra }
     );
     leerId = (b) => Number(b?.odp_id);
     leerNumero = (b) => b?.numero_odp ?? null;
@@ -749,6 +774,7 @@ async function crearODPBajoCandado(
         cantidad_total: servicios.reduce((a, s) => a + s.cantidad, 0) || 1,
         tipo_servicio: servicios[0]?.tipo_servicio,
         descripcion_pedido: descripcion,
+        ...servicioObra,
       },
       user.id
     );
