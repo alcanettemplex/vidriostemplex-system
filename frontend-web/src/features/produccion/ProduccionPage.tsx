@@ -136,6 +136,8 @@ interface ODP {
     acarreo?: boolean;
     forma_pago?: string;
     estado_caja?: string;
+    estado_facturacion?: string;
+    autorizacion_especial_despacho?: boolean;
     tipo_odp?: string;
     color_taller?: string | null;
     odp_padre_id?: number | null;
@@ -280,6 +282,22 @@ const isPagoOk = (odp: ODP): boolean =>
     odp.estado_caja === 'CANCELADO' ||
     odp.estado_caja === 'CREDITO_APROBADO';
 
+// Espejo de PAGO_OK / FACTURA_OK de rutas.controller.ts (validarElegibilidadProgramacion):
+// la pestaña Acarreos clasifica con las mismas reglas que aplica createRuta, para que un
+// acarreo "listo" aquí no reciba un rechazo al programarlo. Si cambian allá, cambian aquí.
+const pagoOkParaRuta = (odp: ODP): boolean =>
+    odp.estado_caja === 'CANCELADO' ||
+    odp.estado_caja === 'CREDITO_APROBADO' ||
+    odp.autorizacion_especial_despacho === true ||
+    odp.forma_pago === 'credito' ||
+    odp.es_garantia === true;
+
+const facturaOkParaRuta = (odp: ODP): boolean =>
+    odp.estado_facturacion === 'FACTURADA' ||
+    odp.es_garantia === true ||
+    odp.es_no_conformidad === true ||
+    odp.forma_pago === 'credito';
+
 const getPaymentInfo = (odp: ODP): { label: string; cls: string } => {
     if (odp.forma_pago === 'credito') return { label: 'Crédito', cls: 'bg-blue-50 text-blue-700' };
     if (odp.estado_caja === 'CANCELADO') return { label: 'Cancelado ✓', cls: 'bg-emerald-50 text-emerald-700' };
@@ -289,8 +307,9 @@ const getPaymentInfo = (odp: ODP): { label: string; cls: string } => {
 };
 
 const ProduccionPage: React.FC = () => {
-    const [mainTab, setMainTab]           = useState<'activas' | 'por_imprimir' | 'pedido_mano' | 'nc_garantias' | 'pausadas' | 'automaticos'>('activas');
+    const [mainTab, setMainTab]           = useState<'activas' | 'por_imprimir' | 'pedido_mano' | 'acarreos' | 'nc_garantias' | 'pausadas' | 'automaticos'>('activas');
     const [manoSubTab, setManoSubTab]     = useState<'listos' | 'espera_pago'>('listos');
+    const [acarreoSubTab, setAcarreoSubTab] = useState<'listos' | 'espera_pago' | 'espera_factura'>('listos');
 
     // Array maestro (fuente única de verdad) + NC/Garantías (endpoint aparte).
     const [odps, setOdps]                       = useState<ODP[]>([]);
@@ -301,7 +320,10 @@ const ProduccionPage: React.FC = () => {
     const activeOdps     = useMemo(() => odps.filter(o => activeStates.includes(o.estado_produccion)), [odps]);
     const pausadasOdps   = useMemo(() => odps.filter(o => o.estado_produccion === 'PAUSADA'), [odps]);
     const readyOdps      = useMemo(() => odps.filter(o => o.estado_produccion === 'LISTO_INSTALAR'), [odps]);
-    const despachoOdps   = useMemo(() => readyOdps.filter(o => o.instalacion || o.acarreo), [readyOdps]);
+    // Despacho = lo que lleva instalación (con o sin acarreo). El acarreo puro tiene su propia
+    // pestaña: lo cierra el conductor al terminar la ruta, no un instalador.
+    const despachoOdps   = useMemo(() => readyOdps.filter(o => o.instalacion), [readyOdps]);
+    const acarreoOdps    = useMemo(() => readyOdps.filter(o => o.acarreo && !o.instalacion), [readyOdps]);
     const manoOdps       = useMemo(() => readyOdps.filter(o => !o.instalacion && !o.acarreo), [readyOdps]);
 
     const [loading, setLoading]           = useState(true);
@@ -911,6 +933,15 @@ const ProduccionPage: React.FC = () => {
     const pagoOkOdps     = manoOdps.filter(o => isPagoOk(o));
     const esperaPagoOdps = manoOdps.filter(o => !isPagoOk(o));
     const currentManoOdps = manoSubTab === 'listos' ? pagoOkOdps : esperaPagoOdps;
+
+    // Acarreos: sin pago es la primera traba (mismo orden que revisa handleProgramarRuta),
+    // así que una ODP sin pago ni factura cae en "espera de pago".
+    const acarreoGrupos = {
+        listos:         acarreoOdps.filter(o => pagoOkParaRuta(o) && facturaOkParaRuta(o)),
+        espera_pago:    acarreoOdps.filter(o => !pagoOkParaRuta(o)),
+        espera_factura: acarreoOdps.filter(o => pagoOkParaRuta(o) && !facturaOkParaRuta(o)),
+    };
+    const currentAcarreoOdps = acarreoGrupos[acarreoSubTab];
 
     if (loading) return (
         <div className="p-8 text-center text-slate-700 font-medium">Cargando Tablero de Taller...</div>
@@ -1532,6 +1563,10 @@ const ProduccionPage: React.FC = () => {
                         <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">Despacho</p>
                         <p className="text-2xl font-extrabold text-emerald-700 leading-none mt-1">{despachoOdps.length}</p>
                     </div>
+                    <div className="px-3 sm:px-4 py-2 text-center border-r border-slate-200">
+                        <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">Acarreos</p>
+                        <p className="text-2xl font-extrabold text-sky-700 leading-none mt-1">{acarreoOdps.length}</p>
+                    </div>
                     <div className="px-3 sm:px-4 py-2 text-center">
                         <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">En la mano</p>
                         <p className="text-2xl font-extrabold text-amber-700 leading-none mt-1">{manoOdps.length}</p>
@@ -1547,6 +1582,7 @@ const ProduccionPage: React.FC = () => {
                         { key: 'activas',      label: 'Control Taller',    icon: <Wrench className="w-4 h-4" /> },
                         { key: 'por_imprimir', label: 'Por Imprimir',      icon: <Printer className="w-4 h-4" />,       badge: porImprimirOdps.length || undefined, badgeClassName: 'bg-indigo-100 text-indigo-800' },
                         { key: 'pedido_mano',  label: 'Pedido en la mano', icon: <Inbox className="w-4 h-4" /> },
+                        { key: 'acarreos',     label: 'Acarreos',          icon: <Truck className="w-4 h-4" />,         badge: acarreoOdps.length || undefined, badgeClassName: 'bg-sky-100 text-sky-800' },
                         { key: 'nc_garantias', label: 'NC / Garantías',    icon: <AlertTriangle className="w-4 h-4" />, badge: ncOdps.length || undefined, badgeClassName: 'bg-rose-100 text-rose-800' },
                         { key: 'pausadas',     label: 'ODP Pausadas',      icon: <PauseCircle className="w-4 h-4" />,   badge: pausadasOdps.length || undefined, badgeClassName: 'bg-amber-100 text-amber-800' },
                         { key: 'automaticos',  label: 'Automáticos',       icon: <Bot className="w-4 h-4" /> },
@@ -1654,7 +1690,7 @@ const ProduccionPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Zona de Despacho (solo instalacion/acarreo) */}
+                    {/* Zona de Despacho (solo instalación; el acarreo puro va en su pestaña) */}
                     {despachoOdps.length > 0 && (
                         <div className="bg-emerald-50/60 rounded-2xl border border-emerald-200 overflow-hidden shadow-card mt-2">
                             <div className="bg-emerald-100/60 px-4 sm:px-6 py-4 border-b border-emerald-200 flex flex-wrap items-center justify-between gap-2">
@@ -1977,6 +2013,145 @@ const ProduccionPage: React.FC = () => {
             )}
 
             {/* ══════════════════════════════════════════════
+                TAB: ACARREOS
+                Acarreo puro (acarreo sin instalación) ya terminado en taller. Sale por ruta:
+                al cerrarla el conductor, terminarRutaConductor lo pasa a ENTREGADA. Al
+                programarla la ODP queda PROGRAMADA y se va de aquí sola por socket.
+            ══════════════════════════════════════════════ */}
+            {mainTab === 'acarreos' && (
+                <div className="space-y-4">
+                    {/* Sub-tabs */}
+                    <div className="flex flex-wrap bg-white p-1 rounded-2xl border border-slate-200 shadow-card w-fit max-w-full">
+                        {([
+                            { id: 'listos',         label: 'Listos para programar' },
+                            { id: 'espera_pago',    label: 'En espera de pago' },
+                            { id: 'espera_factura', label: 'En espera de factura' },
+                        ] as const).map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setAcarreoSubTab(tab.id)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all
+                                    ${acarreoSubTab === tab.id ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25' : 'text-slate-800 hover:text-slate-900 hover:bg-slate-50'}`}
+                            >
+                                {tab.label}
+                                <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold
+                                    ${acarreoSubTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800'}`}>
+                                    {acarreoGrupos[tab.id].length}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Tabla */}
+                    <div className="bg-white rounded-2xl shadow-card border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                            <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                                <Truck className="w-4 h-4 text-indigo-500" />
+                                {acarreoSubTab === 'listos' ? 'Listos para programar'
+                                    : acarreoSubTab === 'espera_pago' ? 'En espera de pago' : 'En espera de factura'}
+                                <span className="text-slate-700 font-normal">({currentAcarreoOdps.length})</span>
+                            </h2>
+                            <span className="text-xs text-slate-700 hidden md:block">
+                                Al cerrar la ruta, el acarreo queda entregado automáticamente
+                            </span>
+                        </div>
+
+                        {currentAcarreoOdps.length === 0 ? (
+                            <div className="p-16 text-center">
+                                <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                <p className="text-slate-700 text-sm">No hay acarreos en esta categoría.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-auto">
+                                <table className="w-full border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-200">
+                                            <th className="text-left px-4 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider min-w-[200px]">ODP / Cliente</th>
+                                            <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Entrega</th>
+                                            <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Pago</th>
+                                            <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-900 uppercase tracking-wider min-w-[80px]">Estado caja</th>
+                                            <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Factura</th>
+                                            <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {currentAcarreoOdps.map(odp => {
+                                            const urgency = getUrgency(odp.fecha_entrega);
+                                            const payInfo = getPaymentInfo(odp);
+                                            const facturaOk = facturaOkParaRuta(odp);
+                                            return (
+                                                <tr key={odp.id} className={`hover:bg-slate-50 transition-colors border-l-4
+                                                    ${urgency.color === 'rose' ? 'border-rose-400' : urgency.color === 'orange' ? 'border-orange-400' : 'border-emerald-400'}`}>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                                            <span
+                                                                className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer"
+                                                                onClick={() => setFichaOdpId(odp.id)}
+                                                            >
+                                                                {odp.numero_odp}
+                                                            </span>
+                                                            {odp.es_no_conformidad && (
+                                                                <span className="text-[10px] font-bold bg-rose-600 text-white px-1.5 py-0.5 rounded-full">NC</span>
+                                                            )}
+                                                            {odp.es_garantia && (
+                                                                <span className="text-[10px] font-bold bg-orange-600 text-white px-1.5 py-0.5 rounded-full">GAR</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm font-semibold text-slate-900">{odp.cliente.nombre_razon_social}</p>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`text-[11px] font-semibold px-2 py-1 rounded-full ring-1 ring-inset
+                                                            ${urgency.color === 'rose' ? 'bg-rose-50 text-rose-700 ring-rose-200' : urgency.color === 'orange' ? 'bg-orange-50 text-orange-700 ring-orange-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200'}`}>
+                                                            {urgency.label}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`text-[11px] font-semibold px-2 py-1 rounded-full ${payInfo.cls}`}>
+                                                            {payInfo.label}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className="text-xs text-slate-800">{odp.estado_caja || '—'}</span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`text-[11px] font-semibold px-2 py-1 rounded-full
+                                                            ${facturaOk ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                                                            {odp.estado_facturacion === 'FACTURADA' ? 'Facturada'
+                                                                : facturaOk ? 'No requiere' : 'Pendiente'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        {acarreoSubTab !== 'listos' ? (
+                                                            <span className="text-xs text-slate-700">
+                                                                {acarreoSubTab === 'espera_pago' ? 'Falta aprobar el pago' : 'Falta la factura'}
+                                                            </span>
+                                                        ) : puedeProgramarRuta ? (
+                                                            <button
+                                                                onClick={() => handleProgramarRuta(odp)}
+                                                                disabled={programandoRutaId !== null}
+                                                                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 transition-colors whitespace-nowrap"
+                                                            >
+                                                                {programandoRutaId === odp.id
+                                                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                    : <Truck className="w-3.5 h-3.5" />}
+                                                                Programar ruta
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-xs text-slate-700">—</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════
                 TAB: NC / GARANTÍAS
             ══════════════════════════════════════════════ */}
             {mainTab === 'nc_garantias' && (
@@ -2226,7 +2401,7 @@ const ProduccionPage: React.FC = () => {
 
         {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}
         {showProgramacion && <InformeRutasModal onClose={() => setShowProgramacion(false)} />}
-        {/* Ruta nueva con la ODP de la Zona de Despacho ya cargada (fecha de su agenda o hoy) */}
+        {/* Ruta nueva con la ODP de la Zona de Despacho o de Acarreos ya cargada (fecha de su agenda o hoy) */}
         {modalRuta && (
             <ProgramarRutaModal
                 odpsDisponibles={modalRuta.disponibles}

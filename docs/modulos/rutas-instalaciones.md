@@ -4,7 +4,7 @@ Programación y seguimiento de las instalaciones en obra: el jefe arma **rutas**
 
 - **Modelos:** `RutaInstalacion` (`rutas_instalacion`), `RutaODP` (`ruta_odp`, una fila por **parada**), tabla puente `ruta_instaladores` (M:M, sin modelo), `AgendaInstalacion` (planeación tentativa, sin auditoría), `Vehiculo`. `RutaODP` es tabla **singular**: revertirla desde ROOT falla (ver `TECH_DEBT.md` 2026-07-10).
 - **Backend:** `controllers/rutas.controller.ts` (todo) y `controllers/agenda.controller.ts`; rutas en `routes/rutas.routes.ts` bajo `/api/rutas`.
-- **Frontend:** `features/instalaciones/` — `JefeView` (gestión), `InstaladorView`, `ConductorView`, `InstaladorGestionTab`, `AgendaTab`, `ProgramarRutaModal` (lo abren JefeView, Agenda, Instaladores y la Zona de Despacho de `ProduccionPage`), `ProgramadosTab` + `RutaCard` (pestaña Programados), `CerrarAtascadaModal`. Utilidades: `utils/estadoInstalacion.ts` (etiquetas y fechas de ruta) y `utils/hojaRuta.ts` (Hoja de Ruta impresa).
+- **Frontend:** `features/instalaciones/` — `JefeView` (gestión), `InstaladorView`, `ConductorView`, `InstaladorGestionTab`, `AgendaTab`, `ProgramarRutaModal` (lo abren JefeView, Agenda, Instaladores, y en `ProduccionPage` la Zona de Despacho —solo ODP con instalación— y la pestaña **Acarreos** —acarreo puro en `LISTO_INSTALAR`, sub-pestañas Listos / Espera pago / Espera factura con las reglas `PAGO_OK`/`FACTURA_OK` copiadas en `pagoOkParaRuta`/`facturaOkParaRuta`, 2026-10-06—), `ProgramadosTab` + `RutaCard` (pestaña Programados), `CerrarAtascadaModal`. Utilidades: `utils/estadoInstalacion.ts` (etiquetas y fechas de ruta) y `utils/hojaRuta.ts` (Hoja de Ruta impresa).
 
 ## Ciclo de vida
 

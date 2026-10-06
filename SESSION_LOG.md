@@ -6618,3 +6618,31 @@ consigna de simplicidad y pocos pasos.
 - Script A aplicado (27 paradas, auditadas). Script B (18 reprogramadas) pendiente de decisión del usuario.
 - Reprogramar ODP-24345 desde Pendientes de cierre tras el despliegue.
 - Sin commit.
+
+---
+
+## 2026-10-06 — Corrección de valor OA-3842 (error de digitación)
+
+### Cambios realizados
+- **BD:** OA-3842 (id 556, CLARA INES PALACIO VALENCIA, crédito, ENTREGADA): `valor_total` y `pendiente` 1.529.000 → 1.300.000. `estado_caja` se mantiene `CREDITO_APROBADO`. Sin FE, sin pagos, sin facturas adicionales; SFV-3842 e ítems (PV 590) no guardan montos.
+- **script:** `2026-10-06_corregir_valor_oa3842.ts` (por el modelo, idempotente). Ejecutado; auditoría `auditoria_log` id 55211, firmada por el script.
+
+### Pendientes
+- Sin commit.
+
+---
+
+## 2026-10-06 — Control de Taller: pestaña Acarreos
+
+### Decisiones del usuario
+Solo acarreo puro (acarreo sin instalación), solo en LISTO_INSTALAR, acción "Programar ruta" (no marcar entregada directo), sub-pestañas Listos / Espera de pago / Espera de factura.
+
+### Cambios realizados
+- **frontend `ProduccionPage.tsx`:** pestaña "Acarreos" con contador; `acarreoOdps` derivado del maestro (el socket la mantiene al día; al programar pasa a PROGRAMADA y sale sola). Helpers `pagoOkParaRuta`/`facturaOkParaRuta`, espejo de `PAGO_OK`/`FACTURA_OK` de `rutas.controller.ts`. La Zona de Despacho y el KPI "Despacho" ahora cuentan solo las ODP con instalación; nuevo KPI "Acarreos".
+- **docs:** `rutas-instalaciones.md` (quién abre `ProgramarRutaModal`).
+- Sin cambios de BD ni backend.
+
+### Pendientes
+- `isPagoOk` de "Pedido en la mano" no reconoce `autorizacion_especial_despacho` ni `es_garantia` (el backend sí). Pendiente de decisión del usuario.
+- `ProduccionPage.tsx` (~2.400 líneas): extraer pestañas a componentes.
+- Sin commit.
