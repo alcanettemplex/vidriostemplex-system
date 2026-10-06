@@ -64,6 +64,29 @@ Antes de este cambio la pausada seguía ocupando la ruta: la ODP no salía en ni
   - Navegación ‹ › por día hacia atrás y hacia adelante; el texto es editable antes de copiar.
   - Roles del endpoint: `LECTURA_GESTION` + `auxiliar_produccion` (antes Control de Taller le mostraba el botón a ese rol y el endpoint le respondía 403). `taller` sigue sin acceso: no está en `RolUsuario` (drift de RBAC).
 
+## Resultado real de cada parada y rutas cerradas con paradas sin hacer (2026-10-06)
+
+Decisiones del usuario tras el caso de las rutas #516/#517/#518:
+1. **Acarreo puro:** se sigue dando por entregado automáticamente al terminar la ruta, pero
+   `terminarRutaConductor` cierra también la **parada** (`completada`, fin = cierre de la ruta).
+   Antes solo la ODP pasaba a ENTREGADA y la parada quedaba `pendiente` (27 casos, corregidos
+   con `2026-10-06_cerrar_paradas_acarreo_entregado.ts`). Todo el cierre va en una transacción.
+2. **El conductor puede seguir cerrando la ruta con instalaciones sin hacer** (solo se le exige
+   haber marcado llegada en todas). La ODP que quedó `PROGRAMADA` aparece **el mismo día** en
+   "Pendientes de cierre" (`getODPsAtascadas` incluye `estado_ruta = completada`); antes
+   esperaba a que la fecha venciera (ODP-24345).
+3. **Reprogramar** (Pendientes de cierre) deja las paradas abiertas de la ODP en `pausada` con
+   `motivo_pausa` "Reprogramada desde…", no en `completada` (se leían "Entregada"). Cierra todas
+   sus paradas abiertas, no solo la más reciente. 18 históricas corregidas con
+   `2026-10-06_reprogramadas_a_pausada.ts` (cruce exacto historial ↔ `fin_instalacion`).
+4. **Completados muestra el resultado real** (`resultadoParada` en `RutaCard`): Instalada /
+   Entregada / No se hizo · devuelta a bandeja / No se hizo · en Pendientes de cierre / No se
+   hizo · ruta cancelada / Con daño. El encabezado de una ruta cerrada dice "2 hechas · 1 sin
+   hacer". `INCLUDE_RUTA_LISTA` trae `estado_produccion` de la ODP para eso.
+
+⚠️ `rutas_instalacion.fin_ruta` es `timestamp` SIN zona (ver TECH_DEBT 2026-10-06): leerla con
+`AT TIME ZONE UTC` en SQL crudo.
+
 ## Reportar entrega (finalizar) — incidente del 2026-10-06
 
 Javier (ODP-24322) reportó que "se queda cargando y no sube las evidencias". Rastreo con auditoría y

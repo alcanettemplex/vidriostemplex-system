@@ -26,6 +26,36 @@ const ESTADO_PARADA: Record<string, { label: string; cls: string }> = {
   con_dano:   { label: 'Con daño',   cls: 'bg-orange-100 text-orange-800' },
 };
 
+type Etiqueta = { label: string; cls: string };
+
+const NO_SE_HIZO = 'bg-rose-100 text-rose-800';
+
+/**
+ * Resultado REAL de una parada de una ruta ya cerrada (decisión del usuario, 2026-10-06):
+ * "Pendiente" en una ruta completada no le decía nada al jefe. Combina el estado de la
+ * parada, el de la ODP hoy y el de la ruta. En una ruta abierta se usa ESTADO_PARADA.
+ */
+const resultadoParada = (ro: any, ruta: any): Etiqueta => {
+  const odp = ro.odp ?? {};
+  switch (ro.estado) {
+    case 'completada':
+      return odp.instalacion
+        ? { label: 'Instalada', cls: 'bg-emerald-100 text-emerald-800' }
+        : { label: 'Entregada', cls: 'bg-emerald-100 text-emerald-800' };
+    case 'pausada':
+      return { label: 'No se hizo · devuelta a bandeja', cls: NO_SE_HIZO };
+    case 'con_dano':
+      return ESTADO_PARADA.con_dano;
+    default: // pendiente / en_curso en una ruta que ya no está abierta
+      if (ruta.estado === 'cancelada') return { label: 'No se hizo · ruta cancelada', cls: 'bg-slate-100 text-slate-800' };
+      if (['PROGRAMADA', 'INSTALANDO', 'INSTALADA'].includes(odp.estado_produccion)) {
+        return { label: 'No se hizo · en Pendientes de cierre', cls: NO_SE_HIZO };
+      }
+      if (odp.estado_produccion === 'ENTREGADA') return { label: 'No se hizo aquí · ODP ya entregada', cls: 'bg-slate-100 text-slate-800' };
+      return { label: 'No se hizo · devuelta a bandeja', cls: NO_SE_HIZO };
+  }
+};
+
 const duracion = (inicio: string | null, fin?: string | null): string | null => {
   if (!inicio) return null;
   const ms = (fin ? new Date(fin).getTime() : Date.now()) - new Date(inicio).getTime();
@@ -59,6 +89,12 @@ const RutaCard: React.FC<RutaCardProps> = ({ ruta, readOnly, historial = false, 
   const pct = total > 0 ? Math.round((cerradas / total) * 100) : 0;
 
   const abierta = ruta.estado === 'programada' || ruta.estado === 'en_curso';
+  // Ruta cerrada: "2 hechas · 1 sin hacer" en vez de "2 de 3 paradas cerradas", que con
+  // la ruta ya completada se leía como una contradicción.
+  const hechas = paradas.filter((ro) => ro.estado === 'completada').length;
+  const conDano = paradas.filter((ro) => ro.estado === 'con_dano').length;
+  const sinHacer = total - hechas - conDano;
+  const pctBarra = abierta ? pct : (total > 0 ? Math.round((hechas / total) * 100) : 0);
   const fecha = fechaRuta(ruta);
   const rel = relativoDia(fecha);
   const quedanPendientes = paradas.some((ro) => ro.estado === 'pendiente');
@@ -132,11 +168,19 @@ const RutaCard: React.FC<RutaCardProps> = ({ ruta, readOnly, historial = false, 
         {total > 1 && (
           <div>
             <div className="flex justify-between text-[11px] mb-1 text-slate-700">
-              <span>{cerradas} de {total} paradas cerradas</span>
-              <span className="font-bold text-slate-900">{pct}%</span>
+              {abierta ? (
+                <span>{cerradas} de {total} paradas cerradas</span>
+              ) : (
+                <span>
+                  {hechas} hecha{hechas === 1 ? '' : 's'}
+                  {sinHacer > 0 && <span className="font-semibold text-rose-700"> · {sinHacer} sin hacer</span>}
+                  {conDano > 0 && <span className="font-semibold text-orange-700"> · {conDano} con daño</span>}
+                </span>
+              )}
+              <span className="font-bold text-slate-900">{pctBarra}%</span>
             </div>
             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-indigo-400'}`} style={{ width: `${pct}%` }} />
+              <div className={`h-full rounded-full transition-all ${pctBarra === 100 ? 'bg-emerald-500' : 'bg-indigo-400'}`} style={{ width: `${pctBarra}%` }} />
             </div>
           </div>
         )}
@@ -149,7 +193,9 @@ const RutaCard: React.FC<RutaCardProps> = ({ ruta, readOnly, historial = false, 
             const odp = ro.odp ?? {};
             const pago = estadoPago(odp);
             const factura = estadoFactura(odp);
-            const parada = ESTADO_PARADA[ro.estado] ?? { label: ro.estado, cls: 'bg-slate-100 text-slate-800' };
+            const parada = abierta
+              ? ESTADO_PARADA[ro.estado] ?? { label: ro.estado, cls: 'bg-slate-100 text-slate-800' }
+              : resultadoParada(ro, ruta);
             const contacto = [odp.nombre_recibe, odp.telefono_recibe].filter(Boolean).join(' · ');
             return (
               <div key={ro.id} className={`flex items-start gap-3 px-4 py-3 ${ro.estado === 'pausada' ? 'bg-violet-50/50' : ''}`}>
@@ -178,7 +224,7 @@ const RutaCard: React.FC<RutaCardProps> = ({ ruta, readOnly, historial = false, 
                     <Chip cls="bg-indigo-50 text-indigo-800">{tipoServicio(odp).label}</Chip>
                     <Chip cls={TONO_CLS[pago.tono]}>{pago.label}</Chip>
                     {factura && factura.tono !== 'ok' && <Chip cls={TONO_CLS[factura.tono]}>{factura.label}</Chip>}
-                    <Chip cls={`uppercase ${parada.cls}`}>{parada.label}</Chip>
+                    <Chip cls={`${abierta ? 'uppercase ' : ''}${parada.cls}`}>{parada.label}</Chip>
                   </div>
                   {ro.estado === 'pausada' && (
                     <p className="text-xs text-violet-800 mt-1 flex items-start gap-1">

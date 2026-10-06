@@ -159,7 +159,9 @@ const INCLUDE_RUTA_LISTA = async (): Promise<any[]> => [
         attributes: ['id', 'numero_odp', 'cliente_id', 'asesor_id', 'direccion_instalacion',
           'instalacion', 'acarreo', 'es_garantia', 'es_no_conformidad', 'estado_caja',
           'autorizacion_especial_despacho', 'forma_pago', 'estado_facturacion',
-          'nombre_recibe', 'telefono_recibe', 'descripcion_pedido'],
+          'nombre_recibe', 'telefono_recibe', 'descripcion_pedido',
+          // Resultado real de cada parada en Completados (RutaCard, 2026-10-06).
+          'estado_produccion'],
         include: [
           { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
           { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
@@ -1748,24 +1750,33 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
     }
 
     const finRuta = new Date();
-    await ruta.update({ estado: 'completada', fin_ruta: finRuta });
+    // Una transacción para todo el cierre (2026-10-06): antes eran escrituras sueltas y un
+    // fallo a mitad dejaba la ruta completada con acarreos sin cerrar.
+    const acarreosCerrados: any[] = [];
+    await sequelize.transaction(async (t) => {
+      await ruta.update({ estado: 'completada', fin_ruta: finRuta }, { transaction: t });
 
-    // Auto-cerrar ODPs de acarreo puro (acarreo=true, instalacion=false)
-    // El instalador cierra las demás; estas no tienen instalador que las cierre
-    const odpIds = ruta.ruta_odps.map((p: any) => p.odp_id).filter(Boolean);
-    if (odpIds.length > 0) {
+      // Auto-cerrar ODPs de acarreo puro (acarreo=true, instalacion=false)
+      // El instalador cierra las demás; estas no tienen instalador que las cierre
+      const odpIds = ruta.ruta_odps.map((p: any) => p.odp_id).filter(Boolean);
+      if (!odpIds.length) return;
+
       const odpsAcarreo = await ODP.findAll({
-        where: {
-          id: { [Op.in]: odpIds },
-          acarreo: true,
-          instalacion: false,
-          estado_produccion: { [Op.in]: ['PROGRAMADA', 'INSTALANDO', 'INSTALADA'] },
-        },
+        where: { id: { [Op.in]: odpIds }, acarreo: true, instalacion: false },
+        transaction: t,
       }) as any[];
 
       for (const odp of odpsAcarreo) {
+        // La PARADA también se cierra (decisión del usuario, 2026-10-06): antes solo la ODP
+        // pasaba a ENTREGADA y la parada quedaba 'pendiente' para siempre —27 casos—, así
+        // que Completados mostraba "Pendiente" en un acarreo ya entregado.
+        for (const p of ruta.ruta_odps.filter((x: any) => x.odp_id === odp.id && (x.estado === 'pendiente' || x.estado === 'en_curso'))) {
+          await p.update({ estado: 'completada', fin_instalacion: finRuta }, { transaction: t });
+        }
+
         const estadoAnterior = odp.getDataValue('estado_produccion');
-        await odp.update({ estado_produccion: 'ENTREGADA' });
+        if (!['PROGRAMADA', 'INSTALANDO', 'INSTALADA'].includes(estadoAnterior)) continue;
+        await odp.update({ estado_produccion: 'ENTREGADA' }, { transaction: t });
         await HistorialEstadoODP.create({
           odp_id: odp.id,
           estado_anterior: estadoAnterior,
@@ -1773,15 +1784,15 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
           usuario_id: user.id,
           fecha: finRuta,
           observacion: `Acarreo completado automáticamente al cerrar ruta #${ruta.id}`,
-        });
+        }, { transaction: t });
 
         // Si era ODP de reproceso → reactivar el padre pausado (igual que finalizarInstalacion
         // y entregarAtascada). Sin esto, un acarreo de reproceso deja al padre huérfano en
         // PAUSADA para siempre — mismo bug que ODP-23925/NC-0005.
         if (odp.es_no_conformidad && odp.odp_padre_id) {
-          const padre = await ODP.findByPk(odp.odp_padre_id) as any;
+          const padre = await ODP.findByPk(odp.odp_padre_id, { transaction: t }) as any;
           if (padre && padre.estado_produccion === 'PAUSADA') {
-            await padre.update({ estado_produccion: 'INSTALADA' });
+            await padre.update({ estado_produccion: 'INSTALADA' }, { transaction: t });
             await HistorialEstadoODP.create({
               odp_id: padre.id,
               estado_anterior: 'PAUSADA',
@@ -1789,18 +1800,21 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
               usuario_id: user.id,
               fecha: finRuta,
               observacion: `Reactivada: reproceso ${odp.numero_odp} completado (acarreo)`,
-            });
+            }, { transaction: t });
           }
         }
-
-        notificarCambioEstadoODP({
-          numero_odp: odp.numero_odp,
-          odp_id: odp.id,
-          asesor_id: odp.asesor_id,
-          estado_nuevo: 'ENTREGADA',
-          mensaje: `Acarreo ${odp.numero_odp} completado`,
-        }).catch(() => {});
+        acarreosCerrados.push(odp);
       }
+    });
+
+    for (const odp of acarreosCerrados) {
+      notificarCambioEstadoODP({
+        numero_odp: odp.numero_odp,
+        odp_id: odp.id,
+        asesor_id: odp.asesor_id,
+        estado_nuevo: 'ENTREGADA',
+        mensaje: `Acarreo ${odp.numero_odp} completado`,
+      }).catch(() => {});
     }
 
     // Notificar al equipo de la ruta (instaladores + conductor + roles de gestión)
@@ -1892,6 +1906,10 @@ export const getODPsAtascadas = async (_req: Request, res: Response) => {
              OR (o.estado_produccion = 'PROGRAMADA'
                  AND (p.ruta_odp_id IS NULL
                    OR p.estado_ruta = 'cancelada'
+                   -- Ruta ya cerrada con la parada sin hacer: entra el MISMO día (2026-10-06).
+                   -- Antes esperaba a que la fecha venciera y la ODP pasaba el resto del día
+                   -- sin aparecer en ninguna bandeja (ODP-24345, ruta #518).
+                   OR p.estado_ruta = 'completada'
                    OR p.fecha_programada < ${HOY_BOGOTA_SQL}))
                 -- (b) Terminó, pero dejó una parada de ruta abierta
              OR (o.estado_produccion = 'INSTALADA'
@@ -1961,9 +1979,20 @@ export const reprogramarAtascada = async (req: Request, res: Response) => {
 
     const ahora = new Date();
     const parada = await buscarParadaActiva(Number(odpId), t);
-    if (parada) {
-      await parada.update({ estado: 'completada', fin_instalacion: ahora }, { transaction: t });
-      await cerrarRutaSiSinPendientes(parada.ruta_id, ahora, t);
+    // La parada que no se hizo queda 'pausada' —salió de la ruta y la ODP vuelve a su
+    // bandeja, igual que una pausa— y no 'completada': así se marcaba hasta el 2026-10-06
+    // y Completados la mostraba como "Entregada". Se cierran TODAS las paradas abiertas de
+    // la ODP (la 24345 arrastraba una de la ruta #516 y otra de la #518).
+    const motivoPausa = `Reprogramada desde "Pendientes de cierre"${motivo ? `: ${motivo}` : ''}`.slice(0, 1000);
+    const abiertas = await RutaODP.findAll({
+      where: { odp_id: Number(odpId), estado: { [Op.in]: ['pendiente', 'en_curso', 'con_dano'] } },
+      transaction: t,
+    }) as any[];
+    for (const p of abiertas) {
+      await p.update({ estado: 'pausada', motivo_pausa: motivoPausa }, { transaction: t });
+    }
+    for (const rutaId of new Set(abiertas.map((p) => p.ruta_id as number))) {
+      await cerrarRutaSiSinPendientes(rutaId, ahora, t);
     }
 
     await odp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction: t });

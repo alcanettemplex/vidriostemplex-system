@@ -4,6 +4,14 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-10-06 — `rutas_instalacion.fin_ruta` es TIMESTAMP SIN zona horaria
+
+**Severidad:** Media · **Estimación:** 30 min (ALTER TYPE + verificación)
+
+Es la única fecha de rutas sin zona (`inicio_ruta`, `creado_en` y las de `ruta_odp` son `timestamptz`). Guarda la hora UTC "a secas": un proceso con zona Bogotá la lee 5 h corrida. En producción (Render en UTC) se ve bien, pero el backend local muestra duraciones falsas (ruta #518: "Duró 7 h 16 min" en vez de 2 h 17 min) y cualquier SQL que la compare con un `timestamptz` se equivoca. Corrección: `ALTER TABLE rutas_instalacion ALTER COLUMN fin_ruta TYPE timestamptz USING fin_ruta AT TIME ZONE 'UTC'`. Mientras tanto, leerla con `AT TIME ZONE 'UTC'`.
+
+---
+
 ## 2026-10-06 — Auditoría sin IP ni usuario en las rutas que suben archivos con multer
 
 **Severidad:** Baja · **Estimación:** 1 h
@@ -17,7 +25,10 @@ fijar el contexto de nuevo al entrar al controlador.
 
 ---
 
-## 2026-10-05 — Instalaciones: 28 paradas `pendiente` en rutas ya completadas
+## ~~2026-10-05 — Instalaciones: 28 paradas `pendiente` en rutas ya completadas~~ (resuelto 2026-10-06)
+
+**Resuelto el 2026-10-06:** eran 27 acarreos puros cuya ODP pasó a ENTREGADA al cerrar la ruta sin cerrar la parada (`terminarRutaConductor` ya la cierra; script `2026-10-06_cerrar_paradas_acarreo_entregado.ts`) y la ODP-24345 (rutas #516 y #518), que ahora aparece en "Pendientes de cierre" el mismo día.
+
 
 **Severidad:** Baja · **Estimación:** 30 min (script de vista previa + decisión)
 

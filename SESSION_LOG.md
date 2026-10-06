@@ -6594,3 +6594,27 @@ consigna de simplicidad y pocos pasos.
 - Probar desde un celular una entrega real (compresión, progreso) cuando haya una parada en curso.
 - TECH_DEBT 2026-10-06: auditoría sin IP en rutas con multer.
 - Sin commit (esperando orden del usuario).
+
+---
+
+## 2026-10-06 — Instalaciones: resultado real de las paradas y rutas cerradas con paradas sin hacer
+
+### Diagnóstico (captura de Completados)
+- Ruta #517 (ODP-24346, acarreo puro, solo conductor): la ODP pasó a ENTREGADA al cerrar la ruta, pero la parada quedó `pendiente` → la tarjeta decía "PENDIENTE". 27 casos así.
+- Ruta #518 (y #516): el conductor cerró la ruta con ODP-24345 sin iniciar; la ODP quedó `PROGRAMADA` sin aparecer en ninguna bandeja ese día ("Pendientes de cierre" esperaba a que venciera la fecha).
+- "Reprogramar" marcaba la parada vieja `completada` → se leería "Entregada". 18 casos desde el 02-sep.
+- `rutas_instalacion.fin_ruta` es timestamp SIN zona: el backend local muestra duraciones +5 h (la #518 "duró 7 h 16 min", fueron 2 h 17 min).
+
+### Decisiones del usuario
+1. Acarreo: automático al terminar la ruta, cerrando también la parada. 2. El conductor puede cerrar como hoy; la ODP sin hacer aparece de inmediato en Pendientes de cierre. 3. Completados muestra el resultado real de cada parada.
+
+### Cambios realizados
+- **backend `rutas.controller.ts`:** `terminarRutaConductor` en transacción y cerrando la parada del acarreo; `getODPsAtascadas` con `estado_ruta = 'completada'`; `reprogramarAtascada` deja las paradas abiertas en `pausada` con motivo; `INCLUDE_RUTA_LISTA` + `estado_produccion`.
+- **frontend:** `RutaCard` con `resultadoParada` y resumen "N hechas · M sin hacer" en rutas cerradas; informe del día rotula ⏸️ como "devuelta a bandeja".
+- **scripts:** `2026-10-06_cerrar_paradas_acarreo_entregado.ts` (27) y `2026-10-06_reprogramadas_a_pausada.ts` (18), vista previa por defecto.
+- **docs:** `rutas-instalaciones.md`; TECH_DEBT: resuelta la de las 28 paradas, nueva la de `fin_ruta` sin zona.
+
+### Pendientes
+- Script A aplicado (27 paradas, auditadas). Script B (18 reprogramadas) pendiente de decisión del usuario.
+- Reprogramar ODP-24345 desde Pendientes de cierre tras el despliegue.
+- Sin commit.

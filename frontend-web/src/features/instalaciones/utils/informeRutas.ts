@@ -136,7 +136,7 @@ export const resumirDescripcion = (desc: string | null | undefined, esGarantia =
 const MARCA: Record<InformeParada['estado'], { icono: string; etiqueta: string }> = {
   completada: { icono: '✅', etiqueta: 'instalada' },
   con_dano:   { icono: '⚠️', etiqueta: 'con daño' },
-  pausada:    { icono: '⏸️', etiqueta: 'pausada' },
+  pausada:    { icono: '⏸️', etiqueta: 'devuelta a bandeja' },
   pendiente:  { icono: '⏳', etiqueta: 'no se hizo' },
   en_curso:   { icono: '⏳', etiqueta: 'no se hizo' },
 };
