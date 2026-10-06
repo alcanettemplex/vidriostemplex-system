@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import {
-  AlertTriangle, Calendar, LayoutGrid, LayoutList, Link2, MapPin, Printer, Star, Users,
+  AlertTriangle, Calendar, LayoutGrid, LayoutList, Link2, MapPin, MessageCircle, Printer, Star, Users,
 } from '../../../components/ui/icons';
 import { hoyBogotaISO } from '../../../utils/fechas';
 import RutaCard, { RutaCardProps } from './RutaCard';
+import InformeRutasModal from './InformeRutasModal';
 import { TONO_CLS, estadoPago, fechaRuta, fmtDiaCorto, relativoDia } from '../utils/estadoInstalacion';
 import { imprimirHojaRuta } from '../utils/hojaRuta';
 
@@ -11,6 +12,7 @@ import { imprimirHojaRuta } from '../utils/hojaRuta';
 // - Lista: tarjetas agrupadas por día (Vencidas, Hoy, Mañana, …).
 // - Por equipo: para un día, una columna por oficial con todas sus paradas, la hoja de
 //   ruta del equipo y el aviso de rutas repetidas con la acción de unirlas.
+// - Informe del día: texto para los grupos de WhatsApp (InformeRutasModal).
 
 export type SubTabProg = 'programada' | 'en_curso';
 type Vista = 'lista' | 'equipo';
@@ -44,6 +46,7 @@ const Spinner = () => (
 const ProgramadosTab: React.FC<Props> = ({ rutasFiltradas, subTab, onSubTab, loading, hayBusqueda, cardProps, onUnir }) => {
   const [vista, setVista] = useState<Vista>(leerVista);
   const cambiarVista = (v: Vista) => { setVista(v); guardarVista(v); };
+  const [verInforme, setVerInforme] = useState(false);
 
   return (
     <div className="p-4 space-y-4">
@@ -65,7 +68,13 @@ const ProgramadosTab: React.FC<Props> = ({ rutasFiltradas, subTab, onSubTab, loa
             ))}
           </div>
         )}
-        <div className="ml-auto flex gap-1 bg-slate-100 rounded-xl p-1" role="group" aria-label="Vista">
+        <button
+          onClick={() => setVerInforme(true)}
+          className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20 transition-all"
+        >
+          <MessageCircle className="w-4 h-4" /> Informe del día
+        </button>
+        <div className="flex gap-1 bg-slate-100 rounded-xl p-1" role="group" aria-label="Vista">
           {([
             { key: 'lista', label: 'Lista', icon: LayoutList },
             { key: 'equipo', label: 'Por equipo', icon: LayoutGrid },
@@ -87,6 +96,8 @@ const ProgramadosTab: React.FC<Props> = ({ rutasFiltradas, subTab, onSubTab, loa
       ) : (
         <VistaEquipo rutas={[...rutasFiltradas.programada, ...rutasFiltradas.en_curso]} hayBusqueda={hayBusqueda} readOnly={cardProps.readOnly} onVerODP={cardProps.onVerODP} onUnir={onUnir} />
       )}
+
+      {verInforme && <InformeRutasModal onClose={() => setVerInforme(false)} />}
     </div>
   );
 };

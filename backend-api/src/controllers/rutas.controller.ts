@@ -533,16 +533,25 @@ export const getRutasHistorial = async (req: Request, res: Response) => {
   }
 };
 
+// Informe del día para WhatsApp (InformeRutasModal, en Instalaciones y en Producción).
+// Trae las paradas de un día de calendario de toda ruta no cancelada, en cualquier
+// estado: un día pasado se informa con el resultado de cada parada. Sin vehículo ni
+// conductor (decisión del usuario, 2026-10-06) y sin firma, fotos ni ítems: solo lo que
+// el texto muestra, para cuidar el egress.
+const informeDiaSchema = z.object({
+  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha del informe no es válida (AAAA-MM-DD).').optional(),
+}).strict();
+
 export const getRutasProgramacion = async (req: Request, res: Response) => {
   try {
-    const { fecha } = req.query;
-    const fechaBusqueda = fecha ? String(fecha) : hoyBogotaISO();
+    const parsed = informeDiaSchema.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: mensajeZod(parsed.error) });
+    const fechaBusqueda = parsed.data.fecha ?? hoyBogotaISO();
 
     const rutas = await RutaInstalacion.findAll({
       where: { estado: { [Op.ne]: 'cancelada' } },
+      attributes: ['id', 'estado'],
       include: [
-        { model: Vehiculo, as: 'vehiculo', attributes: ['id', 'placa', 'tipo'] },
-        { model: Usuario, as: 'conductor', attributes: ['id', 'nombre_completo'] },
         { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo'] },
         {
           model: Usuario, as: 'instaladores',
@@ -553,25 +562,24 @@ export const getRutasProgramacion = async (req: Request, res: Response) => {
           model: RutaODP, as: 'ruta_odps',
           where: { fecha_programada: fechaBusqueda },
           required: true,
+          attributes: ['id', 'orden', 'estado'],
           include: [
             {
               model: ODP, as: 'odp',
-              attributes: ['id', 'numero_odp', 'tipo_servicio', 'descripcion_pedido', 'direccion_instalacion'],
-              include: [
-                { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
-                { model: ODPItem, as: 'items', attributes: ['item', 'tipo_vidrio', 'color', 'espesor', 'ancho_mm', 'alto_mm', 'cantidad', 'prod'], separate: true, order: [['id', 'ASC']] },
-              ],
+              attributes: ['id', 'numero_odp', 'descripcion_pedido', 'direccion_instalacion', 'es_garantia', 'es_no_conformidad'],
+              include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
             },
           ],
         },
       ],
-      order: [['creado_en', 'ASC']],
+      // Mismo orden que la vista "Por equipo" de Programados (rutas más recientes primero).
+      order: [['creado_en', 'DESC']],
     });
 
     res.json(rutas);
   } catch (e: any) {
     console.error('getRutasProgramacion:', e.message);
-    res.status(500).json({ error: 'Error al obtener programación del día' });
+    res.status(500).json({ error: 'No se pudo armar el informe del día. Intenta de nuevo en un momento.' });
   }
 };
 

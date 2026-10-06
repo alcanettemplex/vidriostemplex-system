@@ -6524,3 +6524,27 @@ consigna de simplicidad y pocos pasos.
 - **Pendientes:** prueba manual en navegador (crear con choque y "agregar a ruta", unir, pausar parada intermedia y
   última, cancelar, Hoja de Ruta, refresco con dos pestañas); decidir las 28 paradas pendientes en rutas completadas
   y rastrear ODP-24276 (`TECH_DEBT.md` 2026-10-05); commit + push cuando el usuario lo ordene.
+
+---
+
+## 2026-10-06 — Instalaciones: informe del día para WhatsApp (unificado con Control de Taller)
+
+### Cambios realizados
+- **Botón "Informe del día"** en la pestaña Programados de Instalaciones: modal con selector de día (‹ › hacia atrás y adelante), vista previa editable y "Copiar para WhatsApp" (con respaldo `execCommand` si el navegador bloquea el portapapeles).
+- **Unificado con Control de Taller:** existía `ProgramacionWhatsAppModal` (Producción) con su propio formato (vehículo, conductor, ítems, descripción completa). A pedido del usuario, un solo modal (`features/instalaciones/components/InformeRutasModal.tsx`) sirve a las dos pantallas; el viejo se borró.
+- **`GET /api/rutas/programacion`** (reutilizado, no endpoint nuevo): validación Zod `.strict()` de `fecha`; ya no trae vehículo, conductor, ítems ni los campos pesados de `ruta_odp` (firma base64 incluida — antes los traía todos); devuelve `estado` de la parada y `es_garantia`; orden de rutas `creado_en DESC`, igual que "Por equipo"; roles `LECTURA_GESTION` + `auxiliar_produccion`.
+- **`utils/informeRutas.ts`:** `resumirDescripcion` (línea 🔧 corta, versión 2 elegida por el usuario) y `generarInformeDia` (bloques por oficial, marcas de resultado en días pasados).
+
+### Decisiones técnicas
+- Formato y alcance definidos por el usuario: opción A (texto corto) + línea de descripción tipo completo, sin vehículo/conductor/teléfonos/pago, días pasados con resultado por parada, navegación a días futuros.
+- Hoy no lleva marcas aunque haya paradas ya completadas (las marcas son para días pasados, como se acordó).
+
+### Verificación
+- `tsc --noEmit` backend y frontend: OK.
+- Resumen probado contra las 243 ODP de rutas de los últimos 90 días (solo lectura): 0 vacías, mediana 45 caracteres, p90 58, máx. 71. Ajustados con datos reales: doble espacio en "SUMINISTRO  E INSTALACIÓN" y espesor en mayúsculas al truncar.
+- Informe real renderizado para 2026-10-06 (2 equipos, 5 paradas), 2026-10-03 (pasado, ✅ 2) y 2026-10-07 (vacío).
+
+### Pendientes
+- Probar en navegador ambos botones (Programados y Control de Taller) y el copiado en el celular/WhatsApp Web.
+- Sin commit (esperando orden del usuario).
+

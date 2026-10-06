@@ -55,7 +55,11 @@ router.delete('/agenda/:id', requireRole(...ESCRITURA_GESTION), quitarDeAgenda);
 // ─── Rutas estáticas antes de /:id ──────────────────────────────────────────
 // Jefe: datos para gestión
 router.get('/odps-para-gestion', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo', 'marketing'), getODPsParaGestion);
-router.get('/programacion', requireRole('admin', 'gerencia', 'jefe_produccion', 'compras', 'produccion', 'asistente_administrativo', 'marketing'), getRutasProgramacion);
+// Informe del día para WhatsApp: lo abren Instalaciones (LECTURA_GESTION) y Control de
+// Taller, que también ve auxiliar_produccion. Solo lectura, sin valores en pesos.
+// (El rol 'taller' también ve Control de Taller, pero no está en RolUsuario: drift de RBAC,
+// TECH_DEBT.md 2026-07-10.)
+router.get('/programacion', requireRole(...LECTURA_GESTION, 'auxiliar_produccion'), getRutasProgramacion);
 router.get('/historial', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo', 'marketing'), getRutasHistorial);
 router.get('/vehiculos', getVehiculos);
 router.get('/personal', getInstaladores);

@@ -47,7 +47,7 @@ import PrintableProduccion from '../odp/components/PrintableProduccion';
 import PrintableOA from '../odp/components/PrintableOA';
 import { ESTILOS_IMPRESION_ODP } from '../odp/components/printStyles';
 import { abrirVentanaImpresion } from '../../utils/printWindow';
-import ProgramacionWhatsAppModal from './components/ProgramacionWhatsAppModal';
+import InformeRutasModal from '../instalaciones/components/InformeRutasModal';
 import ProgramarRutaModal from '../instalaciones/components/ProgramarRutaModal';
 import MovimientosAutomaticosTab from './components/MovimientosAutomaticosTab';
 import socket from '../../store/socket';
@@ -2225,7 +2225,7 @@ const ProduccionPage: React.FC = () => {
         </div>
 
         {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}
-        {showProgramacion && <ProgramacionWhatsAppModal onClose={() => setShowProgramacion(false)} />}
+        {showProgramacion && <InformeRutasModal onClose={() => setShowProgramacion(false)} />}
         {/* Ruta nueva con la ODP de la Zona de Despacho ya cargada (fecha de su agenda o hoy) */}
         {modalRuta && (
             <ProgramarRutaModal

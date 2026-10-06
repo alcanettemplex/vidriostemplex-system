@@ -57,6 +57,12 @@ Antes de este cambio la pausada seguía ocupando la ruta: la ODP no salía en ni
 - **Lista:** subpestañas Programada / En curso, agrupadas por día (Vencidas, Hoy, Mañana, …). Una ruta con fecha pasada y paradas pendientes va con borde rojo; sus ODPs también salen en "Pendientes de cierre" (`PARADA_VENCIDA`).
 - **Por equipo:** un día a la vez, una columna por oficial con todas sus paradas, botón **Hoja de ruta** y **Unir en una ruta** cuando el equipo tiene varias rutas sin salir. La vista elegida se recuerda en `localStorage` (`instalaciones.programados.vista`).
 - **Hoja de Ruta** (`imprimirHojaRuta`): equipo, paradas, dirección, contacto en obra, servicio, estado de pago (sin valores), descripción, columnas para hora y firma. Carta horizontal.
+- **Informe del día** (2026-10-06, `InformeRutasModal` + `utils/informeRutas.ts`): texto para pegar en los grupos de WhatsApp. Lo abren el botón de Programados y el de Control de Taller ("Compartir programación"): **un solo modal**, que reemplazó a `ProgramacionWhatsAppModal` de Producción. Fuente: `GET /api/rutas/programacion?fecha=YYYY-MM-DD` (Zod `.strict()`, por defecto hoy en Bogotá), que trae las paradas de ese `fecha_programada` de toda ruta no cancelada, en cualquier estado, con solo los campos que usa el texto (sin vehículo, conductor, firma ni ítems). Decisiones del usuario:
+  - Sin vehículo, conductor, teléfonos de clientes ni estado de pago. Un bloque por oficial (+ ayudantes), como la vista "Por equipo".
+  - Línea 🔧 corta, versión "tipo completo": `resumirDescripcion` saca de `descripcion_pedido` (`Nx <Tipo>: <texto>`, ver `ODPForm`) el tipo + producto (hasta la primera coma/punto o "en", "con", "incluye") + espesor buscado antes de "MEDIDA". Ej.: "Suministro e instalación puerta batiente 8mm (x2) (+1 más)". Reprocesos → "Reproceso NC-0010 (ODP-23958)"; garantías sin patrón → "Garantía …". Probado contra las 243 ODP de rutas de 90 días: ninguna vacía, mediana 45 caracteres, máx. 71.
+  - Días pasados: cada parada marcada ✅ instalada · ⚠️ con daño · ⏸️ pausada · ⏳ no se hizo, con totales por marca. Hoy y futuro: sin marcas y sin las paradas pausadas (pausar saca la ODP de la ruta).
+  - Navegación ‹ › por día hacia atrás y hacia adelante; el texto es editable antes de copiar.
+  - Roles del endpoint: `LECTURA_GESTION` + `auxiliar_produccion` (antes Control de Taller le mostraba el botón a ese rol y el endpoint le respondía 403). `taller` sigue sin acceso: no está en `RolUsuario` (drift de RBAC).
 
 ## Tiempo real
 
