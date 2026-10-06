@@ -19,6 +19,7 @@ import FolderTabs, { FOLDER_BODY } from '../../../components/FolderTabs';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
 import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 import { TONO_CLS, estadoPago } from '../utils/estadoInstalacion';
+import { enviarEntrega } from '../utils/enviarEntrega';
 
 import API from '../../../services/config';
 import { hoyBogotaISO, sumarDiasISO, isoLocal, fmtDia } from '../../../utils/fechas';
@@ -240,15 +241,19 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     if (!fotosFinalizar.length) { toast.error('La foto de evidencia es obligatoria'); return; }
     setSavingFinalizar(true);
     try {
-      const fd = new FormData();
-      for (const f of fotosFinalizar) fd.append('fotos', f);
-      if (datosReceptor.trim()) fd.append('datos_receptor', datosReceptor.trim());
-      await axios.post(`${API}/api/rutas/ruta-odp/${finalizarModal.rutaOdpId}/finalizar`, fd, { headers });
-      toast.success(`ODP ${finalizarModal.numeroOdp} marcada como entregada`);
+      // Mismo camino que el instalador: compresión, límite de espera y "ya registrada".
+      const r = await enviarEntrega(
+        finalizarModal.rutaOdpId,
+        fotosFinalizar,
+        datosReceptor.trim() ? { datos_receptor: datosReceptor.trim() } : {},
+        () => {}
+      );
+      if (r.yaRegistrada) toast.info(`${finalizarModal.numeroOdp}: ${r.mensaje ?? 'la entrega ya estaba registrada.'}`);
+      else toast.success(`ODP ${finalizarModal.numeroOdp} marcada como entregada`);
       setFinalizarModal(null);
       cargar();
     } catch (e: any) {
-      toast.error(e.response?.data?.error || 'Error al registrar entrega');
+      toast.error(e?.message || 'No se pudo registrar la entrega. Intenta de nuevo.');
     } finally {
       setSavingFinalizar(false);
     }

@@ -4,6 +4,19 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-10-06 — Auditoría sin IP ni usuario en las rutas que suben archivos con multer
+
+**Severidad:** Baja · **Estimación:** 1 h
+
+Las filas de `auditoria_log` de "finalizar instalación" (y de cualquier ruta que pase por
+`multer-storage-cloudinary`) quedan con `ip_address` y `usuario_nombre` en `null`: la subida a
+Cloudinary corre en callbacks que pierden el contexto de `AsyncLocalStorage` (`requestContext.ts`).
+Visto en la ODP-24322 (2026-10-06): el "iniciar" de Javier tiene su IP; el "finalizar", no. Opciones:
+reenvolver `next()` del middleware de subida con `AsyncLocalStorage.run` / `AsyncResource.bind`, o
+fijar el contexto de nuevo al entrar al controlador.
+
+---
+
 ## 2026-10-05 — Instalaciones: 28 paradas `pendiente` en rutas ya completadas
 
 **Severidad:** Baja · **Estimación:** 30 min (script de vista previa + decisión)

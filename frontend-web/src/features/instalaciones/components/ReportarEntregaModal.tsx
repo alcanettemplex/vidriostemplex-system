@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import { toast } from 'react-toastify';
 import { X, Camera, MapPin, AlertTriangle, Check, RotateCcw, ChevronRight } from '../../../components/ui/icons';
 
-import API from '../../../services/config';
+import { enviarEntrega, FaseEntrega, textoFaseEntrega } from '../utils/enviarEntrega';
 
 interface Props {
   rutaODPId: number;
@@ -15,8 +14,6 @@ interface Props {
 type Step = 'foto_gps' | 'firma';
 
 const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, onCompletado }) => {
-  const token = sessionStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
 
   const [step, setStep] = useState<Step>('foto_gps');
   const [gps, setGps] = useState<string>('');
@@ -26,6 +23,8 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
   const [datosReceptor, setDatosReceptor] = useState('');
   const [firmaTrazada, setFirmaTrazada] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
+  const [fase, setFase] = useState<FaseEntrega | null>(null);
+  const [progreso, setProgreso] = useState(0);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -144,22 +143,21 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
 
     setSubiendo(true);
     try {
-      const fd = new FormData();
-      for (const f of fotos) fd.append('fotos', f);
-      fd.append('gps', gps || '');
-      fd.append('datos_receptor', datosReceptor);
-      fd.append('firma_receptor', firmaBase64);
-
-      await axios.post(`${API}/api/rutas/ruta-odp/${rutaODPId}/finalizar`, fd, {
-        headers,
-      });
-
-      toast.success(`ODP ${numeroODP} entregada exitosamente`);
+      const r = await enviarEntrega(
+        rutaODPId,
+        fotos,
+        { gps: gps || '', datos_receptor: datosReceptor, firma_receptor: firmaBase64 },
+        (f, p) => { setFase(f); if (p !== undefined) setProgreso(p); }
+      );
+      if (r.yaRegistrada) toast.info(`${numeroODP}: ${r.mensaje ?? 'la entrega ya estaba registrada.'}`);
+      else toast.success(`ODP ${numeroODP} entregada exitosamente`);
       onCompletado();
     } catch (e: any) {
-      toast.error(e.response?.data?.error || 'Error al subir entrega');
+      toast.error(e?.message || 'No se pudo registrar la entrega. Intenta de nuevo.');
     } finally {
       setSubiendo(false);
+      setFase(null);
+      setProgreso(0);
     }
   };
 
@@ -274,7 +272,7 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
               <button onClick={handleSubmit} disabled={subiendo || !firmaTrazada || !datosReceptor.trim()}
                 className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 shadow-lg shadow-emerald-200">
                 {subiendo ? (
-                  <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Subiendo...</>
+                  <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> {textoFaseEntrega(fase, progreso)}</>
                 ) : (
                   <><Check className="w-4 h-4" /> Subir y Cerrar ODP</>
                 )}

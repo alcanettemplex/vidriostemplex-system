@@ -6572,3 +6572,25 @@ consigna de simplicidad y pocos pasos.
 - Probar en navegador: marcar el flete justo mientras dice "Guardando…" y confirmar que persiste al cambiar de opción.
 - Revisar la COT 17006 con el asesor.
 - Sin commit (esperando orden del usuario).
+
+---
+
+## 2026-10-06 — Instalaciones: "reportar entrega se queda cargando" (Javier, ODP-24322)
+
+### Diagnóstico
+- Auditoría + Cloudinary: la entrega SÍ se guardó a las 8:54:49 (2 evidencias, ODP → ENTREGADA). La respuesta no llegó al celular y, sin límite de espera, la app quedó "Subiendo…". Javier reintentó 6 veces (9:01–9:03): cada intento subió las 2 fotos a Cloudinary (multer antes del controlador) y recibió un 400 confuso. 12 fotos huérfanas.
+- Además: fotos enviadas a tamaño completo (Cloudinary las deja en ~100 KB), sin manejador de errores de multer, y "finalizar" no validaba que el instalador estuviera en la ruta.
+
+### Cambios realizados
+- **backend `rutas.controller.ts` / `rutas.routes.ts`:** `prevalidarFinalizacion` (antes de multer), respuesta 200 `ya_registrada` para parada completada (también dentro de la transacción con `FOR UPDATE`), `subirFotosEntrega` (errores de multer legibles), `descartarFotosSubidas` (limpia Cloudinary si falla), `GET /ruta-odp/:id/estado`, helper `estaAsignado` (reemplaza la consulta duplicada en iniciar y reportar daño). El 500 ya no expone `e.message`.
+- **frontend:** `utils/comprimirImagen.ts` (canvas, 1600 px, JPEG 0,8), `features/instalaciones/utils/enviarEntrega.ts` (compresión, límite 90 s, progreso, verificación por `/estado`), usado por `ReportarEntregaModal` y `JefeView`.
+- **Cloudinary:** borradas las 12 fotos huérfanas de los reintentos (a pedido del usuario), verificadas una a una contra `evidencias_instalacion`.
+
+### Verificación
+- `tsc --noEmit` backend y frontend: OK. ESLint de los archivos tocados: sin avisos.
+- Backend local con token de prueba, sin escrituras: parada completada → 200 `ya_registrada` "8:54 a. m."; parada pendiente → 400 "Primero pulsa Iniciar…"; `/estado` → completada. Ninguna de las pruebas subió fotos a Cloudinary.
+
+### Pendientes
+- Probar desde un celular una entrega real (compresión, progreso) cuando haya una parada en curso.
+- TECH_DEBT 2026-10-06: auditoría sin IP en rutas con multer.
+- Sin commit (esperando orden del usuario).

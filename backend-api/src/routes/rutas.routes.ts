@@ -18,6 +18,9 @@ import {
   getAsignacionInstalador,
   iniciarInstalacion,
   finalizarInstalacion,
+  prevalidarFinalizacion,
+  subirFotosEntrega,
+  getEstadoParada,
   pausarInstalacion,
   reportarDano,
   getMiRutaConductor,
@@ -75,7 +78,10 @@ router.get('/mi-asignacion', requireRole('instalador'), getMiAsignacion);
 // Jefe: asignación de un instalador específico
 router.get('/instalador/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), getAsignacionInstalador);
 router.post('/ruta-odp/:id/iniciar', requireRole('instalador'), iniciarInstalacion);
-router.post('/ruta-odp/:id/finalizar', requireRole('instalador', 'produccion', 'jefe_produccion', 'admin', 'gerencia'), uploadConfig.array('fotos', 10), finalizarInstalacion);
+// Finalizar: se valida la parada ANTES de subir las fotos (un reintento no deja huérfanos
+// en Cloudinary) y una parada ya completada responde 'ya_registrada' (2026-10-06).
+router.post('/ruta-odp/:id/finalizar', requireRole('instalador', 'produccion', 'jefe_produccion', 'admin', 'gerencia'), prevalidarFinalizacion, subirFotosEntrega, finalizarInstalacion);
+router.get('/ruta-odp/:id/estado', requireRole('instalador', 'produccion', 'jefe_produccion', 'admin', 'gerencia'), getEstadoParada);
 router.post('/ruta-odp/:id/pausar', requireRole('instalador', 'jefe_produccion', 'admin', 'gerencia', 'produccion'), pausarInstalacion);
 router.post('/ruta-odp/:id/reportar-dano', requireRole('instalador'), uploadConfig.single('foto_dano'), reportarDano);
 

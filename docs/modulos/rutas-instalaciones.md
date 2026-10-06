@@ -64,6 +64,32 @@ Antes de este cambio la pausada seguía ocupando la ruta: la ODP no salía en ni
   - Navegación ‹ › por día hacia atrás y hacia adelante; el texto es editable antes de copiar.
   - Roles del endpoint: `LECTURA_GESTION` + `auxiliar_produccion` (antes Control de Taller le mostraba el botón a ese rol y el endpoint le respondía 403). `taller` sigue sin acceso: no está en `RolUsuario` (drift de RBAC).
 
+## Reportar entrega (finalizar) — incidente del 2026-10-06
+
+Javier (ODP-24322) reportó que "se queda cargando y no sube las evidencias". Rastreo con auditoría y
+Cloudinary: la entrega **se guardó** a las 8:54:49 (2 fotos, firma, GPS), pero la respuesta no llegó al
+celular; la app no tenía límite de espera y quedó "Subiendo…". Reintentó 6 veces (9:01–9:03): cada
+intento subía las 2 fotos a Cloudinary —multer corre antes del controlador— y recibía un 400 que no
+entendía. Quedaron 12 fotos huérfanas (borradas el mismo día).
+
+Lo que quedó (`POST /ruta-odp/:id/finalizar`):
+- **`prevalidarFinalizacion` antes de multer:** parada existente, `en_curso` y, para el rol
+  `instalador`, asignado a la ruta (antes no se validaba al finalizar). Un intento inválido no sube nada.
+- **Idempotente:** una parada ya `completada` responde **200 `ya_registrada`** con la hora ("ya quedó
+  registrada a las 8:54 a. m."); la app lo trata como éxito. Revalidado con `FOR UPDATE` en la transacción.
+- **`subirFotosEntrega`:** errores de multer/Cloudinary (más de 10 MB, HEIC, más de 10 fotos) como 400
+  legible en vez de la página HTML de Express.
+- **Limpieza:** si algo falla después de subir, las fotos se borran de Cloudinary (`descartarFotosSubidas`).
+- **`GET /ruta-odp/:id/estado`:** consulta liviana para saber si una entrega quedó.
+- **Frontend** (`utils/enviarEntrega.ts`, usado por `ReportarEntregaModal` y el "Marcar como entregada" de
+  `JefeView`): compresión en el navegador a 1600 px JPEG 0,8 (`utils/comprimirImagen.ts`, sin
+  dependencias; si no puede abrir la imagen envía la original), límite de 90 s, progreso en el botón y,
+  si la respuesta se pierde, consulta `/estado` antes de dar error.
+
+⚠️ La carpeta `templex_instalaciones` de Cloudinary la comparten `uploadConfig` de varias rutas
+(croquis de ODP, foto de TM, evidencias sueltas): una imagen que no esté en `evidencias_instalacion`
+no es necesariamente huérfana.
+
 ## Tiempo real
 
 `emitirCambioRutas()` (`utils/notificaciones.ts`) emite `data_changed { modulo: 'rutas' }` en crear, editar, cancelar, unir, iniciar, finalizar, pausar, daño, iniciar/terminar ruta, llegada, pendientes de cierre y escrituras de agenda. Escuchan con `useDataChangedSocket('rutas', …)`: `JefeView` (y el historial si está abierto), `InstaladorGestionTab`, `InstaladorView`, `ConductorView`. Las dos últimas escuchaban `'compras'` hasta el 2026-10-05 (sin relación con rutas).

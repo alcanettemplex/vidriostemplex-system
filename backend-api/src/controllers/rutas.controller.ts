@@ -1,4 +1,5 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
+import { v2 as cloudinary } from 'cloudinary';
 import { Op, QueryTypes, Transaction } from 'sequelize';
 import { z } from 'zod';
 import {
@@ -1155,13 +1156,7 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
     }
 
     // Verificar que el instalador está asignado a esta ruta (ayudante o oficial)
-    const [asignado]: any[] = await sequelize.query(
-      `SELECT 1 FROM ruta_instaladores WHERE ruta_id = :rid AND instalador_id = :uid
-       UNION
-       SELECT 1 FROM rutas_instalacion WHERE id = :rid AND oficial_id = :uid`,
-      { replacements: { rid: rutaODP.ruta_id, uid: user.id }, type: QueryTypes.SELECT, transaction: t }
-    );
-    if (!asignado) { await t.rollback(); return res.status(403).json({ error: 'No estás asignado a esta ruta' }); }
+    if (!(await estaAsignado(rutaODP.ruta_id, user.id, t))) { await t.rollback(); return res.status(403).json({ error: 'No estás asignado a esta ruta' }); }
 
     await rutaODP.update({
       estado: 'en_curso',
@@ -1211,6 +1206,106 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
 };
 
 // ─── INSTALADOR: Finalizar instalación ───────────────────────────────────────
+//
+// Incidente del 2026-10-06 (Javier, ODP-24322): la entrega se guardó a las 8:54, pero la
+// respuesta no le llegó al celular y la app se quedó "Subiendo…" sin límite. Reintentó 6
+// veces: cada intento subía las fotos a Cloudinary (multer corre ANTES del controlador) y
+// recibía un 400 que no entendía. De ahí las tres piezas de abajo:
+//   1. `prevalidarFinalizacion` corre antes de multer: un intento inválido no sube nada.
+//   2. Una parada ya completada responde 200 `ya_registrada`: reintentar es inofensivo.
+//   3. Si algo falla DESPUÉS de subir, las fotos se borran de Cloudinary.
+
+// Pueden finalizar cualquier parada sin estar en la ruta (cierre desde la oficina).
+const ROLES_FINALIZAN_DESDE_OFICINA = new Set(['root', 'admin', 'gerencia', 'jefe_produccion', 'produccion']);
+
+const horaBogota = (d: Date): string =>
+  d.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: 'numeric', minute: '2-digit' });
+
+const respuestaYaRegistrada = (fin: Date | null) => {
+  // es-CO escribe "8:54 a. m.": el punto final ya viene en la hora.
+  const hora = fin ? horaBogota(new Date(fin)) : '';
+  return {
+    ok: true,
+    ya_registrada: true,
+    fin_instalacion: fin,
+    mensaje: hora ? `Esta entrega ya quedó registrada a las ${hora}${hora.endsWith('.') ? '' : '.'}` : 'Esta entrega ya quedó registrada.',
+  };
+};
+
+const motivoNoFinalizable = (estado: string): string => {
+  if (estado === 'pendiente') return 'Primero pulsa "Iniciar" en esta instalación y luego repórtala como entregada.';
+  if (estado === 'pausada') return 'Esta instalación se pausó y salió de la ruta. El jefe debe programarla en una ruta nueva.';
+  if (estado === 'con_dano') return 'Esta instalación tiene un daño reportado. El jefe de producción debe resolverlo antes de cerrarla.';
+  return `Esta instalación está ${estado.replace('_', ' ')} y no se puede reportar como entregada.`;
+};
+
+const estaAsignado = async (rutaId: number, usuarioId: number, t?: Transaction): Promise<boolean> => {
+  const filas = await sequelize.query(
+    `SELECT 1 FROM ruta_instaladores WHERE ruta_id = :rid AND instalador_id = :uid
+     UNION
+     SELECT 1 FROM rutas_instalacion WHERE id = :rid AND oficial_id = :uid`,
+    { replacements: { rid: rutaId, uid: usuarioId }, type: QueryTypes.SELECT, transaction: t }
+  );
+  return filas.length > 0;
+};
+
+/** Borra de Cloudinary las fotos de una entrega que no se registró. Sin esperar: el
+ * instalador no tiene por qué aguardar la limpieza, y un fallo aquí solo deja un huérfano. */
+const descartarFotosSubidas = (files: unknown): void => {
+  for (const f of (Array.isArray(files) ? files : []) as Array<{ filename?: string }>) {
+    if (f?.filename) cloudinary.uploader.destroy(f.filename).catch(() => { /* huérfano, sin impacto */ });
+  }
+};
+
+/** Antes de multer: la parada existe, está en curso y el instalador va en la ruta. */
+export const prevalidarFinalizacion = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = req.user!;
+    const rutaODP = await RutaODP.findByPk(req.params.id, { attributes: ['id', 'ruta_id', 'estado', 'fin_instalacion'] });
+    if (!rutaODP) return res.status(404).json({ error: 'No se encontró esta instalación en la ruta. Recarga la pantalla.' });
+    const estado = String(rutaODP.get('estado'));
+    if (estado === 'completada') return res.json(respuestaYaRegistrada(rutaODP.get('fin_instalacion') as Date | null));
+    if (estado !== 'en_curso') return res.status(400).json({ error: motivoNoFinalizable(estado) });
+    if (!ROLES_FINALIZAN_DESDE_OFICINA.has(String(user.rol)) && !(await estaAsignado(Number(rutaODP.get('ruta_id')), user.id))) {
+      return res.status(403).json({ error: 'No estás asignado a esta ruta.' });
+    }
+    next();
+  } catch (e: any) {
+    console.error('prevalidarFinalizacion:', e.message);
+    res.status(500).json({ error: 'No se pudo verificar la instalación. Intenta de nuevo en un momento.' });
+  }
+};
+
+/** multer con errores legibles: sin esto, una foto de 12 MB o un HEIC devolvían la
+ * página HTML de error de Express y la app mostraba un mensaje genérico. */
+export const subirFotosEntrega = (req: Request, res: Response, next: NextFunction) => {
+  uploadConfig.array('fotos', 10)(req, res, (err: any) => {
+    if (!err) return next();
+    descartarFotosSubidas(req.files);
+    const mensaje = err.code === 'LIMIT_FILE_SIZE'
+      ? 'Una de las fotos pesa más de 10 MB. Tómala de nuevo o elige otra.'
+      : err.code === 'LIMIT_UNEXPECTED_FILE'
+        ? 'Se admiten máximo 10 fotos por entrega.'
+        : /format/i.test(String(err.message))
+          ? 'Formato de foto no admitido. Usa fotos JPG o PNG.'
+          : 'No se pudieron subir las fotos. Revisa tu señal e intenta de nuevo.';
+    console.error('subirFotosEntrega:', err.code ?? '', err.message);
+    res.status(400).json({ error: mensaje });
+  });
+};
+
+/** Estado de una parada, liviano: lo consulta la app cuando se pierde la respuesta de
+ * "finalizar" para saber si la entrega sí quedó. */
+export const getEstadoParada = async (req: Request, res: Response) => {
+  try {
+    const rutaODP = await RutaODP.findByPk(req.params.id, { attributes: ['id', 'estado', 'fin_instalacion'] });
+    if (!rutaODP) return res.status(404).json({ error: 'No se encontró esta instalación.' });
+    res.json(rutaODP);
+  } catch (e: any) {
+    console.error('getEstadoParada:', e.message);
+    res.status(500).json({ error: 'No se pudo consultar la instalación.' });
+  }
+};
 
 export const finalizarInstalacion = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
@@ -1219,11 +1314,20 @@ export const finalizarInstalacion = async (req: Request, res: Response) => {
     const user = req.user!;
     const { gps, datos_receptor, firma_receptor } = req.body;
 
-    const rutaODP = await RutaODP.findByPk(id, { transaction: t }) as any;
-    if (!rutaODP) { await t.rollback(); return res.status(404).json({ error: 'Entrada de ruta no encontrada' }); }
+    // Revalidado dentro de la transacción: dos envíos simultáneos pasan los dos la
+    // prevalidación, pero solo el primero encuentra la parada en curso.
+    const rutaODP = await RutaODP.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE }) as any;
+    if (!rutaODP) {
+      await t.rollback(); descartarFotosSubidas(req.files);
+      return res.status(404).json({ error: 'No se encontró esta instalación en la ruta. Recarga la pantalla.' });
+    }
+    if (rutaODP.estado === 'completada') {
+      await t.rollback(); descartarFotosSubidas(req.files);
+      return res.json(respuestaYaRegistrada(rutaODP.fin_instalacion));
+    }
     if (rutaODP.estado !== 'en_curso') {
-      await t.rollback();
-      return res.status(400).json({ error: 'La instalación debe estar en curso para finalizar' });
+      await t.rollback(); descartarFotosSubidas(req.files);
+      return res.status(400).json({ error: motivoNoFinalizable(rutaODP.estado) });
     }
 
     const fotos = req.files as Express.Multer.File[];
@@ -1301,8 +1405,9 @@ export const finalizarInstalacion = async (req: Request, res: Response) => {
     res.json({ ok: true, fin_instalacion: ahora });
   } catch (e: any) {
     await t.rollback();
+    descartarFotosSubidas(req.files);
     console.error('finalizarInstalacion:', e.message);
-    res.status(500).json({ error: 'Error al finalizar instalación', detail: e.message });
+    res.status(500).json({ error: 'No se pudo registrar la entrega. Intenta de nuevo; las fotos no quedaron guardadas.' });
   }
 };
 
@@ -1325,13 +1430,7 @@ export const reportarDano = async (req: Request, res: Response) => {
     }
 
     // Verificar que el instalador está asignado a esta ruta (ayudante o oficial)
-    const [asignado]: any[] = await sequelize.query(
-      `SELECT 1 FROM ruta_instaladores WHERE ruta_id = :rid AND instalador_id = :uid
-       UNION
-       SELECT 1 FROM rutas_instalacion WHERE id = :rid AND oficial_id = :uid`,
-      { replacements: { rid: rutaODP.ruta_id, uid: user.id }, type: QueryTypes.SELECT }
-    );
-    if (!asignado) return res.status(403).json({ error: 'No estás asignado a esta ruta' });
+    if (!(await estaAsignado(rutaODP.ruta_id, user.id))) return res.status(403).json({ error: 'No estás asignado a esta ruta' });
 
     const fotoUrl = req.file ? (req.file as any).path : null;
 
