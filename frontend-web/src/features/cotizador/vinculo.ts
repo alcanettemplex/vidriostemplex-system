@@ -23,6 +23,19 @@ export interface FichaVinculo {
     odpId: number | null;
 }
 
+/** Descripción / contexto de un lead (modal "Ver contexto" de la barra del vínculo). */
+export interface ContextoLead {
+    id: number;
+    nombre: string;
+    telefono: string | null;
+    estado: string | null;
+    fuente: string | null;
+    asesor: string | null;
+    descripcion: string | null;
+    /** ISO; fecha de creación del lead en el CRM. */
+    creado: string | null;
+}
+
 export interface ResultadosVinculo {
     leads: FichaVinculo[];
     prospectos: FichaVinculo[];

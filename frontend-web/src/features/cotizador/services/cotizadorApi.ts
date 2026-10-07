@@ -10,7 +10,7 @@ import {
     RespuestaPropuesta, SegmentoCliente, LineaManoObra,
 } from '../types';
 import type {
-    AsesorCotizador, FichaVinculo, FormaPagoODP, FuenteLead, PlanCrearODP, ResultadosVinculo, TipoVinculo,
+    AsesorCotizador, ContextoLead, FichaVinculo, FormaPagoODP, FuenteLead, PlanCrearODP, ResultadosVinculo, TipoVinculo,
 } from '../vinculo';
 
 const BASE = `${API}/api/cotizador`;
@@ -291,7 +291,6 @@ export const apiBuscarVinculos = (q: string, tipos?: TipoVinculo[]) =>
         params: { q, ...(tipos && tipos.length ? { tipos: tipos.join(',') } : {}) },
     });
 
-/** GET /vinculos/:tipo/:id — ficha de un vínculo (para pintarlo o precargar). */
 /**
  * Alta de cliente desde "Crear ODP" (2026-09-27): el mismo POST /api/clientes
  * del módulo Clientes (mismas validaciones y el 409 si el documento, el
@@ -309,8 +308,13 @@ export interface ClienteNuevoEntrada {
 export const apiCrearCliente = (datos: ClienteNuevoEntrada) =>
     axios.post<{ id: number; nombre_razon_social: string; telefono?: string | null; direccion?: string | null }>(`${API}/api/clientes`, datos);
 
+/** GET /vinculos/:tipo/:id — ficha de un vínculo (para pintarlo o precargar). */
 export const apiObtenerVinculo = (tipo: TipoVinculo, id: number) =>
     axios.get<FichaVinculo>(`${BASE}/vinculos/${tipo}/${id}`);
+
+/** GET /vinculos/lead/:id/contexto — descripción / contexto del lead (botón "Ver contexto"). */
+export const apiContextoLead = (id: number) =>
+    axios.get<ContextoLead>(`${BASE}/vinculos/lead/${id}/contexto`);
 
 /** GET /vinculos/asesores — quiénes pueden ser asesor de una cotización. */
 export const apiListarAsesoresCotizador = () => axios.get<AsesorCotizador[]>(`${BASE}/vinculos/asesores`);

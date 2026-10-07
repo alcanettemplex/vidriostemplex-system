@@ -6646,3 +6646,20 @@ Solo acarreo puro (acarreo sin instalación), solo en LISTO_INSTALAR, acción "P
 - `isPagoOk` de "Pedido en la mano" no reconoce `autorizacion_especial_despacho` ni `es_garantia` (el backend sí). Pendiente de decisión del usuario.
 - `ProduccionPage.tsx` (~2.400 líneas): extraer pestañas a componentes.
 - Sin commit.
+
+## 2026-10-07 — Cotizador: "Ver contexto" del lead vinculado
+
+### Decisiones del usuario
+Botón con modal en "¿Para quién es esta cotización?" que muestra la Descripción / Contexto del lead. Al dar "procede" sin responder las preguntas abiertas se aplicaron los valores recomendados: solo leads (no prospectos), solo lectura, sin bitácora de eventos.
+
+### Cambios realizados
+- **backend `cotizador/lib/vinculos.ts`:** `contextoLead()` (descripción, estado, fuente, asesor, fecha de creación).
+- **backend `cotizador_cotizaciones.controller.ts` + `cotizador.routes.ts`:** `GET /api/cotizador/vinculos/lead/:id/contexto`, antes de `/vinculos/:tipo/:id`. 404 si el lead ya no existe.
+- **frontend:** `modals/ModalContextoLead.tsx` (nuevo); botón "Ver contexto" en `BarraVinculo.tsx`; `apiContextoLead` y tipo `ContextoLead`. Se corrigió un JSDoc de `apiObtenerVinculo` que había quedado sobre `ClienteNuevoEntrada`.
+- **docs:** `cotizador.md` § vínculo.
+- Sin cambios de BD.
+
+### Pendientes
+- `GET /api/crm/:id` (`getLeadById`) no filtra por asesor: cualquier rol del CRM lee cualquier lead. Pendiente de decisión.
+- No hay enlace profundo a un lead del CRM por URL, por eso el modal no tiene "Abrir en CRM".
+- Sin commit.

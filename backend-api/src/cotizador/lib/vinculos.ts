@@ -263,6 +263,39 @@ export async function resolverVinculo(tipo: TipoVinculo, id: number, t?: Transac
   return o ? fichaOdp(o.toJSON()) : null;
 }
 
+/** Descripción / contexto de un lead, para el botón "Ver contexto" de la barra
+ * del vínculo (2026-10-07). Va aparte de la ficha a propósito: el texto puede
+ * ser largo y la ficha viaja en cada búsqueda; este solo se pide al abrir el modal. */
+export interface ContextoLead {
+  id: number;
+  nombre: string;
+  telefono: string | null;
+  estado: string | null;
+  fuente: string | null;
+  asesor: string | null;
+  descripcion: string | null;
+  creado: string | null;
+}
+
+export async function contextoLead(id: number): Promise<ContextoLead | null> {
+  const l = await Lead.findByPk(id, {
+    attributes: ['id', 'nombre', 'telefono', 'estado_crm', 'fuente_lead', 'descripcion_contexto', 'createdAt'],
+    include: [INCLUDE_ASESOR],
+  });
+  if (!l) return null;
+  const f = l.toJSON() as Fila;
+  return {
+    id: f.id,
+    nombre: texto(f.nombre) || `Lead #${f.id}`,
+    telefono: f.telefono ?? null,
+    estado: f.estado_crm ?? null,
+    fuente: f.fuente_lead ?? null,
+    asesor: f.asesor?.nombre_completo ?? null,
+    descripcion: texto(f.descripcion_contexto).trim() || null,
+    creado: f.createdAt ? new Date(f.createdAt).toISOString() : null,
+  };
+}
+
 /** Usuarios que pueden ser asesor (dueño) de una cotización: los de control
  * total y los que editan las suyas, activos. */
 /** Roles que nunca aparecen como asesor en las listas (filtros y reasignación). */

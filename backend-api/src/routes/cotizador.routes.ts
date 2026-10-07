@@ -33,6 +33,7 @@ import {
   buscarVinculos,
   listarAsesoresCotizador,
   obtenerVinculo,
+  obtenerContextoLead,
   crearLeadRapido,
   previaCrearOdp,
   crearOdpDesdeCotizacion,
@@ -130,6 +131,7 @@ router.post('/catalogo-general/importar', soloControlTotal, importarDesdeCatalog
 router.get('/vinculos/buscar', buscarVinculos);
 router.get('/vinculos/asesores', listarAsesoresCotizador);
 router.post('/vinculos/lead-rapido', puedeCrear, crearLeadRapido);
+router.get('/vinculos/lead/:id/contexto', obtenerContextoLead);
 router.get('/vinculos/:tipo/:id', obtenerVinculo);
 
 // Toda escritura sobre una cotización exige ser su asesor o control total.

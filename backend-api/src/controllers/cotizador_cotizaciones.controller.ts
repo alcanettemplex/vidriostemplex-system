@@ -609,6 +609,19 @@ export const obtenerVinculo = async (req: Request, res: Response) => {
   }
 };
 
+/** GET /vinculos/lead/:id/contexto — descripción / contexto del lead vinculado. */
+export const obtenerContextoLead = async (req: Request, res: Response) => {
+  const id = idValido(req.params.id);
+  if (id === null) return res.status(400).json({ error: 'El lead pedido no es válido.' });
+  try {
+    const contexto = await vinculos.contextoLead(id);
+    if (!contexto) return res.status(404).json({ error: 'Ese lead ya no existe en el CRM.' });
+    res.json(contexto);
+  } catch (e) {
+    fallo(res, 'obtenerContextoLead', e, 'No se pudo cargar el contexto del lead. Inténtalo de nuevo.');
+  }
+};
+
 const leadRapidoSchema = z
   .object({
     nombre: z.string().trim().min(2, { message: 'Escribe el nombre de la persona.' }).max(100),

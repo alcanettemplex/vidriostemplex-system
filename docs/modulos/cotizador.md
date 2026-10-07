@@ -1694,6 +1694,12 @@ Parte de la integración del Cotizador al ERP (permisos y migración: fase A del
 - **Lead rápido** (`POST /vinculos/lead-rapido`, exige `puedeCrear`): crea un lead REAL con
   `crearLeadRegistro` —el cuerpo extraído de `createLead` del CRM—, asignado al asesor de la cotización.
   Teléfono repetido → 409 con la ficha del existente ("Usar ese lead").
+- **"Ver contexto" del lead** (2026-10-07): si el vínculo es un lead, `BarraVinculo` muestra el botón
+  junto a "Cambiar" y abre `modals/ModalContextoLead` (solo lectura) con `descripcion_contexto`, estado,
+  fuente, asesor y fecha de creación. Datos de `GET /vinculos/lead/:id/contexto` (`contextoLead()` en
+  `vinculos.ts`), declarada antes de `/vinculos/:tipo/:id`. Se pide al abrir el modal, no viaja en la
+  ficha del buscador (texto largo × 6 leads por búsqueda). Mismo alcance de lectura que `GET /api/crm/:id`,
+  que tampoco filtra por asesor. El lead rápido trae una descripción fija ("Registrado desde el Cotizador…").
 - **Asesor = dueño.** Se elige al crear (por defecto quien crea; `GET /vinculos/asesores`); después solo
   control total lo cambia (select en Resumen → Comercial).
 - **CRM automático** (`cotizador/lib/vinculos.ts`, dentro de la transacción del store; eventos con tipos

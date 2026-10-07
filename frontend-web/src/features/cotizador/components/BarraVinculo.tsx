@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Link2, Loader2 } from '../../../components/ui/icons';
+import { Link2, Loader2, StickyNote } from '../../../components/ui/icons';
 
 import { FichaVinculo } from '../vinculo';
 import BuscadorVinculo, { ChipVinculo } from './BuscadorVinculo';
+import ModalContextoLead from './modals/ModalContextoLead';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "¿Para quién es esta cotización?" arriba de Cotizar (2026-09-27). Reemplaza
@@ -10,6 +11,8 @@ import BuscadorVinculo, { ChipVinculo } from './BuscadorVinculo';
 // ODP, porque no existen cotizaciones sin vínculo. Mientras no se elija, no se
 // puede agregar el primer producto. El asesor no se elige (2026-09-27): nadie
 // cotiza a nombre de otro, la cotización es de quien la crea.
+// Si el vínculo es un lead, "Ver contexto" abre su Descripción / Contexto del
+// CRM (2026-10-07), en cotización nueva o ya guardada.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -24,6 +27,7 @@ interface Props {
 
 const BarraVinculo: React.FC<Props> = ({ vinculo, cargandoVinculo, onElegir, asesorIdLeadRapido = null, esNueva }) => {
     const [cambiando, setCambiando] = useState(false);
+    const [verContexto, setVerContexto] = useState(false);
     const mostrarBuscador = Boolean(onElegir) && (!vinculo || cambiando);
 
     return (
@@ -37,6 +41,11 @@ const BarraVinculo: React.FC<Props> = ({ vinculo, cargandoVinculo, onElegir, ase
                     {vinculo && !cambiando && (
                         <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-templex-200 bg-white px-2.5 py-1.5">
                             <ChipVinculo ficha={vinculo} className="flex-1" />
+                            {vinculo.tipo === 'lead' && (
+                                <button type="button" onClick={() => setVerContexto(true)} className="flex items-center gap-1 text-[12px] font-semibold text-templex-700 hover:underline shrink-0">
+                                    <StickyNote className="w-3.5 h-3.5" /> Ver contexto
+                                </button>
+                            )}
                             {onElegir && (
                                 <button type="button" onClick={() => setCambiando(true)} className="text-[12px] font-semibold text-templex-700 hover:underline shrink-0">
                                     Cambiar
@@ -70,6 +79,9 @@ const BarraVinculo: React.FC<Props> = ({ vinculo, cargandoVinculo, onElegir, ase
                     </p>
                 )}
             </div>
+            {verContexto && vinculo?.tipo === 'lead' && (
+                <ModalContextoLead leadId={vinculo.id} onClose={() => setVerContexto(false)} />
+            )}
         </div>
     );
 };
