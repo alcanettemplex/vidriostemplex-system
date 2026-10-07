@@ -42,12 +42,14 @@ const resultadoParada = (ro: any, ruta: any): Etiqueta => {
       return odp.instalacion
         ? { label: 'Instalada', cls: 'bg-emerald-100 text-emerald-800' }
         : { label: 'Entregada', cls: 'bg-emerald-100 text-emerald-800' };
-    case 'pausada':
-      return { label: 'No se hizo · devuelta a bandeja', cls: NO_SE_HIZO };
     case 'con_dano':
       return ESTADO_PARADA.con_dano;
-    default: // pendiente / en_curso en una ruta que ya no está abierta
+    default:
+      // Antes que 'pausada': desde el 2026-10-07 cancelar la ruta deja sus paradas
+      // pausadas, y "devuelta a bandeja" sería falso si la ODP ya se entregó.
       if (ruta.estado === 'cancelada') return { label: 'No se hizo · ruta cancelada', cls: 'bg-slate-100 text-slate-800' };
+      if (ro.estado === 'pausada') return { label: 'No se hizo · devuelta a bandeja', cls: NO_SE_HIZO };
+      // pendiente / en_curso en una ruta completada
       if (['PROGRAMADA', 'INSTALANDO', 'INSTALADA'].includes(odp.estado_produccion)) {
         return { label: 'No se hizo · en Pendientes de cierre', cls: NO_SE_HIZO };
       }
@@ -197,8 +199,11 @@ const RutaCard: React.FC<RutaCardProps> = ({ ruta, readOnly, historial = false, 
               ? ESTADO_PARADA[ro.estado] ?? { label: ro.estado, cls: 'bg-slate-100 text-slate-800' }
               : resultadoParada(ro, ruta);
             const contacto = [odp.nombre_recibe, odp.telefono_recibe].filter(Boolean).join(' · ');
+            // En una ruta cancelada la parada pausada no "volvió a su bandeja" por una pausa:
+            // la etiqueta "ruta cancelada" ya lo dice todo.
+            const devueltaPorPausa = ro.estado === 'pausada' && ruta.estado !== 'cancelada';
             return (
-              <div key={ro.id} className={`flex items-start gap-3 px-4 py-3 ${ro.estado === 'pausada' ? 'bg-violet-50/50' : ''}`}>
+              <div key={ro.id} className={`flex items-start gap-3 px-4 py-3 ${devueltaPorPausa ? 'bg-violet-50/50' : ''}`}>
                 <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-900 text-xs flex items-center justify-center font-bold flex-shrink-0 mt-0.5">
                   {ro.orden}
                 </div>
@@ -226,7 +231,7 @@ const RutaCard: React.FC<RutaCardProps> = ({ ruta, readOnly, historial = false, 
                     {factura && factura.tono !== 'ok' && <Chip cls={TONO_CLS[factura.tono]}>{factura.label}</Chip>}
                     <Chip cls={`${abierta ? 'uppercase ' : ''}${parada.cls}`}>{parada.label}</Chip>
                   </div>
-                  {ro.estado === 'pausada' && (
+                  {devueltaPorPausa && (
                     <p className="text-xs text-violet-800 mt-1 flex items-start gap-1">
                       <PauseCircle className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
                       <span>

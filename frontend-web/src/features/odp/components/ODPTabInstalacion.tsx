@@ -16,6 +16,16 @@ const ESTADO_RUTA_ODP: Record<string, { label: string; cls: string }> = {
   completada:  { label: 'Completada', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
 };
 
+// El estado de la parada solo no basta: en una ruta cancelada antes del 2026-10-07 la
+// parada quedaba 'pendiente' y la ficha decía "Pendiente" aunque la ODP ya estuviera
+// entregada. Mismo criterio que RutaCard en Completados.
+const estadoProgramacion = (prog: any): { label: string; cls: string } => {
+  if (prog.ruta?.estado === 'cancelada' && prog.estado !== 'completada' && prog.estado !== 'con_dano') {
+    return { label: 'No se hizo · ruta cancelada', cls: 'bg-slate-100 text-slate-800 border-slate-200' };
+  }
+  return ESTADO_RUTA_ODP[prog.estado] ?? { label: prog.estado ?? '—', cls: 'bg-slate-100 text-slate-800 border-slate-200' };
+};
+
 const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void; currentUser?: any; onRefresh?: () => void }> = ({ odp, onOpenLightbox, currentUser, onRefresh }) => {
   const rutaOdps: any[] = odp.ruta_odps || [];
   const evidencias = odp.evidencias || [];
@@ -114,7 +124,7 @@ const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void
             <p className="font-medium">Sin programaciones asignadas</p>
           </div>
         ) : rutaOdps.map((prog: any) => {
-          const estadoBadge = ESTADO_RUTA_ODP[prog.estado] || ESTADO_RUTA_ODP['pendiente'];
+          const estadoBadge = estadoProgramacion(prog);
           const oficial = prog.ruta?.oficial;
           const ayudantes = (prog.ruta?.instaladores || []).filter((i: any) => i.id !== oficial?.id);
           const todoInstaladores = [oficial, ...ayudantes].filter(Boolean);
@@ -124,7 +134,9 @@ const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void
             <div key={prog.id} className="bg-white border border-slate-200 rounded-2xl p-5 mb-3 shadow-sm">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <p className="text-xs text-slate-900 font-semibold uppercase">Fecha programada</p>
+                  <p className="text-xs text-slate-900 font-semibold uppercase">
+                    Fecha programada{prog.ruta?.id ? <span className="normal-case font-medium text-slate-700"> · Ruta #{prog.ruta.id}</span> : null}
+                  </p>
                   <p className="font-bold">{fmtDia(prog.fecha_programada, { day: '2-digit', month: 'short', year: 'numeric' }, '—')}</p>
                 </div>
                 <div>
@@ -150,7 +162,7 @@ const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void
                 <p className="text-xs text-slate-700 mt-2">Recibió: <strong>{prog.datos_receptor}</strong></p>
               )}
               {prog.motivo_pausa && (
-                <p className="text-xs text-violet-600 mt-1.5 font-medium">Motivo de pausa: <strong>{prog.motivo_pausa}</strong></p>
+                <p className="text-xs text-violet-600 mt-1.5 font-medium">Motivo: <strong>{prog.motivo_pausa}</strong></p>
               )}
             </div>
           );

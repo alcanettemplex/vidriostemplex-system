@@ -2,10 +2,11 @@ import { Request, Response } from 'express';
 import { Op, fn, col, QueryTypes } from 'sequelize';
 import {
   ODP, Cliente, Usuario, HistorialEstadoODP,
-  RutaODP, NoConformidad, Prospecto, Pago, MetaUsuarioMensual
+  NoConformidad, Prospecto, Pago, MetaUsuarioMensual
 } from '../models';
 import sequelize from '../config/database';
 import { whereTieneFacturaEnRango, sqlFacturadoEnRango } from '../utils/facturacion';
+import { odpsEnRutaActiva } from '../utils/rutasActivas';
 import {
   hoyBogotaISO, sumarDiasISO, inicioDiaBogota, finDiaBogota, diaBogotaISO,
   diaCalendarioISO, diferenciaDias,
@@ -320,13 +321,8 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
       attributes: ['id'],
     });
     const listasIdArr = listasIds.map(o => o.getDataValue('id') as number);
-    const programadasIds = listasIdArr.length > 0
-      ? (await RutaODP.findAll({
-          where: { odp_id: { [Op.in]: listasIdArr }, estado: { [Op.ne]: 'completada' } },
-          attributes: ['odp_id'],
-        })).map(r => r.getDataValue('odp_id') as number)
-      : [];
-    const noProgramadasIds = listasIdArr.filter(id => !programadasIds.includes(id));
+    const programadas = await odpsEnRutaActiva(listasIdArr);
+    const noProgramadasIds = listasIdArr.filter(id => !programadas.has(id));
 
     const listas_sin_programar = noProgramadasIds.length > 0
       ? await ODP.findAll({

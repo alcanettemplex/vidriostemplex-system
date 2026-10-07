@@ -24,8 +24,9 @@ const PARADAS_VIVAS = ['pendiente', 'en_curso', 'con_dano'];
 // finalizarInstalacion, pausarInstalacion y las dos acciones del panel
 // "Pendientes de cierre" (entregarAtascada, reprogramarAtascada).
 // El where con estado IN (programada, en_curso) evita resucitar una ruta ya
-// cancelada: cancelarRuta nunca toca ruta_odp.estado, así que una parada
-// "pendiente" de una ruta cancelada puede llegar intacta hasta acá.
+// cancelada: desde el 2026-10-07 cancelarRuta deja sus paradas pendientes en 'pausada',
+// pero una ruta cancelada antes de esa fecha (o una parada con daño) puede seguir
+// teniendo paradas vivas y llegar hasta acá.
 const cerrarRutaSiSinPendientes = async (rutaId: number, fin: Date, t: Transaction) => {
   const vivas = await RutaODP.count({
     where: { ruta_id: rutaId, estado: { [Op.in]: PARADAS_VIVAS } },
@@ -913,13 +914,21 @@ export const cancelarRuta = async (req: Request, res: Response) => {
     // Solo vuelven a la bandeja las ODPs de paradas pendientes. Una parada pausada ya soltó
     // su ODP al pausar; una con daño deja la ODP en INSTALANDO y se resuelve desde
     // "Pendientes de cierre" — devolverla a LISTO_INSTALAR escondería el daño.
-    const pendientes = await RutaODP.findAll({ where: { ruta_id: rutaId, estado: 'pendiente' }, attributes: ['odp_id'], transaction: t }) as any[];
+    const pendientes = await RutaODP.findAll({ where: { ruta_id: rutaId, estado: 'pendiente' }, attributes: ['id', 'odp_id'], transaction: t }) as any[];
     const cambios = await liberarODPsDeRuta(
       pendientes.map((ro) => ro.odp_id as number),
       `Ruta de instalación #${rutaId} cancelada`,
       user.id,
       t
     );
+
+    // La parada que no se hizo queda 'pausada' con el motivo (2026-10-07), igual que al
+    // reprogramar: si se quedaba 'pendiente', la ficha de la ODP la mostraba "Pendiente"
+    // aunque la ODP ya estuviera entregada. Una por una para que la auditoría registre
+    // cada cambio. Sin fin_instalacion: la instalación no ocurrió.
+    for (const p of pendientes) {
+      await p.update({ estado: 'pausada', motivo_pausa: `Ruta #${rutaId} cancelada` }, { transaction: t });
+    }
 
     await ruta.update({ estado: 'cancelada' }, { transaction: t });
     await t.commit();

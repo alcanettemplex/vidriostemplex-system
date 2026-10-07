@@ -16,6 +16,7 @@ import {
 } from '../models';
 import sequelize from '../config/database';
 import { sqlCobradoEnRango } from '../utils/facturacion';
+import { odpsEnRutaActiva } from '../utils/rutasActivas';
 import {
   hoyBogotaISO, sumarDiasISO, mesActualBogota, rangoMesesBogota, inicioDiaBogota,
   diaCalendarioISO, diferenciaDias, HOY_BOGOTA_SQL, diaBogotaSQL, horaBogotaSQL,
@@ -469,8 +470,9 @@ export const getProduccionData = async (req: Request, res: Response) => {
       ? Number((sumDias / entregadasPeriodo.length).toFixed(1)) : 0;
 
     const listasIds   = await ODP.findAll({ where: { estado_produccion: 'LISTO_INSTALAR' }, attributes: ['id'] });
-    const programadas = await RutaODP.findAll({ where: { odp_id: { [Op.in]: listasIds.map(o => o.getDataValue('id')) }, estado: { [Op.ne]: 'completada' } }, attributes: ['odp_id'] });
-    const odps_listas_sin_programar = listasIds.length - programadas.length;
+    // ODP distintas (antes contaba filas: una ODP con dos paradas restaba dos).
+    const programadas = await odpsEnRutaActiva(listasIds.map(o => Number(o.getDataValue('id'))));
+    const odps_listas_sin_programar = listasIds.length - programadas.size;
 
     const [checksRows] = await sequelize.query(`
       SELECT

@@ -21,7 +21,7 @@ Programación y seguimiento de las instalaciones en obra: el jefe arma **rutas**
 | Pausar | oficial o jefe | → `pausada` | → `LISTO_INSTALAR` | se cierra si no le quedan paradas vivas |
 | Reportar daño | instalador | → `con_dano` | sigue `INSTALANDO` (+ `tiene_dano_instalacion`) | — |
 | Terminar ruta | conductor (llegada en todas) | — | acarreo puro → `ENTREGADA` | → `completada` |
-| Cancelar | jefe | sin cambio | pendientes en `PROGRAMADA` → `LISTO_INSTALAR` | → `cancelada` |
+| Cancelar | jefe | pendientes → `pausada` con motivo "Ruta #N cancelada" (2026-10-07) | pendientes en `PROGRAMADA` → `LISTO_INSTALAR` | → `cancelada` |
 | Unir (2026-10-05) | jefe | se mueven a la destino | sin cambio | origen → `cancelada` |
 
 - **Paradas vivas** = `pendiente`, `en_curso`, `con_dano` (constante `PARADAS_VIVAS`). Mientras una ruta tenga una, sigue abierta y la ODP está "tomada" por ella. `cerrarRutaSiSinPendientes()` la cierra cuando no queda ninguna.
@@ -83,6 +83,31 @@ Decisiones del usuario tras el caso de las rutas #516/#517/#518:
    Entregada / No se hizo · devuelta a bandeja / No se hizo · en Pendientes de cierre / No se
    hizo · ruta cancelada / Con daño. El encabezado de una ruta cerrada dice "2 hechas · 1 sin
    hacer". `INCLUDE_RUTA_LISTA` trae `estado_produccion` de la ODP para eso.
+
+## Paradas de rutas canceladas (2026-10-07)
+
+Caso: ODP-24363 ENTREGADA mostraba "Pendiente" en el tab Instalación de su ficha. Su única
+parada estaba en la ruta #503, cancelada el 2026-10-05 cuando la ODP ya estaba entregada, y
+`cancelarRuta` no tocaba `ruta_odp.estado`.
+
+1. **`cancelarRuta` deja las paradas `pendiente` en `pausada`** con `motivo_pausa` "Ruta #N
+   cancelada", parada por parada (auditadas), sin `fin_instalacion`. Las ODP en `PROGRAMADA`
+   siguen volviendo a `LISTO_INSTALAR` como antes. 38 paradas históricas corregidas con
+   `2026-10-07_paradas_ruta_cancelada_a_pausada.ts` (27 con la ODP ENTREGADA).
+2. **La ruta cancelada manda sobre el estado de la parada al mostrarla:** `resultadoParada`
+   (RutaCard) y `estadoProgramacion` (`ODPTabInstalacion`) dicen "No se hizo · ruta cancelada"
+   para toda parada que no sea `completada` ni `con_dano`. RutaCard tampoco muestra la nota
+   "volvió a su bandeja" en una ruta cancelada. La ficha muestra además el número de ruta.
+3. **KPI "Listas sin programar"** (dashboard e Informe Ejecutivo): una ODP LISTO_INSTALAR
+   cuenta como programada solo si `odpsEnRutaActiva()` (`utils/rutasActivas.ts`) la encuentra
+   con una parada viva en una ruta abierta. Antes bastaba cualquier parada no completada.
+4. La pausa de una ruta cancelada no aparece como "pausa pendiente" en la bandeja ni en el
+   panel del instalador: las dos consultas ya excluyen rutas canceladas.
+
+⚠️ El paso de ODP-24363 a ENTREGADA (entre el 30/9 y el 5/10) no dejó rastro en
+`historial_estados_odp` ni en `auditoria_log`: probablemente una edición directa en la BD.
+Además, "Pedido en la mano" (PUT genérico de la ODP) audita pero no escribe historial: 21 ODP
+ENTREGADA sin la fila ENTREGADA en su historial (pendiente de decisión).
 
 ⚠️ `rutas_instalacion.fin_ruta` es `timestamp` SIN zona (ver TECH_DEBT 2026-10-06): leerla con
 `AT TIME ZONE UTC` en SQL crudo.

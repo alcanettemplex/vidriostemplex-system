@@ -6663,3 +6663,27 @@ Botón con modal en "¿Para quién es esta cotización?" que muestra la Descripc
 - `GET /api/crm/:id` (`getLeadById`) no filtra por asesor: cualquier rol del CRM lee cualquier lead. Pendiente de decisión.
 - No hay enlace profundo a un lead del CRM por URL, por eso el modal no tiene "Abrir en CRM".
 - Sin commit.
+
+## 2026-10-07 — Rutas: paradas de rutas canceladas ya no dicen "Pendiente"
+
+### Diagnóstico
+ODP-24363 (ENTREGADA) mostraba "Pendiente" en su tab Instalación. La parada 555 estaba en la ruta #503, cancelada el 2026-10-05 por Administrador cuando la ODP ya estaba entregada; `cancelarRuta` solo libera ODP en PROGRAMADA y no tocaba la parada. El paso de la ODP a ENTREGADA no dejó rastro ni en historial ni en auditoría (probable edición directa en BD).
+
+### Decisiones del usuario
+Opciones A (ficha) + B (cancelar deja la parada en pausada + script) + arreglo del KPI "Listas sin programar".
+
+### Cambios realizados
+- **backend `rutas.controller.ts` (`cancelarRuta`):** paradas pendientes → `pausada` con motivo "Ruta #N cancelada", una por una dentro de la transacción. Comentario de `cerrarRutaSiSinPendientes` actualizado.
+- **frontend `RutaCard.tsx`:** `resultadoParada` revisa primero si la ruta está cancelada; la nota "volvió a su bandeja" ya no sale en rutas canceladas.
+- **frontend `ODPTabInstalacion.tsx`:** `estadoProgramacion()` (ruta cancelada → "No se hizo · ruta cancelada"; estado desconocido se muestra crudo en vez de "Pendiente"), número de ruta en la tarjeta, etiqueta "Motivo".
+- **script `2026-10-07_paradas_ruta_cancelada_a_pausada.ts`:** vista previa 38 paradas (27 ENTREGADA, 7 LISTO_INSTALAR, 4 PROGRAMADA —las 3 ODP en PROGRAMADA tienen otra ruta activa—). **Sin aplicar.**
+- **backend `utils/rutasActivas.ts` (nuevo):** `odpsEnRutaActiva()` = ODP con parada viva (`pendiente`/`en_curso`/`con_dano`) en ruta abierta (`programada`/`en_curso`). Lo usan el KPI "Listas sin programar" del dashboard y la lista del Informe Ejecutivo, que antes daban por programada cualquier ODP con una parada no completada (pausadas, rutas canceladas, pendientes en rutas completadas) y, en el dashboard, contaban filas en vez de ODP. Al 2026-10-07: 24 → 33 (de 33 LISTO_INSTALAR). `RutaODP` ya no se importa en `informe_ejecutivo.controller.ts`.
+- **docs:** `rutas-instalaciones.md` § Paradas de rutas canceladas.
+- Sin cambios de estructura de BD (`pausada` ya existe en ENUM y CHECK).
+
+### Pendientes
+- Correr el script con `--aplicar` después del despliegue.
+- `estaEnRutaActiva` de `agenda.controller.ts` usa el mismo criterio sin `con_dano` (irrelevante: una ODP con daño está en INSTALANDO); se dejó como está.
+- "Pedido en la mano" no escribe `historial_estados_odp` (21 ODP ENTREGADA sin esa fila).
+- 5 paradas `completada` en rutas canceladas con la ODP en LISTO_INSTALAR: sin revisar.
+- Commit y push hechos.
