@@ -26,7 +26,7 @@ import {
 import Pago from '../models/pago.model';
 import Produccion from '../models/produccion.model';
 import ProgramacionInstalacion from '../models/programacion_instalacion.model';
-import { invalidarCacheRespuesta } from '../utils/cacheMemoria';
+import { invalidarCacheDashboard } from '../utils/cacheMemoria';
 import { z } from 'zod';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
@@ -815,6 +815,7 @@ export async function crearODPRegistro(body: unknown, userId: number | undefined
         }
 
         await t.commit();
+        invalidarCacheDashboard();
         return { newOdp: createdOdp, odpId: createdId };
       } catch (err) {
         await t.rollback();
@@ -1203,7 +1204,7 @@ export const updateODP = async (req: Request, res: Response) => {
     }
 
     await transaction.commit();
-    if (cambioValorTotal) invalidarCacheKPIs();
+    if (cambioValorTotal) invalidarCacheDashboard();
 
     // ─── Pedidos PV: crear el primero, o propagarles el cambio de proveedor ──
     //
@@ -1574,6 +1575,7 @@ export const crearGarantia = async (req: Request, res: Response) => {
     }
 
     await t.commit();
+    invalidarCacheDashboard();
     res.status(201).json({ ok: true, garantia });
   } catch (error: any) {
     try { await t.rollback(); } catch (_) { /* ya commiteado */ }
@@ -1628,15 +1630,8 @@ export const actualizarEstadoCaja = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Los KPIs del dashboard se sirven de una caché en memoria con TTL de 30 min
- * (`cacheRespuesta` en dashboard.routes). Ese desfase es aceptable para métricas de solo
- * lectura, pero NO cuando el usuario acaba de editar un monto facturado y espera verlo
- * reflejado: hasta que venciera el TTL, el dashboard seguía mostrando la foto anterior.
- * Por eso toda escritura que altere el facturado purga las entradas del dashboard.
- * Coste: un único recálculo en la siguiente carga, solo tras un cambio real.
- */
-const invalidarCacheKPIs = (): void => invalidarCacheRespuesta('/api/dashboard');
+// Los KPIs del dashboard se sirven de una caché en memoria con TTL de 30 min: toda escritura
+// que altere sus cifras la purga con `invalidarCacheDashboard()` (utils/cacheMemoria.ts).
 
 // ─── Registrar / actualizar factura electrónica (contabilidad, admin, gerencia) ───
 export const facturarODP = async (req: Request, res: Response) => {
@@ -1707,7 +1702,7 @@ export const facturarODP = async (req: Request, res: Response) => {
 
     await odp.update(updates, { transaction });
     await transaction.commit();
-    invalidarCacheKPIs();
+    invalidarCacheDashboard();
     // Sincroniza tablas en vivo (Contabilidad, listados) y la ficha ODP: el hook global
     // limpia la cache Redux de esta ODP al recibir el patch.
     import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(Number(id), 'update')).catch(() => {});
@@ -1768,7 +1763,7 @@ export const agregarFacturaAdicional = async (req: Request, res: Response) => {
       monto: data.monto,
       creado_por: req.user?.id ?? null,
     });
-    invalidarCacheKPIs();
+    invalidarCacheDashboard();
     import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(Number(id), 'update')).catch(() => {});
 
     res.status(201).json(factura);
@@ -1787,7 +1782,7 @@ export const eliminarFacturaAdicional = async (req: Request, res: Response) => {
     if (!factura) return res.status(404).json({ error: 'Factura adicional no encontrada' });
 
     await factura.destroy();
-    invalidarCacheKPIs();
+    invalidarCacheDashboard();
     import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(Number(id), 'update')).catch(() => {});
 
     res.json({ ok: true });

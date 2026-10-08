@@ -22,6 +22,7 @@ const fmtDiaCalendario = (v: Date | string): string => {
   return new Date(Date.UTC(a, m - 1, d)).toLocaleDateString('es-CO', { timeZone: 'UTC' });
 };
 import { withUniqueRetry } from '../utils/withUniqueRetry';
+import { invalidarCacheDashboard } from '../utils/cacheMemoria';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
 import { construirFiltroFecha } from '../utils/rangoFechas';
 // Motor de filtrado de ODPs compartido con la pestaña "Consultar" del módulo ODP
@@ -1386,6 +1387,8 @@ export async function crearODPParaLead(
     });
 
     await lead.update({ odp_id: odp.getDataValue('id') });
+    // Una ODP nueva mueve las cifras del período en el dashboard.
+    invalidarCacheDashboard();
 
     await LeadEvento.create({
       tipo: 'SEGUIMIENTO',

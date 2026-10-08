@@ -17,6 +17,7 @@ import {
 import sequelize from '../config/database';
 import { sqlCobradoEnRango } from '../utils/facturacion';
 import { odpsEnRutaActiva } from '../utils/rutasActivas';
+import { consultarCarteraVencida } from '../utils/carteraVencida';
 import {
   hoyBogotaISO, sumarDiasISO, mesActualBogota, rangoMesesBogota, inicioDiaBogota,
   diaCalendarioISO, diferenciaDias, HOY_BOGOTA_SQL, diaBogotaSQL, horaBogotaSQL,
@@ -49,26 +50,34 @@ function generateMonthList(mesInicio: number, anioInicio: number, mesFin: number
   return months;
 }
 
+/** Umbral de cartera vencida de la fila de configuración ya leída. El `|| 60` solo cubre la fila inexistente. */
+const diasCartera = (config: ConfiguracionGlobal | null): number =>
+  Number(config?.getDataValue('dias_alerta_cartera_vencida')) || 60;
+
+/**
+ * Meta comercial del período: suma de las metas individuales de esos meses; si nadie tiene
+ * meta cargada, la meta global de Configuración. Sin ninguna de las dos devuelve 0 y el
+ * panel muestra "No hay meta configurada" — antes se inventaba un 120.000.000 fijo.
+ */
+async function metaDelPeriodo(
+  config: ConfiguracionGlobal | null, mesInicio: number, anioInicio: number, mesFin: number, anioFin: number,
+): Promise<number> {
+  const monthList = generateMonthList(mesInicio, anioInicio, mesFin, anioFin);
+  const sumaMetas = monthList.length > 0
+    ? Number(await MetaUsuarioMensual.sum('meta_facturacion', {
+        where: { [Op.or]: monthList.map(m => ({ anio: m.anio, mes: m.mes })) }
+      })) || 0
+    : 0;
+  return sumaMetas > 0 ? sumaMetas : Number(config?.getDataValue('meta_facturacion_mensual')) || 0;
+}
+
 // ─── 1. PANEL GENERAL ────────────────────────────────────────────────────────
 export const getGeneralData = async (req: Request, res: Response) => {
   try {
     const { firstDay, lastDay, mesInicio, anioInicio, mesFin, anioFin } = parsePeriod(req);
 
     const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
-    const diasAlertaCartera = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
-    // Día de calendario: se compara contra `fecha_factura` (DATE) sin pasar por la zona del proceso.
-    const fechaUmbralCartera = sumarDiasISO(hoyBogotaISO(), -diasAlertaCartera);
-
-    // Meta de facturación: suma de metas individuales del periodo
-    const monthList = generateMonthList(mesInicio, anioInicio, mesFin, anioFin);
-    const sumaMetasUsuarios = monthList.length > 0
-      ? await MetaUsuarioMensual.sum('meta_facturacion', {
-          where: { [Op.or]: monthList.map(m => ({ anio: m.anio, mes: m.mes })) }
-        })
-      : 0;
-    const meta_facturacion_actual = sumaMetasUsuarios > 0
-      ? sumaMetasUsuarios
-      : (config as any)?.meta_facturacion_mensual || 120000000;
+    const meta_facturacion_actual = await metaDelPeriodo(config, mesInicio, anioInicio, mesFin, anioFin);
 
     // ODPs activas en el periodo (no ENTREGADAS ni ANULADAS)
     const odps_activas = await ODP.count({
@@ -133,18 +142,10 @@ export const getGeneralData = async (req: Request, res: Response) => {
     );
     const facturado_rango_oa = Number(froRow?.total) || 0;
 
-    // Cartera vencida: créditos con FE emitida cuya fecha_factura supera el umbral de días (sin filtro de período)
-    const carteraItems = await ODP.findAll({
-      where: {
-        forma_pago: 'credito',
-        pendiente: { [Op.gt]: 0 },
-        factura_electronica: { [Op.ne]: null },
-        fecha_factura: { [Op.lt]: fechaUmbralCartera },
-        estado_caja: { [Op.ne]: 'CANCELADO' },
-      }
-    });
-    const cartera_vencida_total    = carteraItems.reduce((acc, o) => acc + Number(o.getDataValue('pendiente')), 0);
-    const cartera_vencida_clientes = new Set(carteraItems.map(o => o.getDataValue('cliente_id'))).size;
+    // Cartera vencida: regla única del dashboard (sin filtro de período) — ver utils/carteraVencida.ts
+    const cartera = await consultarCarteraVencida(diasCartera(config));
+    const cartera_vencida_total    = cartera.total;
+    const cartera_vencida_clientes = cartera.clientes_unicos;
 
     // Tasa de entrega a tiempo (ODPs del periodo que llegaron a INSTALADA/ENTREGADA)
     const entregadasRaw = await ODP.findAll({
@@ -269,8 +270,6 @@ export const getVentasData = async (req: Request, res: Response) => {
     const { firstDay, lastDay, mesInicio, anioInicio, mesFin, anioFin } = parsePeriod(req);
 
     const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
-    const diasAlertaCartera   = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
-    const fechaUmbralCartera  = sumarDiasISO(hoy, -diasAlertaCartera);
 
     const periodWhere = { fecha_creacion: { [Op.between]: [firstDay, lastDay] } };
 
@@ -313,36 +312,25 @@ export const getVentasData = async (req: Request, res: Response) => {
       odps:       parseInt(tc.odps_count)
     }));
 
-    // Cartera vencida: SOLO créditos que superaron el umbral
-    const carteraRaw = await ODP.findAll({
-      where: {
-        forma_pago:   'credito',
-        pendiente:    { [Op.gt]: 0 },
-        fecha_entrega:{ [Op.lt]: fechaUmbralCartera },
-        estado_caja:  { [Op.ne]: 'CANCELADO' },
-        ...periodWhere
-      },
-      include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
-      order: [['fecha_entrega', 'ASC']],
-      limit: 10
-    });
-    const cartera_vencida_detalle = carteraRaw.map(o => {
-      const diff = diferenciaDias(diaCalendarioISO(o.getDataValue('fecha_entrega')), hoy);
-      return {
-        cliente_id:   o.getDataValue('cliente_id'),
-        nombre:       (o as any).cliente?.nombre_razon_social || 'Cliente desconocido',
-        monto:        Number(o.getDataValue('pendiente')),
-        dias_vencido: diff,
-        riesgo:       diff > diasAlertaCartera * 2   ? 'critico'
-                    : diff > diasAlertaCartera * 1.5  ? 'alerta'
-                    : 'normal'
-      };
-    });
-    const cartera_por_antiguedad = [
-      { rango: `${diasAlertaCartera}–${Math.round(diasAlertaCartera * 1.5)} días`, total: cartera_vencida_detalle.filter(d => d.riesgo === 'normal').reduce((a, c) => a + c.monto, 0) },
-      { rango: `${Math.round(diasAlertaCartera * 1.5)}–${diasAlertaCartera * 2} días`, total: cartera_vencida_detalle.filter(d => d.riesgo === 'alerta').reduce((a, c) => a + c.monto, 0) },
-      { rango: `>${diasAlertaCartera * 2} días`, total: cartera_vencida_detalle.filter(d => d.riesgo === 'critico').reduce((a, c) => a + c.monto, 0) }
-    ];
+    // Cartera vencida: regla única del dashboard — ver utils/carteraVencida.ts. Es una foto de
+    // HOY: antes se filtraba por mes de creación (`...periodWhere`) y por `fecha_entrega`, con
+    // `limit: 10`, y el tab mostraba $0 teniendo $168M vencidos. La tabla va de la más antigua
+    // a la más reciente y los rangos se suman sobre la cartera completa.
+    const cartera = await consultarCarteraVencida(diasCartera(config));
+    const cartera_vencida_detalle = cartera.items
+      .slice()
+      .sort((a, b) => b.dias_vencido - a.dias_vencido)
+      .map(i => ({
+        odp_id:              i.id,
+        numero_odp:          i.numero_odp,
+        cliente_id:          i.cliente_id,
+        nombre:              i.cliente_nombre,
+        factura_electronica: i.factura_electronica,
+        monto:               i.pendiente,
+        dias_vencido:        i.dias_vencido,
+        riesgo:              i.riesgo,
+      }));
+    const cartera_por_antiguedad = cartera.por_antiguedad;
 
     // Ranking asesores — meta financiera (asesor_comercial + gerencia + jefe_produccion)
     const monthList = generateMonthList(mesInicio, anioInicio, mesFin, anioFin);
@@ -350,7 +338,8 @@ export const getVentasData = async (req: Request, res: Response) => {
       where: { rol: { [Op.in]: ['asesor_comercial', 'gerencia', 'jefe_produccion'] } }
     });
 
-    // facturado = suma de valor_total (monto contratado de cada ODP/OA). total_oa = porción de OAs (SIN IVA)
+    // vendido/contratado = suma de valor_total de cada ODP/OA creada en el período (no exige FE;
+    // en pantalla se rotula "Vendido / Contratado"). total_oa = porción de OAs (SIN IVA)
     const realByAsesor = await ODP.findAll({
       attributes: [
         'asesor_id',
@@ -392,7 +381,7 @@ export const getVentasData = async (req: Request, res: Response) => {
         asesor_id:  uid,
         nombre:     (u as any).nombre_completo,
         rol:        (u as any).rol,
-        real:       Number(realRow?.total) || 0,       // facturado = abono + pendiente
+        real:       Number(realRow?.total) || 0,       // vendido/contratado = SUM(valor_total)
         real_oa:    Number(realRow?.total_oa) || 0,    // porción de OAs (SIN IVA)
         recaudado:  Number(recRow?.total)  || 0,       // solo abono (cobrado)
         recaudado_oa: Number(recRow?.total_oa) || 0,   // porción de OAs (SIN IVA)
@@ -400,11 +389,7 @@ export const getVentasData = async (req: Request, res: Response) => {
       };
     });
 
-    const meta_facturacion_actual = monthList.length > 0
-      ? await MetaUsuarioMensual.sum('meta_facturacion', {
-          where: { [Op.or]: monthList.map(m => ({ anio: m.anio, mes: m.mes })) }
-        }) || (config as any)?.meta_facturacion_mensual || 120000000
-      : (config as any)?.meta_facturacion_mensual || 120000000;
+    const meta_facturacion_actual = await metaDelPeriodo(config, mesInicio, anioInicio, mesFin, anioFin);
 
     // ODPs atrasadas — snapshot (no filtro de periodo)
     const odps_atrasadas = await ODP.count({
@@ -429,6 +414,7 @@ export const getVentasData = async (req: Request, res: Response) => {
       top_clientes,
       cartera_vencida_detalle,
       cartera_por_antiguedad,
+      cartera_umbral_dias:     cartera.umbral_dias,
       meta_vs_real_asesores,
       meta_facturacion_actual: Number(meta_facturacion_actual)
     });
@@ -790,42 +776,30 @@ export const getAlertas = async (_req: Request, res: Response) => {
       odp_id: o.id,
     }));
 
-    // Cartera: se conserva el criterio original (fecha_entrega, no fecha_factura) para
-    // no alterar la regla de negocio. getCarteraVencida usa fecha_factura — son vistas
-    // distintas y unificarlas es una decisión aparte.
-    const cartera: any[] = await sequelize.query(
-      `SELECT o.id, o.numero_odp, o.cliente_id,
-              o.pendiente::float8                          AS pendiente,
-              (${HOY_BOGOTA_SQL} - o.fecha_entrega::date)::int  AS dias_mora,
-              c.nombre_razon_social                        AS cliente_nombre
-         FROM odp o
-         LEFT JOIN clientes c ON c.id = o.cliente_id
-        WHERE o.forma_pago = 'credito'
-          AND o.pendiente > 0
-          AND o.fecha_entrega::date < ${HOY_BOGOTA_SQL} - :dias
-          AND o.estado_caja <> 'CANCELADO'
-        ORDER BY o.pendiente DESC`,
-      { replacements: { dias: diasAlertaCartera }, type: QueryTypes.SELECT }
-    );
+    // Cartera: regla única del dashboard (2026-10-08) — `fecha_factura` + FE emitida, ver
+    // utils/carteraVencida.ts. Antes usaba `fecha_entrega` sin exigir FE y contaba como mora
+    // créditos que todavía no tenían factura. `dias` = días desde la FE principal.
+    const cartera = await consultarCarteraVencida(diasAlertaCartera);
+    const tipoPorRiesgo = { critico: 'critico', alerta: 'alto', normal: 'medio' } as const;
 
-    cartera.forEach((o: any) => {
-      // Mismos cortes de riesgo que usa getCarteraVencida, para no dar dos lecturas
-      // distintas del mismo dato en pantallas distintas.
-      const tipo = o.dias_mora > diasAlertaCartera * 2 ? 'critico'
-        : o.dias_mora > diasAlertaCartera * 1.5 ? 'alto' : 'medio';
-      alerts.push({
-        id: `cart-${o.id}`,
-        tipo,
-        categoria: 'cartera',
-        referencia: o.numero_odp,
-        dias: o.dias_mora,
-        monto: o.pendiente,
-        cliente_nombre: o.cliente_nombre || 'Sin cliente',
-        cliente_id: o.cliente_id,
-        odp_id: o.id,
-        umbral_dias: diasAlertaCartera,
+    cartera.items
+      .slice()
+      .sort((a, b) => b.pendiente - a.pendiente)
+      .forEach(o => {
+        alerts.push({
+          id: `cart-${o.id}`,
+          tipo: tipoPorRiesgo[o.riesgo],
+          categoria: 'cartera',
+          referencia: o.numero_odp,
+          dias: o.dias_vencido,
+          monto: o.pendiente,
+          factura_electronica: o.factura_electronica,
+          cliente_nombre: o.cliente_nombre,
+          cliente_id: o.cliente_id,
+          odp_id: o.id,
+          umbral_dias: cartera.umbral_dias,
+        });
       });
-    });
 
     // Más urgente primero: por severidad y, dentro de ella, por días.
     const peso: Record<string, number> = { critico: 3, alto: 2, medio: 1 };
@@ -841,45 +815,9 @@ export const getAlertas = async (_req: Request, res: Response) => {
 // ─── 6. CARTERA VENCIDA DETALLE (on-demand) ──────────────────────────────────
 export const getCarteraVencida = async (_req: Request, res: Response) => {
   try {
-    const hoy = hoyBogotaISO();
-    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
-    const diasAlerta = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
-    const fechaUmbral = sumarDiasISO(hoy, -diasAlerta);
-
-    const items = await ODP.findAll({
-      where: {
-        forma_pago: 'credito',
-        pendiente: { [Op.gt]: 0 },
-        factura_electronica: { [Op.ne]: null },
-        fecha_factura: { [Op.lt]: fechaUmbral },
-        estado_caja: { [Op.ne]: 'CANCELADO' },
-      },
-      include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
-      attributes: ['id', 'numero_odp', 'factura_electronica', 'fecha_factura', 'pendiente', 'valor_total', 'cliente_id'],
-      order: [['fecha_factura', 'ASC']],
-    });
-
-    const result = items.map(o => {
-      const diasVencido = diferenciaDias(diaCalendarioISO(o.getDataValue('fecha_factura')), hoy);
-      return {
-        id:                  o.getDataValue('id'),
-        numero_odp:          o.getDataValue('numero_odp'),
-        factura_electronica: o.getDataValue('factura_electronica'),
-        fecha_factura:       o.getDataValue('fecha_factura'),
-        pendiente:           Number(o.getDataValue('pendiente')),
-        valor_total:         Number(o.getDataValue('valor_total')),
-        cliente_nombre:      (o as any).cliente?.nombre_razon_social || 'Sin cliente',
-        dias_vencido:        diasVencido,
-        riesgo:              diasVencido > diasAlerta * 2   ? 'critico'
-                           : diasVencido > diasAlerta * 1.5 ? 'alerta'
-                           : 'normal',
-      };
-    });
-
-    const total = result.reduce((acc, r) => acc + r.pendiente, 0);
-    const clientes_unicos = new Set(result.map(r => r.cliente_nombre)).size;
-
-    return res.json({ items: result, total, clientes_unicos, umbral_dias: diasAlerta });
+    // Regla única del dashboard — misma cifra que la tarjeta de Visión general y el tab Ventas.
+    const { items, total, clientes_unicos, umbral_dias } = await consultarCarteraVencida();
+    return res.json({ items, total, clientes_unicos, umbral_dias });
   } catch (error: any) {
     console.error('Error getCarteraVencida:', error);
     return res.status(500).json({ error: error.message });

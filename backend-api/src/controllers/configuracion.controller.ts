@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ConfiguracionGlobal, MetaMensual, MetaUsuarioMensual, Usuario } from '../models';
 import { invalidarCacheUmbral } from './proveedor.controller';
+import { invalidarCacheDashboard } from '../utils/cacheMemoria';
 
 export const obtenerConfiguracion = async (req: Request, res: Response) => {
   try {
@@ -74,6 +75,9 @@ export const actualizarConfiguracion = async (req: Request, res: Response) => {
     }
 
     if (data.umbral_variacion_precio_pct !== undefined) invalidarCacheUmbral();
+    // La meta global y el umbral de cartera alimentan el dashboard: sin esto seguía
+    // mostrando los valores viejos hasta 30 min.
+    invalidarCacheDashboard();
 
     res.json({ message: 'Configuración actualizada exitosamente', config });
   } catch (error: any) {
@@ -164,6 +168,8 @@ export const actualizarMetasUsuariosMes = async (req: Request, res: Response) =>
         meta_facturacion: item.meta_facturacion ?? 0
       });
     }
+    // Las metas por asesor alimentan el tab Ventas y la meta del período del dashboard.
+    invalidarCacheDashboard();
 
     res.json({ message: 'Metas de usuarios actualizadas exitosamente' });
   } catch (error: any) {

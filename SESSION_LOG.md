@@ -6687,3 +6687,39 @@ Opciones A (ficha) + B (cancelar deja la parada en pausada + script) + arreglo d
 - "Pedido en la mano" no escribe `historial_estados_odp` (21 ODP ENTREGADA sin esa fila).
 - 5 paradas `completada` en rutas canceladas con la ODP en LISTO_INSTALAR: sin revisar.
 - Commit y push hechos.
+
+## 2026-10-07 — Reasignación de prospecto PR-0264
+
+### Cambios realizados
+- **script `2026-10-07_reasignar_PR-0264_a_alejandro.ts` (ejecutado con `--aplicar`):** PR-0264 (id 277, JUAN ESTEBAN DUQUE, `en_gestion`) pasa de Bryam Arrubla (id 12) a Alejandro Ardila (id 13). Update por instancia bajo `requestContext` ROOT → `auditoria_log` id 56004, revertible.
+- Verificado: 1 toma de medidas vinculada (sin dueño propio, sigue al prospecto), sin leads ni capturas.
+
+### Pendientes
+- La UI no permite reasignar asesor de un prospecto (`updateProspecto` ignora `asesor_id`). Si se repite, agregar "Reasignar asesor" solo admin.
+
+## 2026-10-08 — Dashboard: tab Ventas & cartera y regla única de cartera
+
+### Diagnóstico
+Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La meta y los $0 venían de la caché de 30 min, guardada antes de que se cargaran las metas de octubre (el código las lee bien; guardar metas no invalidaba la caché). La cartera en $0 era un bug real: el tab filtraba la cartera por mes de creación y por `fecha_entrega`, con `limit: 10`. Había tres reglas de cartera distintas en el mismo dashboard.
+
+### Decisiones del usuario
+1. Cartera de todo el dashboard con la regla contable: FE emitida + `fecha_factura`.
+2. "Facturado" del tab Ventas se renombra "Vendido / Contratado".
+3. Meta 0 de Alejandro Ardila y Nataly Londoño es intencional.
+4. La caché del dashboard se limpia al guardar metas y al crear ODPs.
+
+### Cambios realizados
+- **backend `utils/carteraVencida.ts` (nuevo):** `consultarCarteraVencida()` — regla única, foto de hoy, riesgo y rangos con clave fija.
+- **backend `dashboard.controller.ts`:** General, Ventas, Alertas y modal Cartera Vencida usan el util. Ventas sin filtro de período ni `limit`, devuelve `cartera_umbral_dias`, n.º de ODP y FE. Helper `metaDelPeriodo()` compartido (se elimina el respaldo fijo de 120M).
+- **backend `utils/cacheMemoria.ts`:** `invalidarCacheDashboard()`; llamado en `createODP`, `crearGarantia`, ODP desde lead (CRM), ODP de reproceso (NC), `updateConfiguracion` y `actualizarMetasUsuariosMes`. `odp.controller` reemplaza su `invalidarCacheKPIs` local por el helper.
+- **frontend `PanelVentas.tsx`:** rótulos "Vendido / Contratado", cartera crítica con el umbral real (por clave, no por texto), tabla de cartera con ODP/FE y "días desde FE", asesor con meta 0 → "Sin meta" sin barra, "1 pedido".
+- **frontend `PanelAlertas.tsx`:** "N días desde la FE", n.º de FE, subtítulo con clientes únicos y facturas.
+- **docs:** `docs/modulos/dashboard.md` (nuevo) + fila en el índice de CLAUDE.md; `TECH_DEBT.md` 2026-10-08.
+- Sin cambios de BD.
+
+### Verificación
+`tsc` backend y frontend sin errores. Controladores invocados contra la BD: General, Ventas, modal y Alertas coinciden en 9 ODPs / $168.321.968 / 6 clientes (Alertas antes: 12 / $172,6M; Ventas antes: $0). Meta del período oct-2026: $236M.
+
+### Pendientes
+- Ver `TECH_DEBT.md` 2026-10-08 (cartera en Contabilidad / Informe Ejecutivo / Supervisión CRM, anuladas, invalidaciones faltantes).
+- Sin commit (esperando orden del usuario).

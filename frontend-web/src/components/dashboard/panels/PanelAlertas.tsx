@@ -30,6 +30,7 @@ type Alerta = {
   cliente_id?: number;
   odp_id?: number;
   umbral_dias?: number;
+  factura_electronica?: string;
 };
 
 const SEVERIDAD: Record<Alerta['tipo'], { punto: string; texto: string; fondo: string }> = {
@@ -58,7 +59,8 @@ const textoPlazo = (dias: number) => {
   return `vence en ${Math.abs(dias)} días`;
 };
 
-const textoMora = (dias: number) => `${dias} días de mora`;
+// Cartera (regla única del dashboard, 2026-10-08): los días se cuentan desde la fecha de la FE.
+const textoMora = (dias: number) => `${dias} días desde la FE`;
 
 export const PanelAlertas: React.FC<{
   data: Alerta[];
@@ -120,7 +122,7 @@ export const PanelAlertas: React.FC<{
       clave: 'cartera',
       icono: Wallet,
       titulo: 'Cartera',
-      subtitulo: `${resumen.cartera.length} clientes en mora · ${moneda(resumen.montoRiesgo)}`,
+      subtitulo: `${new Set(resumen.cartera.map(a => a.cliente_id)).size} clientes · ${resumen.cartera.length} facturas vencidas · ${moneda(resumen.montoRiesgo)}`,
       items: resumen.cartera,
     },
   ].filter(g => g.items.length > 0);
@@ -220,7 +222,7 @@ const FilaAlerta: React.FC<{
 
       <span className="text-[12px] text-slate-800 truncate flex-1 min-w-0">
         {esCartera
-          ? alerta.referencia
+          ? <>{alerta.referencia}{alerta.factura_electronica ? <span className="text-slate-700"> · FE {alerta.factura_electronica}</span> : null}</>
           : <>{alerta.estado}{alerta.cliente_nombre ? <span className="text-slate-700"> · {alerta.cliente_nombre}</span> : null}</>}
       </span>
 
@@ -230,7 +232,7 @@ const FilaAlerta: React.FC<{
         </span>
       )}
 
-      <span className={`text-[12px] font-semibold shrink-0 w-[124px] text-right ${sev.texto}`}>
+      <span className={`text-[12px] font-semibold shrink-0 w-[140px] text-right ${sev.texto}`}>
         {esCartera ? textoMora(alerta.dias) : textoPlazo(alerta.dias)}
       </span>
 

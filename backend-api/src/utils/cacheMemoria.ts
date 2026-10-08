@@ -9,8 +9,8 @@ import { Request, Response, NextFunction } from 'express';
  * período, así que varios usuarios que miran el mismo mes comparten la misma foto y se
  * multiplica el ahorro de egress. Solo se cachean respuestas 200.
  *
- * Frescura: TTL (30 min en el dashboard). El usuario aceptó ese desfase, por eso no hay
- * invalidación por escritura; de necesitarse, existe `invalidarCacheRespuesta(prefijo)`.
+ * Frescura: TTL (30 min en el dashboard) + invalidación por escritura en los puntos que
+ * mueven sus cifras (`invalidarCacheDashboard`, 2026-10-08).
  *
  * Alcance: caché por instancia (si se escala a varios contenedores, cada uno tiene la
  * suya; con TTL corto es irrelevante). No cachea datos por-usuario ni operaciones.
@@ -65,3 +65,11 @@ export function invalidarCacheRespuesta(prefijo?: string): void {
     if (k.includes(prefijo)) store.delete(k);
   }
 }
+
+/**
+ * Invalida toda la caché del dashboard (2026-10-08). Se llama después de escrituras que
+ * cambian sus cifras: facturar, cambiar `valor_total`, crear una ODP (cualquier vía),
+ * guardar metas o la configuración global. Llamarla SIEMPRE después del commit de la
+ * transacción: antes, una petición concurrente puede volver a cachear el dato viejo.
+ */
+export const invalidarCacheDashboard = (): void => invalidarCacheRespuesta('/api/dashboard');

@@ -1671,3 +1671,22 @@ Se unificó el manejo de fechas en `utils/fechas.ts` (backend y frontend). Qued�
    UTC: desfase de horas sobre una ventana de meses, sin efecto práctico — baja.
 6. **`getUrgency` de Producción marca "VENCIDA" una ODP sin `fecha_entrega`** (comportamiento previo,
    conservado) — baja.
+
+## 2026-10-08 — Dashboard: cartera unificada y tab Ventas (lo que quedó señalado)
+
+Se unificó la cartera vencida del dashboard en `utils/carteraVencida.ts` y se corrigió el tab Ventas
+(ver `docs/modulos/dashboard.md`). Quedó fuera, a propósito:
+
+1. **Otras tres reglas de cartera fuera del dashboard** — media, ~2 h + decisión del usuario:
+   Cartera de Contabilidad (`contabilidad.controller` ~L170, `fecha_vencimiento_credito`/`fecha_entrega`),
+   Informe Ejecutivo (`fecha_entrega`) y el filtro `cartera_vencida=true` de `utils/odpFiltros.ts`
+   (Supervisión CRM), que además calcula el umbral con `Date.now()` en UTC (`fechaUmbralCartera`) en vez
+   del día de Bogotá. Una misma pregunta ("¿cuánto hay vencido?") da cifras distintas según la pantalla.
+2. **ODPs `ANULADA` suman en el tab Ventas** (vendido, recaudado, pendiente, ticket, top cliente, ranking)
+   y en Visión general — baja hoy (0 anuladas en oct-2026), ~20 min.
+3. **Anular / reactivar / borrar ODP, pagos y `estado_caja` no invalidan la caché del dashboard** (siguen
+   con el TTL de 30 min) — baja, ~15 min: agregar `invalidarCacheDashboard()` en esos handlers.
+4. **Dos definiciones de "ODP atrasada" en el mismo dashboard**: tarjeta de Ventas (excluye pagadas) vs tab
+   Alertas (excluye LISTO_INSTALAR). Se suma a las 4 ya señaladas el 2026-10-05 — decisión de negocio.
+5. **Ranking de Equipo vs ranking de Ventas**: fórmula (`abono+pendiente` vs `valor_total`) y roles
+   distintos con el mismo nombre — baja, ~30 min.

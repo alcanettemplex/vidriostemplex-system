@@ -23,7 +23,7 @@ const AvanceMeta: React.FC<{ real: number; meta: number }> = ({ real, meta }) =>
     return (
       <div className="w-full">
         <p className="text-[28px] font-extrabold tracking-tight leading-none text-slate-900 [font-variant-numeric:normal]">{fmtM(real)}</p>
-        <p className="mt-2 text-[12px] text-slate-700">Facturado del período. No hay meta configurada: se define en Configuración.</p>
+        <p className="mt-2 text-[12px] text-slate-700">Vendido / contratado en el período. No hay meta configurada: se define en Configuración.</p>
       </div>
     );
   }
@@ -77,8 +77,10 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
 
   if (!data) return <div className="p-10 text-center text-slate-700 text-sm">Sin datos disponibles</div>;
 
-  const totalFacturado = data.total_facturado_mes || 0;
-  // La meta vive en configuracion_global: sin fila configurada no se inventa un valor.
+  // "Vendido / Contratado" = valor_total de las ODPs creadas en el período, tengan o no FE.
+  // No es facturación: el campo del API conserva el nombre `total_facturado_mes` por compatibilidad.
+  const totalVendido   = data.total_facturado_mes || 0;
+  // Meta: suma de metas por asesor del período, o la global de Configuración si nadie tiene una.
   const meta           = data.meta_facturacion_actual || 0;
   const asesores       = (data.meta_vs_real_asesores || []).slice().sort((a: any, b: any) => b.real - a.real);
 
@@ -93,16 +95,26 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
     ? (data.ticket_promedio || 0) * ((data.total_facturado_mes_oa || 0) / totalFact)
     : 0;
 
-  // Helper: columna con desglose IVA apilado
-  const MontoCol = ({ n, oa = 0, colorCls = 'text-slate-900' }: { n: number; oa?: number; colorCls?: string }) => (
+  // Helper: columna con desglose IVA apilado. `vacio` muestra un guion (asesor sin meta asignada).
+  const MontoCol = ({ n, oa = 0, colorCls = 'text-slate-900', vacio = false }: { n: number; oa?: number; colorCls?: string; vacio?: boolean }) => (
     <div className="w-20 text-right shrink-0">
-      <p className={`text-[12px] font-semibold tabular-nums ${colorCls}`}>{fmtM(n)}</p>
-      <p className="text-[12px] text-slate-700 tabular-nums">{fmtM(baseOf(n, oa))}</p>
-      <p className="text-[12px] text-indigo-700 tabular-nums">IVA {fmtM(ivaOf(n, oa))}</p>
+      {vacio ? (
+        <p className="text-[12px] text-slate-700">—</p>
+      ) : (
+        <>
+          <p className={`text-[12px] font-semibold tabular-nums ${colorCls}`}>{fmtM(n)}</p>
+          <p className="text-[12px] text-slate-700 tabular-nums">{fmtM(baseOf(n, oa))}</p>
+          <p className="text-[12px] text-indigo-700 tabular-nums">IVA {fmtM(ivaOf(n, oa))}</p>
+        </>
+      )}
     </div>
   );
+  // Cartera: regla única del dashboard (FE emitida + días desde fecha_factura), foto de hoy.
+  // El rango crítico se busca por su clave, no por el texto: el texto cambia con el umbral.
   const cartera        = data.cartera_vencida_detalle || [];
-  const carteraCritica = data.cartera_por_antiguedad?.find((c: any) => c.rango === '>60 días')?.total || 0;
+  const umbralCartera  = data.cartera_umbral_dias || 0;
+  const carteraCritica = data.cartera_por_antiguedad?.find((c: any) => c.clave === 'critico')?.total || 0;
+  const corteCritico   = umbralCartera * 2;
 
   return (
     <div className="space-y-3">
@@ -114,10 +126,10 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         <motion.div custom={0} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-5 bg-white border border-slate-200 rounded-2xl shadow-card p-5 flex flex-col gap-4">
           <div>
-            <p className="text-[15px] font-semibold text-slate-900">Meta mensual de facturación</p>
-            <p className="text-[12px] text-slate-700 leading-snug mt-1">Avance del período sobre la meta total de todos los asesores</p>
+            <p className="text-[15px] font-semibold text-slate-900">Meta mensual de ventas</p>
+            <p className="text-[12px] text-slate-700 leading-snug mt-1">Vendido / contratado del período (ODPs creadas, con o sin FE) sobre la meta del período: la suma de las metas por asesor, o la meta global de Configuración si nadie tiene una</p>
           </div>
-          <AvanceMeta real={totalFacturado} meta={meta} />
+          <AvanceMeta real={totalVendido} meta={meta} />
           <div className="grid grid-cols-2 gap-2 w-full">
             {[
               { label: 'Recaudado',    desc: 'Abonos cobrados',       raw: data.total_abonado   || 0, oa: data.total_abonado_oa   || 0, color: 'text-emerald-700', ivaColor: 'text-emerald-700' },
@@ -146,9 +158,9 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         <motion.div custom={1} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-2xl shadow-card p-5 flex flex-col">
           <p className="text-[15px] font-semibold text-slate-900">Ranking — meta vs real por asesor</p>
-          <p className="text-[12px] text-slate-700 leading-snug mt-1">Facturado y recaudado del período vs la meta asignada a cada asesor</p>
+          <p className="text-[12px] text-slate-700 leading-snug mt-1">Vendido / contratado y recaudado del período vs la meta asignada a cada asesor</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 mb-3 text-[12px] text-slate-800">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: ORDINAL_AZUL[0] }} />Facturado</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: ORDINAL_AZUL[0] }} />Vendido</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: ORDINAL_AZUL[3] }} />Recaudado</span>
             <span className="text-slate-700">La barra completa es la meta del asesor</span>
           </div>
@@ -160,7 +172,7 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
               <p className="text-[12px] text-slate-700">Base / IVA</p>
             </div>
             <div className="w-20 text-right">
-              <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wide">Facturado</p>
+              <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wide">Vendido</p>
               <p className="text-[12px] text-slate-700">Base / IVA</p>
             </div>
             <div className="w-20 text-right">
@@ -174,10 +186,13 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
           ) : (
             <div className="flex-1 space-y-4 overflow-y-auto pr-1">
               {asesores.map((as: any, i: number) => {
-                const pct       = as.meta > 0 ? Math.min((as.real / as.meta) * 100, 100) : 0;
-                const pctLabel  = as.meta > 0 ? Math.round((as.real / as.meta) * 100) : 0;
+                // Meta 0 es una decisión (asesor sin meta asignada ese mes), no un rezago:
+                // se muestra "Sin meta" en neutro y sin barra, en vez de "0%" en rojo.
+                const tieneMeta = as.meta > 0;
+                const pct       = tieneMeta ? Math.min((as.real / as.meta) * 100, 100) : 0;
+                const pctLabel  = tieneMeta ? Math.round((as.real / as.meta) * 100) : 0;
                 const est       = estadoMeta(pctLabel);
-                const pctRec    = as.meta > 0 ? Math.min((as.recaudado / as.meta) * 100, 100) : 0;
+                const pctRec    = tieneMeta ? Math.min((as.recaudado / as.meta) * 100, 100) : 0;
                 const rolBadge: Record<string, { label: string; cls: string }> = {
                   asesor_comercial: { label: 'Asesor', cls: 'bg-indigo-50 text-indigo-700' },
                   gerencia:         { label: 'Gerencia', cls: 'bg-purple-50 text-purple-700' },
@@ -195,13 +210,17 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                           <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${badge.cls}`}>{badge.label}</span>
                         </div>
                       </div>
-                      <MontoCol n={as.meta}      colorCls="text-slate-800" />
+                      <MontoCol n={as.meta}      colorCls="text-slate-800" vacio={!tieneMeta} />
                       <MontoCol n={as.real}      oa={as.real_oa}      colorCls="text-slate-900" />
                       <MontoCol n={as.recaudado} oa={as.recaudado_oa} colorCls="text-emerald-700" />
-                      <span className={`text-[12px] font-bold tabular-nums w-9 text-right ${est.cls}`} title={est.texto}>{pctLabel}%</span>
+                      {tieneMeta ? (
+                        <span className={`text-[12px] font-bold tabular-nums w-9 text-right ${est.cls}`} title={est.texto}>{pctLabel}%</span>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-slate-700 w-9 text-right leading-tight" title="Sin meta asignada este período">Sin meta</span>
+                      )}
                     </div>
-                    {/* Facturado (claro) y recaudado (oscuro) sobre la misma pista = meta del asesor */}
-                    <div className="relative h-2 rounded-full overflow-hidden ml-7 bg-slate-100">
+                    {/* Vendido (claro) y recaudado (oscuro) sobre la misma pista = meta del asesor */}
+                    {tieneMeta && <div className="relative h-2 rounded-full overflow-hidden ml-7 bg-slate-100">
                       <motion.div className="absolute inset-y-0 left-0 rounded-full"
                         style={{ background: ORDINAL_AZUL[0] }}
                         initial={{ width: 0 }}
@@ -212,7 +231,7 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                         initial={{ width: 0 }}
                         animate={{ width: `${pctRec}%` }}
                         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 + i * 0.05 }} />
-                    </div>
+                    </div>}
                   </div>
                 );
               })}
@@ -226,9 +245,9 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         <motion.div custom={2} variants={cardVar} initial="hidden" animate="visible"
           className={`rounded-2xl p-4 border ${carteraCritica > 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200 shadow-card'}`}>
           <p className={`text-[14px] font-semibold ${carteraCritica > 0 ? 'text-rose-800' : 'text-slate-900'}`}>
-            Cartera Crítica &gt;60 días
+            Cartera Crítica &gt;{corteCritico} días
           </p>
-          <p className="text-[12px] text-slate-700 leading-snug mt-1 mb-2">Saldo de créditos vencidos sin pago a más de 60 días</p>
+          <p className="text-[12px] text-slate-700 leading-snug mt-1 mb-2">Saldo de créditos con FE emitida hace más de {corteCritico} días, sin cancelar</p>
           <p className={`text-[24px] font-extrabold tracking-tight tabular-nums whitespace-nowrap ${carteraCritica > 0 ? 'text-rose-700' : 'text-slate-700'}`}>
             {carteraCritica > 0 ? fmtM(carteraCritica) : 'Sin cartera crítica'}
           </p>
@@ -248,11 +267,13 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         <motion.div custom={4} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl shadow-card p-4">
           <p className="text-[14px] font-semibold text-slate-900">Top Cliente</p>
-          <p className="text-[12px] text-slate-700 leading-snug mt-1 mb-2">Cliente con mayor facturación acumulada en el período</p>
+          <p className="text-[12px] text-slate-700 leading-snug mt-1 mb-2">Cliente con mayor valor vendido / contratado en el período</p>
           {data.top_clientes?.[0] ? (
             <>
               <p className="text-[16px] font-bold text-slate-900 truncate">{data.top_clientes[0].nombre}</p>
-              <p className="text-[12px] font-semibold text-indigo-700 tabular-nums mt-0.5">{fmtM(data.top_clientes[0].total)} · {data.top_clientes[0].odps} pedidos</p>
+              <p className="text-[12px] font-semibold text-indigo-700 tabular-nums mt-0.5">
+                {fmtM(data.top_clientes[0].total)} · {data.top_clientes[0].odps} {data.top_clientes[0].odps === 1 ? 'pedido' : 'pedidos'}
+              </p>
             </>
           ) : <p className="text-slate-700 text-[12px]">Sin datos</p>}
         </motion.div>
@@ -263,7 +284,9 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         className="bg-white border border-slate-200 rounded-2xl shadow-card p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <p className="text-[15px] font-semibold text-slate-900">Alertas de Cartera</p>
-          <p className="text-[12px] text-slate-700 leading-snug mt-0.5">Clientes con créditos vencidos, ordenados por antigüedad del saldo</p>
+          <p className="text-[12px] text-slate-700 leading-snug mt-0.5">
+            Créditos con FE emitida hace más de {umbralCartera} días sin cancelar, del más antiguo al más reciente. Es la cartera de hoy: no depende del período.
+          </p>
           <div className="flex gap-3">
             {(data.cartera_por_antiguedad || []).map((cpa: any, i: number) => (
               <div key={i} className="flex items-center gap-1.5 text-[12px]">
@@ -282,18 +305,22 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
               <thead>
                 <tr className="text-[11px] text-slate-900 uppercase tracking-wide border-b border-slate-200">
                   <th className="pb-2 font-semibold">Cliente</th>
-                  <th className="pb-2 font-semibold text-right">Monto</th>
-                  <th className="pb-2 font-semibold text-center">Días</th>
+                  <th className="pb-2 font-semibold">ODP / FE</th>
+                  <th className="pb-2 font-semibold text-right">Saldo</th>
+                  <th className="pb-2 font-semibold text-center">Días desde FE</th>
                   <th className="pb-2 font-semibold text-center">Riesgo</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {cartera.map((cv: any, i: number) => (
-                  <motion.tr key={i}
+                  <motion.tr key={cv.odp_id ?? i}
                     initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.1 + i * 0.04 }}
                     className="text-[12px] hover:bg-slate-50 transition-colors">
                     <td className="py-2 pr-3 text-slate-900 font-semibold max-w-[200px] truncate">{cv.nombre}</td>
+                    <td className="py-2 pr-3 text-slate-800 tabular-nums whitespace-nowrap">
+                      {cv.numero_odp}<span className="text-slate-700"> · {cv.factura_electronica}</span>
+                    </td>
                     <td className="py-2 pr-3 text-right text-slate-900 font-semibold tabular-nums">{fmtM(cv.monto)}</td>
                     <td className="py-2 text-center text-rose-700 font-semibold tabular-nums">+{cv.dias_vencido}d</td>
                     <td className="py-2 text-center">

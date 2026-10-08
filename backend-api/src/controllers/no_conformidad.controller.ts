@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { NoConformidad, ODP, ODPItem, Usuario, Cliente, HistorialEstadoODP } from '../models';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
+import { invalidarCacheDashboard } from '../utils/cacheMemoria';
 
 const updateNCSchema = z.object({
   estado: z.enum(['ABIERTO', 'EN_PROCESO', 'CERRADO']).optional(),
@@ -86,6 +87,8 @@ export const createNoConformidad = async (req: Request, res: Response) => {
         odp_padre_id: odp.id,
       }),
     );
+    // Una ODP nueva mueve las cifras del período en el dashboard.
+    invalidarCacheDashboard();
 
     // 6. Crear los ítems de solución en la nueva ODP
     if (items_solucion && items_solucion.length > 0) {

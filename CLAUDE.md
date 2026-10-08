@@ -72,6 +72,7 @@ Para no rehacer el rastreo forense completo cada vez que se toca un módulo gran
 | Rutas e Instalaciones | `docs/modulos/rutas-instalaciones.md` | Ciclo de ruta/parada/ODP, **pausar saca la ODP de la ruta** (2026-10-05), validaciones al programar, unir rutas, aviso de choque de equipo, pestaña Programados (lista por día y vista por equipo), Hoja de Ruta, socket `rutas`. Evidencias aún sin documentar |
 | CRM / Leads | *(pendiente)* | Leads, pipeline CRM, Supervisión CRM, Prospectos |
 | Contabilidad / Caja | `docs/modulos/contabilidad.md` | Pestañas de Contabilidad y en cuál cae cada ODP (`pestanaDeODP`), búsqueda en servidor sin tildes y por NIT/FE (`condicionBusquedaODP`), buscador maestro, Proceso Completado paginado, Cartera Vencida completa. Salidas de Almacén aún sin documentar |
+| Dashboard Gerencial | `docs/modulos/dashboard.md` | Tabs y endpoints, caché de 30 min y **dónde se invalida** (`invalidarCacheDashboard`, 2026-10-08), **regla única de cartera vencida** (`utils/carteraVencida.ts`: FE + `fecha_factura`, foto de hoy), "Vendido / Contratado" ≠ facturado, meta del período y asesores con meta 0 intencional |
 | RBAC / Auditoría | *(pendiente)* | Roles, permisos, hooks de auditoría, revertir desde ROOT |
 | Infraestructura / Despliegue | *(pendiente)* | Sockets, deploy, sincronización entre máquinas |
 
