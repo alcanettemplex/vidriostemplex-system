@@ -6723,3 +6723,17 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 ### Pendientes
 - Ver `TECH_DEBT.md` 2026-10-08 (cartera en Contabilidad / Informe Ejecutivo / Supervisión CRM, anuladas, invalidaciones faltantes).
 - Sin commit (esperando orden del usuario).
+
+---
+
+## 2026-10-08 — ODP-24416 (JUAN GONZALO TIRADO) convertida en OA-3846
+
+**Pedido del usuario:** pasar la ODP-24416 a Orden Azul por $1.073.039 y que el número ODP desaparezca.
+
+**Decisión técnica:** se convirtió **el mismo registro** (id 678) en vez de crear una OA y borrar la ODP. Un DELETE habría arrastrado en cascada el SAP-8061, el ítem y la captura de cotización, y habría dejado sin ODP el Pedido PV 7156, que Vitelsa ya había confirmado. $1.073.039 = $1.276.916 / 1,19: es el mismo valor sin IVA.
+
+**Script:** `backend-api/src/scripts/2026-10-08_convertir_odp24416_a_oa.ts` (simula por defecto; ya se ejecutó con `--aplicar`). Cambia `numero_odp` → OA-3846 (`generarNumeroODP('OA')`), `tipo_odp` → OA, `valor_total`/`pendiente` → 1.073.039 y `estado_caja` → PENDIENTE (se recalculó, quedó igual). Además deja en NULL `fecha_impresion_op`/`impresa_por_id` para que la OP vuelva a la cola "Por Imprimir" y salga en formato OA (decisión del usuario). Queda en la auditoría como `auditoria_log` #56612, revertible desde ROOT.
+
+**Verificado después:** ODP-24416 ya no existe; siguen vinculados el ítem, SAP-8061, el Pedido PV 7156 (CONFIRMADO_PROVEEDOR) y la captura. Vitelsa maneja el pedido por su número (7156), así que no hay que avisarle (confirmado por el usuario).
+
+**Notas:** el número ODP-24416 queda como hueco en el consecutivo (ya existe ODP-24417). El script no emite socket ni invalida la caché del Dashboard (viven en el proceso del servidor): las pantallas muestran el cambio al recargar y el Dashboard en ≤30 min.
