@@ -739,6 +739,8 @@ const PedidosPVPage: React.FC = () => {
     return (p.origen === 'SISTEMA' && deLaOdp) ? deLaOdp : p.proveedor;
   };
   const PROD_OPCIONES = ['', 'PV', 'CAMARA', 'CR', 'CR-LAM', 'ESP', 'LAM', 'S/T', 'TE', 'TEM-MULTILAMINADO', 'TEM-LAM', 'N.A.'];
+  // Etiqueta en mayúscula de cada campo del ítem (paso 2 del modal "Nuevo Pedido PV").
+  const sxEtiqueta = { fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 } as const;
 
   const itemVacio = () => ({ tipo_vidrio: '', color: 'Incoloro', espesor: '6', ancho_mm: '', alto_mm: '', cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', prod: 'PV' });
 
@@ -1398,7 +1400,7 @@ const PedidosPVPage: React.FC = () => {
       )}
 
       {/* ─── Modal: Crear ──────────────────────────────────────────────────────── */}
-      <Dialog open={modalCrear} onClose={cerrarModalCrear} maxWidth={pasoCrear === 2 ? 'md' : 'xs'} fullWidth>
+      <Dialog open={modalCrear} onClose={cerrarModalCrear} maxWidth={pasoCrear === 2 ? 'xl' : 'xs'} fullWidth>
         <DialogTitle sx={{ pb: 1 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Typography fontWeight={700} fontSize={16}>
@@ -1498,8 +1500,8 @@ const PedidosPVPage: React.FC = () => {
                     <Paper key={idx} variant="outlined" sx={{ p: 2, bgcolor: '#f6f7f9', borderRadius: 2 }}>
                       <Stack direction="row" flexWrap="wrap" gap={1.5} alignItems="flex-start">
                         {/* COLOR */}
-                        <Box sx={{ minWidth: 120 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>Color</Typography>
+                        <Box sx={{ minWidth: 160 }}>
+                          <Typography variant="caption" sx={sxEtiqueta}>Color</Typography>
                           <Select size="small" fullWidth value={it.color} onChange={(e) => upd('color', e.target.value)} sx={{ mt: 0.5, fontSize: 13 }}>
                             {COLORES_VIDRIO.map(c => <MenuItem key={c} value={c} sx={{ fontSize: 13 }}>{c}</MenuItem>)}
                           </Select>
@@ -1508,33 +1510,34 @@ const PedidosPVPage: React.FC = () => {
                           )}
                         </Box>
                         {/* ESP */}
-                        <Box sx={{ width: 70 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>Esp. (mm)</Typography>
+                        <Box sx={{ width: 90 }}>
+                          <Typography variant="caption" sx={sxEtiqueta}>Esp. (mm)</Typography>
                           <TextField size="small" fullWidth value={it.espesor} onChange={(e) => upd('espesor', e.target.value)} sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 13 } }} />
                         </Box>
                         {/* MEDIDAS */}
-                        <Box sx={{ minWidth: 140, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>Medidas (mm)</Typography>
+                        <Box sx={{ minWidth: 240, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
+                          <Typography variant="caption" sx={sxEtiqueta}>Medidas (mm)</Typography>
                           <Stack direction="row" gap={0.5} alignItems="center" mt={0.5}>
                             <TextField size="small" type="number" placeholder="Ancho" value={it.ancho_mm}
                               onChange={(e) => upd('ancho_mm', e.target.value === '' ? undefined : parseInt(e.target.value))}
-                              sx={{ width: 65 }} inputProps={{ style: { fontSize: 13 }, min: 0 }} />
+                              sx={{ width: 110 }} inputProps={{ style: { fontSize: 13 }, min: 0 }} />
                             <Typography color="text.secondary" fontSize={13}>×</Typography>
                             <TextField size="small" type="number" placeholder="Alto" value={it.alto_mm}
                               onChange={(e) => upd('alto_mm', e.target.value === '' ? undefined : parseInt(e.target.value))}
-                              sx={{ width: 65 }} inputProps={{ style: { fontSize: 13 }, min: 0 }} />
+                              sx={{ width: 110 }} inputProps={{ style: { fontSize: 13 }, min: 0 }} />
                           </Stack>
                         </Box>
                         {/* CANT */}
-                        <Box sx={{ width: 60, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>Cant.</Typography>
+                        <Box sx={{ width: 90, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
+                          <Typography variant="caption" sx={sxEtiqueta}>Cant.</Typography>
                           <TextField size="small" type="number" fullWidth value={it.cantidad}
                             onChange={(e) => upd('cantidad', Math.max(1, parseInt(e.target.value) || 1))}
                             sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 13 }, min: 1 }} />
                         </Box>
                         {/* ACABADOS */}
-                        <Box sx={{ flex: 1, minWidth: 260, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+                        <Box sx={{ flex: 1, minWidth: 420, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
+                          {/* En pantallas anchas (xl) los 8 acabados caben en una fila: un cristal = una fila. */}
+                          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(4, 1fr)', xl: 'repeat(8, 1fr)' }, gap: 1 }}>
                             {([
                               // `guardaTexto`: el campo se PINTA como número (teclado numérico y
                               // alineación centrada) pero se GUARDA como string. Es obligatorio en
@@ -1551,23 +1554,23 @@ const PedidosPVPage: React.FC = () => {
                               { label: 'Otros**', field: 'otros', type: 'text' },
                             ] as { label: string; field: string; type: string; guardaTexto?: boolean }[]).map(({ label, field, type, guardaTexto }) => (
                               <Box key={field}>
-                                <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>{label}</Typography>
+                                <Typography variant="caption" sx={sxEtiqueta}>{label}</Typography>
                                 <TextField size="small" fullWidth type={type} value={(it as any)[field]}
                                   onChange={(e) => upd(field, (type === 'number' && !guardaTexto) ? (parseInt(e.target.value) || 0) : e.target.value)}
-                                  sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 12, textAlign: type === 'number' ? 'center' : 'left' }, min: 0 }} />
+                                  sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 13, textAlign: type === 'number' ? 'center' : 'left' }, min: 0 }} />
                               </Box>
                             ))}
                             {/* MTS PT */}
                             <Box>
-                              <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>MTS PT</Typography>
+                              <Typography variant="caption" sx={sxEtiqueta}>MTS PT</Typography>
                               <TextField size="small" fullWidth value={mts} placeholder="m²" disabled
-                                sx={{ mt: 0.5, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#6f7a8c', textAlign: 'center', fontSize: 12 } }} />
+                                sx={{ mt: 0.5, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#6f7a8c', textAlign: 'center', fontSize: 13 } }} />
                             </Box>
                             {/* PROD */}
                             <Box>
-                              <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>PROD</Typography>
-                              <Select size="small" fullWidth value={it.prod} onChange={(e) => upd('prod', e.target.value)} sx={{ mt: 0.5, fontSize: 12 }}>
-                                {PROD_OPCIONES.map(p => <MenuItem key={p} value={p} sx={{ fontSize: 12 }}>{p || '—'}</MenuItem>)}
+                              <Typography variant="caption" sx={sxEtiqueta}>PROD</Typography>
+                              <Select size="small" fullWidth value={it.prod} onChange={(e) => upd('prod', e.target.value)} sx={{ mt: 0.5, fontSize: 13 }}>
+                                {PROD_OPCIONES.map(p => <MenuItem key={p} value={p} sx={{ fontSize: 13 }}>{p || '—'}</MenuItem>)}
                               </Select>
                             </Box>
                           </Box>
