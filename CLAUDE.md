@@ -69,7 +69,7 @@ Para no rehacer el rastreo forense completo cada vez que se toca un módulo gran
 | Cotizador — destino | `docs/modulos/cotizador-vision.md` | **Destino, no pendiente.** Para qué se construye el módulo: SAP automática, plano en Det. Técnico, PDF al cliente, estadística comercial. La integración con el ERP se ordenó el 2026-09-27 (ver cotizador.md) |
 | Detalles Técnicos | `docs/modulos/detalles-tecnicos.md` | Editor de planos de vidrio templado (FOR-005) para VITELSA/TEMPLACOL, traído del prototipo standalone. **Aislado desde el 2026-09-27**: solo admin, sin backend ni BD, pedido en `localStorage`; plan de integración con Pedidos PV pendiente de orden |
 | Inventario Perfilería | `docs/modulos/inventario.md` | Piezas sobrantes con consecutivo (etiqueta física), índice único desde el 2026-10-03, ingreso automático (MAX+1) e **ingreso con consecutivo asignado por el usuario**, y cómo Compras consume y revierte piezas por consecutivo |
-| Rutas e Instalaciones | `docs/modulos/rutas-instalaciones.md` | Ciclo de ruta/parada/ODP, **pausar saca la ODP de la ruta** (2026-10-05), validaciones al programar, unir rutas, aviso de choque de equipo, pestaña Programados (lista por día y vista por equipo), Hoja de Ruta, socket `rutas`. Evidencias aún sin documentar |
+| Rutas e Instalaciones | `docs/modulos/rutas-instalaciones.md` | Ciclo de ruta/parada/ODP, **pausar saca la ODP de la ruta** (2026-10-05), validaciones al programar, unir rutas, aviso de choque de equipo, pestaña Programados (lista por día y vista por equipo), **orden del día del equipo** (`ruta_odp.orden` = posición en el día del equipo desde el 2026-10-08, "Aceptar orden"), **Recorridos del camión** (`ruta_odp.orden_conductor`, carretera animada por llegadas, franja en la app del conductor), Hoja de Ruta, socket `rutas`. Evidencias aún sin documentar |
 | CRM / Leads | *(pendiente)* | Leads, pipeline CRM, Supervisión CRM, Prospectos |
 | Contabilidad / Caja | `docs/modulos/contabilidad.md` | Pestañas de Contabilidad y en cuál cae cada ODP (`pestanaDeODP`), búsqueda en servidor sin tildes y por NIT/FE (`condicionBusquedaODP`), buscador maestro, Proceso Completado paginado, Cartera Vencida completa. Salidas de Almacén aún sin documentar |
 | Dashboard Gerencial | `docs/modulos/dashboard.md` | Tabs y endpoints, caché de 30 min y **dónde se invalida** (`invalidarCacheDashboard`, 2026-10-08), **regla única de cartera vencida** (`utils/carteraVencida.ts`: FE + `fecha_factura`, foto de hoy), "Vendido / Contratado" ≠ facturado, meta del período y asesores con meta 0 intencional |
@@ -268,7 +268,7 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 | `NotaProduccion` | `notas_produccion` | |
 | `HistorialEstadoODP` | `historial_estados_odp` | `usuario_id` es **NOT NULL** — siempre pasar el actor. `automatico` (2026-09-09) marca los movimientos que hizo el sistema solo |
 | `Vehiculo` | `vehiculos` | |
-| `RutaInstalacion` / `RutaODP` | `rutas_instalacion` / `ruta_odp` ⚠️ | `RutaODP` en singular — mismo bug de revertir auditoría |
+| `RutaInstalacion` / `RutaODP` | `rutas_instalacion` / `ruta_odp` ⚠️ | `RutaODP` en singular — mismo bug de revertir auditoría. `orden` = posición en el día del equipo de instaladores; `orden_conductor` = posición en el recorrido del camión (NULL = sin organizar), ambos desde el 2026-10-08 |
 | `Prospecto` | `prospectos` | `odp_id` al aprobarse |
 | `CatalogoProducto` | `catalogo_productos` | Tab ROOT |
 | `InventarioPerfileria` | `inventario_perfileria` | |

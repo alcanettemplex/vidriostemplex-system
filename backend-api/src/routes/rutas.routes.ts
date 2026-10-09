@@ -12,6 +12,9 @@ import {
   updateRuta,
   cancelarRuta,
   unirRutas,
+  ordenarDia,
+  getRecorridos,
+  ordenarConductor,
   getVehiculos,
   getInstaladores,
   getMiAsignacion,
@@ -64,6 +67,11 @@ router.get('/odps-para-gestion', requireRole('admin', 'gerencia', 'jefe_producci
 // TECH_DEBT.md 2026-07-10.)
 router.get('/programacion', requireRole(...LECTURA_GESTION, 'auxiliar_produccion'), getRutasProgramacion);
 router.get('/historial', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo', 'marketing'), getRutasHistorial);
+// Orden de las paradas del día de un equipo (vista "Por equipo" de Programados).
+router.post('/ordenar-dia', requireRole(...ESCRITURA_GESTION), ordenarDia);
+// Recorrido del camión de un día (pestaña "Recorridos"): consulta y orden propio del conductor.
+router.get('/recorridos', requireRole(...LECTURA_GESTION), getRecorridos);
+router.post('/ordenar-conductor', requireRole(...ESCRITURA_GESTION), ordenarConductor);
 router.get('/vehiculos', getVehiculos);
 router.get('/personal', getInstaladores);
 

@@ -174,6 +174,9 @@ export const generarInformeDia = (rutas: InformeRuta[], fecha: string): string =
     paradas.forEach((ro) => eq.paradas.push({ ruta, ro }));
   }
   if (!equipos.size) return '';
+  // `orden` es la posición en el día del equipo (Programados → Por equipo → Aceptar orden):
+  // las paradas de varias rutas del mismo oficial se intercalan según ese número.
+  Array.from(equipos.values()).forEach((eq) => eq.paradas.sort((a, b) => a.ro.orden - b.ro.orden || a.ro.id - b.ro.id));
 
   // Los equipos con oficial primero, por nombre; "sin oficial" al final.
   const lista = Array.from(equipos.values()).sort((a, b) =>

@@ -7,7 +7,10 @@ RutaODP.init({
   id:                  { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
   ruta_id:             { type: DataTypes.INTEGER, allowNull: false },
   odp_id:              { type: DataTypes.INTEGER, allowNull: false },
+  // Posición en el día del equipo de instaladores (Programados → Por equipo, 2026-10-08).
   orden:               { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+  // Posición en el recorrido del camión de ese día (pestaña Recorridos). NULL = sin organizar.
+  orden_conductor:     { type: DataTypes.INTEGER, allowNull: true },
   fecha_programada:    { type: DataTypes.DATEONLY, allowNull: false },
   llegada_conductor:   { type: DataTypes.DATE, allowNull: true },
   inicio_instalacion:  { type: DataTypes.DATE, allowNull: true },

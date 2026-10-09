@@ -14,6 +14,8 @@ import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
 import { abrirDocumento } from '../utils/printDocument';
+import { compararRecorrido, tipoServicio } from '../utils/estadoInstalacion';
+import { diaISO, fmtDia, fmtHora, hoyBogotaISO } from '../../../utils/fechas';
 import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 
 import API from '../../../services/config';
@@ -231,17 +233,27 @@ const ConductorView: React.FC = () => {
               {(() => {
                 const q = busqueda.toLowerCase().trim();
                 // El backend ya excluye completadas y canceladas de `activas`.
+                // Las tarjetas van en el orden del recorrido que organizó el jefe (pestaña
+                // Recorridos): primero la ruta cuya próxima parada va antes.
                 const items = rutas
                   .filter(r => !q ||
                     r.ruta_odps?.some((ro: any) =>
                       ro.odp?.numero_odp?.toLowerCase().includes(q) ||
                       ro.odp?.cliente?.nombre_razon_social?.toLowerCase().includes(q)
                     )
-                  );
+                  )
+                  .sort((a, b) => {
+                    const pa = proximaParada(a);
+                    const pb = proximaParada(b);
+                    if (!pa || !pb) return pa ? -1 : pb ? 1 : 0;
+                    return compararRecorrido(pa, pb);
+                  });
                 return items.length === 0 ? (
                   <EmptyState icon={Calendar} title={q ? 'Sin resultados' : 'Día Despejado'} desc={q ? 'Ninguna ruta coincide con la búsqueda.' : 'No tienes rutas pendientes por iniciar o en curso.'} />
                 ) : (
-                  items.map(ruta => (
+                  <>
+                  {!q && <FranjaRecorrido rutas={rutas} />}
+                  {items.map(ruta => (
                     <RutaCard
                       key={ruta.id}
                       ruta={ruta}
@@ -252,7 +264,8 @@ const ConductorView: React.FC = () => {
                       abrirMapa={abrirMapa}
                       loadingStatus={{ iniciando, finalizando, llegadas: registrandoLlegada }}
                     />
-                  ))
+                  ))}
+                  </>
                 );
               })()}
             </div>
@@ -311,16 +324,73 @@ const ConductorView: React.FC = () => {
   );
 };
 
+// Franja "Tu recorrido de hoy": todas las paradas del día, de todas sus rutas, en el orden
+// que organizó el jefe (pestaña Recorridos). Las tarjetas siguen siendo por ruta (iniciar,
+// llegada y terminar van por ruta); la franja le dice qué hacer primero. Muestra el día más
+// próximo que aún tiene paradas por visitar.
+const FranjaRecorrido = ({ rutas }: { rutas: any[] }) => {
+  const pendiente = (ro: any) => !ro.llegada_conductor && (ro.estado === 'pendiente' || ro.estado === 'en_curso');
+  const todas = rutas.flatMap((r: any) => (r.ruta_odps || []).map((ro: any) => ({ ruta: r, ro })));
+  const dia = todas.filter((p) => pendiente(p.ro)).map((p) => diaISO(p.ro.fecha_programada)).filter(Boolean).sort()[0];
+  if (!dia) return null;
+  const paradas = todas.filter((p) => diaISO(p.ro.fecha_programada) === dia).sort((a, b) => compararRecorrido(a.ro, b.ro));
+  if (paradas.length < 2) return null;
+  const siguienteId = paradas.find((p) => pendiente(p.ro))?.ro.id;
+  const irA = (rutaId: number) => document.getElementById(`ruta-conductor-${rutaId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  return (
+    <div className="bg-white rounded-3xl border-2 border-indigo-200 shadow-card p-4 sm:p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <Truck className="w-5 h-5 text-indigo-700" />
+        <h3 className="text-sm font-bold text-slate-900">Tu recorrido {dia === hoyBogotaISO() ? 'de hoy' : `del ${fmtDia(dia, { weekday: 'long', day: 'numeric', month: 'short' })}`}</h3>
+        <span className="ml-auto text-xs text-slate-700">{paradas.filter((p) => p.ro.llegada_conductor).length} de {paradas.length}</span>
+      </div>
+      <ol className="flex gap-2 overflow-x-auto pb-1">
+        {paradas.map((p, i) => {
+          const visitada = !!p.ro.llegada_conductor;
+          const siguiente = p.ro.id === siguienteId;
+          return (
+            <li key={p.ro.id} className="shrink-0">
+              <button
+                onClick={() => irA(p.ruta.id)}
+                className={`text-left rounded-2xl border-2 px-3 py-2 min-w-[150px] transition-all ${siguiente
+                  ? 'border-indigo-600 bg-indigo-50'
+                  : visitada ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200 bg-white'}`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center ${visitada ? 'bg-emerald-600 text-white' : siguiente ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-900'}`}>
+                    {visitada ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
+                  </span>
+                  <span className={`text-sm font-bold ${visitada ? 'text-slate-600 line-through' : 'text-slate-900'}`}>{p.ro.odp?.numero_odp}</span>
+                </div>
+                <p className="text-[11px] text-slate-800 mt-0.5">{tipoServicio(p.ro.odp).corto} · Ruta #{p.ruta.id}</p>
+                {siguiente && <p className="text-[11px] font-bold text-indigo-700 mt-0.5">Siguiente</p>}
+                {visitada && <p className="text-[11px] text-emerald-700 font-semibold">Llegaste {fmtHora(p.ro.llegada_conductor)}</p>}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+};
+
+// Primera parada que el conductor aún no visita (o la primera de todas): ordena las tarjetas.
+const proximaParada = (ruta: any): any | null => {
+  const stops = [...(ruta.ruta_odps || [])].sort(compararRecorrido);
+  return stops.find((s: any) => !s.llegada_conductor && (s.estado === 'pendiente' || s.estado === 'en_curso')) ?? stops[0] ?? null;
+};
+
 // ––– SUBCOMPONENTE: RUTA CARD –––
 const RutaCard = ({ ruta, onIniciar, onTerminar, registrarLlegada, abrirDocumento, abrirMapa, loadingStatus, isHistory }: any) => {
   const enCurso = ruta.estado === 'en_curso';
   const completada = ruta.estado === 'completada';
-  const stops = (ruta.ruta_odps || []).sort((a: any, b: any) => a.orden - b.orden);
+  const stops = [...(ruta.ruta_odps || [])].sort(compararRecorrido);
   
   const todasParadasRegistradas = stops.length > 0 && stops.every((s: any) => !!s.llegada_conductor);
 
   return (
-    <div className={`bg-white rounded-3xl border-2 shadow-card overflow-hidden transition-all duration-300
+    <div id={`ruta-conductor-${ruta.id}`} className={`scroll-mt-24 bg-white rounded-3xl border-2 shadow-card overflow-hidden transition-all duration-300
       ${enCurso ? 'border-amber-300' : completada ? 'border-emerald-200' : 'border-slate-200 hover:border-indigo-200'}`}>
       
       <div className={`p-4 sm:p-6 border-b border-slate-200 flex flex-col md:flex-row gap-4 sm:gap-6 md:items-center justify-between

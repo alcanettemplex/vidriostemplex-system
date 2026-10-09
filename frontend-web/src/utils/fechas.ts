@@ -68,6 +68,14 @@ export const fmtMomento = (v: Valor, opciones?: Intl.DateTimeFormatOptions, vaci
     return Number.isNaN(d.getTime()) ? vacio : d.toLocaleDateString('es-CO', { ...opciones, timeZone: ZONA });
 };
 
+/** Solo la hora de un momento en Bogotá ("3:43 p. m."). `fmtMomento` usa
+ *  `toLocaleDateString`, que siempre antepone la fecha aunque se le pidan solo horas. */
+export const fmtHora = (v: Valor, vacio = ''): string => {
+    if (!v) return vacio;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? vacio : d.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit', timeZone: ZONA });
+};
+
 /**
  * ¿Es un día de calendario? `'YYYY-MM-DD'` o un instante exactamente a medianoche UTC
  * (así se guarda `odp.fecha_entrega`, y así quedaron las `fecha_creacion` de ODPs que el

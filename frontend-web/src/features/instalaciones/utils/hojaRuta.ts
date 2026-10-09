@@ -5,7 +5,7 @@
 
 import { abrirVentanaImpresion, escaparHtml } from '../../../utils/printWindow';
 import { fmtDia, fmtMomento } from '../../../utils/fechas';
-import { estadoFactura, estadoPago, tipoServicio } from './estadoInstalacion';
+import { compararParadas, estadoFactura, estadoPago, tipoServicio } from './estadoInstalacion';
 
 const MAX_DESCRIPCION = 180;
 
@@ -20,7 +20,8 @@ const nombres = (lista: { nombre_completo?: string }[] | null | undefined): stri
   (lista ?? []).map((p) => p.nombre_completo ?? '').filter(Boolean);
 
 /**
- * @param rutas   Rutas a imprimir (sus paradas vivas, en orden).
+ * @param rutas   Rutas a imprimir. Sus paradas salen por fecha y `orden` (el orden del día
+ *                del equipo), aunque vengan de rutas distintas.
  * @param fecha   Día de la hoja (`YYYY-MM-DD`); solo se imprimen paradas de ese día.
  *                `null` = todas las paradas pendientes de las rutas.
  */
@@ -30,7 +31,7 @@ export const imprimirHojaRuta = (rutas: any[], fecha: string | null): void => {
       .filter((ro: any) => ro.estado === 'pendiente' || ro.estado === 'en_curso')
       .filter((ro: any) => !fecha || String(ro.fecha_programada).slice(0, 10) === fecha)
       .map((ro: any) => ({ ruta: r, ro }))
-  );
+  ).sort((a, b) => compararParadas(a.ro, b.ro));
 
   const oficiales = Array.from(new Set(rutas.map((r) => r.oficial?.nombre_completo).filter(Boolean)));
   const instaladores = Array.from(new Set(rutas.flatMap((r) => nombres(r.instaladores)))).filter((n) => !oficiales.includes(n));

@@ -6737,3 +6737,58 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 **Verificado después:** ODP-24416 ya no existe; siguen vinculados el ítem, SAP-8061, el Pedido PV 7156 (CONFIRMADO_PROVEEDOR) y la captura. Vitelsa maneja el pedido por su número (7156), así que no hay que avisarle (confirmado por el usuario).
 
 **Notas:** el número ODP-24416 queda como hueco en el consecutivo (ya existe ODP-24417). El script no emite socket ni invalida la caché del Dashboard (viven en el proceso del servidor): las pantallas muestran el cambio al recargar y el Dashboard en ≤30 min.
+
+---
+
+## 2026-10-08 — Instalaciones: orden de las paradas del día por equipo
+
+**Pedido del usuario:** ordenar las paradas en Programados → Por equipo, aceptar el orden y que el instalador y el conductor las vean así.
+
+**Decisiones del usuario:** el orden cruza las rutas del equipo (no exige unirlas), solo se mueven paradas pendientes, y el conductor sigue viendo una tarjeta por ruta, pero en el orden aceptado.
+
+### Cambios realizados
+- **backend `rutas.controller.ts`:** `ordenarDia` (`POST /api/rutas/ordenar-dia`, `ESCRITURA_GESTION`). `getMiAsignacion` y `getAsignacionInstalador` ordenan por estado → `fecha_programada` → `orden` → `id`; los includes `ruta_odps` también ordenan por fecha → orden → id.
+- **frontend `ProgramadosTab.tsx`:** columnas con arrastre, barra "Orden sin aceptar" (Aceptar / Descartar), paradas fijas con candado, aviso al salir. `JefeView.tsx`: `handleOrdenarDia`.
+- **frontend:** `compararParadas` en `utils/estadoInstalacion.ts`, usado por `ConductorView`, `hojaRuta.ts`; `informeRutas.ts` ordena las paradas del equipo por `orden`.
+- **docs:** `docs/modulos/rutas-instalaciones.md` (sección Orden del día del equipo) y la fila del índice en CLAUDE.md.
+- Sin cambios de BD: se reutiliza `ruta_odp.orden`.
+
+### Verificación
+`tsc` de backend y frontend y `eslint` sin errores. Contra el backend local, solo con casos que no escriben: fecha equivocada → 409, id repetido → 400, id inexistente → 409, campo extra → 400, columna de 1 parada sin cambios → 200 `cambiadas: 0`, rol marketing → 403. `/instalador/:id` y `/mi-asignacion` → 200, ordenadas por fecha y luego orden. No se probó una escritura real ni el arrastre en el navegador.
+
+### Pendientes
+- Probar el arrastre y "Aceptar orden" en la pantalla, con el instalador y el conductor.
+- Riesgo anotado: editar en `ProgramarRutaModal` o unir rutas obliga a volver a aceptar el orden.
+- Sin commit (esperando orden del usuario).
+
+---
+
+## 2026-10-08 — Instalaciones: pestaña Recorridos (camión del conductor)
+
+**Pedido del usuario:** una tarjeta aparte para organizar el recorrido del conductor, que intercala rutas (instalador → acarreo → otro instalador), con un camión animado que muestre el avance, en JefeView.
+
+**Decisiones del usuario:** orden propio del conductor; carretera esquemática (no mapa); pestaña nueva en JefeView; la app del conductor mantiene las tarjetas por ruta y gana la franja "Tu recorrido de hoy".
+
+### Cambios realizados
+- **BD:** `ruta_odp.orden_conductor INTEGER NULL` — script `2026-10-08_ruta_odp_orden_conductor.ts`, **ya ejecutado** con `--aplicar` (BD compartida con producción; columna nullable, el backend desplegado la ignora).
+- **backend:** modelo `RutaODP`; `getRecorridos` (`GET /api/rutas/recorridos`) y `ordenarConductor` (`POST /api/rutas/ordenar-conductor`); `orden_conductor` en los attributes de `INCLUDE_RUTA_LISTA` y del historial del conductor (`INCLUDE_RUTA_COMPLETA` ya trae todas las columnas).
+- **frontend:** `RecorridosTab.tsx` (nuevo) + pestaña en `JefeView.tsx`; `compararRecorrido` en `utils/estadoInstalacion.ts`; hook `useAvisoSinGuardar` (nuevo, también lo usa ahora `ProgramadosTab`); `ConductorView.tsx` con `FranjaRecorrido`, tarjetas y paradas en orden de recorrido.
+- **docs:** `docs/modulos/rutas-instalaciones.md`, índice y tabla de modelos de CLAUDE.md.
+
+### Verificación
+`tsc` backend y frontend y `eslint` sin errores. Contra el backend local, sin escrituras: `GET /recorridos` 200 (~8 KB el 2026-10-09) y fecha inválida 400; `ordenar-conductor` con lista incompleta, otro conductor y fecha errada → 409, marketing → 403; `mi-ruta-conductor` 200 con `orden_conductor`. No se probó una escritura real ni la animación en el navegador.
+
+### Hallazgos
+- 2026-10-09: Juan Diego Gómez tiene 6 rutas (#536–#542); las rutas #535, #540 y #543 **no tienen conductor** (salen en la tarjeta "Sin conductor").
+
+### Pendientes
+- Probar en pantalla: arrastrar, aceptar el recorrido, y ver el camión moverse al marcar "Llegué" desde la app del conductor.
+- Sin commit (esperando orden del usuario).
+
+### Ajuste (mismo día) — filtro de Recorridos
+- **Pedido del usuario:** mostrar solo rutas con conductor asignado y solo las programadas de ese día. Se aclaró: programadas **y en curso** (para ver avanzar el camión).
+- `getRecorridos`: `estado IN (programada, en_curso)` y `conductor_id IS NOT NULL`; `ordenarConductor` cuenta y valida con el mismo alcance. Antes el 09-oct traía la ruta #530 (completada el 07-oct, parada pausada reprogramada) y las 3 rutas sin conductor.
+- `RecorridosTab`: sin tarjeta "Sin conductor" ni estado "terminado"; carretera sin barra de desplazamiento vertical.
+- `fmtHora` nuevo en `utils/fechas.ts`: "Salió" y "Llegó" mostraban la fecha completa porque `fmtMomento` usa `toLocaleDateString`.
+- Verificado: 09-oct → solo Juan Diego Gómez con 6 paradas (#536–#542); 08-oct → vacío; validaciones 409/403/400 iguales.
+

@@ -79,6 +79,35 @@ export const fechaRuta = (ruta: RutaConParadas): string | null => {
   return fechas[0] ?? null;
 };
 
+/**
+ * Orden de las paradas: día y luego `orden`. Desde el 2026-10-08 `orden` es la posición en el
+ * día del EQUIPO (lo fija "Aceptar orden" en Programados → Por equipo), no dentro de la ruta,
+ * así que dos paradas de días distintos pueden compartir número. Mismo criterio que el backend.
+ */
+export const compararParadas = (
+  a: { fecha_programada?: string | null; orden?: number | null; id?: number },
+  b: { fecha_programada?: string | null; orden?: number | null; id?: number },
+): number =>
+  (diaISO(a.fecha_programada) ?? '9999').localeCompare(diaISO(b.fecha_programada) ?? '9999')
+  || (a.orden ?? 0) - (b.orden ?? 0)
+  || (a.id ?? 0) - (b.id ?? 0);
+
+/**
+ * Orden del recorrido del CAMIÓN (pestaña Recorridos): día, luego `orden_conductor`. Una
+ * parada sin organizar (NULL) va después de las organizadas, en el orden de los instaladores.
+ * Mismo criterio en la pestaña del jefe y en la app del conductor.
+ */
+export const compararRecorrido = (
+  a: { fecha_programada?: string | null; orden?: number | null; orden_conductor?: number | null; ruta_id?: number; id?: number },
+  b: { fecha_programada?: string | null; orden?: number | null; orden_conductor?: number | null; ruta_id?: number; id?: number },
+): number => {
+  const clave = (p: typeof a) => p.orden_conductor ?? 100000 + (p.orden ?? 0);
+  return (diaISO(a.fecha_programada) ?? '9999').localeCompare(diaISO(b.fecha_programada) ?? '9999')
+    || clave(a) - clave(b)
+    || (a.ruta_id ?? 0) - (b.ruta_id ?? 0)
+    || (a.id ?? 0) - (b.id ?? 0);
+};
+
 /** Último día de la ruta, para mostrar un rango cuando las paradas son de días distintos. */
 export const fechaFinRuta = (ruta: RutaConParadas): string | null => {
   const fechas = (ruta.ruta_odps ?? []).map((p) => diaISO(p.fecha_programada)).filter((f): f is string => !!f).sort();

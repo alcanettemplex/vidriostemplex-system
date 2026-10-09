@@ -7,7 +7,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, MapPin, Calendar,
   Plus, RefreshCw, PackageCheck, PauseCircle, Search,
   Route, History, HardHat, Upload, X as XIcon, Receipt,
-  AlertOctagon,
+  AlertOctagon, Truck,
 } from '../../../components/ui/icons';
 import ProgramarRutaModal from './ProgramarRutaModal';
 import InstaladorGestionTab from './InstaladorGestionTab';
@@ -15,6 +15,7 @@ import CerrarAtascadaModal from './CerrarAtascadaModal';
 import AgendaTab from './AgendaTab';
 import RutaCard from './RutaCard';
 import ProgramadosTab, { SubTabProg } from './ProgramadosTab';
+import RecorridosTab from './RecorridosTab';
 import FolderTabs, { FOLDER_BODY } from '../../../components/FolderTabs';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
 import { useDataChangedSocket } from '../../../store/useSocketNotifications';
@@ -62,7 +63,7 @@ const MOTIVO_ATASCADA: Record<string, { label: string; cls: string; detalle: str
  *  ("Error al cargar datos"). Si el backend cambia esa lista, cambiarla aquí también. */
 const ROLES_PENDIENTES_CIERRE = ['root', 'admin', 'gerencia', 'jefe_produccion', 'produccion'];
 
-type MainTab = 'agenda' | 'listos' | 'pago' | 'factura' | 'produccion' | 'programados' | 'completados' | 'instaladores' | 'atascadas';
+type MainTab = 'agenda' | 'listos' | 'pago' | 'factura' | 'produccion' | 'programados' | 'recorridos' | 'completados' | 'instaladores' | 'atascadas';
 type SubTabComp = 'completadas' | 'canceladas';
 
 const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
@@ -229,6 +230,20 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
       cargar();
     }
   };
+  // Orden del día de un equipo (vista "Por equipo"). Devuelve si quedó guardado para que la
+  // columna salga del modo edición; ante un 409 recarga, porque la lista ya no es la vigente.
+  const handleOrdenarDia = async (fecha: string, paradas: number[]): Promise<boolean> => {
+    try {
+      await axios.post(`${API}/api/rutas/ordenar-dia`, { fecha, paradas }, { headers });
+      toast.success('Orden guardado. El instalador y el conductor ya lo ven así.');
+      cargar();
+      return true;
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'No se pudo guardar el orden de las paradas. Intenta de nuevo.');
+      if (e.response?.status === 409) cargar();
+      return false;
+    }
+  };
 
   const handleFinalizarODP = (rutaOdpId: number, numeroOdp: string) => {
     setFotosFinalizar([]);
@@ -304,6 +319,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     { key: 'factura',       label: 'Espera de factura',     count: odps.espera_factura.length,      icon: Receipt,       color: 'text-orange-600',  soloEscritura: false },
     { key: 'produccion',    label: 'Espera de producción',  count: odps.espera_produccion.length,   icon: AlertTriangle, color: 'text-red-500',     soloEscritura: false },
     { key: 'programados',   label: 'Programados',           count: rutas.length,                    icon: Route,         color: 'text-indigo-600',  soloEscritura: false },
+    { key: 'recorridos',    label: 'Recorridos',            count: null,                            icon: Truck,         color: 'text-indigo-600',  soloEscritura: false },
     { key: 'atascadas',     label: 'Pendientes de cierre',  count: atascadas.length,                icon: AlertOctagon,  color: 'text-rose-600',    soloEscritura: false },
     { key: 'completados',   label: 'Completados',           count: null,                            icon: History,       color: 'text-slate-700',   soloEscritura: false },
     { key: 'instaladores',  label: 'Instaladores',          count: null,                            icon: HardHat,       color: 'text-teal-600',    soloEscritura: true  },
@@ -511,7 +527,13 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             hayBusqueda={!!q}
             cardProps={propsRutaCard}
             onUnir={handleUnir}
+            onOrdenarDia={handleOrdenarDia}
           />
+        )}
+
+        {/* ── Contenido tab Recorridos (camión del día por conductor) ── */}
+        {mainTab === 'recorridos' && (
+          <RecorridosTab readOnly={readOnly} onVerODP={setSelectedOdpId} />
         )}
 
         {/* ── Contenido tab Pendientes de cierre ── */}

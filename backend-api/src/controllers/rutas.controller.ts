@@ -145,10 +145,10 @@ const INCLUDE_RUTA_LISTA = async (): Promise<any[]> => [
   {
     model: RutaODP, as: 'ruta_odps',
     separate: true,
-    order: [['orden', 'ASC']],
+    order: [['fecha_programada', 'ASC'], ['orden', 'ASC'], ['id', 'ASC']],
     // Listado: NO trae firma_receptor (TEXT base64 ~13KB), fotos ni datos_receptor —
     // esos campos solo se muestran en ODPFichaModal (detalle que re-fetcha). Reduce egress.
-    attributes: ['id', 'ruta_id', 'odp_id', 'orden', 'fecha_programada', 'estado',
+    attributes: ['id', 'ruta_id', 'odp_id', 'orden', 'orden_conductor', 'fecha_programada', 'estado',
       'motivo_pausa', 'descripcion_dano', 'llegada_conductor',
       'inicio_instalacion', 'fin_instalacion'],
     include: [
@@ -205,7 +205,7 @@ const INCLUDE_RUTA_COMPLETA = async (): Promise<any[]> => [
   {
     model: RutaODP, as: 'ruta_odps',
     separate: true,
-    order: [['orden', 'ASC']],
+    order: [['fecha_programada', 'ASC'], ['orden', 'ASC'], ['id', 'ASC']],
     attributes: { exclude: ['firma_receptor'] },
     include: [
       {
@@ -255,8 +255,8 @@ const INCLUDE_RUTA_CONDUCTOR_HISTORIAL = (): any[] => [
   {
     model: RutaODP, as: 'ruta_odps',
     separate: true,
-    order: [['orden', 'ASC']],
-    attributes: ['id', 'ruta_id', 'odp_id', 'orden', 'estado', 'llegada_conductor'],
+    order: [['fecha_programada', 'ASC'], ['orden', 'ASC'], ['id', 'ASC']],
+    attributes: ['id', 'ruta_id', 'odp_id', 'orden', 'orden_conductor', 'estado', 'llegada_conductor'],
     include: [
       {
         model: ODP, as: 'odp',
@@ -1038,6 +1038,231 @@ export const unirRutas = async (req: Request, res: Response) => {
   }
 };
 
+// ─── Ordenar el día de un equipo (vista "Por equipo" de Programados) ─────────
+// `orden` deja de ser la posición dentro de una ruta y pasa a ser la posición en el día
+// del equipo, aunque sus paradas estén en rutas distintas: así el instalador (que recibe
+// todas sus paradas mezcladas) y el conductor las ven en el orden que aceptó el jefe.
+// Los consumidores ordenan por (fecha_programada, orden), de modo que una parada de otro
+// día de la misma ruta no choca con esta numeración.
+//
+// Reglas: solo se mueven paradas pendientes (las demás llegan primero, fijas); la lista
+// trae TODAS las paradas de ese día de cada ruta involucrada —si faltara una, su número
+// viejo chocaría con los nuevos—; las rutas deben seguir abiertas.
+const ordenarDiaSchema = z.object({
+  fecha: FECHA_ISO,
+  paradas: z.array(z.number().int().positive())
+    .min(1, 'No hay paradas para ordenar.')
+    .refine((ids) => new Set(ids).size === ids.length, 'Una parada aparece dos veces.'),
+}).strict();
+
+export const ordenarDia = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const parsed = ordenarDiaSchema.safeParse(req.body);
+    if (!parsed.success) { await t.rollback(); return res.status(400).json({ error: mensajeZod(parsed.error) }); }
+    const { fecha, paradas: ids } = parsed.data;
+
+    const filas = await RutaODP.findAll({
+      where: { id: { [Op.in]: ids } },
+      order: [['id', 'ASC']],
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    }) as any[];
+    const porId = new Map<number, any>(filas.map((f) => [f.id, f]));
+    if (filas.length !== ids.length) {
+      await t.rollback();
+      return res.status(409).json({ error: 'Una de las paradas ya no existe (la quitaron de su ruta). Recarga la pantalla y vuelve a ordenar.' });
+    }
+    if (filas.some((f) => String(f.fecha_programada).slice(0, 10) !== fecha)) {
+      await t.rollback();
+      return res.status(409).json({ error: 'Una de las paradas cambió de fecha mientras ordenabas. Recarga la pantalla y vuelve a ordenar.' });
+    }
+
+    const rutaIds = Array.from(new Set(filas.map((f) => f.ruta_id as number)));
+    const rutas = await RutaInstalacion.findAll({ where: { id: { [Op.in]: rutaIds } }, attributes: ['id', 'estado'], transaction: t }) as any[];
+    const cerrada = rutas.find((r) => !RUTA_ABIERTA.includes(r.estado));
+    if (cerrada) {
+      await t.rollback();
+      return res.status(409).json({ error: `La ruta #${cerrada.id} ya está ${ESTADO_RUTA_TEXTO[cerrada.estado] ?? cerrada.estado}. Recarga la pantalla y vuelve a ordenar.` });
+    }
+
+    const delDia = await RutaODP.count({ where: { ruta_id: { [Op.in]: rutaIds }, fecha_programada: fecha }, transaction: t });
+    if (delDia !== ids.length) {
+      await t.rollback();
+      return res.status(409).json({ error: 'Se agregaron o quitaron paradas de este día mientras ordenabas. Recarga la pantalla y vuelve a ordenar.' });
+    }
+
+    // Las paradas que ya no están pendientes van fijas al principio: si una aparece
+    // después de una pendiente, es que arrancó mientras el jefe ordenaba.
+    let vistaPendiente = false;
+    for (const id of ids) {
+      const f = porId.get(id);
+      if (f.estado === 'pendiente') { vistaPendiente = true; continue; }
+      if (vistaPendiente) {
+        const odp = await ODP.findByPk(f.odp_id, { attributes: ['numero_odp'], transaction: t }) as any;
+        await t.rollback();
+        return res.status(409).json({ error: `${odp?.numero_odp ?? 'Una parada'} ya inició o cambió de estado y no se puede mover. Recarga la pantalla y vuelve a ordenar.` });
+      }
+    }
+
+    // Solo se escriben las filas que cambian: la auditoría registra movimientos reales.
+    let cambiadas = 0;
+    for (const [i, id] of ids.entries()) {
+      const f = porId.get(id);
+      if (f.orden !== i + 1) {
+        await f.update({ orden: i + 1 }, { transaction: t });
+        cambiadas += 1;
+      }
+    }
+
+    await t.commit();
+    if (cambiadas) emitirCambioRutas();
+    res.json({ ok: true, cambiadas });
+  } catch (e: any) {
+    await t.rollback();
+    console.error('ordenarDia:', e.message);
+    res.status(500).json({ error: 'No se pudo guardar el orden de las paradas. Ningún cambio quedó guardado; intenta de nuevo.' });
+  }
+};
+
+// ─── Recorridos del camión (pestaña "Recorridos" de Instalaciones) ──────────
+// Un mismo conductor atiende varias rutas el mismo día e intercala sus paradas
+// (instalador A → acarreo → instalador B). `orden` es el orden de los instaladores;
+// `orden_conductor` es el del camión. NULL = sin organizar: se usa `orden`.
+// El avance es por llegadas registradas (`llegada_conductor`), no por GPS.
+
+const recorridosSchema = z.object({ fecha: FECHA_ISO.optional() }).strict();
+
+// Rutas abiertas (programadas o en curso) CON conductor y con paradas de ese día (decisión
+// del usuario, 2026-10-08): sin las completadas, las canceladas ni las rutas sin conductor.
+// En curso se queda para que se vea al camión avanzar.
+export const getRecorridos = async (req: Request, res: Response) => {
+  try {
+    const parsed = recorridosSchema.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: mensajeZod(parsed.error) });
+    const fecha = parsed.data.fecha ?? hoyBogotaISO();
+
+    const rutas = await RutaInstalacion.findAll({
+      where: { estado: { [Op.in]: RUTA_ABIERTA }, conductor_id: { [Op.ne]: null } },
+      attributes: ['id', 'estado', 'conductor_id', 'inicio_ruta', 'fin_ruta'],
+      include: [
+        { model: Usuario, as: 'conductor', attributes: ['id', 'nombre_completo'] },
+        { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo'] },
+        { model: Vehiculo, as: 'vehiculo', attributes: ['id', 'placa', 'tipo'] },
+        {
+          model: RutaODP, as: 'ruta_odps',
+          where: { fecha_programada: fecha },
+          required: true,
+          attributes: ['id', 'ruta_id', 'orden', 'orden_conductor', 'fecha_programada', 'estado',
+            'llegada_conductor', 'inicio_instalacion', 'fin_instalacion'],
+          include: [{
+            model: ODP, as: 'odp',
+            attributes: ['id', 'numero_odp', 'direccion_instalacion', 'instalacion', 'acarreo',
+              'es_garantia', 'es_no_conformidad', 'estado_caja', 'autorizacion_especial_despacho',
+              'forma_pago', 'estado_facturacion'],
+            include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
+          }],
+        },
+      ],
+      order: [['id', 'ASC']],
+    });
+    res.json({ fecha, rutas });
+  } catch (e: any) {
+    console.error('getRecorridos:', e.message);
+    res.status(500).json({ error: 'No se pudieron cargar los recorridos del día. Intenta de nuevo en un momento.' });
+  }
+};
+
+// Una parada del recorrido se puede mover si el camión aún no llegó, la instalación no
+// terminó y su ruta sigue abierta. Las demás van fijas al principio.
+const movibleEnRecorrido = (p: any, rutaEstado: string): boolean =>
+  !p.llegada_conductor && (p.estado === 'pendiente' || p.estado === 'en_curso') && RUTA_ABIERTA.includes(rutaEstado);
+
+const ordenarConductorSchema = z.object({
+  fecha: FECHA_ISO,
+  conductor_id: z.number().int().positive(),
+  paradas: z.array(z.number().int().positive())
+    .min(1, 'No hay paradas para ordenar.')
+    .refine((ids) => new Set(ids).size === ids.length, 'Una parada aparece dos veces.'),
+}).strict();
+
+export const ordenarConductor = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const parsed = ordenarConductorSchema.safeParse(req.body);
+    if (!parsed.success) { await t.rollback(); return res.status(400).json({ error: mensajeZod(parsed.error) }); }
+    const { fecha, conductor_id, paradas: ids } = parsed.data;
+    const recargar = 'Recarga la pantalla y vuelve a ordenar.';
+
+    const filas = await RutaODP.findAll({
+      where: { id: { [Op.in]: ids } },
+      order: [['id', 'ASC']],
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    }) as any[];
+    if (filas.length !== ids.length) {
+      await t.rollback();
+      return res.status(409).json({ error: `Una de las paradas ya no existe (la quitaron de su ruta). ${recargar}` });
+    }
+    if (filas.some((f) => String(f.fecha_programada).slice(0, 10) !== fecha)) {
+      await t.rollback();
+      return res.status(409).json({ error: `Una de las paradas cambió de fecha mientras ordenabas. ${recargar}` });
+    }
+
+    const rutaIds = Array.from(new Set(filas.map((f) => f.ruta_id as number)));
+    const rutas = await RutaInstalacion.findAll({ where: { id: { [Op.in]: rutaIds } }, attributes: ['id', 'estado', 'conductor_id'], transaction: t }) as any[];
+    const estadoRuta = new Map<number, string>(rutas.map((r) => [r.id, r.estado]));
+    const ajena = rutas.find((r) => r.conductor_id !== conductor_id || !RUTA_ABIERTA.includes(r.estado));
+    if (ajena) {
+      await t.rollback();
+      return res.status(409).json({ error: `La ruta #${ajena.id} ya no está asignada a este conductor o ya se cerró. ${recargar}` });
+    }
+
+    // La lista debe traer TODO el recorrido del día del conductor: si faltara una parada,
+    // su número viejo chocaría con los nuevos.
+    const [{ n }] = await sequelize.query(
+      `SELECT count(*)::int AS n FROM ruta_odp ro
+         JOIN rutas_instalacion r ON r.id = ro.ruta_id
+        WHERE r.conductor_id = :cid AND r.estado IN ('programada', 'en_curso') AND ro.fecha_programada = :fecha`,
+      { replacements: { cid: conductor_id, fecha }, type: QueryTypes.SELECT, transaction: t }
+    ) as Array<{ n: number }>;
+    if (n !== ids.length) {
+      await t.rollback();
+      return res.status(409).json({ error: `Se agregaron o quitaron paradas del recorrido mientras ordenabas. ${recargar}` });
+    }
+
+    const porId = new Map<number, any>(filas.map((f) => [f.id, f]));
+    let vistaMovible = false;
+    for (const id of ids) {
+      const f = porId.get(id);
+      if (movibleEnRecorrido(f, estadoRuta.get(f.ruta_id) ?? '')) { vistaMovible = true; continue; }
+      if (vistaMovible) {
+        const odp = await ODP.findByPk(f.odp_id, { attributes: ['numero_odp'], transaction: t }) as any;
+        await t.rollback();
+        return res.status(409).json({ error: `El camión ya pasó por ${odp?.numero_odp ?? 'una parada'} o esa parada cambió de estado; no se puede mover. ${recargar}` });
+      }
+    }
+
+    // Solo se escriben las filas que cambian: la auditoría registra movimientos reales.
+    let cambiadas = 0;
+    for (const [i, id] of ids.entries()) {
+      const f = porId.get(id);
+      if (f.orden_conductor !== i + 1) {
+        await f.update({ orden_conductor: i + 1 }, { transaction: t });
+        cambiadas += 1;
+      }
+    }
+
+    await t.commit();
+    if (cambiadas) emitirCambioRutas();
+    res.json({ ok: true, cambiadas });
+  } catch (e: any) {
+    await t.rollback();
+    console.error('ordenarConductor:', e.message);
+    res.status(500).json({ error: 'No se pudo guardar el recorrido del conductor. Ningún cambio quedó guardado; intenta de nuevo.' });
+  }
+};
+
 // ─── Vehículos disponibles ────────────────────────────────────────────────────
 
 export const getVehiculos = async (_req: Request, res: Response) => {
@@ -1130,7 +1355,10 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
       ],
       order: [
         [sequelize.literal(`CASE WHEN "RutaODP"."estado" = 'en_curso' THEN 0 ELSE 1 END`), 'ASC'],
+        // Fecha antes que orden: `orden` es la posición dentro del día del equipo (ordenarDia).
+        ['fecha_programada', 'ASC'],
         ['orden', 'ASC'],
+        ['id', 'ASC'],
       ],
     });
 
@@ -1716,7 +1944,9 @@ export const getAsignacionInstalador = async (req: Request, res: Response) => {
       ],
       order: [
         [sequelize.literal(`CASE WHEN "RutaODP"."estado" = 'en_curso' THEN 0 WHEN "RutaODP"."estado" = 'pausada' THEN 1 WHEN "RutaODP"."estado" = 'con_dano' THEN 2 ELSE 3 END`), 'ASC'],
+        ['fecha_programada', 'ASC'],
         ['orden', 'ASC'],
+        ['id', 'ASC'],
       ],
     });
 
