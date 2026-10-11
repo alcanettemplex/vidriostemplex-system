@@ -6847,3 +6847,12 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **backend:** `soloPlanosParaOperativos` en `cotizador/lib/permisos.ts`, montado tras `authMiddleware`; `odpDe()` en el store.
 - **Verificación:** `tsc` backend y frontend sin errores. En vivo, instalador y conductor: `/modulos` y `/cotizaciones?odpId=` 200; listado general, cotización sin ODP, plano de cotización sin ODP, catálogo, PDF, vínculos y cotizar → 403. Asesor comercial: todo 200. **No probado:** el plano de una cotización CON ODP para esos roles (hoy no existe ninguna en la base).
 - Sin commit (esperando orden del usuario).
+
+## 2026-10-11 (5) — Instalaciones: visor de documentos en el celular
+
+**Pedido del usuario:** en la vista de instalador los botones ODP, Ficha técnica y Det. SAP lanzan la impresión, que en el celular no es factible. Decisiones: visor solo en celular (< 768 px), instalador y conductor, sin botón imprimir en el celular.
+
+- **frontend:** `VisorDocumentos.tsx` (nuevo): pantalla completa con pestañas ODP · Ficha técnica · SAP · Det. SAP, mismos imprimibles escalados al ancho (zoom − / + / Ajustar), Det. SAP como galería de fotos con vista en grande. `printDocument.ts`: `esCelular()` y `ESTILOS_DOCUMENTO` compartidos. `InstaladorView` y `ConductorView` abren el visor en celular e imprimen como antes en computador.
+- **Bug corregido:** el Det. SAP del instalador se imprimía siempre sin fotos (`imagenes={[]}`); ahora las pide al imprimir (`renderToStaticMarkup`).
+- **Verificación:** `tsc` sin errores, el servidor de desarrollo compila sin advertencias. Por API con el token del instalador 73 (ODP G-0022): imágenes Det. SAP, cotizaciones de la ODP y módulos → 200. **No se probó en el navegador** (extensión de Chrome desconectada).
+- Sin commit (esperando orden del usuario).

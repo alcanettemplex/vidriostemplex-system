@@ -13,7 +13,8 @@ import PrintableProduccion from '../../odp/components/PrintableProduccion';
 import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
-import { abrirDocumento } from '../utils/printDocument';
+import { abrirDocumento as imprimirDocumento, esCelular, TipoDoc } from '../utils/printDocument';
+import VisorDocumentos from './VisorDocumentos';
 import { compararRecorrido, tipoServicio } from '../utils/estadoInstalacion';
 import { diaISO, fmtDia, fmtHora, hoyBogotaISO } from '../../../utils/fechas';
 import { useDataChangedSocket } from '../../../store/useSocketNotifications';
@@ -43,6 +44,12 @@ const ConductorView: React.FC = () => {
   const [finalizando, setFinalizando] = useState<number | null>(null);
   const [registrandoLlegada, setRegistrandoLlegada] = useState<number | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  /** Documento abierto en el visor del celular (2026-10-11): ahí no se imprime. */
+  const [visor, setVisor] = useState<{ odp: any; tipo: TipoDoc } | null>(null);
+  const abrirDocumento = useCallback((odp: any, tipo: TipoDoc) => {
+    if (esCelular()) setVisor({ odp, tipo });
+    else imprimirDocumento(odp, tipo);
+  }, []);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -162,7 +169,10 @@ const ConductorView: React.FC = () => {
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8 bg-slate-50/50 min-h-screen">
-      
+      {visor && (
+        <VisorDocumentos odp={visor.odp} sap={visor.odp?.saps?.[0]} tipoInicial={visor.tipo} onClose={() => setVisor(null)} />
+      )}
+
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="space-y-1">

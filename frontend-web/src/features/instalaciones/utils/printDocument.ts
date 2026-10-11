@@ -1,7 +1,7 @@
 import { toast } from 'react-toastify';
 import { abrirVentanaImpresion } from '../../../utils/printWindow';
 
-type TipoDoc = 'op' | 'tecnico' | 'sap';
+export type TipoDoc = 'op' | 'tecnico' | 'sap';
 
 export const abrirDocumento = (odp: any, tipo: TipoDoc) => {
   const contenidoId = tipo === 'op' ? `print-op-${odp.id}` :
@@ -26,10 +26,22 @@ export const abrirDocumento = (odp: any, tipo: TipoDoc) => {
     estilos: `
       @page { size: letter portrait; margin: 4mm; }
       body { font-family: sans-serif; }
-      .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
-      .excel-table th, .excel-table td { border: 1px solid #000; padding: 2px 4px; }
-      .excel-table th { font-weight: bold; text-align: center; }
-      .thick-b { border-bottom: 2px solid #000 !important; }
+      ${ESTILOS_DOCUMENTO}
     `,
   });
 };
+
+/** Tablas de los imprimibles de ODP. Los usan la ventana de impresión y el visor
+ * del celular (`VisorDocumentos`), para que la hoja se vea igual en los dos. */
+export const ESTILOS_DOCUMENTO = `
+  .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
+  .excel-table th, .excel-table td { border: 1px solid #000; padding: 2px 4px; }
+  .excel-table th { font-weight: bold; text-align: center; }
+  .thick-b { border-bottom: 2px solid #000 !important; }
+`;
+
+/** Celular (2026-10-11, decisión del usuario): ahí los documentos se VEN en un
+ * visor en vez de imprimirse —la ventana emergente se bloquea y la hoja carta sale
+ * diminuta—. En computador se sigue imprimiendo como siempre. */
+export const esCelular = (): boolean =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 767px)').matches;

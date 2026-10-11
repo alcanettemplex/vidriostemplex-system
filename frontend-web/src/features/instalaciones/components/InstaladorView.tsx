@@ -16,7 +16,9 @@ import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
 import PrintableDetSAP from '../../odp/components/PrintableDetSAP';
-import { abrirDocumento as abrirDocumentoPrint } from '../utils/printDocument';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { abrirDocumento as abrirDocumentoPrint, esCelular, ESTILOS_DOCUMENTO } from '../utils/printDocument';
+import VisorDocumentos, { TipoVisor } from './VisorDocumentos';
 import { abrirVentanaImpresion } from '../../../utils/printWindow';
 import { Images } from '../../../components/ui/icons';
 import { useDataChangedSocket } from '../../../store/useSocketNotifications';
@@ -37,6 +39,8 @@ const InstaladorView: React.FC = () => {
   const [pauseModal, setPauseModal] = useState<{ rutaODPId: number } | null>(null);
   const [pauseMotivo, setPauseMotivo] = useState('');
   const [busqueda, setBusqueda] = useState('');
+  /** Documento abierto en el visor del celular (2026-10-11). */
+  const [visor, setVisor] = useState<{ odp: any; tipo: TipoVisor } | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -89,22 +93,23 @@ const InstaladorView: React.FC = () => {
     } finally { setIniciando(null); }
   };
 
-  const abrirDocumentoConDetSap = async (odp: any, tipo: 'op' | 'tecnico' | 'sap' | 'det_sap') => {
+  const abrirDocumentoConDetSap = async (odp: any, tipo: TipoVisor) => {
+    // En el celular se VEN en el visor; imprimir desde ahí no es factible.
+    if (esCelular()) { setVisor({ odp, tipo }); return; }
     if (tipo === 'det_sap') {
       try {
-        const el = document.getElementById(`print-det-sap-${odp.id}`);
-        if (!el) { toast.error('Documento Det. SAP no disponible'); return; }
+        // Las fotos se piden al imprimir (2026-10-11): antes la hoja se armaba
+        // con `imagenes={[]}` y el Det. SAP del instalador salía siempre sin fotos.
+        const { data } = await axios.get(`${API}/api/detalle-sap-imagenes?odp_id=${odp.id}`).catch(() => ({ data: [] }));
         abrirVentanaImpresion({
           titulo: `Det. SAP ${odp.numero_odp}`,
-          contenidoHtml: el.innerHTML,
+          contenidoHtml: renderToStaticMarkup(<PrintableDetSAP odp={odp} imagenes={Array.isArray(data) ? data : []} />),
           ancho: 950,
           alto: 800,
           estilos: `
             @page { size: letter portrait; margin: 4mm; }
             body { font-family: sans-serif; }
-            .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
-            .excel-table th, .excel-table td { border: 1px solid #000; padding: 2px 4px; }
-            .excel-table th { font-weight: bold; text-align: center; }
+            ${ESTILOS_DOCUMENTO}
           `,
         });
       } catch { toast.error('Error al abrir Det. SAP'); }
@@ -302,6 +307,16 @@ const InstaladorView: React.FC = () => {
       </AnimatePresence>
 
       {/* MODAL FINALIZAR */}
+      {visor && (
+        <VisorDocumentos
+          odp={visor.odp}
+          sap={visor.odp?.saps?.[0]}
+          tipoInicial={visor.tipo}
+          conDetSap
+          onClose={() => setVisor(null)}
+        />
+      )}
+
       {finalizando && (
         <ReportarEntregaModal
           rutaODPId={finalizando.rutaODPId}
@@ -504,7 +519,6 @@ const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, onPausar, abri
         <div id={`print-op-${odp?.id}`}>{odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableProduccion odp={odp} />}</div>
         <div id={`print-tec-${odp?.id}`}><PrintableDetalleTecnico odp={odp} /></div>
         {sap && <div id={`print-sap-${odp?.id}`}><PrintableSAP odp={odp} sap={sap} /></div>}
-        <div id={`print-det-sap-${odp?.id}`}><PrintableDetSAP odp={odp} imagenes={[]} /></div>
       </div>
     </div>
   );
