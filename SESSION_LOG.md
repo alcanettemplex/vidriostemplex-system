@@ -6856,3 +6856,12 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **Bug corregido:** el Det. SAP del instalador se imprimía siempre sin fotos (`imagenes={[]}`); ahora las pide al imprimir (`renderToStaticMarkup`).
 - **Verificación:** `tsc` sin errores, el servidor de desarrollo compila sin advertencias. Por API con el token del instalador 73 (ODP G-0022): imágenes Det. SAP, cotizaciones de la ODP y módulos → 200. **No se probó en el navegador** (extensión de Chrome desconectada).
 - Sin commit (esperando orden del usuario).
+
+## 2026-10-11 (6) — Instalaciones: el instalador ve las fotos de la toma de medidas
+
+**Pedido del usuario:** que el instalador pueda ver las imágenes de la toma de medidas de la ODP, si las tiene.
+
+- Las fotos ya venían en `GET /api/rutas/mi-asignacion` (`odp.tomas_medidas[].medidas_json`): **solo frontend**, sin backend, BD ni egress nuevo.
+- **frontend:** `VisorDocumentos.tsx` — pestaña **Medidas** (fotos agrupadas por toma: TM-XXXX · fecha; tocar = en grande), `fotosDeTomas()`, galería compartida con Det. SAP (`ListaFotos`). `InstaladorView.tsx` — botón **"Medidas · N"** solo si hay fotos; abre el visor también en computador (son fotos, nada que imprimir). El conductor no cambia.
+- **Verificación:** `tsc` sin errores, sin advertencias. En BD, 184 de 187 tomas vinculadas a ODP tienen fotos y su formato es URL de Cloudinary (el que lee `fotosDeTomas`). Las 2 ODP asignadas hoy al instalador 73 no tienen toma de medidas (el botón no aparece ahí). **No probado en el navegador** (extensión desconectada).
+- Sin commit (esperando orden del usuario).

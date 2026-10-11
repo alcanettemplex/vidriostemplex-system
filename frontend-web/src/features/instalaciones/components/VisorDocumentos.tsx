@@ -1,12 +1,13 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { FileText, Images, Loader2, Minus, Plus, Printer, ShieldCheck, X } from '../../../components/ui/icons';
+import { Camera, FileText, Images, Loader2, Minus, Plus, Printer, ShieldCheck, X } from '../../../components/ui/icons';
 import PrintableProduccion from '../../odp/components/PrintableProduccion';
 import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
 import { ESTILOS_DOCUMENTO } from '../utils/printDocument';
 import API from '../../../services/config';
+import { fmtDia } from '../../../utils/fechas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Visor de documentos para el CELULAR (2026-10-11, decisión del usuario).
@@ -17,9 +18,22 @@ import API from '../../../services/config';
 // mantener), escalados al ancho de la pantalla, con zoom y desplazamiento. Det.
 // SAP son fotos: se muestran como galería y una se toca para verla en grande.
 // Sin botón de imprimir: en computador los botones siguen imprimiendo directo.
+// La pestaña Medidas (fotos de la toma de medidas, solo instalador) es la única
+// que se abre también en computador: son fotos, no hay nada que imprimir.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type TipoVisor = 'op' | 'tecnico' | 'sap' | 'det_sap';
+export type TipoVisor = 'op' | 'tecnico' | 'sap' | 'det_sap' | 'medidas';
+
+/** Fotos de las tomas de medidas de una ODP, agrupadas por toma. Vienen en el
+ * payload de `mi-asignacion` (`odp.tomas_medidas[].medidas_json`); solo cuentan
+ * las URLs, igual que en la ficha ODP (así las guarda `uploadFotoTM`). */
+export const fotosDeTomas = (odp: any): { titulo: string; fotos: string[] }[] =>
+  (Array.isArray(odp?.tomas_medidas) ? odp.tomas_medidas : [])
+    .map((tm: any) => ({
+      titulo: [tm.numero_tm, tm.fecha_visita ? fmtDia(tm.fecha_visita) : null].filter(Boolean).join(' · '),
+      fotos: Array.isArray(tm.medidas_json) ? tm.medidas_json.filter((f: unknown) => typeof f === 'string' && f) : [],
+    }))
+    .filter((g: { fotos: string[] }) => g.fotos.length > 0);
 
 interface Props {
   odp: any;
@@ -27,6 +41,8 @@ interface Props {
   tipoInicial: TipoVisor;
   /** Solo el instalador tiene el botón Det. SAP. */
   conDetSap?: boolean;
+  /** Solo el instalador ve las fotos de la toma de medidas (2026-10-11). */
+  conMedidas?: boolean;
   onClose: () => void;
 }
 
@@ -35,6 +51,7 @@ const PESTANAS: { id: TipoVisor; label: string; icon: React.ComponentType<{ clas
   { id: 'tecnico', label: 'Ficha técnica', icon: FileText },
   { id: 'sap', label: 'SAP', icon: ShieldCheck },
   { id: 'det_sap', label: 'Det. SAP', icon: Images },
+  { id: 'medidas', label: 'Medidas', icon: Camera },
 ];
 
 const ZOOM_MIN = 1;
@@ -79,10 +96,45 @@ const HojaEscalada: React.FC<{ zoom: number; children: React.ReactNode }> = ({ z
   );
 };
 
-/** Fotos del Det. SAP de la ODP, en lista; tocar una la abre en grande. */
+/** Fotos en lista, agrupadas con un título opcional; tocar una la abre en grande. */
+const ListaFotos: React.FC<{ grupos: { titulo?: string; fotos: string[] }[]; nombre: string }> = ({ grupos, nombre }) => {
+  const [abierta, setAbierta] = useState<string | null>(null);
+  return (
+    <>
+      <div className="space-y-4 p-3">
+        {grupos.map((g, gi) => (
+          <section key={`${g.titulo ?? ''}-${gi}`}>
+            {g.titulo && <h3 className="mb-2 text-[12px] font-bold uppercase tracking-wider text-slate-700">{g.titulo}</h3>}
+            <ul className="space-y-3">
+              {g.fotos.map((url, i) => (
+                <li key={`${url}-${i}`}>
+                  <button type="button" onClick={() => setAbierta(url)} className="block w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <img src={url} alt={`${nombre}, foto ${i + 1}`} className="w-full h-auto" loading="lazy" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+      {abierta && (
+        <div className="fixed inset-0 z-[70] bg-black/95 flex flex-col" role="dialog" aria-label="Foto en grande">
+          <button type="button" onClick={() => setAbierta(null)} className="self-end m-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-white/15 text-white" aria-label="Cerrar foto">
+            <X className="w-6 h-6" />
+          </button>
+          {/* `touch-action` por defecto: el pellizco del navegador amplía la foto. */}
+          <div className="flex-1 overflow-auto flex items-center justify-center p-2">
+            <img src={abierta} alt={nombre} className="max-w-none w-full h-auto" />
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+/** Fotos del Det. SAP de la ODP. */
 const GaleriaDetSap: React.FC<{ odpId: number }> = ({ odpId }) => {
   const [imagenes, setImagenes] = useState<{ id?: number; url: string }[] | null>(null);
-  const [abierta, setAbierta] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -98,34 +150,17 @@ const GaleriaDetSap: React.FC<{ odpId: number }> = ({ odpId }) => {
   if (imagenes.length === 0) {
     return <p className="py-16 text-center text-sm text-slate-700">Esta ODP no tiene fotos de Det. SAP.</p>;
   }
-  return (
-    <>
-      <ul className="space-y-3 p-3">
-        {imagenes.map((img, i) => (
-          <li key={img.id ?? img.url}>
-            <button type="button" onClick={() => setAbierta(img.url)} className="block w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <img src={img.url} alt={`Det. SAP, foto ${i + 1}`} className="w-full h-auto" loading="lazy" />
-            </button>
-          </li>
-        ))}
-      </ul>
-      {abierta && (
-        <div className="fixed inset-0 z-[70] bg-black/95 flex flex-col" role="dialog" aria-label="Foto en grande">
-          <button type="button" onClick={() => setAbierta(null)} className="self-end m-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-white/15 text-white" aria-label="Cerrar foto">
-            <X className="w-6 h-6" />
-          </button>
-          {/* `touch-action` por defecto: el pellizco del navegador amplía la foto. */}
-          <div className="flex-1 overflow-auto flex items-center justify-center p-2">
-            <img src={abierta} alt="Det. SAP" className="max-w-none w-full h-auto" />
-          </div>
-        </div>
-      )}
-    </>
-  );
+  return <ListaFotos grupos={[{ fotos: imagenes.map(i => i.url) }]} nombre="Det. SAP" />;
 };
 
-const VisorDocumentos: React.FC<Props> = ({ odp, sap, tipoInicial, conDetSap = false, onClose }) => {
-  const disponibles = PESTANAS.filter(p => (p.id === 'sap' ? Boolean(sap) : p.id === 'det_sap' ? conDetSap : true));
+const VisorDocumentos: React.FC<Props> = ({ odp, sap, tipoInicial, conDetSap = false, conMedidas = false, onClose }) => {
+  const medidas = conMedidas ? fotosDeTomas(odp) : [];
+  const disponibles = PESTANAS.filter(p => (
+    p.id === 'sap' ? Boolean(sap)
+      : p.id === 'det_sap' ? conDetSap
+        : p.id === 'medidas' ? medidas.length > 0
+          : true
+  ));
   const [tipo, setTipo] = useState<TipoVisor>(disponibles.some(p => p.id === tipoInicial) ? tipoInicial : 'op');
   const [zoom, setZoom] = useState(1);
 
@@ -137,7 +172,7 @@ const VisorDocumentos: React.FC<Props> = ({ odp, sap, tipoInicial, conDetSap = f
   }, []);
 
   const cambiarTipo = (t: TipoVisor) => { setTipo(t); setZoom(1); };
-  const esHoja = tipo !== 'det_sap';
+  const esHoja = tipo !== 'det_sap' && tipo !== 'medidas';
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-100 flex flex-col" role="dialog" aria-modal="true" aria-label={`Documentos de ${odp?.numero_odp ?? 'la ODP'}`}>
@@ -182,6 +217,8 @@ const VisorDocumentos: React.FC<Props> = ({ odp, sap, tipoInicial, conDetSap = f
               {tipo === 'sap' && sap && <PrintableSAP odp={odp} sap={sap} />}
             </HojaEscalada>
           </div>
+        ) : tipo === 'medidas' ? (
+          <ListaFotos grupos={medidas} nombre="Toma de medidas" />
         ) : (
           <GaleriaDetSap odpId={odp.id} />
         )}

@@ -18,7 +18,7 @@ import PrintableSAP from '../../odp/components/PrintableSAP';
 import PrintableDetSAP from '../../odp/components/PrintableDetSAP';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { abrirDocumento as abrirDocumentoPrint, esCelular, ESTILOS_DOCUMENTO } from '../utils/printDocument';
-import VisorDocumentos, { TipoVisor } from './VisorDocumentos';
+import VisorDocumentos, { TipoVisor, fotosDeTomas } from './VisorDocumentos';
 import { abrirVentanaImpresion } from '../../../utils/printWindow';
 import { Images } from '../../../components/ui/icons';
 import { useDataChangedSocket } from '../../../store/useSocketNotifications';
@@ -94,8 +94,9 @@ const InstaladorView: React.FC = () => {
   };
 
   const abrirDocumentoConDetSap = async (odp: any, tipo: TipoVisor) => {
-    // En el celular se VEN en el visor; imprimir desde ahí no es factible.
-    if (esCelular()) { setVisor({ odp, tipo }); return; }
+    // En el celular se VEN en el visor; imprimir desde ahí no es factible. Las
+    // fotos de la toma de medidas se ven en el visor también en computador.
+    if (esCelular() || tipo === 'medidas') { setVisor({ odp, tipo }); return; }
     if (tipo === 'det_sap') {
       try {
         // Las fotos se piden al imprimir (2026-10-11): antes la hoja se armaba
@@ -313,6 +314,7 @@ const InstaladorView: React.FC = () => {
           sap={visor.odp?.saps?.[0]}
           tipoInicial={visor.tipo}
           conDetSap
+          conMedidas
           onClose={() => setVisor(null)}
         />
       )}
@@ -382,6 +384,8 @@ const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, onPausar, abri
   const enCurso = item.estado === 'en_curso';
   const completada = item.estado === 'completada';
   const sap = odp?.saps?.[0];
+  // Fotos de la toma de medidas (2026-10-11): ya vienen en `mi-asignacion`.
+  const fotosMedidas = fotosDeTomas(odp).reduce((n, g) => n + g.fotos.length, 0);
   const esOficial = item.ruta?.oficial?.id === currentUserId;
 
   const telefono = odp?.telefono_recibe || odp?.cliente?.celular || odp?.cliente?.telefono;
@@ -479,6 +483,9 @@ const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, onPausar, abri
               <DocBtn icon={FileText} label="Ficha Técnica" onClick={() => abrirDoc(odp, 'tecnico')} />
               {sap && <DocBtn icon={ShieldCheck} label="SAP" color="indigo" onClick={() => abrirDoc(odp, 'sap')} />}
               <DocBtn icon={Images} label="Det. SAP" color="violet" onClick={() => abrirDoc(odp, 'det_sap')} />
+              {fotosMedidas > 0 && (
+                <DocBtn icon={Camera} label={`Medidas · ${fotosMedidas}`} color="emerald" onClick={() => abrirDoc(odp, 'medidas')} />
+              )}
             </div>
             )}
           </div>
@@ -528,6 +535,7 @@ const DocBtn = ({ icon: Icon, label, onClick, color = 'slate' }: any) => (
   <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all
     ${color === 'indigo' ? 'border-indigo-200 text-indigo-800 bg-indigo-50 hover:bg-indigo-100' :
       color === 'violet' ? 'border-violet-200 text-violet-800 bg-violet-50 hover:bg-violet-100' :
+      color === 'emerald' ? 'border-emerald-200 text-emerald-800 bg-emerald-50 hover:bg-emerald-100' :
       'border-slate-300 text-slate-900 bg-white hover:bg-slate-50' }`}>
     <Icon className="w-4 h-4" /> {label}
   </button>
