@@ -74,7 +74,7 @@ import {
   recalcularCategoria,
 } from '../controllers/cotizador_multiplicadores.controller';
 
-import { exigirDuenoParaEscribir, puedeCrear, soloControlTotal } from '../cotizador/lib/permisos';
+import { exigirDuenoParaEscribir, puedeCrear, soloControlTotal, soloPlanosParaOperativos } from '../cotizador/lib/permisos';
 
 const router = Router();
 
@@ -84,6 +84,8 @@ const router = Router();
 // calibración, precios y costos son solo de control total. El rol de solo
 // lectura global (marketing) lo sigue cortando `authMiddleware`.
 router.use(authMiddleware);
+// Instalador y conductor (2026-10-11): solo los planos del Detalle Técnico de su ODP.
+router.use(soloPlanosParaOperativos);
 
 // Estado y recarga van ANTES del gate de disponibilidad: son las únicas rutas
 // que deben poder responder aunque la caché del cotizador esté caída.

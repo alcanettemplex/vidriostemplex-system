@@ -86,10 +86,12 @@ const router = createBrowserRouter(
             <Route element={<RoleRoute allowedRoles={rolesDeRuta('/proveedores')} />}>
               <Route path="/proveedores" element={<ProveedoresPage />} />
             </Route>
-            {/* Cotizador — integrado al ERP desde el 2026-09-27: todos los roles lo VEN;
-                quién crea, edita o administra lo decide features/cotizador/permisos.ts
-                (y lo impone el backend). */}
-            <Route path="/cotizador" element={<CotizadorPage />} />
+            {/* Cotizador — integrado al ERP desde el 2026-09-27: lo ven todos menos
+                instalador y conductor (2026-10-11); quién crea, edita o administra lo
+                decide features/cotizador/permisos.ts (y lo impone el backend). */}
+            <Route element={<RoleRoute allowedRoles={rolesDeRuta('/cotizador')} />}>
+              <Route path="/cotizador" element={<CotizadorPage />} />
+            </Route>
             <Route element={<RoleRoute allowedRoles={rolesDeRuta('/inventario')} />}>
               <Route path="/inventario" element={<InventarioPage />} />
             </Route>

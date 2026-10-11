@@ -107,10 +107,17 @@ export const MENU_ITEMS_CONFIG: ItemMenu[] = [
     roles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'asistente_administrativo'],
   },
   {
-    // Integrado al ERP (2026-09-27): todos lo ven; quién crea o edita lo decide
-    // features/cotizador/permisos.ts (y lo impone el backend).
+    // Integrado al ERP (2026-09-27); quién crea o edita lo decide
+    // features/cotizador/permisos.ts (y lo impone el backend). Todos lo ven MENOS
+    // instalador y conductor (2026-10-11, decisión del usuario): el backend solo
+    // les deja leer los planos del Detalle Técnico de su ODP.
     text: 'Cotizador', descripcion: 'Cotizaciones de ventanas, puertas y vidrios',
-    icon: FileSpreadsheet, path: '/cotizador', area: 'comercial', roles: 'todos', paraRoot: true,
+    icon: FileSpreadsheet, path: '/cotizador', area: 'comercial',
+    roles: [
+      'admin', 'gerencia', 'gerente', 'jefe_produccion', 'asesor_comercial', 'asistente_administrativo',
+      'produccion', 'auxiliar_produccion', 'taller', 'contabilidad', 'compras', 'marketing',
+    ],
+    paraRoot: true,
     claves: 'cotizacion precios presupuesto',
   },
   {

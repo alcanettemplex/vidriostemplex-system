@@ -6838,3 +6838,12 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **pruebas:** caso nuevo en `detalleComercial.test.ts`.
 - **Verificación:** `tsc` backend sin errores; `npm run test:cotizador` completo con el backend dev abajo: **276/276** (incluye la instalación por propuesta).
 - Commit y push por orden del usuario.
+
+## 2026-10-11 (4) — Cotizador: fuera para instalador y conductor
+
+**Pedido del usuario:** que instalador y conductor no vean el módulo. Decisión: módulo + API, salvo los planos del Detalle Técnico de su ODP.
+
+- **frontend:** `navegacion.ts` (`/cotizador` con lista de roles sin instalador/conductor) y `AppRoutes.tsx` (ruta envuelta en `RoleRoute`).
+- **backend:** `soloPlanosParaOperativos` en `cotizador/lib/permisos.ts`, montado tras `authMiddleware`; `odpDe()` en el store.
+- **Verificación:** `tsc` backend y frontend sin errores. En vivo, instalador y conductor: `/modulos` y `/cotizaciones?odpId=` 200; listado general, cotización sin ODP, plano de cotización sin ODP, catálogo, PDF, vínculos y cotizar → 403. Asesor comercial: todo 200. **No probado:** el plano de una cotización CON ODP para esos roles (hoy no existe ninguna en la base).
+- Sin commit (esperando orden del usuario).

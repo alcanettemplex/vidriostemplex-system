@@ -73,3 +73,40 @@ export async function exigirDuenoParaEscribir(req: Request, res: Response, next:
     return res.status(500).json({ error: 'No se pudo comprobar el permiso sobre la cotización.' });
   }
 }
+
+// ─── Instalador y conductor (2026-10-11, decisión del usuario) ───────────────
+// No ven el módulo (fuera del menú y de la ruta). Del Cotizador solo conservan lo
+// que pide el Detalle Técnico de la ODP que imprimen (`PlanosCotizacionODP`): la
+// cotización de una ODP, su plano y su despiece. Todo lo demás —cotizar, el
+// catálogo, el PDF con precios, el listado general, escribir— se les niega.
+
+export const ROLES_SIN_COTIZADOR: ReadonlySet<string> = new Set(['instalador', 'conductor']);
+
+const MENSAJE_SIN_COTIZADOR = 'El Cotizador no está disponible para tu rol.';
+/** `/cotizaciones/:id`, `/cotizaciones/:id/items/:itemId/plano` y `/despiece`. */
+const RUTA_COTIZACION_DE_ODP = /^\/cotizaciones\/(\d+)(?:\/items\/\d+\/(?:plano|despiece))?\/?$/;
+
+export async function soloPlanosParaOperativos(req: Request, res: Response, next: NextFunction) {
+  const rol = String((req as Request & { user?: { rol?: string } }).user?.rol ?? '').toLowerCase();
+  if (!ROLES_SIN_COTIZADOR.has(rol)) return next();
+  if (req.method !== 'GET') return res.status(403).json({ error: MENSAJE_SIN_COTIZADOR });
+
+  const ruta = req.path;
+  if (ruta === '/modulos' || ruta === '/estado') return next();
+  // El listado solo filtrado por una ODP (la sección de cotizaciones de la ficha).
+  if (ruta === '/cotizaciones' || ruta === '/cotizaciones/') {
+    return typeof req.query.odpId === 'string' && /^\d+$/.test(req.query.odpId)
+      ? next()
+      : res.status(403).json({ error: MENSAJE_SIN_COTIZADOR });
+  }
+  const m = RUTA_COTIZACION_DE_ODP.exec(ruta);
+  if (!m) return res.status(403).json({ error: MENSAJE_SIN_COTIZADOR });
+  try {
+    // Solo cotizaciones que ya tienen ODP: las que pueden salir en un Detalle Técnico.
+    if ((await store.odpDe(Number(m[1]))) === null) return res.status(403).json({ error: MENSAJE_SIN_COTIZADOR });
+    return next();
+  } catch (e) {
+    console.error('soloPlanosParaOperativos:', e instanceof Error ? e.message : e);
+    return res.status(500).json({ error: 'No se pudo comprobar el permiso sobre la cotización.' });
+  }
+}

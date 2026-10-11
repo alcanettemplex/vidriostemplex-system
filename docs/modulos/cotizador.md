@@ -12,6 +12,11 @@ integración al final). Hasta ese día estuvo aislado y solo para `root` / `admi
 - **Propias** (asesor_comercial, asistente_administrativo): ven todo y crean, pero editan solo las
   suyas.
 - **Lectura**: el resto de roles.
+- **Sin módulo — instalador y conductor** (2026-10-11, decisión del usuario): fuera del menú y de la
+  ruta (`navegacion.ts` + `<RoleRoute>`). En el backend, `soloPlanosParaOperativos` (`lib/permisos.ts`,
+  primer middleware tras `authMiddleware`) solo les deja `GET /modulos`, `GET /cotizaciones?odpId=…` y,
+  de una cotización **vinculada a una ODP**, `GET /cotizaciones/:id` y el plano y despiece de sus ítems:
+  es lo que pide el Detalle Técnico que imprimen (`PlanosCotizacionODP`). Todo lo demás, 403.
 
 **Costos de compra: solo control total** (2026-09-29). `GET /catalogo` omite `costo_unitario` para
 los demás roles y `GET /catalogo-general` (que devuelve proveedor y precio de compra) exige

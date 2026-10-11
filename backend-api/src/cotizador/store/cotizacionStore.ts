@@ -1183,6 +1183,13 @@ async function nombreUsuario(id: number | undefined | null, t: Transaction): Pro
   return ((filas as { nombre?: string }[])[0]?.nombre ?? null) || null;
 }
 
+/** ODP vinculada a una cotización (null = sin ODP o no existe). Para el guardia
+ * de instalador y conductor, que solo leen cotizaciones de una ODP. */
+export async function odpDe(id: number): Promise<number | null> {
+  const fila = (await CotizadorCotizacion.findByPk(id, { attributes: ['odp_id'], raw: true })) as Fila | null;
+  return fila?.odp_id ?? null;
+}
+
 /** Dueño de una cotización, para los permisos (null = sin dueño: anterior al 2026-09-27). */
 export async function duenoDe(id: number): Promise<{ existe: boolean; asesorUsuarioId: number | null }> {
   const fila = (await CotizadorCotizacion.findByPk(id, { attributes: ['id', 'asesor_usuario_id'], raw: true })) as Fila | null;
