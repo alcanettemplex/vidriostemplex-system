@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import { requireRole } from '../middlewares/rbacMiddleware';
 import {
   estadoCotizador,
   recargarCotizador,
@@ -131,7 +132,13 @@ router.post('/catalogo-general/importar', soloControlTotal, importarDesdeCatalog
 router.get('/vinculos/buscar', buscarVinculos);
 router.get('/vinculos/asesores', listarAsesoresCotizador);
 router.post('/vinculos/lead-rapido', puedeCrear, crearLeadRapido);
-router.get('/vinculos/lead/:id/contexto', obtenerContextoLead);
+// El contexto del lead es dato del CRM: mismos roles que leen un lead en
+// `/api/crm/:id` (2026-10-11; antes lo leía cualquier autenticado).
+router.get(
+  '/vinculos/lead/:id/contexto',
+  requireRole('asesor_comercial', 'admin', 'gerencia', 'root', 'asistente_administrativo', 'jefe_produccion', 'marketing'),
+  obtenerContextoLead
+);
 router.get('/vinculos/:tipo/:id', obtenerVinculo);
 
 // Toda escritura sobre una cotización exige ser su asesor o control total.

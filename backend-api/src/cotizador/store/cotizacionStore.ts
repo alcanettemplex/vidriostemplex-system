@@ -52,8 +52,10 @@ import {
   totalDeCargo,
   type CargoParaTotales,
   type ItemParaCargos,
+  type OpcionInstalacion,
   type TipoCargo,
 } from '../lib/cargos';
+import { descripcionComercial } from '../lib/detalleComercial';
 import { calcularItem, getModulo } from '../modules/registry';
 import { sincronizarLeadAlAprobar, sincronizarLeadAlCotizar, sincronizarLeadAlPerder } from '../lib/vinculos';
 import { validezDeCotizaciones } from '../lib/validezOferta';
@@ -108,6 +110,10 @@ export interface PropuestaEntrada {
    * arreglo vacío = el vendedor decidió que no lleva cargos. AUSENTE ≠ VACÍO,
    * la misma invariante que defiende la calibración del módulo. */
   cargos?: CargoEntrada[];
+  /** Instalación de la propuesta (2026-10-11). Ausente = forma nueva sin
+   * instalación (así nace una propuesta). `null` = forma anterior, con la
+   * casilla por producto: solo la usan las copias de una propuesta anterior. */
+  instalacion?: OpcionInstalacion | null;
 }
 
 /** A qué registro del ERP pertenece la cotización (2026-09-27). Obligatorio al
@@ -363,6 +369,9 @@ function aPropuesta(fila: Fila, cargos: Fila[] | null, items: Fila[] | null) {
     elegida: fila.elegida,
     descuentoPct: fila.descuento_pct,
     legadoCargosEnItems: fila.legado_cargos_en_items,
+    // null = propuesta anterior al 2026-10-11 (casilla por producto).
+    conInstalacion: fila.con_instalacion ?? null,
+    instalacionValorManual: fila.instalacion_valor_manual ?? null,
     totales: {
       productos: fila.total_productos,
       manoObra: fila.total_mano_obra ?? 0,
@@ -831,9 +840,10 @@ function claveManoObra(c: { tipo: unknown; descripcion: unknown; cantidad: unkno
  * algo. Van después de los cargos manuales (orden 100+) para que el panel y el
  * PDF las muestren juntas.
  */
-async function sincronizarManoObra(propuestaId: number, items: Fila[], t: Transaction) {
+async function sincronizarManoObra(propuestaId: number, items: Fila[], t: Transaction, instalacion?: OpcionInstalacion) {
   const nuevas = calcularManoObraProductos(
-    items.map((f): ItemParaCargos => ({ moduloId: f.modulo_id, input: f.input ?? {} }))
+    items.map((f): ItemParaCargos => ({ moduloId: f.modulo_id, input: f.input ?? {} })),
+    instalacion
   );
   const existentes = (await CotizadorPropuestaCargo.findAll({
     where: { propuesta_id: propuestaId, tipo: ['ENSAMBLE', 'INSTALACION'] },
@@ -853,6 +863,51 @@ async function sincronizarManoObra(propuestaId: number, items: Fila[], t: Transa
       { propuesta_id: propuestaId, ...filaCargo(c as CargoEntrada, 100 + i) } as Fila,
       { transaction: t }
     );
+  }
+}
+
+// ─── Instalación como cargo de la obra (2026-10-11) ─────────────────────────
+
+/** La instalación de una fila de propuesta. `undefined` = forma anterior
+ * (`con_instalacion` NULL): manda la casilla de cada producto. */
+function instalacionDe(propuesta: Fila | null | undefined): OpcionInstalacion | undefined {
+  if (!propuesta || propuesta.con_instalacion === null || propuesta.con_instalacion === undefined) return undefined;
+  const manual = propuesta.instalacion_valor_manual;
+  return {
+    activa: Boolean(propuesta.con_instalacion),
+    valorManual: manual === null || manual === undefined ? null : Number(manual),
+  };
+}
+
+/**
+ * Sella en un ítem la casilla de la propuesta: `input.conInstalacion` y la frase
+ * "Suministro e instalación de…" / "Suministro de…" de su `resultado`. No pasa
+ * por el motor: la instalación no toca ni el precio del producto ni el despiece.
+ * Un ítem sin la casilla (ítem libre) queda igual.
+ */
+function sellarItem<T extends { moduloId?: string | null; input?: Record<string, unknown> | null; resultado?: Fila | null }>(
+  it: T,
+  activa: boolean
+): T {
+  if (!it.input || !('conInstalacion' in it.input) || it.input.conInstalacion === activa) return it;
+  const input = { ...it.input, conInstalacion: activa };
+  const resultado = it.resultado && typeof it.resultado === 'object' && 'descripcionComercial' in it.resultado
+    ? { ...it.resultado, descripcionComercial: descripcionComercial(it.moduloId ?? '', input, it.resultado) }
+    : it.resultado;
+  return { ...it, input, resultado };
+}
+
+/** Reescribe la casilla en los ítems YA guardados de una propuesta (al marcar o
+ * desmarcar Instalación). Uno a uno, solo los que cambian: cada fila está auditada. */
+async function sellarItemsGuardados(propuestaId: number, activa: boolean, t: Transaction) {
+  const filas = (await CotizadorCotizacionItem.findAll({
+    where: { propuesta_id: propuestaId },
+    transaction: t,
+  })) as unknown as Array<Fila & { update: (v: Fila, o: Fila) => Promise<unknown> }>;
+  for (const f of filas) {
+    const sellado = sellarItem({ moduloId: f.modulo_id, input: f.input, resultado: f.resultado }, activa);
+    if (sellado.input === f.input) continue;
+    await f.update({ input: sellado.input, resultado: sellado.resultado }, { transaction: t });
   }
 }
 
@@ -878,7 +933,7 @@ async function recalcularPropuesta(propuestaId: number, t: Transaction) {
     transaction: t,
   })) as unknown as Fila[];
 
-  if (!legado) await sincronizarManoObra(propuestaId, items, t);
+  if (!legado) await sincronizarManoObra(propuestaId, items, t, instalacionDe(propuesta));
 
   const cargos = (await CotizadorPropuestaCargo.findAll({
     where: { propuesta_id: propuestaId },
@@ -1033,6 +1088,10 @@ async function crearPropuestaInterna(
   t: Transaction
 ): Promise<number> {
   const ahora = new Date();
+  // Instalación (2026-10-11): una propuesta nueva nace en la forma nueva y SIN
+  // instalación (decisión del usuario). `null` explícito = copia de una anterior.
+  const instalacion: OpcionInstalacion | null =
+    entrada.instalacion === null ? null : (entrada.instalacion ?? { activa: false, valorManual: null });
   const propuesta = (await CotizadorPropuesta.create(
     {
       cotizacion_id: cotizacionId,
@@ -1042,13 +1101,15 @@ async function crearPropuestaInterna(
       elegida: Boolean(entrada.elegida),
       descuento_pct: Number(entrada.descuentoPct) || 0,
       legado_cargos_en_items: false,
+      con_instalacion: instalacion ? instalacion.activa : null,
+      instalacion_valor_manual: instalacion?.valorManual ?? null,
       creada_en: ahora,
       actualizada_en: ahora,
     } as Fila,
     { transaction: t }
   )) as unknown as Fila;
 
-  const items = entrada.items ?? [];
+  const items = instalacion ? (entrada.items ?? []).map((it) => sellarItem(it, instalacion.activa)) : (entrada.items ?? []);
   for (const [i, it] of items.entries()) {
     await CotizadorCotizacionItem.create(
       {
@@ -1164,6 +1225,10 @@ export async function crear(datos: CotizacionEntrada, { usuarioId }: { usuarioId
         numero,
         version: 1,
         estado: datos.estado ?? 'PENDIENTE',
+        // Fechas de cierre también al nacer cerrada (lo hacen los scripts, no la
+        // pantalla); sin ellas las métricas del Dashboard no la cuentan.
+        ...(datos.estado === 'APROBADA' ? { aprobada_en: ahora } : {}),
+        ...(datos.estado === 'PERDIDO' ? { perdida_en: ahora } : {}),
         creada_en: ahora,
         actualizada_en: ahora,
         cliente_nombre: datos.cliente?.nombre ?? '',
@@ -1225,6 +1290,7 @@ export async function actualizar(
     ligero = false,
     usuarioId,
     marcarLeadPerdido = false,
+    puedeDesaprobarConOdp = false,
   }: {
     versionEsperada?: number;
     ligero?: boolean;
@@ -1232,11 +1298,16 @@ export async function actualizar(
     usuarioId?: number;
     /** Respuesta a "¿Marcar también el lead como perdido?" al perder la cotización. */
     marcarLeadPerdido?: boolean;
+    /** Control total: puede quitar la aprobación aunque ya haya ODP (2026-10-11). */
+    puedeDesaprobarConOdp?: boolean;
   } = {}
 ) {
   const t = await sequelize.transaction();
   try {
-    const cot = (await CotizadorCotizacion.findByPk(id, { transaction: t })) as Fila | null;
+    // FOR UPDATE: sin el bloqueo, dos autoguardados simultáneos leen la misma
+    // `version`, los dos pasan el control de `versionEsperada` y el segundo pisa
+    // al primero sin aviso — justo lo que ese control existe para impedir.
+    const cot = (await CotizadorCotizacion.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE })) as Fila | null;
     if (!cot) {
       await t.rollback();
       return null;
@@ -1257,6 +1328,24 @@ export async function actualizar(
         409,
         'Esta cotización cambió en otra ventana o en otro equipo. Ábrela de nuevo desde "Mis cotizaciones" ' +
           'para ver la última versión antes de seguir editando.'
+      );
+    }
+
+    // Quitar la aprobación con la ODP ya creada (2026-10-11, decisión del
+    // usuario): solo control total, y con aviso. La ODP (valor, descripción), la
+    // SAP traída y el monto del lead NO se recalculan si después cambian los
+    // ítems: quien la reabre asume ajustarlos a mano.
+    const avisosODP: string[] = [];
+    if (cot.odp_id && antes.estado === 'APROBADA' && datos.estado !== undefined && datos.estado !== 'APROBADA') {
+      if (!puedeDesaprobarConOdp) {
+        throw new ErrorCotizador(
+          403,
+          'Esta cotización ya tiene ODP: solo un administrador puede quitarle la aprobación. ' +
+            'Si hay que cambiar algo, pídeselo a administración o ajústalo directamente en la ODP.'
+        );
+      }
+      avisosODP.push(
+        'La cotización salió de Aprobada, pero su ODP sigue igual: si cambias ítems o precios, ajusta a mano el valor de la ODP, su SAP y el monto del lead.'
       );
     }
 
@@ -1358,7 +1447,11 @@ export async function actualizar(
         }
       }
       if (datos.items !== undefined) {
-        huboCambios = (await reconciliarItems(id, destino.id, datos.items, t)) || huboCambios;
+        // Forma nueva de instalación: la casilla de la propuesta manda sobre la
+        // que traiga cada ítem (el frontend ya la sella; esto es la garantía).
+        const inst = instalacionDe(destino);
+        const items = inst ? datos.items.map((it) => sellarItem(it, inst.activa)) : datos.items;
+        huboCambios = (await reconciliarItems(id, destino.id, items, t)) || huboCambios;
       }
       // Se evalúa DESPUÉS de reconciliar porque sólo ahí se sabe si algo cambió
       // de verdad; si cambió, el throw deshace lo escrito con el rollback. Quitar
@@ -1375,7 +1468,7 @@ export async function actualizar(
     await sincronizarCabecera(id, t);
 
     // ── Sincronía con el CRM (2026-09-27), en la misma transacción ──────────
-    const avisosCRM: string[] = [];
+    const avisosCRM: string[] = [...avisosODP];
     const leadId = ('lead_id' in cambios ? cambios.lead_id : antes.leadId) as number | null;
     if (usuarioId && leadId) {
       const anotar = (a: string | null) => { if (a) avisosCRM.push(a); };
@@ -1420,10 +1513,37 @@ export async function actualizar(
 export async function eliminar(id: number): Promise<boolean> {
   const t = await sequelize.transaction();
   try {
-    const cot = (await CotizadorCotizacion.findByPk(id, { transaction: t })) as Fila | null;
+    const cot = (await CotizadorCotizacion.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE })) as Fila | null;
     if (!cot) {
       await t.rollback();
       return false;
+    }
+    // Una cotización aprobada o con ODP es el respaldo de una venta (2026-10-11):
+    // borrarla dejaría a la ODP sin su sección de cotización y a los ítems de la
+    // SAP sin origen (el FK `sap_items.origen_cotizacion_id` es ON DELETE SET
+    // NULL, lo pone en NULL la base sin pasar por la auditoría).
+    if (cot.odp_id) {
+      throw new ErrorCotizador(
+        409,
+        'Esta cotización ya tiene ODP: no se puede borrar porque es el respaldo de esa venta. Si se cayó el negocio, márcala como perdida o cancelada.'
+      );
+    }
+    if (cot.estado === 'APROBADA') {
+      throw new ErrorCotizador(
+        409,
+        'Esta cotización está aprobada: no se puede borrar. Pásala primero a "Esperando respuesta" o márcala como perdida.'
+      );
+    }
+    // Aunque ya no tenga ODP vinculada, sus ítems pueden seguir en una SAP.
+    const [enSap] = await sequelize.query(
+      'SELECT 1 FROM public.sap_items WHERE origen_cotizacion_id = :id LIMIT 1',
+      { replacements: { id }, transaction: t }
+    );
+    if ((enSap as unknown[]).length > 0) {
+      throw new ErrorCotizador(
+        409,
+        'Los ítems de esta cotización ya se trajeron a una SAP: no se puede borrar porque esa SAP perdería su origen.'
+      );
     }
     // Ítems, cargos y propuestas se borran de uno en uno y no con un
     // `destroy({where})` masivo: los hooks de auditoría son de instancia y una
@@ -1512,6 +1632,8 @@ export async function crearPropuesta(
         nombre: nombre ?? (origen.nombre ? `${origen.nombre} (copia)` : null),
         nota: nota ?? origen.nota,
         descuentoPct: descuentoPct ?? Number(origen.descuento_pct ?? 0),
+        // Copia exacta: misma instalación, y una anterior sigue siendo anterior.
+        instalacion: instalacionDe(origen) ?? null,
         items: items.map((f) => ({
           moduloId: f.modulo_id,
           descripcionItem: f.descripcion_item,
@@ -1670,6 +1792,7 @@ export async function clonarPropuesta(
         descuentoPct: Number(origen.descuento_pct ?? 0),
         elegida: false,
         items: itemsNuevos,
+        instalacion: instalacionDe(origen) ?? null,
         // Los cargos se copian tal cual: cambiar el vidrio no cambia lo que
         // cuesta instalarlo ni lo que cuesta el flete.
         cargos: cargos.map(aCargoEntrada),
@@ -1957,7 +2080,14 @@ export async function eliminarPropuesta(cotizacionId: number, propuestaId: numbe
  * son seis números. El rastro de auditoría queda igual (los hooks son de
  * instancia y el borrado va de uno en uno).
  */
-export async function guardarCargos(cotizacionId: number, propuestaId: number, cargos: CargoEntrada[]) {
+export async function guardarCargos(
+  cotizacionId: number,
+  propuestaId: number,
+  cargos: CargoEntrada[],
+  /** Casilla de Instalación del panel (2026-10-11). Ausente = no se toca; en
+   * una propuesta anterior, llegar con valor la pasa a la forma nueva. */
+  instalacion?: OpcionInstalacion
+) {
   const t = await sequelize.transaction();
   try {
     const { cot, propuesta } = await cargarPropuesta(cotizacionId, propuestaId, t);
@@ -1968,6 +2098,21 @@ export async function guardarCargos(cotizacionId: number, propuestaId: number, c
         'Esta propuesta es anterior al cambio de cargos: su mano de obra y su flete están dentro del precio de cada ítem. ' +
           'Añadirle cargos cobraría lo mismo dos veces. Duplícala para trabajar con la forma nueva.'
       );
+    }
+
+    if (instalacion) {
+      const valorManual =
+        instalacion.valorManual === null || instalacion.valorManual === undefined ? null : Math.max(0, Number(instalacion.valorManual));
+      const antes = instalacionDe(propuesta);
+      if (!antes || antes.activa !== instalacion.activa || antes.valorManual !== valorManual) {
+        await propuesta.update(
+          { con_instalacion: instalacion.activa, instalacion_valor_manual: valorManual },
+          { transaction: t }
+        );
+      }
+      // También al pasar de la forma anterior: unifica los productos que tenían
+      // la casilla distinta.
+      if (!antes || antes.activa !== instalacion.activa) await sellarItemsGuardados(propuestaId, instalacion.activa, t);
     }
 
     // Solo los cargos manuales: la mano de obra automática la mantiene

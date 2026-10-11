@@ -3,7 +3,7 @@ import {
     HardHat, Plus, Trash2, Truck, Package2, Layers, AlertTriangle, Lock, Loader2,
 } from '../../../components/ui/icons';
 
-import { CargoPropuesta, LineaManoObra, Parametros } from '../types';
+import { CargoPropuesta, LineaManoObra, Parametros, Propuesta } from '../types';
 import { EstadoCargos, LineaOtroCargo, cargosADTO, resumenCargos } from '../totalesContrato';
 import { fmtCOP } from '../format';
 import { Chip, BotonSecundario } from './ui';
@@ -83,14 +83,27 @@ export const cargosIniciales = (parametros: Parametros | null): EstadoCargos => 
     huacal: { activo: false, unidades: 1, valorUnitario: Number(parametros?.huacal) || 0, aplicaIva: true },
     flete: { activo: true, valor: Number(parametros?.flete_fijo) || 0, origen: 'SUGERIDO', aplicaIva: true },
     otros: [],
+    // Opción nueva: forma nueva y sin instalación (decisión del usuario, 2026-10-11).
+    instalacion: { activa: false, valorManual: null, legado: false },
 });
 
 /** Traduce las filas que devuelve el backend al formulario. Lo que no venga
  * queda apagado con su tarifa de parámetros lista, igual que en una propuesta
  * nueva: una propuesta sin línea de andamio no cotizó andamio. */
-export const cargosDesdeApi = (cargos: CargoPropuesta[] | undefined, parametros: Parametros | null): EstadoCargos => {
+export const cargosDesdeApi = (
+    cargos: CargoPropuesta[] | undefined,
+    parametros: Parametros | null,
+    /** La opción a la que pertenecen: de ella sale la casilla de Instalación. */
+    propuesta?: Pick<Propuesta, 'conInstalacion' | 'instalacionValorManual'> | null,
+): EstadoCargos => {
     const estado = cargosIniciales(parametros);
     estado.flete.activo = false;
+    // null = opción anterior al 2026-10-11 (casilla por producto): no se toca
+    // hasta que el asesor marque o desmarque Instalación.
+    const conInst = propuesta?.conInstalacion;
+    estado.instalacion = conInst === null || conInst === undefined
+        ? { activa: false, valorManual: null, legado: true }
+        : { activa: conInst, valorManual: propuesta?.instalacionValorManual ?? null, legado: false };
     if (!cargos?.length) return estado;
 
     for (const c of cargos) {

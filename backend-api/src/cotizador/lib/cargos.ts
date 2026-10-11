@@ -148,6 +148,39 @@ export function m2CobrablesDe(it: ItemParaCargos): number {
  * por si un ítem viene de un JSON reescrito a mano. */
 const marcado = (v: unknown): boolean => v === true || v === 'true';
 
+// ---------------------------------------------------------------------------
+// Instalación como cargo de la obra (2026-10-11, decisión del usuario)
+// ---------------------------------------------------------------------------
+
+/**
+ * La instalación de una propuesta en la forma nueva: UNA casilla para toda la
+ * opción (antes, una por producto) y un valor que el asesor puede corregir.
+ *
+ * Ausente (`undefined`) = propuesta anterior al cambio: manda la casilla de cada
+ * producto, exactamente como hasta el 2026-10-10 (las guardadas no se tocan).
+ */
+export interface OpcionInstalacion {
+  activa: boolean;
+  /** Valor que escribió el asesor, ya con AIU. null = el automático por tarifas. */
+  valorManual?: number | null;
+}
+
+/** Cada ítem con la casilla de la propuesta. Solo se sella el que ya trae la
+ * clave (los módulos con "Con instalación"): un ítem libre no se instala por
+ * tarifa y no debe ganar una casilla que su formulario no tiene. */
+export function sellarInstalacion<T extends ItemParaCargos>(items: T[], opcion?: OpcionInstalacion | null): T[] {
+  if (!opcion) return items;
+  return items.map((it) =>
+    it?.input && 'conInstalacion' in it.input ? { ...it, input: { ...it.input, conInstalacion: opcion.activa } } : it
+  );
+}
+
+/** Valor automático de la instalación (Σ líneas INSTALACION, con AIU) de un
+ * juego de ítems ya sellados. Es el "Calculado: $X" del panel. */
+export function instalacionCalculada(lineas: CargoSugerido[]): number {
+  return round2(lineas.filter((l) => l.tipo === 'INSTALACION').reduce((a, l) => a + round2(l.cantidad * l.valorUnitario), 0));
+}
+
 export function conInstalacion(it: ItemParaCargos): boolean {
   return marcado(it?.input?.conInstalacion);
 }
@@ -183,7 +216,35 @@ export function conInstalacion(it: ItemParaCargos): boolean {
  *
  * Una línea en cero no se emite: "Instalación cabinas: 0" no le dice nada al cliente.
  */
-export function calcularManoObraProductos(items: ItemParaCargos[] = []): CargoSugerido[] {
+export function calcularManoObraProductos(
+  itemsEntrada: ItemParaCargos[] = [],
+  instalacion?: OpcionInstalacion | null
+): CargoSugerido[] {
+  const lineas = lineasManoObraPorTarifa(sellarInstalacion(itemsEntrada, instalacion));
+  // Valor del asesor (2026-10-11): reemplaza las líneas automáticas de
+  // instalación por una sola, con ese monto. El ensamble no cambia.
+  const manual = instalacion?.activa ? instalacion.valorManual : null;
+  if (manual === null || manual === undefined || !Number.isFinite(Number(manual))) return lineas;
+  const calculada = instalacionCalculada(lineas);
+  const resto = lineas.filter((l) => l.tipo !== 'INSTALACION');
+  const valor = round2(Math.max(0, Number(manual)));
+  if (valor <= 0) return resto;
+  return [
+    ...resto,
+    {
+      tipo: 'INSTALACION',
+      descripcion: 'Instalación',
+      cantidad: 1,
+      unidad: 'GLOBAL',
+      valorUnitario: valor,
+      aplicaIva: true,
+      origen: 'AUTOMATICO',
+      explicacion: `Valor escrito por el asesor (calculado: ${pesos(calculada)})`,
+    },
+  ];
+}
+
+function lineasManoObraPorTarifa(items: ItemParaCargos[]): CargoSugerido[] {
   const p = getParametros();
   const aiu = Number(p.aiu) > 0 ? Number(p.aiu) : 1;
 
@@ -294,7 +355,8 @@ export function calcularManoObraProductos(items: ItemParaCargos[] = []): CargoSu
  * `repartirManoObra` en generadorPdfCotizacion.ts), no como montos: así el total
  * impreso nunca se aparta del guardado aunque una tarifa haya cambiado después.
  */
-export function manoObraPorItem(items: ItemParaCargos[] = []): number[] {
+export function manoObraPorItem(itemsEntrada: ItemParaCargos[] = [], instalacion?: OpcionInstalacion | null): number[] {
+  const items = sellarInstalacion(itemsEntrada, instalacion);
   const p = getParametros();
   const aiu = Number(p.aiu) > 0 ? Number(p.aiu) : 1;
   const tarifa = (t: unknown) => round2((Number(t) || 0) / aiu);

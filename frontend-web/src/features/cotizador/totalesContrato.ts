@@ -4,7 +4,7 @@
 // (`pruebas_cotizador/totalesContrato.test.ts`), así que solo puede depender de
 // `./types` (que no importa nada). No agregar imports de React, axios ni componentes.
 
-import { CargoEntrada, LineaManoObra, OrigenCargo, TIPOS_MANO_OBRA } from './types';
+import { CargoEntrada, LineaManoObra, OpcionInstalacion, OrigenCargo, TIPOS_MANO_OBRA } from './types';
 
 /** Mismo redondeo que `round2` de `motorCalculo.ts` en el backend. */
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -48,7 +48,19 @@ export interface EstadoCargos {
     huacal: { activo: boolean; unidades: number; valorUnitario: number; aplicaIva: boolean };
     flete: { activo: boolean; valor: number; origen: OrigenCargo; aplicaIva: boolean };
     otros: LineaOtroCargo[];
+    /** Instalación como cargo de la obra (2026-10-11): una casilla para toda la
+     * opción. No es una fila de `cargosADTO`: el backend la calcula por tarifas
+     * (línea INSTALACION de la mano de obra, con AIU y descuento) y aquí solo
+     * viajan la casilla y el valor que escriba el asesor. `legado` = opción
+     * anterior, con la casilla por producto: no se manda hasta que el asesor la
+     * toque. */
+    instalacion: { activa: boolean; valorManual: number | null; legado: boolean };
 }
+
+/** La casilla de Instalación tal como la esperan `PUT .../cargos`, la creación y
+ * `POST /mano-obra`. undefined = opción anterior sin tocar. */
+export const instalacionADTO = (e: EstadoCargos): OpcionInstalacion | undefined =>
+    e.instalacion.legado ? undefined : { activa: e.instalacion.activa, valorManual: e.instalacion.valorManual };
 
 /** El juego completo de cargos tal como lo espera `PUT .../cargos`. Una casilla
  * apagada no manda una fila en cero: no manda nada. */

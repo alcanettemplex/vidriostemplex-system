@@ -1224,6 +1224,8 @@ hasta que se editen (decisión del usuario: no se recalcularon).
   módulos). Proyectante sin diseño: naves × ancho de nave × alto de nave.
 - **Casillas por ítem** en el formulario: "Con instalación" (6 módulos, **marcada por defecto** vía
   el campo nuevo `defecto` de `meta.campos`) y "Cabina en L" (las dos cabinas). No tocan el despiece.
+  ⚠️ **Desde el 2026-10-11 "Con instalación" es una casilla de la OPCIÓN** (Cargos de la obra) y solo
+  aparece por producto en las opciones anteriores: ver "Instalación como cargo de la obra" al final.
 - **Dónde vive:** `calcularManoObraProductos()` en `lib/cargos.ts` — único sitio. Genera líneas
   `ENSAMBLE` / `INSTALACION` (`origen = AUTOMATICO`, una por grupo, ninguna en cero) con
   `valor_unitario = round2(tarifa / aiu)`: el AIU va en el valor unitario, así el renglón que ve el
@@ -2080,3 +2082,82 @@ cotizaciones reales así). Reglas dadas y **validadas por el usuario**, no reabr
   tarifas de ventanería (ensamble $60.000 siempre + instalación $25.000). Detalle en "Mano de obra por
   producto". La pérgola sigue en $120.000/m². `pergolaDivision.test.ts` pasó de 18 a 20 pruebas; suite 268/268.
 
+
+## Blindaje de la cotización aprobada (2026-10-11)
+
+Revisión de código del módulo (pedido del usuario). Seis hallazgos, ninguno afectaba el cálculo de
+precios: estaban en el tramo cotización aprobada → ODP / SAP / CRM. Al cerrarlos había **0
+cotizaciones aprobadas** en producción, así que ninguno había hecho daño todavía.
+
+| # | Qué pasaba | Cómo quedó |
+|---|---|---|
+| 1 | Se podía borrar una cotización aprobada o con ODP: la ODP perdía su sección y los `sap_items` quedaban con `origen_cotizacion_id = NULL` (lo hace el FK `ON DELETE SET NULL`, sin auditoría) | `eliminar()` responde 409 si tiene `odp_id`, si está APROBADA o si algún `sap_items` la cita. "Eliminar" se oculta en el listado para aprobadas o con ODP |
+| 2 | Quitar la aprobación con la ODP creada dejaba editar ítems y re-aprobar sin que la ODP, la SAP ni el monto del lead se enteraran | **Decisión del usuario: solo control total, con aviso.** Backend: 403 para los demás (`puedeDesaprobarConOdp` en `actualizar`); para control total sale un aviso en `avisosCRM`. Frontend: `cambiarEstado` corta a los demás y pide confirmación a control total |
+| 3 | `actualizar()` leía la versión sin bloqueo: dos autoguardados simultáneos pasaban el control de `versionEsperada` y el segundo pisaba al primero | `findByPk(..., { lock: t.LOCK.UPDATE })` |
+| 4 | Si fallaba la nota del lead tras "Crear ODP", el usuario veía "No se pudo crear la ODP… no se modificó nada" con la ODP ya creada | La nota va en `try/catch` y solo se registra en el log |
+| 5 | "Traer ítems a la SAP" en modo Agregar no tenía candado: doble clic = ítems duplicados con letras repetidas | Dentro de la transacción: `FOR UPDATE` sobre la ODP, se repite la comprobación de doble carga y se compara la mayor letra contra la leída (409 si cambió) |
+| 6 | `GET /vinculos/lead/:id/contexto` lo leía cualquier autenticado; crear una cotización ya cerrada no grababa `aprobada_en`/`perdida_en`; el mensaje del lead no aprobado pedía "volver a marcar Aprobada" (no hace nada si ya lo está) | Mismos roles que leen un lead en `/api/crm/:id`; fechas de cierre también al crear; mensaje: pasar a "Esperando respuesta" y aprobar de nuevo |
+
+Lo que quedó fuera está en `TECH_DEBT.md` 2026-10-11.
+
+## Instalación como cargo de la obra (2026-10-11)
+
+Pedido del usuario: los asesores veían la instalación "calculada por aparte" con varios productos (una
+casilla "Con instalación" por producto, marcada por defecto, y una línea por tipo de producto en Mano
+de obra). Desde este cambio la instalación es **una casilla por opción**, en **Cargos de la obra**,
+junto a andamio, huacal y acarreo. Decisiones del usuario, no reabrir:
+
+| Pregunta | Decisión |
+|---|---|
+| Alcance | Una sola casilla para toda la opción; sale "Con instalación" del formulario de cada producto |
+| Cálculo | Automático por las tarifas de siempre (ventanas/divisiones $25.000/m², cabinas $120.000/und, espejos/tableros $85.000/m², pérgola $120.000/m²), **editable** por el asesor |
+| Mínimo de m² | Se mantiene **por producto** (1 m² por pieza) |
+| PDF | Igual que antes: la instalación va dentro del precio de cada producto y la frase dice "Suministro e instalación de…"; sin renglón aparte |
+| Valor editado | Se respeta aunque cambien los productos; el panel muestra "Calculado con las tarifas: $X" y "Predeterminado" para volver |
+| Por defecto | **Desmarcada** en una opción nueva |
+| Ensamble | Sin cambios: automático, en Mano de obra |
+| Guardadas | **No se tocan**: siguen con la casilla por producto hasta que el asesor marque o desmarque Instalación (aviso en el panel) |
+
+**BD:** `cotizador.propuesta.con_instalacion` (BOOLEAN NULL — **NULL = opción anterior**, manda la casilla
+de cada producto) e `instalacion_valor_manual` (DOUBLE NULL, ya con AIU; NULL = automático). Script
+`2026-10-11_cotizador_instalacion_por_propuesta.ts`, **corrido** el 2026-10-11 con autorización del
+usuario. ⚠️ Correrlo antes de desplegar: el modelo declara las columnas.
+
+**Cómo funciona — el sello.** La casilla de la opción se copia a `input.conInstalacion` de cada ítem que
+tenga ese campo (`sellarInstalacion` en `lib/cargos.ts`, `sellarItem` en el store, `instalacion.ts` en el
+frontend), junto con el verbo de `resultado.descripcionComercial`. Así **todo lo que ya leía la casilla
+del producto sigue igual sin tocarlo**: el reparto del PDF (`manoObraPorItem`), "Crear ODP"
+(`detalleParaODP` → `instalacion` de la ODP), WhatsApp, la ficha de la Hoja de Trabajo. El ítem libre no
+tiene el campo y no se sella. No pasa por el motor: la instalación no toca ni el precio del producto ni
+el despiece.
+
+- **`calcularManoObraProductos(items, instalacion?)`**: sin opción = regla anterior; con opción sella y
+  calcula por tarifas; con `valorManual` (y la casilla marcada) reemplaza las líneas INSTALACION por una
+  sola "Instalación" GLOBAL con ese monto (en $0 no se emite). Sigue siendo tipo INSTALACION: AIU,
+  descuento e IVA como antes, sin cambio en la cadena de totales ni en `totalesContrato.ts`.
+- **Dónde se escribe:** `crearPropuestaInterna` (nueva = desmarcada; copia y clon heredan la de origen,
+  y una anterior sigue anterior), `actualizar` (sella los ítems con la casilla de la propuesta destino) y
+  `guardarCargos(…, instalacion)` (guarda las columnas y re-sella los ítems guardados, uno a uno).
+- **API:** `instalacion: { activa, valorManual }` en `PUT …/cargos`, en `propuestas[]` al crear y en
+  `POST /mano-obra`, que además devuelve `instalacionCalculada` (el "Calculado").
+- **Frontend:** `EstadoCargos.instalacion` (`legado` = opción anterior sin tocar); fila "Instalación" en
+  `CargosCompactos` (Cotizar y Resumen); "Mano de obra" muestra solo el ensamble en la forma nueva (los
+  totales siguen sumando todo); `FormularioModulo` oculta "Con instalación" e inyecta la de la opción;
+  `cambiarCargos` re-sella el carrito y `TabCotizar` el producto en pantalla.
+- **Pruebas:** `instalacionPropuesta.test.ts` (7).
+
+## Puerta vidriera (2026-10-11)
+
+Decisión del usuario: una ventana de sistema **744, 8025 o 7038** (incluidas sus variantes, p. ej.
+"7038 Interior") con **más de 1.500 mm de alto** se nombra **"puerta vidriera"** en la frase comercial:
+"Sala — Suministro e instalación de puerta vidriera 744 color mate, vidrio claro 4 mm, medidas 900 ×
+2.100 mm". El 5020 es siempre ventana; 1.500 mm exactos sigue siendo ventana; los proyectantes no cambian.
+
+- Un solo sitio: `nombreVentana()` en `lib/detalleComercial.ts` (`SISTEMAS_PUERTA_VIDRIERA`,
+  `ALTO_MAXIMO_VENTANA_MM`). Con diseño manda el sistema del diseño; el alto es `input.altoCm`, el mismo
+  de las medidas impresas. Solo texto: no toca precio ni despiece.
+- **Dónde se ve:** el PDF rearma la frase al imprimir (también en cotizaciones ya guardadas). "Crear ODP"
+  también la rearma desde el input (`fraseActual` en `vinculos.ts`) en vez de usar la guardada. La
+  pantalla y la Hoja de Trabajo muestran la frase guardada en el ítem: los ítems anteriores la conservan
+  hasta que se editen o recalculen.
+- Pruebas: `detalleComercial.test.ts` (11).

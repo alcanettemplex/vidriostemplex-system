@@ -68,8 +68,11 @@ interface Props {
     onCambiarDescuento: (v: number) => void;
     cargos: EstadoCargos;
     onCambiarCargos: (v: EstadoCargos) => void;
+    /** Solo para mostrar: en la forma nueva llega sin la instalación (va en los cargos). */
     manoObra: LineaManoObra[];
     cargandoManoObra?: boolean;
+    /** Instalación automática por tarifas, con AIU (2026-10-11). */
+    instalacionCalculada?: number | null;
     totalesPrevistos: TotalesPrevistos;
     propuestas: ControlPropuestas;
     hayCambiosSinGuardar: boolean;
@@ -214,7 +217,7 @@ const Paso: React.FC<{
 
 const TabActual: React.FC<Props> = ({
     carrito, cabecera, onCambiarCabecera, onQuitarItem, numeroEnEdicion, parametros,
-    descuentoPct, onCambiarDescuento, cargos, onCambiarCargos, manoObra, cargandoManoObra, totalesPrevistos, propuestas,
+    descuentoPct, onCambiarDescuento, cargos, onCambiarCargos, manoObra, cargandoManoObra, instalacionCalculada = null, totalesPrevistos, propuestas,
     hayCambiosSinGuardar, onNuevaCotizacion, onEditarItem, onDuplicarItem, onIrACotizar,
     bloqueoEdicion, sinPermiso, modulosDisponibles,
     estadoGuardadoUI, mensajeError, onReintentar,
@@ -568,6 +571,8 @@ const TabActual: React.FC<Props> = ({
                                     onChange={onCambiarCargos}
                                     parametros={parametros}
                                     deshabilitado={Boolean(bloqueoCargos) || soloLectura}
+                                    instalacionCalculada={instalacionCalculada}
+                                    calculandoInstalacion={cargandoManoObra}
                                 />
                             )}
                         </section>

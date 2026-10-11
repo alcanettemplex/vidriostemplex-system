@@ -74,10 +74,13 @@ interface Props {
     idEditando: string | null;
     onEditarItem: (idTemp: string) => void;
     onVerPropuesta: () => void;
+    /** Solo para mostrar: en la forma nueva llega sin la instalación, que se
+     * edita en Cargos de la obra (los totales sí la incluyen). */
     manoObra: LineaManoObra[];
     cargandoManoObra: boolean;
     cargos: EstadoCargos;
     onCambiarCargos: (v: EstadoCargos) => void;
+    instalacionCalculada: number | null;
     parametros: Parametros | null;
     /** Motivo por el que los cargos no se editan (propuesta aprobada o legada). */
     bloqueoCargos: string | null;
@@ -206,21 +209,73 @@ export const CargosCompactos: React.FC<{
     onChange: (v: EstadoCargos) => void;
     parametros: Parametros | null;
     deshabilitado: boolean;
-}> = ({ cargos, onChange, parametros, deshabilitado }) => {
+    /** Instalación automática por tarifas, con AIU (null = sin dato todavía). */
+    instalacionCalculada?: number | null;
+    calculandoInstalacion?: boolean;
+}> = ({ cargos, onChange, parametros, deshabilitado, instalacionCalculada = null, calculandoInstalacion = false }) => {
     const set = (cambios: Partial<EstadoCargos>) => onChange({ ...cargos, ...cambios });
     const num = (v: string) => Math.max(0, Number(v) || 0);
     const pAndamio = Number(parametros?.alquiler_andamio) || 0;
     const pHuacal = Number(parametros?.huacal) || 0;
     const pFlete = Number(parametros?.flete_fijo) || 0;
-    const { andamio, huacal, flete, otros } = cargos;
+    const { andamio, huacal, flete, otros, instalacion } = cargos;
     const cambiarOtro = (i: number, cambios: Partial<LineaOtroCargo>) => {
         const lista = [...otros];
         lista[i] = { ...lista[i], ...cambios };
         set({ otros: lista });
     };
+    // Instalación (2026-10-11): una casilla para toda la opción. Marcarla o
+    // desmarcarla en una opción anterior la pasa a la forma nueva.
+    const calculada = instalacionCalculada ?? 0;
+    const valorInstalacion = instalacion.valorManual ?? calculada;
+    const setInstalacion = (cambios: Partial<EstadoCargos['instalacion']>) =>
+        set({ instalacion: { ...instalacion, ...cambios, legado: false } });
 
     return (
         <div>
+            {instalacion.legado && (
+                <p className="mb-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[12px] leading-snug text-amber-900">
+                    Esta opción usa la instalación por producto. Marca o desmarca Instalación para pasarla a la forma nueva.
+                </p>
+            )}
+            <FilaCargo
+                id="resumen-cargo-instalacion"
+                titulo="Instalación"
+                activo={instalacion.activa}
+                total={valorInstalacion}
+                deshabilitado={deshabilitado}
+                onToggle={v => setInstalacion({ activa: v })}
+            >
+                Valor
+                <input
+                    type="number" min={0} step={1000} aria-label="Valor de la instalación" disabled={deshabilitado}
+                    className={`${campoNum} w-[116px]`}
+                    value={instalacion.valorManual ?? (calculada || '')}
+                    placeholder={calculandoInstalacion ? 'calculando…' : '0'}
+                    onChange={e => setInstalacion({ valorManual: e.target.value === '' ? null : num(e.target.value) })}
+                />
+                {instalacion.valorManual === null ? (
+                    <Chip tono="marca">{calculandoInstalacion ? 'Calculando…' : 'Calculado'}</Chip>
+                ) : (
+                    <span className="inline-flex items-center gap-1.5">
+                        <Chip tono="neutro">Editado</Chip>
+                        {!deshabilitado && (
+                            <button
+                                type="button"
+                                onClick={() => setInstalacion({ valorManual: null })}
+                                className="text-[11.5px] font-semibold text-templex-700 hover:underline"
+                            >
+                                Predeterminado {fmtCOP(calculada)}
+                            </button>
+                        )}
+                    </span>
+                )}
+                {instalacion.valorManual !== null && instalacion.valorManual !== calculada && (
+                    <span className="basis-full text-[11.5px] text-slate-700">
+                        Calculado con las tarifas: {fmtCOP(calculada)}. Tu valor se mantiene aunque cambies los productos.
+                    </span>
+                )}
+            </FilaCargo>
             <FilaCargo
                 id="resumen-cargo-andamio"
                 titulo="Alquiler de andamio"
@@ -334,7 +389,7 @@ export const CargosCompactos: React.FC<{
 
 const ResumenPropuesta: React.FC<Props> = ({
     este, etiquetaPropuesta, items, idEditando, onEditarItem, onVerPropuesta,
-    manoObra, cargandoManoObra, cargos, onCambiarCargos, parametros, bloqueoCargos,
+    manoObra, cargandoManoObra, cargos, onCambiarCargos, instalacionCalculada, parametros, bloqueoCargos,
     totales, descuentoPct, notaTotal,
 }) => {
     const botonAgregar = este && (
@@ -457,8 +512,9 @@ const ResumenPropuesta: React.FC<Props> = ({
                 >
                     {manoObra.length === 0 ? (
                         <p className="text-[12.5px] text-slate-700 leading-snug">
-                            Se calcula sola: ensamble de ventanas y proyectantes, e instalación de lo que lleve
-                            "Con instalación".
+                            {cargos.instalacion.legado
+                                ? 'Se calcula sola: ensamble de ventanas y proyectantes, e instalación de lo que lleve "Con instalación".'
+                                : 'Se calcula sola: ensamble de ventanas, proyectantes y divisiones. La instalación va en Cargos de la obra.'}
                         </p>
                     ) : (
                         <ul className="space-y-1.5">
@@ -489,6 +545,8 @@ const ResumenPropuesta: React.FC<Props> = ({
                         onChange={onCambiarCargos}
                         parametros={parametros}
                         deshabilitado={Boolean(bloqueoCargos)}
+                        instalacionCalculada={instalacionCalculada}
+                        calculandoInstalacion={cargandoManoObra}
                     />
                 </Bloque>
 
@@ -496,7 +554,7 @@ const ResumenPropuesta: React.FC<Props> = ({
                 <section className="px-4 py-3.5 bg-slate-50" aria-live="polite">
                     <dl className="space-y-1 text-[13px]">
                         <div className="flex justify-between gap-2"><dt className="text-slate-800">Productos (con AIU)</dt><dd className="tabular-nums text-slate-900">{fmtCOP(totales.productos)}</dd></div>
-                        <div className="flex justify-between gap-2"><dt className="text-slate-800">Mano de obra (con AIU)</dt><dd className="tabular-nums text-slate-900">{fmtCOP(totales.manoObra)}</dd></div>
+                        <div className="flex justify-between gap-2"><dt className="text-slate-800">Mano de obra e instalación (con AIU)</dt><dd className="tabular-nums text-slate-900">{fmtCOP(totales.manoObra)}</dd></div>
                         {totales.descuento > 0 && (
                             <div className="flex justify-between gap-2"><dt className="text-slate-800">Descuento ({fmtPct(descuentoPct)})</dt><dd className="tabular-nums text-rose-700">− {fmtCOP(totales.descuento)}</dd></div>
                         )}

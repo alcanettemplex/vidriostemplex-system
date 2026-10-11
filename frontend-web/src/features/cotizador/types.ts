@@ -424,6 +424,11 @@ export interface Propuesta {
      * del precio de cada ítem. `PUT .../cargos` la rechaza con 409 porque
      * añadirle cargos cobraría lo mismo dos veces; hay que duplicarla. */
     legadoCargosEnItems: boolean;
+    /** Instalación como cargo de la obra (2026-10-11): la casilla de la opción.
+     * null = opción anterior al cambio, con la casilla por producto. */
+    conInstalacion?: boolean | null;
+    /** Valor que escribió el asesor (con AIU). null = automático por tarifas. */
+    instalacionValorManual?: number | null;
     totales: TotalesPropuesta;
     creadaEn?: string;
     actualizadaEn?: string;
@@ -448,6 +453,14 @@ export interface PropuestaEntrada {
     /** AUSENTE ≠ VACÍO: sin la clave, el backend sugiere mano de obra y flete;
      * con un arreglo vacío, la propuesta se queda deliberadamente sin cargos. */
     cargos?: CargoEntrada[];
+    instalacion?: OpcionInstalacion;
+}
+
+/** La casilla de Instalación de una opción y el valor del asesor (2026-10-11). */
+export interface OpcionInstalacion {
+    activa: boolean;
+    /** Con AIU, antes de descuento e IVA. null = el automático por tarifas. */
+    valorManual: number | null;
 }
 
 // ─── Mano de obra por producto — POST /mano-obra ───────────────────────────
@@ -458,7 +471,8 @@ export interface LineaManoObra {
     tipo: 'ENSAMBLE' | 'INSTALACION';
     descripcion: string;
     cantidad: number;
-    unidad: 'M2' | 'UND';
+    /** GLOBAL = la instalación con el valor que escribió el asesor (2026-10-11). */
+    unidad: 'M2' | 'UND' | 'GLOBAL';
     valorUnitario: number;
     aplicaIva: boolean;
     origen: 'AUTOMATICO';

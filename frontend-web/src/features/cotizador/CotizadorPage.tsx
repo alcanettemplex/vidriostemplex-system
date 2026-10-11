@@ -12,7 +12,7 @@ import {
 } from './services/cotizadorApi';
 import {
     ClienteCotizacion, Cotizacion, CotizacionEntrada, EstadoCotizacion, MotivoPerdida, ItemCarrito, ModuloMeta, Parametros, Propuesta,
-    RespuestaPropuesta, SegmentoCliente,
+    RespuestaPropuesta, SegmentoCliente, LineaManoObra,
 } from './types';
 import { rotuloPropuesta } from './propuestaColor';
 import TabCotizar, { ItemEnEdicion } from './components/TabCotizar';
@@ -22,6 +22,8 @@ import TabCalibracion from './components/TabCalibracion';
 import TabConfiguracion from './components/TabConfiguracion';
 import BarraTrabajo, { EstadoGuardado, TipoNuevaPropuesta } from './components/BarraTrabajo';
 import { EstadoCargos, cargosADTO, cargosDesdeApi, cargosIniciales } from './components/PanelCargosObra';
+import { instalacionADTO } from './totalesContrato';
+import { sellarInstalacion } from './instalacion';
 import ResumenPropuesta, { EsteProducto } from './components/ResumenPropuesta';
 import { BorradorCotizar, calcularTotalesPrevistos, useManoObra } from './totalesPropuesta';
 import { descripcionDeItem, leerFicha } from './fichaProducto';
@@ -368,7 +370,15 @@ const CotizadorPage: React.FC = () => {
      * que agregar no es guardar. Va como `info` y no `success` a propósito: el
      * adaptador de avisos (`services/configurarNotificaciones.ts`) titula todo
      * `success` como "Guardado", y aquí todavía no se guardó nada. */
-    const agregarItem = useCallback((item: ItemCarrito) => {
+    /** La casilla de Instalación de la opción sellada en el ítem (2026-10-11).
+     * Una opción anterior conserva la casilla que traiga cada producto. */
+    const conInstalacionDeLaOpcion = useCallback((item: ItemCarrito): ItemCarrito => {
+        const inst = cargosRef.current.instalacion;
+        return inst.legado ? item : sellarInstalacion(item, inst.activa);
+    }, []);
+
+    const agregarItem = useCallback((itemNuevo: ItemCarrito) => {
+        const item = conInstalacionDeLaOpcion(itemNuevo);
         setCarrito(c => [...c, item]);
         setSucio(true);
         const n = carrito.length + 1;
@@ -382,7 +392,7 @@ const CotizadorPage: React.FC = () => {
                 <AccionAviso onClick={() => cambiarTab('actual')}>Ver resumen</AccionAviso>
             </div>
         );
-    }, [carrito.length, propuestaActiva, cambiarTab]);
+    }, [carrito.length, propuestaActiva, cambiarTab, conInstalacionDeLaOpcion]);
 
     const quitarItem = useCallback((idTemp: string) => {
         setCarrito(c => c.filter(i => i.idTemp !== idTemp));
@@ -402,13 +412,20 @@ const CotizadorPage: React.FC = () => {
         setSucio(true);
     }, []);
 
-    const reemplazarItem = useCallback((item: ItemCarrito) => {
+    const reemplazarItem = useCallback((itemEditado: ItemCarrito) => {
+        const item = conInstalacionDeLaOpcion(itemEditado);
         setCarrito(c => c.map(x => (x.idTemp === item.idTemp ? item : x)));
         setItemEditandoId(null);
         setSucio(true);
-    }, []);
+    }, [conInstalacionDeLaOpcion]);
 
     const cambiarCargos = useCallback((v: EstadoCargos) => {
+        // Instalación (2026-10-11): marcarla o desmarcarla la sella en todos los
+        // productos de la opción (frase del PDF, Crear ODP, Hoja de Trabajo).
+        const antes = cargosRef.current.instalacion;
+        if (!v.instalacion.legado && (antes.legado || antes.activa !== v.instalacion.activa)) {
+            setCarrito(c => c.map(it => sellarInstalacion(it, v.instalacion.activa)));
+        }
         versionCargos.current += 1;
         cargosRef.current = v;
         setCargos(v);
@@ -512,7 +529,7 @@ const CotizadorPage: React.FC = () => {
         setPropuestas(lista);
         setPropuestaActivaId(activaId);
         setDescuentoPct(Number(activa?.descuentoPct) || 0);
-        setCargos(cargosDesdeApi(activa?.cargos, parametros));
+        setCargos(cargosDesdeApi(activa?.cargos, parametros, activa));
         setCargosTocados(false);
         cargosTocadosRef.current = false;
         setEdicion({
@@ -633,7 +650,7 @@ const CotizadorPage: React.FC = () => {
                 let cargosPendientes = false;
                 if (cargosTocados && destino) {
                     try {
-                        const r = await apiGuardarCargos(edicion.id, destino, cargosADTO(cargos));
+                        const r = await apiGuardarCargos(edicion.id, destino, cargosADTO(cargos), instalacionADTO(cargos));
                         cot = r.data;
                     } catch (e) {
                         // Siguen pendientes: apagar la marca los perdería en silencio.
@@ -681,6 +698,7 @@ const CotizadorPage: React.FC = () => {
                         descuentoPct,
                         items,
                         ...(cargosTocados ? { cargos: cargosADTO(cargos) } : {}),
+                        instalacion: instalacionADTO(cargos),
                     }],
                 });
                 aplicarCotizacion(data);
@@ -996,11 +1014,25 @@ const CotizadorPage: React.FC = () => {
             toast.info('Espera un segundo: se está guardando la cotización.');
             return;
         }
+        // Quitar la aprobación con la ODP ya creada (2026-10-11): solo control
+        // total, y avisando que la ODP no se recalcula. El backend lo impone igual.
+        if (edicion.estado === 'APROBADA' && odpVinculada) {
+            if (!permisos.administra) {
+                toast.error(`Esta cotización ya tiene la ${odpVinculada.numero}: solo un administrador puede quitarle la aprobación.`);
+                return;
+            }
+            const ok = window.confirm(
+                `Esta cotización ya tiene la ${odpVinculada.numero}.\n\n` +
+                'Si le quitas la aprobación y cambias ítems o precios, la ODP, su SAP y el monto del lead NO se actualizan solos: ' +
+                'tendrás que ajustarlos a mano.\n\n¿Quitar la aprobación de todos modos?'
+            );
+            if (!ok) return;
+        }
         setCierrePerdida(null);
         setCabecera(c => ({ ...c, estado }));
         setSucio(true);
         setGuardarYa(true);
-    }, [edicion, guardando]);
+    }, [edicion, guardando, odpVinculada, permisos.administra]);
 
     /** PDF de la opción a la vista, después de guardar lo pendiente. */
     const enviarPdf = useCallback(async () => {
@@ -1270,7 +1302,12 @@ const CotizadorPage: React.FC = () => {
     // se pide cuando hay un producto en pantalla.
     const [borrador, setBorrador] = useState<BorradorCotizar | null>(null);
     const itemsManoObra = useMemo(() => carrito.map(it => ({ moduloId: it.moduloId, input: it.input })), [carrito]);
-    const { lineas: manoObraCarrito, cargando: cargandoManoObraCarrito } = useManoObra(itemsManoObra);
+    // Instalación como cargo de la obra (2026-10-11): la casilla de la opción viaja
+    // a `/mano-obra`, que sella los ítems y aplica el valor del asesor.
+    const instalacionOpcion = useMemo(() => instalacionADTO(cargos), [cargos]);
+    const {
+        lineas: manoObraCarrito, cargando: cargandoManoObraCarrito, instalacionCalculada: instalacionCalculadaCarrito,
+    } = useManoObra(itemsManoObra, instalacionOpcion);
     const carritoSinEditado = useMemo(
         () => (borrador?.reemplazaIdTemp ? carrito.filter(it => it.idTemp !== borrador.reemplazaIdTemp) : carrito),
         [carrito, borrador]
@@ -1281,8 +1318,16 @@ const CotizadorPage: React.FC = () => {
             : []),
         [carritoSinEditado, borrador]
     );
-    const { lineas: manoObraBorrador, cargando: cargandoManoObraBorrador } = useManoObra(itemsManoObraCotizar);
+    const {
+        lineas: manoObraBorrador, cargando: cargandoManoObraBorrador, instalacionCalculada: instalacionCalculadaBorrador,
+    } = useManoObra(itemsManoObraCotizar, instalacionOpcion);
     const manoObraCotizar = borrador ? manoObraBorrador : manoObraCarrito;
+    /** Lo que se MUESTRA en "Mano de obra": en la forma nueva la instalación va
+     * en Cargos de la obra. Los totales siguen sumando todas las líneas. */
+    const sinInstalacion = useCallback(
+        (lineas: LineaManoObra[]) => (cargos.instalacion.legado ? lineas : lineas.filter(l => l.tipo !== 'INSTALACION')),
+        [cargos.instalacion.legado]
+    );
 
     const modulosPorId = useMemo(() => new Map(modulos.map(m => [m.id, m])), [modulos]);
     const itemsResumen = useMemo(() => carrito.map(it => {
@@ -1501,6 +1546,7 @@ const CotizadorPage: React.FC = () => {
                             bloqueo={bloqueoEdicion}
                             sinVinculo={!edicion && !vinculo ? 'Primero elige para quién es.' : null}
                             onBorrador={setBorrador}
+                            instalacion={cargos.instalacion.legado ? null : cargos.instalacion.activa}
                             destino={{
                                 etiqueta: propuestaActiva?.etiqueta ?? 'A',
                                 nombre: propuestaActiva?.nombre ?? null,
@@ -1516,10 +1562,11 @@ const CotizadorPage: React.FC = () => {
                                     idEditando={itemEditandoId}
                                     onEditarItem={editarItem}
                                     onVerPropuesta={() => cambiarTab('actual')}
-                                    manoObra={legadoActiva ? [] : manoObraCotizar}
+                                    manoObra={legadoActiva ? [] : sinInstalacion(manoObraCotizar)}
                                     cargandoManoObra={borrador ? cargandoManoObraBorrador : cargandoManoObraCarrito}
                                     cargos={cargos}
                                     onCambiarCargos={cambiarCargos}
+                                    instalacionCalculada={borrador ? instalacionCalculadaBorrador : instalacionCalculadaCarrito}
                                     parametros={parametros}
                                     bloqueoCargos={legadoActiva
                                         ? 'Opción anterior al cambio de cargos: duplícala para editarlos.'
@@ -1543,8 +1590,9 @@ const CotizadorPage: React.FC = () => {
                             onCambiarDescuento={(v) => { setDescuentoPct(v); marcarSucio(); }}
                             cargos={cargos}
                             onCambiarCargos={cambiarCargos}
-                            manoObra={legadoActiva ? [] : manoObraCarrito}
+                            manoObra={legadoActiva ? [] : sinInstalacion(manoObraCarrito)}
                             cargandoManoObra={cargandoManoObraCarrito}
+                            instalacionCalculada={instalacionCalculadaCarrito}
                             totalesPrevistos={totalesCarrito}
                             propuestas={controlPropuestas}
                             hayCambiosSinGuardar={sucio}

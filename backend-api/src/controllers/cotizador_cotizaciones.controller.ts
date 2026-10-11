@@ -10,7 +10,7 @@ import { z } from 'zod';
 import * as store from '../cotizador/store/cotizacionStore';
 import { ErrorCotizador } from '../cotizador/store/cotizacionStore';
 import { evaluarAptitudOrden } from '../cotizador/lib/aptitudOrden';
-import { calcularManoObraProductos } from '../cotizador/lib/cargos';
+import { calcularManoObraProductos, instalacionCalculada } from '../cotizador/lib/cargos';
 import * as empresaStore from '../cotizador/store/empresaStore';
 import { folioCotizacion, generarPdfCotizacion, nombreArchivoCotizacion } from '../cotizador/lib/generadorPdfCotizacion';
 import { ODP } from '../models';
@@ -74,6 +74,19 @@ const descuentoSchema = z
   .min(0, 'El descuento no puede ser negativo.')
   .max(1, 'El descuento se escribe como fracción: 0,05 para un 5%. Un valor mayor que 1 dejaría el total en negativo.');
 
+/** Instalación como cargo de la obra (2026-10-11): una casilla por propuesta y
+ * el valor que el asesor puede escribir (ya con AIU; null = automático). */
+const instalacionSchema = z
+  .object({
+    activa: z.boolean({ message: 'Indica si la opción lleva instalación.' }),
+    valorManual: z
+      .number({ message: 'El valor de la instalación debe ser un número.' })
+      .min(0, 'El valor de la instalación no puede ser negativo.')
+      .nullable()
+      .optional(),
+  })
+  .strict();
+
 const propuestaEntradaSchema = z
   .object({
     nombre: z.string().max(80).nullable().optional(),
@@ -82,6 +95,7 @@ const propuestaEntradaSchema = z
     descuentoPct: descuentoSchema.optional(),
     items: z.array(itemSchema).optional(),
     cargos: z.array(cargoSchema).optional(),
+    instalacion: instalacionSchema.optional(),
   })
   .strict();
 
@@ -160,6 +174,7 @@ const segmentoSchema = z
 const cargosSchema = z
   .object({
     cargos: z.array(cargoSchema).max(20, 'Una propuesta no puede llevar más de 20 cargos de obra.'),
+    instalacion: instalacionSchema.optional(),
   })
   .strict();
 
@@ -331,6 +346,7 @@ export const actualizarCotizacion = async (req: Request, res: Response) => {
       ligero: req.query.respuesta === 'ligera',
       usuarioId: req.user!.id,
       marcarLeadPerdido,
+      puedeDesaprobarConOdp: nivelCotizador(req.user!.rol) === 'total',
     });
     if (!actualizada) return res.status(404).json({ error: 'Cotización no encontrada.' });
     res.json(actualizada);
@@ -460,8 +476,8 @@ export const guardarCargosPropuesta = async (req: Request, res: Response) => {
   const ids = idsRuta(req, res);
   if (!ids) return;
   try {
-    const { cargos } = cargosSchema.parse(req.body ?? {});
-    const r = await store.guardarCargos(ids.id, ids.pid, cargos);
+    const { cargos, instalacion } = cargosSchema.parse(req.body ?? {});
+    const r = await store.guardarCargos(ids.id, ids.pid, cargos, instalacion);
     res.json(r);
   } catch (e) {
     fallo(res, 'guardarCargosPropuesta', e, 'No se pudieron guardar los cargos de obra.');
@@ -489,6 +505,8 @@ const manoObraSchema = z
     items: z
       .array(z.object({ moduloId: z.string().max(40), input: z.record(z.string(), z.unknown()) }).strict())
       .max(100),
+    /** Ausente = propuesta anterior: manda la casilla de cada producto. */
+    instalacion: instalacionSchema.optional(),
   })
   .strict();
 
@@ -504,7 +522,13 @@ const manoObraSchema = z
 export const manoObraBorrador = async (req: Request, res: Response) => {
   try {
     const datos = manoObraSchema.parse(req.body ?? {});
-    res.json({ lineas: calcularManoObraProductos(datos.items) });
+    // "Calculado: $X" del panel: lo automático por tarifas, aunque el asesor
+    // haya escrito otro valor.
+    const automatico = datos.instalacion ? { activa: datos.instalacion.activa, valorManual: null } : undefined;
+    res.json({
+      lineas: calcularManoObraProductos(datos.items, datos.instalacion),
+      instalacionCalculada: instalacionCalculada(calcularManoObraProductos(datos.items, automatico)),
+    });
   } catch (e) {
     if (responderZod(res, e)) return;
     fallo(res, 'manoObraBorrador', e, 'No se pudo calcular la mano de obra de los productos.');

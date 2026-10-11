@@ -40,6 +40,9 @@ const sinCargos = (): EstadoCargos => ({
   huacal: { activo: false, unidades: 1, valorUnitario: 0, aplicaIva: true },
   flete: { activo: false, valor: 0, origen: 'SUGERIDO', aplicaIva: true },
   otros: [],
+  // La instalación no es una fila de cargos: viaja como línea INSTALACION de la
+  // mano de obra (2026-10-11), así que aquí no aporta nada.
+  instalacion: { activa: false, valorManual: null, legado: false },
 });
 
 const mo = (tipo: 'ENSAMBLE' | 'INSTALACION', cantidad: number, valorUnitario: number) => ({

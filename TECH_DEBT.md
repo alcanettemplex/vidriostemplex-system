@@ -1690,3 +1690,18 @@ Se unificó la cartera vencida del dashboard en `utils/carteraVencida.ts` y se c
    Alertas (excluye LISTO_INSTALAR). Se suma a las 4 ya señaladas el 2026-10-05 — decisión de negocio.
 5. **Ranking de Equipo vs ranking de Ventas**: fórmula (`abono+pendiente` vs `valor_total`) y roles
    distintos con el mismo nombre — baja, ~30 min.
+
+## 2026-10-11 — Cotizador: blindaje de la cotización aprobada (lo que quedó señalado)
+
+Se cerraron seis hallazgos de la revisión del módulo (ver `docs/modulos/cotizador.md` → "Blindaje de
+la cotización aprobada"). Quedó fuera, a propósito:
+
+1. **"Crear ODP" no es atómico de punta a punta** — baja, sin estimar (requiere que los tres flujos
+   de ODP acepten una transacción externa): el flujo que crea la ODP confirma su propia transacción
+   y el vínculo `cotizacion.odp_id` se escribe en otra. Si esa segunda confirmación falla (corte de
+   conexión justo ahí), queda una ODP sin cotización vinculada y un nuevo "Crear ODP" crearía otra.
+2. **Quitar la aprobación con ODP (control total) no recalcula nada aguas abajo** — decisión del
+   usuario: la ODP, la SAP y el monto del lead se ajustan a mano; el sistema solo avisa.
+3. **Dos "Crear propuesta" simultáneos** chocan con el UNIQUE `(cotizacion_id, etiqueta)` y el
+   segundo recibe el 500 genérico "No se pudo crear la propuesta" — baja, ~10 min (bloquear la
+   cabecera como en `actualizar`).

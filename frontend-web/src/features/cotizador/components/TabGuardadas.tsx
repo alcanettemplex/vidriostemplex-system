@@ -332,7 +332,8 @@ const TabGuardadas: React.FC<Props> = ({ onAbrir, onNueva, abrirDetalleInicial }
                     </span>
                     <div className="col-span-2 md:col-span-1 flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                         {accionDeFila(c)}
-                        {permisos.puedeEditar(c.asesorUsuarioId) && (
+                        {/* Aprobada o con ODP = respaldo de una venta: el backend rechaza borrarla. */}
+                        {permisos.puedeEditar(c.asesorUsuarioId) && c.estado !== 'APROBADA' && !c.odpId && (
                             <MenuFila onEliminar={() => eliminar(c)} eliminando={eliminandoId === c.id} />
                         )}
                     </div>

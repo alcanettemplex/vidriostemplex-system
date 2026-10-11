@@ -138,3 +138,26 @@ test("personalización: cambios, quitados y agregados en una línea legible", ()
   assert.equal(personalizacionComercial({ personalizacion: { cambios: [], quitados: [], extras: [] } }), null);
   assert.equal(personalizacionComercial(null), null);
 });
+
+// Puerta vidriera (2026-10-11, decisión del usuario): 744, 8025 y 7038 (con sus
+// variantes) de MÁS de 1.500 mm de alto se venden como puerta vidriera. El 5020
+// es siempre ventana, y 1.500 mm exactos todavía es ventana.
+test("puerta vidriera: 744 / 8025 / 7038 de más de 1,5 m de alto", () => {
+  const alta = { ...VENTANA, anchoCm: 90, altoCm: 210, conInstalacion: true };
+  assert.match(descripcionComercial("ventanas", alta), /^Suministro e instalación de puerta vidriera 744 color mate,.*medidas 900 × 2\.100 mm$/);
+  assert.match(descripcionComercial("ventanas", { ...alta, sistema: "8025" }), /de puerta vidriera 8025 /);
+  assert.match(descripcionComercial("ventanas", { ...alta, altoCm: 150.1 }), /de puerta vidriera 744 /);
+  // Límite y sistema que no aplica: siguen siendo ventana.
+  assert.match(descripcionComercial("ventanas", { ...alta, altoCm: 150 }), /de ventana 744 /);
+  assert.match(descripcionComercial("ventanas", { ...alta, sistema: "5020" }), /de ventana 5020 /);
+  // Por diseño: manda el sistema del diseño, con su variante.
+  assert.match(
+    descripcionComercial("ventanas", { ...alta, sistema: "7038" }, { diseno: { sistema: "Sistema7038-Interior", diseno: "OX", etiqueta: "Fijo + Corredizo" } }),
+    /de puerta vidriera 7038 Interior \(fijo \+ corredizo\)/
+  );
+  // Un proyectante alto no cambia de nombre.
+  assert.match(
+    descripcionComercial("proyectantes", { numeroNaves: 1, anchoNaveCm: 60, altoNaveCm: 200, conInstalacion: true }),
+    /de ventana proyectante/
+  );
+});

@@ -46,6 +46,14 @@ CotizadorPropuesta.init({
   // afectaba a ningún total) y al del formulario por ítem.
   descuento_pct: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
   legado_cargos_en_items: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  // Instalación como cargo de la obra (2026-10-11): una casilla por propuesta en
+  // vez de una por producto. NULL = propuesta anterior al cambio, que sigue con
+  // la casilla de cada producto. true/false = la de la propuesta manda y se sella
+  // en `input.conInstalacion` de cada ítem (ver `sellarInstalacion`).
+  con_instalacion: { type: DataTypes.BOOLEAN, allowNull: true },
+  // Valor que escribió el asesor (ya con AIU, como las líneas automáticas). NULL =
+  // el automático por tarifas. Se respeta aunque cambien los productos.
+  instalacion_valor_manual: { type: DataTypes.DOUBLE, allowNull: true },
   // Espejos denormalizados. total_productos = Σ subtotalConAiu SIN descuento;
   // total_cargos = base de cargos sin IVA; total_iva = IVA de productos + IVA de
   // cargos (un cargo con aplica_iva=false no aporta).

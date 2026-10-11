@@ -64,6 +64,20 @@ function sistemaVentana(s: string): string {
   return s.replace(/^Sistema/, "").replace(/-/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").trim();
 }
 
+/** Sistemas que, pasando de 1,5 m de alto, se venden como puerta vidriera y no
+ * como ventana (decisión del usuario, 2026-10-11). Incluye sus variantes
+ * ("7038 Interior"). El 5020 es siempre ventana. */
+const SISTEMAS_PUERTA_VIDRIERA = /^(744|8025|7038)\b/;
+const ALTO_MAXIMO_VENTANA_MM = 1500;
+
+/** "ventana" o "puerta vidriera": más de 1.500 mm de alto en 744, 8025 o 7038. */
+function nombreVentana(sistema: string | null | undefined, i: Record<string, unknown>): string {
+  const alto = mm(i.altoCm);
+  return sistema && SISTEMAS_PUERTA_VIDRIERA.test(sistema) && alto !== null && alto > ALTO_MAXIMO_VENTANA_MM
+    ? "puerta vidriera"
+    : "ventana";
+}
+
 /** Forma del diseño en minúscula, para ir entre paréntesis: "(fijo + corredizo)". */
 function forma(diseno: DisenoLaxo | null): string {
   const f = diseno?.etiqueta?.trim();
@@ -121,7 +135,7 @@ function producto(
   switch (moduloId) {
     case "ventanas": {
       const sistema = diseno?.sistema ? sistemaVentana(diseno.sistema) : etiquetaDe(campos, "sistema", i.sistema);
-      base = `ventana${sistema ? ` ${sistema}` : ""}${forma(diseno)}${color ? ` color ${color.toLowerCase()}` : ""}`;
+      base = `${nombreVentana(sistema, i)}${sistema ? ` ${sistema}` : ""}${forma(diseno)}${color ? ` color ${color.toLowerCase()}` : ""}`;
       // "con alfajía 1123" solo si de verdad se cobró (2026-10-01): antes bastaba
       // la casilla y el PDF prometía alfajía en sistemas donde no se cobraba.
       const alfajia = nombreAlfajia(i);

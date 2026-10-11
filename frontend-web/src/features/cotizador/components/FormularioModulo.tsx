@@ -129,9 +129,13 @@ interface Props {
     onResultado: (resultado: ResultadoCalculo, input: Record<string, unknown>) => void;
     /** Avisa si el precio está al día, calculándose, incompleto o con error. */
     onEstado?: (estado: EstadoCalculo) => void;
+    /** Casilla de Instalación de la OPCIÓN (2026-10-11). Con valor, "Con
+     * instalación" sale del formulario y el ítem se calcula con esta; null =
+     * opción anterior, con la casilla en cada producto como antes. */
+    instalacion?: boolean | null;
 }
 
-const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, personalizacion, onResultado, onEstado }) => {
+const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, personalizacion, onResultado, onEstado, instalacion = null }) => {
     const [input, setInput] = useState<Record<string, unknown>>(() => {
         const inicial: Record<string, unknown> = {};
         modulo.campos.forEach(campo => { inicial[campo.nombre] = valorInicial(campo); });
@@ -155,6 +159,8 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
     const derivados = CAMPOS_DERIVADOS_DEL_DISENO[modulo.id] ?? [];
     const campoOculto = (nombre: string) => {
         if (CAMPOS_DE_LA_COTIZACION.includes(nombre) || (hayDiseno && derivados.includes(nombre))) return true;
+        // La instalación se marca en Cargos de la obra, una vez para toda la opción.
+        if (nombre === 'conInstalacion' && instalacion !== null) return true;
         // `soloSi` (2026-09-27, una casilla: lado Y ↔ "en L") y `soloSiValor`
         // (2026-10-04, el valor de otro campo: ancho de puerta ↔ batiente).
         const campo = modulo.campos.find(c => c.nombre === nombre);
@@ -221,6 +227,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
             // El input del formulario puede traer una personalización vieja (la del
             // ítem al abrirlo en edición): manda la vigente, que es la de TabCotizar.
             const enviado: Record<string, unknown> = { ...input, segmentoCliente: segmento };
+            if (instalacion !== null && modulo.campos.some(c => c.nombre === 'conInstalacion')) enviado.conInstalacion = instalacion;
             delete enviado.personalizacion;
             if (personalizacion) enviado.personalizacion = personalizacion;
             if (modulo.id === 'proyectantes') {

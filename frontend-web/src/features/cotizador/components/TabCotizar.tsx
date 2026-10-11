@@ -15,6 +15,7 @@ import { EsteProducto, EstadoPrecio } from './ResumenPropuesta';
 import { usePlanoPrevisualizacion } from '../hooks/usePlano';
 import { colorPropuesta, rotuloPropuesta } from '../propuestaColor';
 import { BorradorCotizar } from '../totalesPropuesta';
+import { sellarInstalacion } from '../instalacion';
 import { descripcionDeItem, leerFicha } from '../fichaProducto';
 import { descripcionComercial } from '../descripcionesModulo';
 
@@ -97,11 +98,14 @@ interface Props {
     /** Columna derecha: el resumen de la propuesta, dibujado por CotizadorPage
      * con lo que aquí se sabe del producto en pantalla. */
     renderResumen: (este: EsteProducto) => React.ReactNode;
+    /** Casilla de Instalación de la opción (2026-10-11). null = opción anterior,
+     * con "Con instalación" en cada producto. */
+    instalacion?: boolean | null;
 }
 
 const TabCotizar: React.FC<Props> = ({
     modulos, segmento, onAgregarItem, edicion, onGuardarEdicion, onCancelarEdicion, bloqueo, sinVinculo = null, destino,
-    onBorrador, renderResumen,
+    onBorrador, renderResumen, instalacion = null,
 }) => {
     const [moduloId, setModuloId] = useState<string>(edicion?.item.moduloId ?? modulos[0]?.id ?? '');
     const [ultimoInput, setUltimoInput] = useState<Record<string, unknown> | null>(null);
@@ -180,6 +184,17 @@ const TabCotizar: React.FC<Props> = ({
                 setRecalculando(false);
             });
     }, [segmento, ultimoInput, moduloActivo]);
+
+    // Marcar o desmarcar Instalación en los cargos con un producto en pantalla:
+    // se sella sin recalcular (no toca el precio del producto, solo la frase
+    // "Suministro e instalación de…" y la mano de obra del panel).
+    useEffect(() => {
+        if (instalacion === null || !ultimoInput || !ultimoResultado) return;
+        if (!('conInstalacion' in ultimoInput) || ultimoInput.conInstalacion === instalacion) return;
+        const sellado = sellarInstalacion({ input: ultimoInput, resultado: ultimoResultado }, instalacion);
+        setUltimoInput(sellado.input);
+        setUltimoResultado(sellado.resultado);
+    }, [instalacion, ultimoInput, ultimoResultado]);
 
     const cambiarModulo = (id: string) => {
         if (edicion && id !== edicion.item.moduloId) onCancelarEdicion();
@@ -368,6 +383,7 @@ const TabCotizar: React.FC<Props> = ({
                                     personalizacion={personalizacion}
                                     onResultado={handleResultado}
                                     onEstado={setEstadoCalculo}
+                                    instalacion={instalacion}
                                 />
 
                                 {/* Vista técnica: al lado del formulario en pantallas

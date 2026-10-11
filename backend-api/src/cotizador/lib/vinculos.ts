@@ -37,6 +37,7 @@ import { aprobarProspectoRegistro } from '../../controllers/prospecto.controller
 import { crearODPRegistro } from '../../controllers/odp.controller';
 import { getModulo } from '../modules/registry';
 import { conInstalacion } from './cargos';
+import { descripcionComercial } from './detalleComercial';
 import { ROLES_CONTROL_TOTAL, ROLES_EDITAN_PROPIAS } from './permisos';
 
 type Fila = Record<string, any>;
@@ -594,7 +595,10 @@ export async function planCrearODP(cotizacionId: number, user: NonNullable<Expre
         return no(`El lead ya tiene la ${plan.odpExistente?.numero ?? 'ODP'}: vincula esta cotización a ella en vez de crear otra.`);
       }
       if (l.estado_crm !== 'APROBADO') {
-        return no(`El lead está en ${l.estado_crm}: vuelve a marcar la cotización como Aprobada para sincronizarlo.`);
+        return no(
+          `El lead está en ${l.estado_crm} y debería estar Aprobado. Pasa la cotización a "Esperando respuesta" y apruébala ` +
+            'de nuevo: al aprobarla, el lead pasa a Aprobado.'
+        );
       }
       plan.camino = 'lead';
       plan.cliente = await clienteCorto(l.cliente_id);
@@ -654,10 +658,21 @@ export async function planCrearODP(cotizacionId: number, user: NonNullable<Expre
  * dentro de los ítems, anterior al 2026-09-20) no tiene la línea: queda en false
  * y se marca a mano en la ODP, como antes.
  */
+/** La frase comercial con las reglas vigentes; null si no se puede armar. */
+function fraseActual(f: Fila): string | null {
+  try {
+    return descripcionComercial(String(f.modulo_id), (f.input ?? {}) as Record<string, unknown>, { diseno: f.diseno ?? null }) || null;
+  } catch {
+    return null;
+  }
+}
+
 async function detalleParaODP(cotizacionId: number, numero: number, etiqueta: string | null) {
   const filas = (await sequelize.query(
     `SELECT i.modulo_id, i.descripcion_item, i.cantidad_piezas,
             i.input->>'conInstalacion' AS con_instalacion,
+            i.input,
+            i.resultado->'diseno' AS diseno,
             i.resultado->>'descripcionComercial' AS descripcion_comercial
        FROM cotizador.cotizacion_item i
        JOIN cotizador.propuesta p ON p.id = i.propuesta_id
@@ -670,7 +685,11 @@ async function detalleParaODP(cotizacionId: number, numero: number, etiqueta: st
     return {
       cantidad: Number(f.cantidad_piezas) || 1,
       tipo_servicio: modulo?.meta?.nombre ?? String(f.modulo_id),
-      descripcion: String(f.descripcion_comercial || f.descripcion_item || modulo?.meta?.nombre || f.modulo_id),
+      // La frase se vuelve a armar (2026-10-11): la guardada puede ser anterior a
+      // una regla de nombre (p. ej. "puerta vidriera"), igual que la del PDF.
+      descripcion: String(
+        fraseActual(f) || f.descripcion_comercial || f.descripcion_item || modulo?.meta?.nombre || f.modulo_id
+      ),
     };
   });
   const cabecera = `Cotización N.° ${numero}${etiqueta ? ` (Opción ${etiqueta})` : ''} del Cotizador`;
@@ -728,12 +747,19 @@ export async function crearODPDesdeCotizacion(
 
   const { leadId, numeroCot, ...respuesta } = resultado;
   if (leadId) {
-    await LeadEvento.create({
-      tipo: 'SEGUIMIENTO',
-      detalle_texto: `${respuesta.numeroOdp} creada desde la cotización N.° ${numeroCot} del Cotizador.`,
-      lead_id: leadId,
-      creado_por: user.id,
-    });
+    // La ODP ya está creada y vinculada: si la nota de la bitácora falla, se
+    // registra en el log y se sigue. Propagarla haría responder "No se pudo
+    // crear la ODP" sobre una ODP que sí existe (2026-10-11).
+    try {
+      await LeadEvento.create({
+        tipo: 'SEGUIMIENTO',
+        detalle_texto: `${respuesta.numeroOdp} creada desde la cotización N.° ${numeroCot} del Cotizador.`,
+        lead_id: leadId,
+        creado_por: user.id,
+      });
+    } catch (e) {
+      console.error('crearODPDesdeCotizacion (bitácora del lead):', e instanceof Error ? e.message : e);
+    }
     // El "Crear ODP" del CRM no avisa al módulo ODP; desde aquí sí.
     import('../../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(respuesta.odpId, 'create')).catch(() => {});
   }

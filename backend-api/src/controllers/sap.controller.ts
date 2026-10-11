@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { SAP, SAPItem, ODP, Usuario, CatalogoProducto, ODCItem, CotizadorCotizacion, CotizadorProducto, NotaProduccion } from '../models';
 import { sapTieneAluminio } from '../utils/sapAluminio';
 import sequelize from '../config/database';
-import { Op, Transaction } from 'sequelize';
+import { Op, QueryTypes, Transaction } from 'sequelize';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { recalcularChecksODP } from '../utils/checksAutomaticos';
 import * as cotizacionStore from '../cotizador/store/cotizacionStore';
@@ -737,6 +737,30 @@ export const traerItemsDeCotizacion = async (req: Request, res: Response) => {
     const sapId = await withUniqueRetry(async () => {
       const t: Transaction = await sequelize.transaction();
       try {
+        // Candado por ODP (2026-10-11): la comprobación de doble carga y la letra
+        // inicial se calcularon antes de esta transacción. Sin el bloqueo, dos
+        // "Traer" casi simultáneos (doble clic, dos pestañas) pasaban los dos e
+        // insertaban los ítems dos veces y con letras repetidas.
+        await ODP.findByPk(odpId, { attributes: ['id'], transaction: t, lock: t.LOCK.UPDATE });
+        const repetidas = (await sequelize.query(
+          `SELECT DISTINCT s.id, s.numero_sap
+             FROM public.sap_items i
+             JOIN public.sap s ON s.id = i.sap_id
+            WHERE s.odp_id = :odpId AND i.origen_cotizacion_id = :cotizacionId`,
+          { replacements: { odpId, cotizacionId: p.cotizacionId }, type: QueryTypes.SELECT, transaction: t }
+        )) as Array<{ id: number; numero_sap: string }>;
+        const bloquean = repetidas.filter((s) => !(p.modo === 'reemplazar' && Number(s.id) === p.destinoId));
+        if (bloquean.length > 0) {
+          throw new ErrorTraerSap(409, `Los ítems de la cotización N.° ${p.cot.numero} ya se trajeron a ${bloquean.map((s) => s.numero_sap).join(', ')} (otra pestaña o un doble clic). Revisa esa SAP.`);
+        }
+        if (p.modo === 'agregar' && p.destinoId) {
+          const letras = await SAPItem.findAll({ where: { sap_id: p.destinoId }, attributes: ['item'], transaction: t });
+          const maxAhora = Math.max(-1, ...letras.map((l) => indiceDeLetra(l.getDataValue('item'))));
+          const maxLeido = Math.max(-1, ...p.itemsDestino.map((it) => indiceDeLetra(it.item)));
+          if (maxAhora !== maxLeido) {
+            throw new ErrorTraerSap(409, 'La SAP cambió mientras preparabas el cambio. Vuelve a abrir "Traer ítems de la cotización" para ver sus letras actuales.');
+          }
+        }
         let id: number;
         if (p.destino && p.destinoId) {
           id = p.destinoId;

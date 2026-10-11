@@ -6792,3 +6792,49 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - `fmtHora` nuevo en `utils/fechas.ts`: "Salió" y "Llegó" mostraban la fecha completa porque `fmtMomento` usa `toLocaleDateString`.
 - Verificado: 09-oct → solo Juan Diego Gómez con 6 paradas (#536–#542); 08-oct → vacío; validaciones 409/403/400 iguales.
 
+
+## 2026-10-11 — Cotizador: revisión de código y blindaje de la cotización aprobada
+
+**Pedido del usuario:** levantar los servicios en local y revisar el Cotizador en busca de bugs y deuda técnica; luego "procede" con los 6 puntos, el 2 como "control total con aviso".
+
+### Cambios realizados
+- **backend:** `cotizacionStore.ts` (`eliminar` con 3 frenos; `actualizar` con `FOR UPDATE` y regla de desaprobar con ODP; fechas de cierre en `crear`); `cotizador_cotizaciones.controller.ts` (pasa `puedeDesaprobarConOdp`); `vinculos.ts` (nota del lead sin tumbar la respuesta, mensaje del lead no aprobado); `sap.controller.ts` (candado por ODP en "Traer ítems"); `cotizador.routes.ts` (roles del contexto del lead).
+- **frontend:** `TabGuardadas.tsx` (sin "Eliminar" para aprobadas o con ODP); `CotizadorPage.tsx` (`cambiarEstado` con guardia y confirmación).
+- **BD:** sin cambios.
+- **docs:** `docs/modulos/cotizador.md` § "Blindaje de la cotización aprobada", `TECH_DEBT.md` 2026-10-11.
+
+### Verificación
+`tsc` del backend sin errores; frontend recompilado sin problemas. En vivo, solo lectura: contexto del lead → instalador 403, root 200. Las reglas 1, 2 y 5 no se probaron con escrituras (la base local es producción); hoy hay 0 cotizaciones aprobadas. No se corrió `test:cotizador` (backend dev levantado).
+
+### Pendientes
+- Prueba coordinada de borrar / desaprobar / traer a SAP con la primera cotización aprobada real.
+- Sin commit (esperando orden del usuario). Sigue sin seguimiento `documentation/1- 00-ene-yyyy.pdf`.
+
+## 2026-10-11 (2) — Cotizador: instalación como cargo de la obra
+
+**Pedido del usuario:** los asesores reportaban la instalación "calculada por aparte" con varios productos; moverla al panel derecho como cargo de la obra, junto a acarreo, huacal y andamio.
+
+**Decisiones del usuario:** una casilla por opción (sale la de cada producto); automático por tarifas y editable; mínimo de 1 m² por producto; PDF igual que antes (instalación dentro del precio de cada producto, frase "Suministro e instalación de…"); el valor editado se respeta con aviso; desmarcada por defecto; ensamble sin cambios; las guardadas no se tocan (aviso en el panel).
+
+### Cambios realizados
+- **BD:** `cotizador.propuesta.con_instalacion` (NULL = opción anterior) e `instalacion_valor_manual` — script `2026-10-11_cotizador_instalacion_por_propuesta.ts`, **ya corrido** con autorización (base local = producción; columnas nullable, el backend desplegado las ignora).
+- **backend:** `lib/cargos.ts` (`sellarInstalacion`, `instalacionCalculada`, opción en `calcularManoObraProductos` y `manoObraPorItem`); `cotizacionStore.ts` (sello en crear, copiar, clonar, guardar ítems y guardar cargos); controlador (esquema `instalacion`, `/mano-obra` devuelve `instalacionCalculada`); modelo `CotizadorPropuesta`.
+- **frontend:** `instalacion.ts` (nuevo), `EstadoCargos.instalacion`, fila "Instalación" en `CargosCompactos`, Mano de obra solo con ensamble, `FormularioModulo` sin "Con instalación" en la forma nueva, sello del carrito y del producto en pantalla, envío en `PUT …/cargos` y al crear.
+- **pruebas:** `instalacionPropuesta.test.ts` (7, nueva, agregada a `test:cotizador`); fixture de `totalesContrato.test.ts`.
+- **docs:** `docs/modulos/cotizador.md` § "Instalación como cargo de la obra", índice de CLAUDE.md.
+
+### Verificación
+`tsc` backend y frontend sin errores. Suites una por una: instalacionPropuesta 7/7, cargos 23/23, totalesContrato 14/14, detalleComercial 10/10, pdf 13/13, pergolaDivision 20/20, aptitudOrden 27/27, humo 4/4, fotoErp 5/5. En vivo, `POST /mano-obra` (no escribe) en los 4 modos: anterior (solo la ventana instalada), marcada (ventana + espejo, calculada $135.417), valor del asesor ($250.000 en una línea, ensamble igual), desmarcada (solo ensamble). **No se probó en el navegador** ni una escritura real.
+
+### Pendientes
+- Prueba en pantalla: marcar/desmarcar, editar el valor, "Predeterminado", opción anterior con el aviso, PDF y Crear ODP con la casilla.
+- Sin commit (esperando orden del usuario).
+
+## 2026-10-11 (3) — Cotizador: "puerta vidriera" en la frase comercial
+
+**Pedido del usuario:** en el PDF, una ventana 744 / 8025 / 7038 de más de 1,5 m de alto se nombra "puerta vidriera". Decisiones: 7035 = 7038 (con variantes); más de 1.500 mm; texto "puerta vidriera"; en todas partes.
+
+- **backend:** `nombreVentana()` en `lib/detalleComercial.ts`; `detalleParaODP` (`vinculos.ts`) rearma la frase al crear la ODP.
+- **pruebas:** caso nuevo en `detalleComercial.test.ts`.
+- **Verificación:** `tsc` backend sin errores; `npm run test:cotizador` completo con el backend dev abajo: **276/276** (incluye la instalación por propuesta).
+- Commit y push por orden del usuario.

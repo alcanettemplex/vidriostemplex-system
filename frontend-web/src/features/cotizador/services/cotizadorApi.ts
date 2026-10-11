@@ -7,7 +7,7 @@ import {
     EstadoSistemaCalibracion, FiltrosListado, HistorialCalibracion, HolguraCalibracion,
     MaterialCalibracion, ModuloMeta, MultiplicadorCategoria, Parametros, PiezaCalibracion,
     Plano, ProductoCatalogo, ProductoCatalogoGeneral, ResultadoCalculo, ResultadoRecalculoCategoria,
-    RespuestaPropuesta, SegmentoCliente, LineaManoObra,
+    RespuestaPropuesta, SegmentoCliente, LineaManoObra, OpcionInstalacion,
 } from '../types';
 import type {
     AsesorCotizador, ContextoLead, FichaVinculo, FormaPagoODP, FuenteLead, PlanCrearODP, ResultadosVinculo, TipoVinculo,
@@ -171,8 +171,13 @@ export const apiEliminarPropuesta = (cotizacionId: number, propuestaId: number) 
  * PATCH por línea porque el panel es un formulario que se edita entero.
  * Responde 409 sobre una propuesta legada (sus cargos viven dentro de los
  * ítems): en ese caso hay que duplicarla. */
-export const apiGuardarCargos = (cotizacionId: number, propuestaId: number, cargos: CargoEntrada[]) =>
-    axios.put<Cotizacion>(`${BASE}/cotizaciones/${cotizacionId}/propuestas/${propuestaId}/cargos`, { cargos });
+/** `instalacion` (2026-10-11): la casilla de la opción. Sin ella el backend no la
+ * toca: una opción anterior sigue con la casilla por producto. */
+export const apiGuardarCargos = (cotizacionId: number, propuestaId: number, cargos: CargoEntrada[], instalacion?: OpcionInstalacion) =>
+    axios.put<Cotizacion>(`${BASE}/cotizaciones/${cotizacionId}/propuestas/${propuestaId}/cargos`, {
+        cargos,
+        ...(instalacion ? { instalacion } : {}),
+    });
 
 /** GET /comparar — tabla lado a lado. La pantalla que se gira hacia el cliente. */
 export const apiCompararPropuestas = (cotizacionId: number) =>
@@ -189,8 +194,13 @@ export const apiDescargarPdfPropuesta = (cotizacionId: number, propuestaId: numb
 /** POST /mano-obra — líneas automáticas de mano de obra (ensamble e
  * instalación) de un juego de ítems, guardados o no. No escribe nada. Solo
  * viajan el módulo y el formulario de cada ítem: el despiece no hace falta. */
-export const apiManoObra = (items: Array<{ moduloId: string; input: Record<string, unknown> }>) =>
-    axios.post<{ lineas: LineaManoObra[] }>(`${BASE}/mano-obra`, { items });
+/** `instalacion` ausente = opción anterior (casilla por producto). La respuesta
+ * trae además lo automático por tarifas, para el "Calculado: $X" del panel. */
+export const apiManoObra = (items: Array<{ moduloId: string; input: Record<string, unknown> }>, instalacion?: OpcionInstalacion) =>
+    axios.post<{ lineas: LineaManoObra[]; instalacionCalculada?: number }>(`${BASE}/mano-obra`, {
+        items,
+        ...(instalacion ? { instalacion } : {}),
+    });
 
 // ─── Calibración ─────────────────────────────────────────────────────────────
 
