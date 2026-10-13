@@ -216,8 +216,10 @@ export const MENU_ITEMS_CONFIG: ItemMenu[] = [
   },
   {
     // Pantalla completa: se monta fuera del AppShell (ver AppRoutes).
-    text: 'Supervisión CRM', descripcion: 'Ranking de asesores y coaching diario',
-    icon: Crosshair, path: '/supervision-crm', area: 'admin', roles: ['root'], paraRoot: true,
+    // admin con acceso completo desde el 2026-10-12 (reporte diario de asesores).
+    text: 'Supervisión CRM', descripcion: 'Reporte diario de asesores, ranking y coaching',
+    icon: Crosshair, path: '/supervision-crm', area: 'admin', roles: ['admin'], paraRoot: true,
+    claves: 'whatsapp pendientes asesores reporte',
   },
   {
     text: 'ROOT', descripcion: 'Base de datos, auditoría, respaldos y servicios',

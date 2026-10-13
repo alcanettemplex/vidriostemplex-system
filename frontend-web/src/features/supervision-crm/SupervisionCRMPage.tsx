@@ -13,6 +13,7 @@ import MotivosPerdidaPanel from './components/MotivosPerdidaPanel';
 import LineamientoDelDia from './components/LineamientoDelDia';
 import BuscadorAvanzadoPanel from './components/BuscadorAvanzadoPanel';
 import RankingAsesoresPanel from './components/RankingAsesoresPanel';
+import ReporteDelDia from './components/ReporteDelDia';
 import {
   apiGetSupervisionResumen, apiGetSupervisionAltoValor, apiGetSupervisionSeguimiento,
   apiGetSupervisionPrimerContacto, apiGetAdherenciaLineamiento, apiGetRankingAsesores,
@@ -22,7 +23,7 @@ import { useAsesoresCRM } from '../crm/hooks/useAsesoresCRM';
 import { SupervisionLeadItem, SupervisionResumen, AdherenciaLineamiento, RankingAsesorItem } from './types';
 import { hoyBogotaISO } from '../../utils/fechas';
 
-type Tab = 'primer_contacto' | 'seguimiento' | 'alto_valor' | 'lineamiento' | 'motivos' | 'buscador';
+type Tab = 'reporte' | 'primer_contacto' | 'seguimiento' | 'alto_valor' | 'lineamiento' | 'motivos' | 'buscador';
 
 const primerDiaMesActual = (): string => `${hoyBogotaISO().slice(0, 8)}01`;
 
@@ -33,7 +34,7 @@ const fmtCOP = (v: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(v);
 
 const SupervisionCRMPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('primer_contacto');
+  const [activeTab, setActiveTab] = useState<Tab>('reporte');
   const [fechaDesde, setFechaDesde] = useState(primerDiaMesActual());
   const [fechaHasta, setFechaHasta] = useState(hoyISO());
   const [asesorId, setAsesorId] = useState<number | undefined>(undefined);
@@ -180,6 +181,7 @@ const SupervisionCRMPage: React.FC = () => {
           {/* Navegación segmentada — estilo iOS */}
           <nav className="hidden md:flex items-center gap-0.5 bg-apple-gray rounded-xl p-1">
             {([
+              { key: 'reporte', label: 'Reporte del Día' },
               { key: 'primer_contacto', label: 'Primer Contacto' },
               { key: 'seguimiento', label: 'Cola Seguimiento' },
               { key: 'alto_valor', label: 'Alto Valor' },
@@ -226,6 +228,7 @@ const SupervisionCRMPage: React.FC = () => {
         {/* Nav segmentada — mobile */}
         <nav className="flex md:hidden items-center gap-0.5 bg-apple-gray rounded-xl p-1 mt-3 max-w-[1400px] mx-auto">
           {([
+            { key: 'reporte', label: 'Reporte' },
             { key: 'primer_contacto', label: 'Contacto' },
             { key: 'seguimiento', label: 'Seguimiento' },
             { key: 'alto_valor', label: 'Alto Valor' },
@@ -270,7 +273,7 @@ const SupervisionCRMPage: React.FC = () => {
             sublabel={loadingPrimerContacto ? undefined : `${primerContactoUrgentes} urgente${primerContactoUrgentes !== 1 ? 's' : ''}`}
             icon={PhoneCall}
             accent="blue"
-            description="Leads ya asignados a un asesor que todavía no han sido contactados. Alerta sobre leads muriendo en el olvido antes de siquiera intentarlo."
+            description="Leads nuevos o asignados que llevan más de 2 horas hábiles desde la asignación sin ningún contacto registrado en su bitácora. Horario hábil: lunes a viernes de 8 a 5 y sábado de 8 a 12, sin festivos. Es la misma regla del Reporte del Día."
           />
           <KPICard
             label="Alto valor sin ODP"
@@ -283,10 +286,10 @@ const SupervisionCRMPage: React.FC = () => {
           <KPICard
             label="Estancados en seguimiento"
             value={loadingSeguimiento ? '—' : String(seguimiento.length)}
-            sublabel={loadingSeguimiento ? undefined : `${seguimientoCriticos} crítico${seguimientoCriticos !== 1 ? 's' : ''} (≥7d)`}
+            sublabel={loadingSeguimiento ? undefined : `${seguimientoCriticos} crítico${seguimientoCriticos !== 1 ? 's' : ''} (≥7 días hábiles)`}
             icon={Clock3}
             accent="orange"
-            description="Leads en etapa SEGUIMIENTO que llevan tiempo sin avanzar. 'Crítico' marca los que llevan 7 días o más sin resolverse, riesgo alto de enfriarse."
+            description="Leads en contacto, cotizando, en seguimiento o con visita técnica que llevan 2 o más días hábiles sin actividad (el sábado cuenta, domingos y festivos no). 'Crítico' marca los que llevan 7 días hábiles o más. Es la misma regla del Reporte del Día."
           />
           <KPICard
             label="Cumplimiento lineamiento"
@@ -361,7 +364,8 @@ const SupervisionCRMPage: React.FC = () => {
         {/* ── Ranking de asesores ── */}
         <RankingAsesoresPanel ranking={ranking} loading={loadingRanking} disabled={!!asesorId} />
 
-        {/* ── Filtros ── */}
+        {/* ── Filtros (el Reporte del Día tiene los suyos) ── */}
+        {activeTab !== 'reporte' && (
         <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-apple">
           <div className="flex items-center gap-2 pr-3 border-r border-apple-hairline">
             <Calendar className="w-4 h-4 text-apple-text-tertiary" />
@@ -408,6 +412,7 @@ const SupervisionCRMPage: React.FC = () => {
             </div>
           )}
         </div>
+        )}
 
         {(activeTab === 'primer_contacto' || activeTab === 'seguimiento' || activeTab === 'alto_valor') && (
           <p className="text-[11px] text-apple-text-tertiary font-medium -mt-2 px-1">
@@ -416,18 +421,19 @@ const SupervisionCRMPage: React.FC = () => {
         )}
 
         {/* ── Contenido activo ── */}
+        {activeTab === 'reporte' && <ReporteDelDia />}
         {activeTab === 'primer_contacto' && (
           <LeadRadarPanel
             leads={primerContacto}
             loading={loadingPrimerContacto}
-            emptyLabel="No hay leads asignados sin contactar en este período/filtro."
+            emptyLabel="No hay leads con más de 2 horas hábiles sin primer contacto."
           />
         )}
         {activeTab === 'seguimiento' && (
           <LeadRadarPanel
             leads={seguimiento}
             loading={loadingSeguimiento}
-            emptyLabel="No hay leads estancados en Seguimiento en este período/filtro."
+            emptyLabel="No hay leads con 2 o más días hábiles sin actividad."
             onRegistrarIntento={handleRegistrarIntento}
           />
         )}

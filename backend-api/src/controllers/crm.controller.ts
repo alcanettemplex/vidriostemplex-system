@@ -11,6 +11,11 @@ import ODP from '../models/odp.model';
 import { v2 as cloudinary } from 'cloudinary';
 import '../config/upload'; // garantiza que cloudinary está configurado
 import { diasDesde, calcularAccionSugerida, FECHA_POR_ESTADO } from '../utils/crmSupervision';
+import { z } from 'zod';
+import {
+  leadsSinContacto, leadsSinSeguimiento, accionLead, LeadSupervisado,
+  construirReporte, registrarEnvio, evaluarCumplimiento,
+} from '../utils/reporteAsesores';
 import {
   hoyBogotaISO, rangoDiasBogota, diferenciaMeses, sumarMesesISO, diaBogotaISO,
   inicioDiaBogota, finDiaBogota, ultimoDiaMesISO, diaCalendarioISO,
@@ -2208,41 +2213,39 @@ export const getSupervisionAltoValor = async (req: Request, res: Response) => {
   }
 };
 
-// GET /api/crm/supervision/seguimiento — cola priorizada de SEGUIMIENTO, todos los asesores
-// No filtra por fecha de creación: mismo criterio que getSupervisionAltoValor.
+// Nombre de los asesores de una cola (incluye inactivos: el lead sigue siendo suyo).
+async function nombresAsesores(ids: (number | null)[]): Promise<Map<number, string>> {
+  const unicos = [...new Set(ids.filter((v): v is number => v !== null))];
+  if (unicos.length === 0) return new Map();
+  const usuarios = await Usuario.findAll({ where: { id: { [Op.in]: unicos } }, attributes: ['id', 'nombre_completo'] });
+  return new Map(usuarios.map((u) => [u.getDataValue('id') as number, u.getDataValue('nombre_completo') as string]));
+}
+
+function aFilaCola(tipo: 'PRIMER_CONTACTO' | 'SEGUIMIENTO', l: LeadSupervisado, nombres: Map<number, string>) {
+  return {
+    id: l.id,
+    nombre: l.nombre,
+    telefono: l.telefono,
+    estado_crm: l.estado_crm,
+    monto_proyectado_cotizacion: l.monto_proyectado_cotizacion,
+    intentos_seguimiento: l.intentos_seguimiento,
+    asesor_id: l.asesor_id,
+    asesor_nombre: (l.asesor_id && nombres.get(l.asesor_id)) || 'Sin asignar',
+    dias_en_etapa: l.dias_habiles,
+    horas_habiles: Math.round(l.horas_habiles * 10) / 10,
+    accion_sugerida: accionLead(tipo, l),
+  };
+}
+
+// GET /api/crm/supervision/seguimiento — leads en gestión (EN_CONTACTO, COTIZANDO, SEGUIMIENTO,
+// VISITA_TECNICA) con 2+ días hábiles sin actividad. Misma regla que el reporte diario
+// (utils/reporteAsesores.ts, decisión del usuario 2026-10-12): pantalla y mensaje coinciden.
 export const getSupervisionSeguimiento = async (req: Request, res: Response) => {
   try {
     const { asesor_id } = req.query;
-    const where: any = {
-      respondio: { [Op.ne]: 'No responde' },
-      estado_crm: 'SEGUIMIENTO',
-    };
-    if (asesor_id) where.asesor_id = parseInt(asesor_id as string);
-
-    const leads = await Lead.findAll({
-      where,
-      attributes: attrsLeadListado,
-      include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
-    });
-
-    const resultado = leads
-      .map((l: any) => {
-        const data = l.toJSON();
-        const dias = diasDesde(data.fecha_seguimiento || data.createdAt);
-        return {
-          id: data.id,
-          nombre: data.nombre,
-          telefono: data.telefono,
-          monto_proyectado_cotizacion: parseFloat(data.monto_proyectado_cotizacion || '0'),
-          intentos_seguimiento: data.intentos_seguimiento,
-          asesor_id: data.asesor_id,
-          asesor_nombre: data.asesor?.nombre_completo || 'Sin asignar',
-          dias_en_etapa: dias,
-          accion_sugerida: calcularAccionSugerida({ estado_crm: 'SEGUIMIENTO', dias, odp_id: data.odp_id }),
-        };
-      })
-      .sort((a, b) => b.dias_en_etapa - a.dias_en_etapa || b.monto_proyectado_cotizacion - a.monto_proyectado_cotizacion);
-
+    const leads = await leadsSinSeguimiento(asesor_id ? parseInt(asesor_id as string) : undefined);
+    const nombres = await nombresAsesores(leads.map((l) => l.asesor_id));
+    const resultado = leads.map((l) => aFilaCola('SEGUIMIENTO', l, nombres));
     res.json({ total: resultado.length, leads: resultado });
   } catch (error: any) {
     console.error('Error en getSupervisionSeguimiento:', error);
@@ -2250,40 +2253,14 @@ export const getSupervisionSeguimiento = async (req: Request, res: Response) => 
   }
 };
 
-// GET /api/crm/supervision/primer-contacto — leads ASIGNADO sin contactar, cualquier monto
-// No filtra por fecha de creación: mismo criterio que getSupervisionAltoValor.
+// GET /api/crm/supervision/primer-contacto — leads NUEVO/ASIGNADO con asesor, sin contacto
+// registrado y más de 2 h hábiles desde la asignación. Misma regla que el reporte diario.
 export const getSupervisionPrimerContacto = async (req: Request, res: Response) => {
   try {
     const { asesor_id } = req.query;
-    const where: any = {
-      respondio: { [Op.ne]: 'No responde' },
-      estado_crm: 'ASIGNADO',
-    };
-    if (asesor_id) where.asesor_id = parseInt(asesor_id as string);
-
-    const leads = await Lead.findAll({
-      where,
-      attributes: attrsLeadListado,
-      include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
-    });
-
-    const resultado = leads
-      .map((l: any) => {
-        const data = l.toJSON();
-        const dias = diasDesde(data.fecha_asignado || data.createdAt);
-        return {
-          id: data.id,
-          nombre: data.nombre,
-          telefono: data.telefono,
-          monto_proyectado_cotizacion: parseFloat(data.monto_proyectado_cotizacion || '0'),
-          asesor_id: data.asesor_id,
-          asesor_nombre: data.asesor?.nombre_completo || 'Sin asignar',
-          dias_en_etapa: dias,
-          accion_sugerida: calcularAccionSugerida({ estado_crm: 'ASIGNADO', dias, odp_id: data.odp_id }),
-        };
-      })
-      .sort((a, b) => b.dias_en_etapa - a.dias_en_etapa || b.monto_proyectado_cotizacion - a.monto_proyectado_cotizacion);
-
+    const leads = await leadsSinContacto(asesor_id ? parseInt(asesor_id as string) : undefined);
+    const nombres = await nombresAsesores(leads.map((l) => l.asesor_id));
+    const resultado = leads.map((l) => aFilaCola('PRIMER_CONTACTO', l, nombres));
     res.json({ total: resultado.length, leads: resultado });
   } catch (error: any) {
     console.error('Error en getSupervisionPrimerContacto:', error);
@@ -2294,39 +2271,53 @@ export const getSupervisionPrimerContacto = async (req: Request, res: Response) 
 // ─── Lineamiento del día + sesión de coaching (trazabilidad, exclusivo admin) ─
 
 const UMBRAL_ALTO_VALOR_DEFAULT = 10000000;
+
+// Lead o ODP del ítem (los del reporte diario pueden ser de ODP, 2026-10-12).
+const INCLUDE_ITEM_LINEAMIENTO = [
+  { model: Lead, as: 'lead', attributes: ['id', 'nombre', 'telefono'] },
+  { model: ODP, as: 'odp', attributes: ['id', 'numero_odp'] },
+];
 const ESTADOS_ALTO_VALOR = ['EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA', 'APROBADO'];
 
 async function construirItemsUrgentes(asesorId: number, montoMin: number) {
+  const items: { lead_id: number; texto_accion: string; prioridad: string; origen: string }[] = [];
+  const incluidos = new Set<number>();
+
+  // Primer contacto y seguimiento: mismas reglas que las colas y el reporte diario
+  // (utils/reporteAsesores.ts, 2026-10-12).
+  const [sinContacto, sinSeguimiento] = await Promise.all([
+    leadsSinContacto(asesorId),
+    leadsSinSeguimiento(asesorId),
+  ]);
+  for (const l of sinContacto) {
+    const accion = accionLead('PRIMER_CONTACTO', l);
+    items.push({ lead_id: l.id, texto_accion: accion.texto, prioridad: accion.prioridad, origen: 'PRIMER_CONTACTO' });
+    incluidos.add(l.id);
+  }
+  for (const l of sinSeguimiento) {
+    const accion = accionLead('SEGUIMIENTO', l);
+    items.push({ lead_id: l.id, texto_accion: accion.texto, prioridad: accion.prioridad, origen: 'SEGUIMIENTO' });
+    incluidos.add(l.id);
+  }
+
+  // Alto valor: criterio propio del radar (monto ≥ umbral, estancado ≥ 5 días), sin cambios.
   const leads = await Lead.findAll({
     where: {
       asesor_id: asesorId,
-      respondio: { [Op.ne]: 'No responde' },
-      estado_crm: { [Op.in]: ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA', 'APROBADO'] },
+      [Op.or]: [{ respondio: null }, { respondio: { [Op.ne]: 'No responde' } }],
+      estado_crm: { [Op.in]: ESTADOS_ALTO_VALOR },
+      monto_proyectado_cotizacion: { [Op.gte]: montoMin },
     },
   });
-
-  const items: { lead_id: number; texto_accion: string; prioridad: string; origen: string }[] = [];
-
   for (const l of leads as any[]) {
     const data = l.toJSON();
-    const monto = parseFloat(data.monto_proyectado_cotizacion || '0');
+    if (incluidos.has(data.id)) continue;
     const campoFecha = FECHA_POR_ESTADO[data.estado_crm];
     const dias = diasDesde((campoFecha && data[campoFecha]) || data.createdAt);
     const accion = calcularAccionSugerida({ estado_crm: data.estado_crm, dias, odp_id: data.odp_id });
-
-    if (data.estado_crm === 'ASIGNADO') {
-      // Todo lead recién asignado entra al lineamiento: la velocidad de respuesta
-      // no depende del monto, es puramente de disciplina de ejecución.
-      items.push({ lead_id: data.id, texto_accion: accion.texto, prioridad: accion.prioridad, origen: 'PRIMER_CONTACTO' });
-    } else if (data.estado_crm === 'SEGUIMIENTO') {
-      if (accion.prioridad !== 'baja') {
-        items.push({ lead_id: data.id, texto_accion: accion.texto, prioridad: accion.prioridad, origen: 'SEGUIMIENTO' });
-      }
-    } else if (ESTADOS_ALTO_VALOR.includes(data.estado_crm)) {
-      const calificaValor = data.estado_crm === 'APROBADO' ? !data.odp_id : true;
-      if (calificaValor && monto >= montoMin && accion.prioridad !== 'baja') {
-        items.push({ lead_id: data.id, texto_accion: accion.texto, prioridad: accion.prioridad, origen: 'ALTO_VALOR' });
-      }
+    const calificaValor = data.estado_crm === 'APROBADO' ? !data.odp_id : true;
+    if (calificaValor && accion.prioridad !== 'baja') {
+      items.push({ lead_id: data.id, texto_accion: accion.texto, prioridad: accion.prioridad, origen: 'ALTO_VALOR' });
     }
   }
 
@@ -2373,7 +2364,7 @@ export const generarLineamiento = async (req: Request, res: Response) => {
 
     const resultado = await SupervisionLineamiento.findByPk(lineamiento.getDataValue('id'), {
       include: [
-        { model: SupervisionLineamientoItem, as: 'items', include: [{ model: Lead, as: 'lead', attributes: ['id', 'nombre', 'telefono'] }] },
+        { model: SupervisionLineamientoItem, as: 'items', include: INCLUDE_ITEM_LINEAMIENTO },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
       ],
     });
@@ -2392,11 +2383,12 @@ export const getLineamiento = async (req: Request, res: Response) => {
     const { fecha, asesor_id } = req.query;
     if (!asesor_id) return res.status(400).json({ error: 'Debes indicar el asesor.' });
     const fechaConsulta = (fecha as string) || hoyBogotaISO();
+    await evaluarCumplimiento();
 
     const lineamiento: any = await SupervisionLineamiento.findOne({
       where: { fecha: fechaConsulta, asesor_id: parseInt(asesor_id as string) },
       include: [
-        { model: SupervisionLineamientoItem, as: 'items', include: [{ model: Lead, as: 'lead', attributes: ['id', 'nombre', 'telefono'] }] },
+        { model: SupervisionLineamientoItem, as: 'items', include: INCLUDE_ITEM_LINEAMIENTO },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
       ],
     });
@@ -2424,6 +2416,9 @@ export const marcarItemLineamiento = async (req: Request, res: Response) => {
 
     item.set('cumplido', !!cumplido);
     item.set('fecha_cumplido', cumplido ? new Date() : null);
+    // Marca humana: manda sobre el cumplimiento automático del reporte diario.
+    item.set('marcado_manual', true);
+    item.set('cumplido_automatico', false);
     await item.save();
 
     res.json(item);
@@ -2455,6 +2450,7 @@ export const actualizarNotasLineamiento = async (req: Request, res: Response) =>
 export const getAdherenciaLineamiento = async (req: Request, res: Response) => {
   try {
     const { fecha_desde, fecha_hasta, asesor_id } = req.query;
+    await evaluarCumplimiento();
     const whereLineamiento: any = {};
     if (fecha_desde && fecha_hasta) {
       whereLineamiento.fecha = { [Op.between]: [fecha_desde, fecha_hasta] };
@@ -2480,6 +2476,56 @@ export const getAdherenciaLineamiento = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error en getAdherenciaLineamiento:', error);
     res.status(500).json({ error: 'No se pudo calcular la adherencia al lineamiento.' });
+  }
+};
+
+// ─── Reporte diario de asesores (mensaje para el grupo de WhatsApp) ──────────
+// Reglas y redacción en utils/reporteAsesores.ts (fuente única, también la usa la
+// skill /reporte-asesores). Detalle en docs/modulos/supervision-crm.md.
+
+const parseAsesorIds = (valor: unknown): number[] | undefined => {
+  if (typeof valor !== 'string' || !valor.trim()) return undefined;
+  const ids = valor.split(',').map((v) => parseInt(v, 10)).filter((n) => Number.isInteger(n) && n > 0);
+  return ids.length ? ids : undefined;
+};
+
+// GET /api/supervision-crm/reporte-diario?asesor_ids=1,2&modo=nuevos|completo
+// Vista previa: no escribe. `modo=nuevos` (por defecto) descuenta lo ya enviado hoy.
+export const getReporteDiario = async (req: Request, res: Response) => {
+  try {
+    await evaluarCumplimiento();
+    const reporte = await construirReporte({
+      asesorIds: parseAsesorIds(req.query.asesor_ids),
+      soloNuevos: req.query.modo !== 'completo',
+    });
+    res.json(reporte);
+  } catch (error: any) {
+    console.error('Error en getReporteDiario:', error);
+    res.status(500).json({ error: 'No se pudo armar el reporte del día. Intenta de nuevo en un momento.' });
+  }
+};
+
+const registrarReporteSchema = z.object({
+  claves: z.array(z.string().regex(/^(L:\d+|O:\d+:[A-Z_]+)$/)).min(1).max(1000),
+  asesor_ids: z.array(z.number().int().positive()).max(100).optional(),
+}).strict();
+
+// POST /api/supervision-crm/reporte-diario/registrar — guarda el envío como lineamiento del día
+export const registrarReporteDiario = async (req: Request, res: Response) => {
+  const parsed = registrarReporteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'El reporte enviado no es válido. Vuelve a generar la vista previa e inténtalo de nuevo.' });
+  }
+  try {
+    const resultado = await registrarEnvio({
+      usuarioId: req.user!.id,
+      claves: parsed.data.claves,
+      asesorIds: parsed.data.asesor_ids,
+    });
+    res.json(resultado);
+  } catch (error: any) {
+    console.error('Error en registrarReporteDiario:', error);
+    res.status(500).json({ error: 'No se pudo registrar el envío, así que el mensaje no se copió. Intenta de nuevo en un momento.' });
   }
 };
 

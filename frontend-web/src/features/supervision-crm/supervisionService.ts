@@ -66,6 +66,16 @@ export const apiGuardarNotasLineamiento = (lineamientoId: number, notas_sesion: 
 export const apiGetAdherenciaLineamiento = (filtros: FiltrosSupervision) =>
   axios.get(`${API}/api/supervision-crm/lineamiento/adherencia?${buildParams(filtros)}`, getHeaders());
 
+// ─── Reporte diario de asesores ──────────────────────────────────────────────
+
+/** Vista previa del mensaje del día. `modo=nuevos` descuenta lo ya enviado hoy. */
+export const apiGetReporteDiario = (asesorIds: number[], modo: 'nuevos' | 'completo' = 'nuevos') =>
+  axios.get(`${API}/api/supervision-crm/reporte-diario?${buildParams({}, { asesor_ids: asesorIds.join(','), modo })}`, getHeaders());
+
+/** Guarda el envío como lineamiento del día (solo los pendientes vistos en la vista previa). */
+export const apiRegistrarReporteDiario = (claves: string[], asesorIds?: number[]) =>
+  axios.post(`${API}/api/supervision-crm/reporte-diario/registrar`, { claves, asesor_ids: asesorIds?.length ? asesorIds : undefined }, getHeaders());
+
 // ─── Buscador Avanzado ────────────────────────────────────────────────────────
 
 const buildParamsGenerico = <T extends object>(filtros: T): string => {

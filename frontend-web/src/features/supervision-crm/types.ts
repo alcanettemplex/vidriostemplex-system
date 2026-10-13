@@ -10,7 +10,10 @@ export interface SupervisionLeadItem {
   monto_proyectado_cotizacion: number;
   asesor_id: number | null;
   asesor_nombre: string;
+  /** Días hábiles (Primer Contacto / Seguimiento) o de calendario (Alto Valor). */
   dias_en_etapa: number;
+  /** Horas hábiles desde la asignación o la última actividad (colas Primer Contacto / Seguimiento). */
+  horas_habiles?: number;
   accion_sugerida: AccionSugerida;
   estado_crm?: string;
   intentos_seguimiento?: number;
@@ -47,18 +50,26 @@ export interface RankingAsesorItem {
   conversion_pct: number;
 }
 
-export type OrigenLineamiento = 'PRIMER_CONTACTO' | 'ALTO_VALOR' | 'SEGUIMIENTO' | 'MANUAL';
+export type OrigenLineamiento =
+  | 'PRIMER_CONTACTO' | 'ALTO_VALOR' | 'SEGUIMIENTO' | 'MANUAL'
+  | 'SIN_ASIGNAR' | 'FACTURAR' | 'FACTURAR_INSTALADA' | 'COBRAR';
 
 export interface LineamientoItem {
   id: number;
   lineamiento_id: number;
   lead_id: number | null;
+  odp_id: number | null;
   texto_accion: string;
   prioridad: 'alta' | 'media' | 'baja';
   origen: OrigenLineamiento;
   cumplido: boolean;
   fecha_cumplido: string | null;
   lead?: { id: number; nombre: string; telefono: string } | null;
+  odp?: { id: number; numero_odp: string } | null;
+  /** Parte del reporte diario en que salió; null = generado desde el lineamiento por asesor. */
+  envio: number | null;
+  cumplido_automatico: boolean;
+  marcado_manual: boolean;
 }
 
 export interface Lineamiento {
@@ -174,4 +185,39 @@ export interface BuscadorLeadsResponse {
   page: number;
   limit: number;
   items: BuscadorLeadItem[];
+}
+
+// ─── Reporte diario de asesores ──────────────────────────────────────────────
+
+export type TipoPendiente = 'SIN_ASIGNAR' | 'PRIMER_CONTACTO' | 'SEGUIMIENTO' | 'FACTURAR' | 'FACTURAR_INSTALADA' | 'COBRAR';
+
+export interface PendienteReporte {
+  clave: string;
+  tipo: TipoPendiente;
+  responsable_id: number | null;
+  lead_id: number | null;
+  odp_id: number | null;
+  prioridad: 'alta' | 'media' | 'baja';
+  texto: string;
+}
+
+export interface GrupoReporte {
+  responsable_id: number | null;
+  nombre: string;
+  activo: boolean;
+  es_asignador: boolean;
+  leads: number;
+  odps: number;
+  saldo: number;
+  items: PendienteReporte[];
+}
+
+export interface ReporteDiario {
+  fecha: string;
+  generado_en: string;
+  parte: number;
+  solo_nuevos: boolean;
+  totales: { leads: number; odps: number; saldo: number };
+  grupos: GrupoReporte[];
+  mensaje: string;
 }

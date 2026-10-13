@@ -306,6 +306,8 @@ SupervisionLineamientoItem.belongsTo(SupervisionLineamiento, { foreignKey: 'line
 
 Lead.hasMany(SupervisionLineamientoItem, { foreignKey: 'lead_id', as: 'items_lineamiento' });
 SupervisionLineamientoItem.belongsTo(Lead, { foreignKey: 'lead_id', as: 'lead' });
+ODP.hasMany(SupervisionLineamientoItem, { foreignKey: 'odp_id', as: 'items_lineamiento' });
+SupervisionLineamientoItem.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 
 // ─── Bloque K: Módulo Proveedores ────────────────────────────────────────────
 Proveedor.hasMany(ProveedorProducto, { foreignKey: 'proveedor_id', as: 'productos' });

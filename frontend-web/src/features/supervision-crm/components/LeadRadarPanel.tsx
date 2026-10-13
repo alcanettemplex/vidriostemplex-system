@@ -22,6 +22,12 @@ const ETAPA_LABEL: Record<string, string> = {
   SEGUIMIENTO: 'Seguimiento', VISITA_TECNICA: 'Visita Técnica', APROBADO: 'Aprobado',
 };
 
+/** Tiempo estancado: horas hábiles si aún no cumple un día (colas Primer Contacto / Seguimiento). */
+const fmtEstancado = (lead: SupervisionLeadItem): string =>
+  lead.horas_habiles !== undefined && lead.dias_en_etapa === 0
+    ? `${Math.floor(lead.horas_habiles)}h`
+    : `${lead.dias_en_etapa}d`;
+
 interface LeadRadarPanelProps {
   leads: SupervisionLeadItem[];
   loading: boolean;
@@ -97,7 +103,7 @@ const LeadRadarPanel: React.FC<LeadRadarPanelProps> = ({ leads, loading, emptyLa
                 </div>
                 <div className="flex items-center justify-between mt-1.5">
                   <span className={`text-[11px] font-medium ${activo ? 'text-white/80' : 'text-apple-text-tertiary'}`}>{lead.asesor_nombre}</span>
-                  <span className={`text-[11px] font-bold ${activo ? 'text-white' : 'text-apple-text-tertiary'}`}>{lead.dias_en_etapa}d</span>
+                  <span className={`text-[11px] font-bold ${activo ? 'text-white' : 'text-apple-text-tertiary'}`}>{fmtEstancado(lead)}</span>
                 </div>
               </button>
             );
@@ -141,9 +147,9 @@ const LeadRadarPanel: React.FC<LeadRadarPanelProps> = ({ leads, loading, emptyLa
               </div>
               <div className="bg-apple-bg rounded-2xl p-4">
                 <p className="text-[11px] font-semibold text-apple-text-tertiary uppercase tracking-widest mb-1 flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> Días estancado
+                  <Clock className="w-3 h-3" /> {seleccionado.horas_habiles !== undefined ? 'Tiempo hábil estancado' : 'Días estancado'}
                 </p>
-                <p className="text-lg font-bold text-apple-text">{seleccionado.dias_en_etapa}d</p>
+                <p className="text-lg font-bold text-apple-text">{fmtEstancado(seleccionado)}</p>
               </div>
               {seleccionado.intentos_seguimiento !== undefined && (
                 <div className="bg-apple-bg rounded-2xl p-4">

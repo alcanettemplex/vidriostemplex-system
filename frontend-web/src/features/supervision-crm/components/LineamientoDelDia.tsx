@@ -19,7 +19,17 @@ const ORIGEN_LABEL: Record<string, string> = {
   ALTO_VALOR: 'Alto Valor',
   SEGUIMIENTO: 'Seguimiento',
   MANUAL: 'Manual',
+  SIN_ASIGNAR: 'Sin asignar',
+  FACTURAR: 'Solicitar FE',
+  FACTURAR_INSTALADA: 'FE de ODP instalada',
+  COBRAR: 'Cobro',
 };
+
+/** Ítems del reporte diario: su texto ya trae nombre/ODP; los del generador se titulan con el lead. */
+const tituloItem = (item: LineamientoItem): string =>
+  item.envio !== null
+    ? item.texto_accion
+    : `${item.lead?.nombre || item.odp?.numero_odp || 'Lead'} — ${item.texto_accion}`;
 
 const PRIORIDAD_RANK: Record<string, number> = { alta: 0, media: 1, baja: 2 };
 
@@ -105,7 +115,9 @@ const LineamientoDelDia: React.FC<Props> = ({ asesorId, asesorNombre }) => {
       await apiMarcarItemLineamiento(item.id, nuevoValor);
       setLineamiento(prev => prev ? {
         ...prev,
-        items: prev.items.map(i => i.id === item.id ? { ...i, cumplido: nuevoValor } : i),
+        items: prev.items.map(i => i.id === item.id
+          ? { ...i, cumplido: nuevoValor, marcado_manual: true, cumplido_automatico: false }
+          : i),
       } : prev);
       cargarAdherencia();
     } catch {
@@ -207,10 +219,13 @@ const LineamientoDelDia: React.FC<Props> = ({ asesorId, asesorNombre }) => {
                   : <Circle className="w-5 h-5 text-apple-text-tertiary shrink-0" />}
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-bold truncate ${item.cumplido ? 'text-apple-text-tertiary line-through' : 'text-apple-text'}`}>
-                    {item.lead?.nombre || 'Lead'} — {item.texto_accion}
+                    {tituloItem(item)}
                   </p>
                   <p className="text-[11px] text-apple-text-tertiary font-medium">
-                    {ORIGEN_LABEL[item.origen]}{item.lead?.telefono ? ` · ${item.lead.telefono}` : ''}
+                    {ORIGEN_LABEL[item.origen]}
+                    {item.envio === null && item.lead?.telefono ? ` · ${item.lead.telefono}` : ''}
+                    {item.envio !== null ? ` · Reporte del día, parte ${item.envio}` : ''}
+                    {item.cumplido && item.cumplido_automatico ? ' · Resuelto (detectado por el sistema)' : ''}
                   </p>
                 </div>
                 <span className={`text-[11px] font-bold px-2 py-1 rounded-full shrink-0 uppercase ${PRIORIDAD_BADGE[item.prioridad]}`}>

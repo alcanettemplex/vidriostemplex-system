@@ -12,6 +12,7 @@ deliberado, porque nada de aquí se aplica solo.
 | `user-settings.json` | `~/.claude/settings.json` | Modelo, idioma, nivel de esfuerzo y accesos globales |
 | `project-settings.json` | `.claude/settings.json` (raíz del repo) | El allowlist de comandos del monorepo (npm, git de lectura, node), las reglas `deny` y el hook `SessionStart` |
 | `hooks/session-start.sh` | `.claude/hooks/session-start.sh` | El script que corre el hook |
+| `skills/reporte-asesores/SKILL.md` | `.claude/skills/reporte-asesores/SKILL.md` | Skill `/reporte-asesores`: mensaje diario de pendientes de los asesores (ver `docs/modulos/supervision-crm.md`) |
 
 ## Instalación en una máquina nueva
 
@@ -21,6 +22,8 @@ mkdir -p ~/.claude .claude/hooks
 cp tooling/claude-code/user-settings.json       ~/.claude/settings.json
 cp tooling/claude-code/project-settings.json    .claude/settings.json
 cp tooling/claude-code/hooks/session-start.sh   .claude/hooks/session-start.sh
+mkdir -p .claude/skills/reporte-asesores
+cp tooling/claude-code/skills/reporte-asesores/SKILL.md .claude/skills/reporte-asesores/SKILL.md
 ```
 
 El hook y las reglas se cargan al abrir la sesión: tras copiarlos, reiniciar Claude Code o abrir
