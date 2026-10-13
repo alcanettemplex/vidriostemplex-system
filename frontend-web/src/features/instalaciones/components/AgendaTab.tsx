@@ -422,7 +422,7 @@ const AgendaTab: React.FC<Props> = ({
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-4 items-start">
           {/* Bandeja: ODPs listas sin agendar */}
-          <div className="w-60 flex-shrink-0 sticky top-2">
+          <div className="w-[480px] flex-shrink-0 sticky top-2">
             <div className="bg-white rounded-2xl border border-slate-200 shadow-card flex flex-col max-h-[78vh]">
               <div className="px-3 py-2.5 border-b border-slate-100">
                 <div className="flex items-center gap-2">
