@@ -33,7 +33,7 @@ import {
 } from "../../cotizador/lib/cargos";
 import type { ItemParaCargos, CargoParaTotales } from "../../cotizador/lib/cargos";
 import { manoObraPorItem } from "../../cotizador/lib/cargos";
-import { valoresConManoObra } from "../../cotizador/lib/generadorPdfCotizacion";
+import { valoresConCargos } from "../../cotizador/lib/generadorPdfCotizacion";
 import { getParametros } from "../../cotizador/lib/catalogo";
 import { round2 } from "../../cotizador/lib/motorCalculo";
 import type { LineaBOM } from "../../cotizador/lib/motorCalculo";
@@ -607,18 +607,18 @@ test("manoObraPorItem suma lo mismo que las líneas de calcularManoObraProductos
   assert.ok(porItem[1] > 0, "una ventana sin instalación sí lleva ensamble");
 });
 
-test("valoresConManoObra: enteros que suman exactamente productos + mano de obra", () => {
+test("valoresConCargos: enteros que suman exactamente productos + mano de obra", () => {
   const items = [
     { moduloId: "ventanas", subtotalConAiu: 327107.4, input: { anchoCm: 100, altoCm: 100, conInstalacion: true, cantidadPiezas: 1 } },
     { moduloId: "tablero", subtotalConAiu: 470686.35, input: { anchoCm: 120, altoCm: 180, conInstalacion: false, cantidadPiezas: 1 } },
     { moduloId: "espejo", subtotalConAiu: 100995.55, input: { anchoCm: 100, altoCm: 100, conInstalacion: true, cantidadPiezas: 1 } },
   ];
   const totalManoObra = 175000.33;
-  const v = valoresConManoObra(items, totalManoObra)!;
+  const v = valoresConCargos(items, totalManoObra);
   const suma = items.reduce((a, it) => a + it.subtotalConAiu, 0) + totalManoObra;
   assert.equal(v.reduce((a, b) => a + b, 0), Math.round(suma));
   assert.ok(v.every(Number.isInteger));
   assert.equal(v[1], Math.round(470686.35), "el tablero sin instalación no recibe mano de obra");
-  // Sin ítems que generen mano de obra no hay cómo repartir: renglones aparte.
-  assert.equal(valoresConManoObra([items[1]], 1000), null);
+  // Sin ítems que generen mano de obra, va al ítem por su valor (2026-10-14).
+  assert.deepEqual(valoresConCargos([items[1]], 1000), [Math.round(470686.35 + 1000)]);
 });

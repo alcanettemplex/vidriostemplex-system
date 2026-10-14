@@ -22,7 +22,7 @@ import * as cache from '../../cotizador/cache';
 import {
   folioCotizacion,
   nombreArchivoCotizacion,
-  valoresConManoObra,
+  valoresConCargos,
   resumenPropuesta,
   generarPdfCotizacion,
   type ItemPdf,
@@ -107,13 +107,12 @@ test('nombre de archivo: folio, ODP y cliente; sin caracteres que Windows rechaz
   assert.ok(nombreArchivoCotizacion('COT-1', null, 'x'.repeat(400)).length <= 150);
 });
 
-// ─── Reparto de la mano de obra dentro de los ítems ────────────────────────
+// ─── Reparto de mano de obra y cargos dentro de los ítems ──────────────────
 
 test('mano de obra repartida: los enteros impresos suman exacto round(productos + mano de obra)', () => {
   const items = [VENTANA, ESPEJO];
   const mo = 187654.33;
-  const valores = valoresConManoObra(items, mo);
-  assert.ok(valores);
+  const valores = valoresConCargos(items, mo);
   const productos = items.reduce((a, it) => a + Number(it.subtotalConAiu), 0);
   assert.equal(valores.reduce((a, b) => a + b, 0), Math.round(productos + mo));
   for (const v of valores) assert.ok(Number.isInteger(v));
@@ -124,19 +123,35 @@ test('mano de obra repartida en proporción a lo que cada ítem genera', () => {
   const pesos = manoObraPorItem(items.map((it) => ({ moduloId: it.moduloId, input: it.input ?? {} })));
   assert.ok(pesos.every((p) => p > 0), 'los dos productos llevan instalación');
   const mo = pesos.reduce((a, b) => a + b, 0); // el total "natural": cada ítem recibe su propio peso
-  const valores = valoresConManoObra(items, mo)!;
+  const valores = valoresConCargos(items, mo);
   items.forEach((it, k) => {
     assert.ok(Math.abs(valores[k] - (Number(it.subtotalConAiu) + pesos[k])) <= 1, `ítem ${k}`);
   });
 });
 
-test('sin mano de obra, el reparto es solo el redondeo de los productos', () => {
-  const valores = valoresConManoObra([VENTANA, ESPEJO], 0)!;
+test('sin mano de obra ni cargos, el reparto es solo el redondeo de los productos', () => {
+  const valores = valoresConCargos([VENTANA, ESPEJO], 0);
   assert.equal(valores.reduce((a, b) => a + b, 0), Math.round(812345.67 + 219000.4));
 });
 
-test('mano de obra guardada sin ítems que la generen → null (renglones aparte, sin perder un peso)', () => {
-  assert.equal(valoresConManoObra([LIBRE], 50000), null);
+test('mano de obra sin ítems que la generen: va al ítem por su valor, sin perder un peso', () => {
+  assert.deepEqual(valoresConCargos([LIBRE], 50000), [Math.round(Number(LIBRE.subtotalConAiu) + 50000)]);
+});
+
+test('cargos (flete) repartidos en proporción al valor del ítem; suman exacto', () => {
+  const items = [VENTANA, ESPEJO];
+  const flete = 280000;
+  const sinFlete = valoresConCargos(items, 0);
+  const conFlete = valoresConCargos(items, 0, flete);
+  assert.equal(conFlete.reduce((a, b) => a + b, 0), Math.round(812345.67 + 219000.4 + flete));
+  const parte = conFlete.map((v, k) => v - sinFlete[k]);
+  const proporcion = 812345.67 / (812345.67 + 219000.4);
+  assert.ok(Math.abs(parte[0] - flete * proporcion) <= 1, `${parte}`);
+});
+
+test('cargos con todos los ítems en cero: por partes iguales', () => {
+  const cero = (orden: number): ItemPdf => ({ ...LIBRE, orden, subtotalConAiu: 0 });
+  assert.deepEqual(valoresConCargos([cero(0), cero(1)], 0, 1000), [500, 500]);
 });
 
 // ─── Resumen de las otras opciones ─────────────────────────────────────────
@@ -204,21 +219,34 @@ test('PDF real: archivo válido con folio, ODP, cliente y TOTAL A PAGAR', async 
   assert.ok(texto.includes(normal(moneda(p.totales.total))), `falta el total ${moneda(p.totales.total)}`);
 });
 
-test('PDF real: la mano de obra va DENTRO de los ítems y la columna SUBTOTAL suma el "Subtotal"', async () => {
+test('PDF real: mano de obra y flete van DENTRO de los ítems; solo Subtotal, Descuento, IVA y Total', async () => {
   const p = propuesta();
   const texto = textoDelPdf(await generarPdfCotizacion({ cotizacion: COT, propuesta: p, empresa: EMPRESA, ivaPct: 0.19 }));
-  const valores = valoresConManoObra(p.items!, p.totales.manoObra!)!;
+  const valores = valoresConCargos(p.items!, p.totales.manoObra!, p.totales.cargos);
   for (const v of valores) assert.ok(texto.includes(normal(moneda(v))), `falta el subtotal de ítem ${moneda(v)}`);
-  assert.ok(texto.includes(normal(moneda(p.totales.productos + p.totales.manoObra!))), 'falta el Subtotal');
-  assert.ok(!texto.includes('Subtotal productos'), 'con reparto no hay renglón "Subtotal productos"');
-  assert.ok(texto.includes('Flete'), 'los cargos fuera del AIU siguen en renglón propio');
+  const subtotal = valores.reduce((a, b) => a + b, 0);
+  assert.equal(subtotal, Math.round(p.totales.productos + p.totales.manoObra! + p.totales.cargos));
+  assert.ok(texto.includes(normal(moneda(subtotal))), 'falta el Subtotal');
+  assert.ok(Math.abs(subtotal - p.totales.descuento + p.totales.iva - p.totales.total) <= 1, 'la hoja no cuadra');
+  assert.ok(texto.includes('Descuento') && !/Descuento \(/.test(texto), 'el descuento sale sin el %');
+  for (const ausente of ['Subtotal productos', 'Flete', 'Acarreo', 'Instalación', 'Andamio', 'Huacal']) {
+    assert.ok(!texto.includes(ausente), `el cliente no debe ver "${ausente}"`);
+  }
 });
 
-test('PDF real: si la mano de obra no se puede repartir, sale en renglón aparte', async () => {
+test('PDF real: mano de obra que no se puede repartir también va al Subtotal, sin renglón aparte', async () => {
   const p = propuesta({ items: [LIBRE] });
   const texto = textoDelPdf(await generarPdfCotizacion({ cotizacion: COT, propuesta: p, empresa: EMPRESA, ivaPct: 0.19 }));
-  assert.ok(texto.includes('Subtotal productos'));
-  assert.ok(texto.includes('Instalación'));
+  assert.ok(!texto.includes('Subtotal productos'));
+  assert.ok(!texto.includes('Instalación'));
+});
+
+test('PDF real: con un cargo sin IVA, el rótulo es "IVA" sin porcentaje', async () => {
+  const base = propuesta();
+  const p = propuesta({ cargos: base.cargos!.map((c) => (c.tipo === 'FLETE' ? { ...c, aplicaIva: false } : c)) });
+  const texto = textoDelPdf(await generarPdfCotizacion({ cotizacion: COT, propuesta: p, empresa: EMPRESA, ivaPct: 0.19 }));
+  assert.ok(texto.includes('IVA') && !texto.includes('IVA (19%)'));
+  assert.ok(!texto.includes('sin IVA'));
 });
 
 test('PDF real: con varias opciones, letra en el folio, "Opción A de 2" y las alternativas sin sumar', async () => {

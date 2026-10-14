@@ -152,26 +152,40 @@ export interface EmpresaPdf {
 /** `id` del bloque de términos y condiciones, para `pageBreakBefore`. */
 const BLOQUE_CONDICIONES = "bloque-condiciones";
 
+/** Suma `monto` a `base` en proporción a `pesos`; sin pesos positivos, por partes iguales. */
+function repartir(base: number[], monto: number, pesos: number[]): number[] {
+  if (!(monto > 0) || base.length === 0) return base.slice();
+  const positivos = pesos.map((p) => Math.max(0, p));
+  const suma = positivos.reduce((a, b) => a + b, 0);
+  return base.map((v, k) => v + (suma > 0 ? (monto * positivos[k]) / suma : monto / base.length));
+}
+
 /**
- * Valor de cada ítem tal como se imprime, en PESOS ENTEROS, con su parte de la
- * mano de obra ya sumada (decisión del usuario, 2026-09-26: "Suministro e
- * instalación de…" muestra el precio instalado).
+ * Valor de cada ítem tal como se imprime, en PESOS ENTEROS, con la mano de obra
+ * y los demás cargos (flete, andamio, huacal, otros) ya sumados.
  *
- * El total de mano de obra que se reparte es el GUARDADO en la propuesta, no uno
- * recalculado: `manoObraPorItem` solo da los pesos de reparto, así que el total
- * impreso nunca se aparta del guardado aunque una tarifa haya cambiado después.
- * Redondeo por mayor residuo: la suma de los enteros impresos es exactamente
- * `round(productos + manoObra)`, el mismo "Subtotal" de la tabla de totales.
+ * Decisiones del usuario: la mano de obra va dentro del precio del ítem
+ * (2026-09-26, "Suministro e instalación de…" muestra el precio instalado), y
+ * desde el 2026-10-14 también los cargos: el cliente solo ve Subtotal, IVA y
+ * Total, sin renglones de flete ni de instalación.
  *
- * Devuelve null si no hay cómo repartir (mano de obra guardada sin ítems que la
- * generen): el PDF vuelve entonces a los renglones aparte, sin perder un peso.
+ * - Mano de obra: por el peso que da `manoObraPorItem`; si ningún ítem la genera
+ *   (caso raro), en proporción al valor de cada ítem.
+ * - Demás cargos: en proporción al valor del ítem ya con su mano de obra; si
+ *   todos valen cero, por partes iguales.
+ *
+ * Los totales que se reparten son los GUARDADOS en la propuesta, no unos
+ * recalculados, así que lo impreso nunca se aparta de lo guardado aunque una
+ * tarifa haya cambiado después. Redondeo por mayor residuo: la suma de los
+ * enteros impresos es exactamente `round(productos + manoObra + cargos)`, el
+ * mismo "Subtotal" de la tabla de totales.
  */
-export function valoresConManoObra(items: ItemPdf[], totalManoObra: number): number[] | null {
+export function valoresConCargos(items: ItemPdf[], totalManoObra: number, totalOtrosCargos = 0): number[] {
   const productos = items.map((it) => Number(it.subtotalConAiu) || 0);
-  const pesos = manoObraPorItem(items.map((it) => ({ moduloId: it.moduloId, input: it.input ?? {} })));
-  const sumaPesos = pesos.reduce((a, b) => a + b, 0);
-  if (totalManoObra > 0 && sumaPesos <= 0) return null;
-  const exactos = productos.map((v, k) => v + (sumaPesos > 0 ? (totalManoObra * pesos[k]) / sumaPesos : 0));
+  const pesosMO = manoObraPorItem(items.map((it) => ({ moduloId: it.moduloId, input: it.input ?? {} })));
+  const hayPesosMO = pesosMO.some((p) => p > 0);
+  const conManoObra = repartir(productos, totalManoObra, hayPesosMO ? pesosMO : productos);
+  const exactos = repartir(conManoObra, totalOtrosCargos, conManoObra);
   const objetivo = Math.round(exactos.reduce((a, b) => a + b, 0));
   const pisos = exactos.map(Math.floor);
   let faltan = objetivo - pisos.reduce((a, b) => a + b, 0);
@@ -217,24 +231,6 @@ function textoConNegrilla(texto: string): Array<{ text: string; bold?: boolean }
 /** Casilla para marcar a mano (Helvetica estándar no trae el glifo ☐). */
 function casilla() {
   return { canvas: [{ type: "rect", x: 0, y: 1, w: 9, h: 9, lineWidth: 0.8, lineColor: COLOR.navy }], width: 12 };
-}
-
-const NOMBRE_CARGO: Record<string, string> = {
-  SMO: "Mano de obra",
-  ANDAMIO: "Alquiler de andamio",
-  HUACAL: "Huacal",
-  FLETE: "Flete",
-  OTRO: "Otro",
-  ENSAMBLE: "Ensamble",
-  INSTALACION: "Instalación",
-};
-
-function filaCargo(c: CargoPdf) {
-  const etiqueta = c.descripcion?.trim() || NOMBRE_CARGO[c.tipo] || c.tipo;
-  return [
-    { text: etiqueta, style: "totalLabel" },
-    { text: moneda(c.total) + (c.aplicaIva ? "" : " (sin IVA)"), style: "totalValue" },
-  ];
 }
 
 function filaTotal(etiqueta: string, valor: number, opts: { negativo?: boolean; destacado?: boolean } = {}) {
@@ -288,14 +284,14 @@ export async function generarPdfCotizacion({
   const manoObra = cargos.filter((c) => esCargoManoObra(c.tipo));
   const otrosCargos = cargos.filter((c) => !esCargoManoObra(c.tipo));
   const totalManoObra = manoObra.reduce((a, c) => a + (Number(c.total) || 0), 0);
-  // La mano de obra va DENTRO del precio de cada ítem; si no se puede repartir,
-  // se queda en renglones aparte como antes.
-  const valores = valoresConManoObra(items, totalManoObra);
-  const manoObraIncluida = valores !== null;
+  const totalOtrosCargos = otrosCargos.reduce((a, c) => a + (Number(c.total) || 0), 0);
+  // Mano de obra y cargos van DENTRO del precio de cada ítem (2026-10-14): el
+  // cliente no ve renglones de flete, andamio ni instalación.
+  const valores = valoresConCargos(items, totalManoObra, totalOtrosCargos);
 
   const filasItems = items.map((it, i) => {
     const piezas = Number(it.cantidadPiezas) > 0 ? Number(it.cantidadPiezas) : 1;
-    const subtotal = valores ? valores[i] : Number(it.subtotalConAiu ?? 0);
+    const subtotal = valores[i];
     // "Sala — Suministro e instalación de ventana 744 color mate, vidrio claro
     // 4 mm crudo, medidas 1.000 × 1.000 mm" (ver detalleComercial.ts).
     const descripcion = descripcionComercial(it.moduloId, it.input, it.resultado) ||
@@ -319,21 +315,20 @@ export async function generarPdfCotizacion({
     ];
   });
 
-  // Orden en que se suma, para que la hoja cuadre: subtotal (productos + mano de
-  // obra, que entra en la base del descuento) → descuento → cargos fuera del
-  // AIU y del descuento → IVA → total.
-  const filasTotales: unknown[][] = manoObraIncluida
-    ? [filaTotal("Subtotal", propuesta.totales.productos + totalManoObra)]
-    : [filaTotal("Subtotal productos", propuesta.totales.productos), ...manoObra.map(filaCargo)];
+  // Solo Subtotal → (Descuento) → IVA → Total (2026-10-14). El Subtotal es la
+  // suma de la columna de ítems, que ya trae mano de obra y cargos.
+  const subtotal = items.length
+    ? valores.reduce((a, b) => a + b, 0)
+    : Math.round(propuesta.totales.productos + totalManoObra + totalOtrosCargos);
+  const filasTotales: unknown[][] = [filaTotal("Subtotal", subtotal)];
   if (propuesta.totales.descuento > 0) {
-    filasTotales.push(
-      filaTotal(`Descuento (${(propuesta.descuentoPct * 100).toLocaleString("es-CO")}%)`, propuesta.totales.descuento, {
-        negativo: true,
-      })
-    );
+    // Sin el %: el descuento se calcula sobre productos + mano de obra, no sobre
+    // los cargos que ahora van dentro del Subtotal; el % impreso no cuadraría.
+    filasTotales.push(filaTotal("Descuento", propuesta.totales.descuento, { negativo: true }));
   }
-  for (const c of otrosCargos) filasTotales.push(filaCargo(c));
-  const rotuloIva = Number(ivaPct) > 0 ? `IVA (${(Number(ivaPct) * 100).toLocaleString("es-CO")}%)` : "IVA";
+  // Con un cargo exento, el IVA ya no es el % exacto del Subtotal impreso.
+  const ivaUniforme = otrosCargos.every((c) => c.aplicaIva !== false);
+  const rotuloIva = Number(ivaPct) > 0 && ivaUniforme ? `IVA (${(Number(ivaPct) * 100).toLocaleString("es-CO")}%)` : "IVA";
   filasTotales.push(filaTotal(rotuloIva, propuesta.totales.iva));
   filasTotales.push(filaTotal("TOTAL A PAGAR", propuesta.totales.total, { destacado: true }));
 

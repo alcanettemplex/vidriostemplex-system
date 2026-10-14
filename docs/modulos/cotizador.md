@@ -390,7 +390,7 @@ Cuatro piezas nuevas, todas en `test:cotizador`:
 | Suite | Qué vigila | BD |
 |---|---|---|
 | `aptitudOrden.test.ts` (27) | Las 9 condiciones con su caso que pasa y el que bloquea, por `codigo`: el artefacto del blob, el bloqueo mudo (supresión solo en C), nivel desconocido, perfilería personalizada sin falso positivo de la 8, propuesta elegida | caché |
-| `pdf.test.ts` (13) | Folio, nombre de archivo, reparto de la mano de obra (suma exacta al peso), resumen de opciones y **generación real**: lee el texto del PDF (inflando los streams con `zlib`; pdfmake dibuja cada palabra en su propio bloque `BT…ET`) | caché |
+| `pdf.test.ts` (16) | Folio, nombre de archivo, reparto de la mano de obra y los cargos dentro de los ítems (suma exacta al peso), resumen de opciones y **generación real**: lee el texto del PDF (inflando los streams con `zlib`; pdfmake dibuja cada palabra en su propio bloque `BT…ET`) | caché |
 | `totalesContrato.test.ts` (14) | El total en vivo de la pantalla contra `calcularTotalesPropuesta()`, importando el archivo REAL del frontend | pura |
 | `fotoErp.test.ts` (5) | **Foto del ERP**: los 163 diseños × 4 combinaciones (120×100, **90,3×60,1** —la medida no redonda que destapa truncamientos—, 240×150 en mate, y 120×100 en negro) = 652 casos. Guarda nivel, apto, cortes, vidrios, BOM sin precio, huella del plano, el resultado del módulo completo y el desglose de accesorios. **No guarda precios** (cambian con cada factura); los verifica por coherencia | caché |
 
@@ -530,6 +530,17 @@ a mano, el asesor marca `APROBADA` en el sistema). Botón "Descargar PDF" en
 - **Paginación:** filas `dontBreakRows` (un ítem no se parte entre hojas), método de pago + garantía
   `unbreakable`, y términos y condiciones en un bloque con `id` que `pageBreakBefore` pasa entero a
   la hoja siguiente si no cabe (antes la cláusula 11 caía sola en la página 2).
+- **Solo Subtotal, IVA y Total (2026-10-14, pedido del usuario):** el cliente ya no ve renglones de
+  flete ("Acarreo / Flete"), andamio, huacal, "otros" ni instalación. `valoresConCargos(items,
+  manoObra, otrosCargos)` (reemplaza a `valoresConManoObra`) los mete en el precio de cada ítem: la
+  mano de obra por su peso (`manoObraPorItem`) o, si ningún ítem la genera, por el valor del ítem
+  (ya no vuelven los renglones aparte); los demás cargos en proporción al valor del ítem con su mano
+  de obra (todos en cero → partes iguales). Mayor residuo: la columna suma exacto el **Subtotal**.
+  Totales impresos: Subtotal → **Descuento** (sin el %, porque se calcula sobre productos + mano de
+  obra y no sobre los cargos que ahora van en el Subtotal) → IVA → TOTAL. El rótulo es "IVA (19%)"
+  solo si todos los cargos llevan IVA; con uno exento, "IVA" a secas. Montos y BD sin cambios; la
+  pantalla del cotizador y la sección de la ficha ODP conservan el desglose. Efecto visible: el
+  VR. UNIT. sube con su parte del flete; un flete grande sobre un pedido chico se nota en el ítem.
 - **Pendiente, no hecho:** un PDF único comparativo con todas las opciones (hoy es un PDF por
   propuesta con las demás opciones en resumen + total).
 
@@ -1547,8 +1558,9 @@ bloque de cierre**.
   tarifas que `calcularManoObraProductos`) da los PESOS; `valoresConManoObra`
   (generadorPdfCotizacion.ts) reparte el total de mano de obra GUARDADO y redondea por mayor
   residuo, así los ítems suman exactamente el "Subtotal" (productos + mano de obra) y el total no
-  cambia. Totales del PDF: Subtotal → Descuento → cargos → IVA (19%) → Total. Si no hay cómo repartir,
-  vuelven los renglones aparte. La pantalla conserva el desglose. Pruebas en `cargos.test.ts` (23).
+  cambia. ~~Totales del PDF: Subtotal → Descuento → cargos → IVA (19%) → Total. Si no hay cómo repartir,
+  vuelven los renglones aparte.~~ **Reemplazado el 2026-10-14** — ver "PDF: solo Subtotal, IVA y
+  Total" (`valoresConCargos`). La pantalla conserva el desglose. Pruebas en `cargos.test.ts` (23).
 - **Pantalla:** Actual y el detalle unen "Producto"/"Detalle" en una columna **Descripción** con el
   módulo como rótulo; el resumen de Cotizar muestra la frase en dos líneas.
 - **Formato VR09:** script `2026-09-26_cotizador_formato_vr09.ts` (corrido en local; imprime los

@@ -6880,3 +6880,14 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - Sin commit (esperando orden del usuario).
 - **Datos:** a pedido del usuario se borraron los leads de prueba 2873 "Luis Alcala PRUEBA" y 2061 "luis alcala" (sin vínculos; bitácora en cascada; DELETE en `auditoria_log`) con `scripts/2026-10-12_eliminar_lead_prueba_2873.ts`.
 - Commit + push por orden del usuario. La skill no viaja por git: en la otra máquina copiar `tooling/claude-code/skills/reporte-asesores/SKILL.md` a `.claude/skills/reporte-asesores/`.
+
+## 2026-10-14 — Cotizador: el PDF muestra solo Subtotal, IVA y Total
+
+**Pedido del usuario:** que el PDF de la cotización no muestre "Acarreo / Flete" aparte; el acarreo, si aplica, va incluido. Decisiones: todos los cargos (flete, andamio, huacal, otros) se funden; repartidos en los ítems por valor (la hoja cuadra); descuento con valor sin el %; la mano de obra no repartible también va al Subtotal.
+
+- **backend:** `generadorPdfCotizacion.ts` — `valoresConCargos()` reemplaza a `valoresConManoObra()` (nunca devuelve null); totales Subtotal → Descuento (sin %) → IVA → TOTAL; "IVA" sin % si algún cargo es exento; se borraron `filaCargo` y `NOMBRE_CARGO`.
+- **BD:** sin cambios. Los montos guardados y el total no cambian; solo la presentación al cliente.
+- **frontend:** sin cambios (la pantalla del cotizador y la ficha ODP conservan el desglose).
+- **Pruebas:** `pdf.test.ts` (16) y `cargos.test.ts` (23) actualizadas; `test:cotizador` 279/279; `build` sin errores. Se detuvo el backend dev para correrlas (pooler de 15 conexiones) y se volvió a levantar.
+- **Consulta del día (solo lectura):** 8 ODP listas/entregadas sin FE ($11,39 M); ODP-24001 y ODP-23868 en $0 siguen sin FE.
+- Sin commit (esperando orden del usuario).
