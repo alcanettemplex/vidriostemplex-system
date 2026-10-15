@@ -6891,3 +6891,12 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **Pruebas:** `pdf.test.ts` (16) y `cargos.test.ts` (23) actualizadas; `test:cotizador` 279/279; `build` sin errores. Se detuvo el backend dev para correrlas (pooler de 15 conexiones) y se volvió a levantar.
 - **Consulta del día (solo lectura):** 8 ODP listas/entregadas sin FE ($11,39 M); ODP-24001 y ODP-23868 en $0 siguen sin FE.
 - Sin commit (esperando orden del usuario).
+
+## 2026-10-15 — Cotizador: portaborradores SPB0101 / SPB1106 al catálogo
+
+**Pedido del usuario:** agregar un portaborrador como línea de Ítem libre junto a un tablero; buscar SPB0101 daba "Sin coincidencias".
+
+- **Causa (no es bug):** el buscador del Ítem libre lee solo `cotizador.producto`; los dos portaborradores existían únicamente en `catalogo_productos` (ids 959, 960). Son dos catálogos separados a propósito: el del ERP no trae unidad ni categoría, y el del Cotizador exige ambas para poder ponerle precio.
+- **BD (datos, sin cambio de esquema):** script `2026-10-15_cotizador_portaborradores.ts` aplicado. SPB0101 con el costo de AVQ S.A.S ($52.000/und, vinculado, se moverá con Proveedores); SPB1106 con costo manual $59.800 (= SPB0101 + 15 %, dato del usuario; queda FIJO, no sigue al inox). Ambos ACCESORIO, UND, origen ALTA, con su fila `dar-de-alta` en `cotizador.precio_historial`. Simulación por defecto, `--aplicar` para escribir y `--revertir` para deshacerlo.
+- **Pendiente:** reiniciar el backend en Render para que la caché del Cotizador vea los dos productos.
+- **Propuesta no ejecutada:** que el Ítem libre, cuando no encuentre nada, ofrezca "Buscar en el catálogo general" (control total) o explique al asesor que el código existe en el ERP pero no en el Cotizador.
