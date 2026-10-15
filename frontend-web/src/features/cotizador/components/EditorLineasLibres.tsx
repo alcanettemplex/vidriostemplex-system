@@ -5,7 +5,7 @@ import { Plus, Trash2, Search, AlertTriangle } from '../../../components/ui/icon
 import { apiGetCatalogo } from '../services/cotizadorApi';
 import { LineaLibre, ProductoCatalogo, SegmentoCliente } from '../types';
 import { fmtCOP } from '../format';
-import { buscarEnCatalogo, MIN_BUSQUEDA, precioDe, rotuloCantidad } from '../catalogoUtil';
+import { buscarEnCatalogo, claseDeUnidad, MIN_BUSQUEDA, precioDe, rotuloCantidad } from '../catalogoUtil';
 import { claseControl, CONTROL_LABEL_CLASS } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +34,13 @@ import { claseControl, CONTROL_LABEL_CLASS } from './ui';
 // `apiGetCatalogo`: el vendedor puede necesitar cualquier código, el endpoint
 // responde desde la caché en memoria del backend (no toca Postgres, no suma
 // egress) y filtrar en memoria evita una petición por tecla.
+//
+// CADA LÍNEA ES POR PIEZA (2026-10-15). El motor multiplica cada línea por la
+// "Cantidad de piezas iguales" (`totalizar()`), así que escribir el mismo 7 en
+// la línea y en las piezas cobra 49. Pasó en la COT-17027 (7 portaborradores
+// cobrados como 49). Por eso la columna dice "Cant. por pieza", cada línea
+// muestra el total que se cobra cuando hay más de una pieza, y una línea por
+// unidades con la misma cantidad que las piezas se marca como sospechosa.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Cuántas coincidencias se ofrecen a la vez. Desde el 2026-09-27 la lista
@@ -72,10 +79,17 @@ interface Props {
      * previsualiza. Llega desde `FormularioModulo`, que es quien tiene el input
      * completo — `CampoDinamico` solo lo pasa de largo. */
     segmento: SegmentoCliente;
+    /** "Cantidad de piezas iguales" del formulario: cada línea se cobra esta
+     * cantidad de veces. 1 si no se ha escrito. */
+    piezas: number;
     error?: string | null;
 }
 
-const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error }) => {
+/** Cantidad sin ceros de sobra: 49, 6,72. */
+const fmtCantidad = (n: number) => n.toLocaleString('es-CO', { maximumFractionDigits: 2 });
+
+const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, piezas, error }) => {
+    const variasPiezas = Number.isInteger(piezas) && piezas > 1;
     const [catalogo, setCatalogo] = useState<ProductoCatalogo[]>([]);
     const [cargando, setCargando] = useState(true);
     const [fallo, setFallo] = useState(false);
@@ -194,9 +208,9 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
                     tarjeta apilada y una cabecera de 5 columnas no aplicaría. */}
                 <div className="hidden sm:grid grid-cols-[minmax(0,2.2fr)_88px_110px_110px_32px] gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wide text-slate-900">
                     <span>Producto</span>
-                    <span className="text-right">Cantidad</span>
+                    <span className="text-right">Cant. por pieza</span>
                     <span className="text-right">Precio unit.</span>
-                    <span className="text-right">Subtotal</span>
+                    <span className="text-right">Subtotal pieza</span>
                     <span />
                 </div>
 
@@ -215,6 +229,12 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
                     const abierto = filaAbierta === i;
                     const aCotizar = Boolean(producto?.precioACotizar);
                     const sinCosto = aCotizar && !(Number(linea.costo) > 0);
+                    const conCantidad = Boolean(producto) && Number.isFinite(cant) && cant > 0;
+                    // Lo de la COT-17027: la cantidad total escrita en la línea Y
+                    // en las piezas iguales. Sólo en unidades: 7 m² por pieza
+                    // con 7 piezas es raro pero posible, 7 und × 7 casi nunca.
+                    const sospechaDoble = conCantidad && variasPiezas && cant === piezas
+                        && claseDeUnidad(producto!.unidad) === 'unidad';
 
                     return (
                         <div
@@ -327,7 +347,7 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
                                     type="number"
                                     min={0}
                                     step="any"
-                                    aria-label={`Cantidad de la línea ${i + 1}`}
+                                    aria-label={`Cantidad por pieza de la línea ${i + 1}`}
                                     className={claseControl(false, 'text-right pr-8 text-[12.5px]')}
                                     value={linea.cantidad === '' ? '' : linea.cantidad}
                                     onChange={e => {
@@ -356,6 +376,28 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
                             >
                                 <Trash2 className="w-4 h-4" />
                             </button>
+
+                            {conCantidad && variasPiezas && !sospechaDoble && (
+                                <p className="sm:col-span-5 -mt-1 text-[11.5px] text-slate-700 tabular-nums">
+                                    {cant} {rotuloCantidad(producto!.unidad)} × {piezas} piezas ={' '}
+                                    <strong className="font-semibold text-slate-900">
+                                        {fmtCantidad(cant * piezas)} {rotuloCantidad(producto!.unidad)}
+                                    </strong>{' '}
+                                    en total
+                                </p>
+                            )}
+
+                            {sospechaDoble && (
+                                <p className="sm:col-span-5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900 flex items-start gap-1.5">
+                                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                    <span>
+                                        <strong className="font-semibold">
+                                            Se van a cobrar {cant} × {piezas} = {fmtCantidad(cant * piezas)} und.
+                                        </strong>{' '}
+                                        La cantidad de cada línea es por pieza: si son {piezas} en total, deja esta línea en 1.
+                                    </span>
+                                </p>
+                            )}
 
                             {aCotizar && (
                                 <div className="sm:col-span-5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-2">
@@ -398,18 +440,25 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
                     </button>
                     {lineas.length > 0 && (
                         <span className="text-[12px] text-slate-800">
-                            Materiales:{' '}
+                            Materiales por pieza:{' '}
                             <strong className="font-semibold text-slate-900 tabular-nums">{fmtCOP(totalLineas)}</strong>
+                            {variasPiezas && (
+                                <>
+                                    {' '}× {piezas} ={' '}
+                                    <strong className="font-semibold text-slate-900 tabular-nums">{fmtCOP(totalLineas * piezas)}</strong>
+                                </>
+                            )}
                         </span>
                     )}
                 </div>
             </div>
 
-            {/* El total de arriba es la suma cruda de las líneas: todavía sin AIU,
-                sin la cantidad de piezas iguales y sin IVA. Decirlo evita que se
-                lea como el precio del ítem y se compare contra el resultado. */}
+            {/* El total de arriba es la suma cruda de las líneas: todavía sin AIU
+                y sin IVA. Decirlo evita que se lea como el precio del ítem y se
+                compare contra el resultado. */}
             <p className="mt-1.5 text-[11px] text-slate-700">
-                Suma de materiales antes de AIU, cantidad de piezas e IVA. El precio del ítem sale al calcular.
+                Las cantidades son por pieza y se multiplican por la cantidad de piezas iguales. Suma antes de AIU e IVA:
+                el precio del ítem sale al calcular.
             </p>
 
             {error && <p className="mt-1 text-[11.5px] font-semibold text-rose-700">{error}</p>}

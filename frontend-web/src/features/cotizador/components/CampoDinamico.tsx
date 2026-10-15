@@ -57,9 +57,12 @@ interface Props {
      * Un campo no ve a sus hermanos, así que lo pasa el formulario, que sí tiene
      * el input completo. */
     segmento?: SegmentoCliente;
+    /** "Cantidad de piezas iguales" del formulario, sólo para `tipo: 'lineas'`:
+     * cada línea es por pieza y el editor muestra el total que se cobra. */
+    piezas?: number;
 }
 
-const CampoDinamico: React.FC<Props> = ({ campo, value, onChange, error, segmento }) => {
+const CampoDinamico: React.FC<Props> = ({ campo, value, onChange, error, segmento, piezas }) => {
     const idBase = React.useId();
     const controlId = `${idBase}-${campo.nombre}`;
     const errorId = `${controlId}-error`;
@@ -102,6 +105,7 @@ const CampoDinamico: React.FC<Props> = ({ campo, value, onChange, error, segment
                 value={(Array.isArray(value) ? value : []) as LineaLibre[]}
                 onChange={onChange}
                 segmento={segmento ?? 'PA'}
+                piezas={piezas ?? 1}
                 error={error}
             />
         );

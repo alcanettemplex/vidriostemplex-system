@@ -154,6 +154,10 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
         setInput(prev => ({ ...prev, [nombre]: value }));
     };
 
+    // El Ítem libre muestra con esto cuántas unidades de cada línea se cobran en
+    // total: el motor multiplica cada línea por las piezas iguales (2026-10-15).
+    const piezasIguales = Number(input.cantidadPiezas) || 1;
+
     const admiteDiseno = MODULOS_CON_DISENO.has(modulo.id);
     const hayDiseno = admiteDiseno && Boolean(input.disenoId);
     const derivados = CAMPOS_DERIVADOS_DEL_DISENO[modulo.id] ?? [];
@@ -317,6 +321,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
                                 onChange={setCampo(campo.nombre)}
                                 error={errorDe(campo.nombre)}
                                 segmento={segmento}
+                                piezas={piezasIguales}
                             />
                         ))}
                     </div>
@@ -391,6 +396,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
                                         onChange={setCampo(campo.nombre)}
                                         error={errorDe(campo.nombre)}
                                         segmento={segmento}
+                                        piezas={piezasIguales}
                                     />
                                     {campo.nombre === 'sistema' && campo.tipo === 'select' && (campo.opciones?.length ?? 0) > 1 && (
                                         <p className="text-[11px] text-slate-700 mt-1">Ver catálogo para disponibilidad por color.</p>

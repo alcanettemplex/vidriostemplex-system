@@ -6900,3 +6900,13 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **BD (datos, sin cambio de esquema):** script `2026-10-15_cotizador_portaborradores.ts` aplicado. SPB0101 con el costo de AVQ S.A.S ($52.000/und, vinculado, se moverá con Proveedores); SPB1106 con costo manual $59.800 (= SPB0101 + 15 %, dato del usuario; queda FIJO, no sigue al inox). Ambos ACCESORIO, UND, origen ALTA, con su fila `dar-de-alta` en `cotizador.precio_historial`. Simulación por defecto, `--aplicar` para escribir y `--revertir` para deshacerlo.
 - **Pendiente:** reiniciar el backend en Render para que la caché del Cotizador vea los dos productos.
 - **Propuesta no ejecutada:** que el Ítem libre, cuando no encuentre nada, ofrezca "Buscar en el catálogo general" (control total) o explique al asesor que el código existe en el ERP pero no en el Cotizador.
+
+## 2026-10-15 (2) — Cotizador: el Ítem libre deja claro que cada línea es por pieza
+
+**Pedido del usuario:** COT-17027 cobraba 7 portaborradores como 49 (cantidad 7 en la línea × 7 piezas iguales, $4.732.969 en vez de $676.138). Eligió la opción A: conservar "Cantidad de piezas iguales" y hacer visible el modelo.
+
+- **frontend:** `EditorLineasLibres.tsx` — columnas "Cant. por pieza" / "Subtotal pieza", total por línea cuando hay más de una pieza ("7 und × 3 piezas = 21 und en total"), aviso ámbar si una línea en unidades tiene la misma cantidad que las piezas (> 1), pie "Materiales por pieza: X × N = Y". `CampoDinamico` y `FormularioModulo` pasan la prop `piezas`.
+- **backend / BD:** sin cambios. El cálculo y las cotizaciones guardadas no cambian.
+- **Verificación:** `tsc --noEmit` y `react-scripts build` sin errores ni advertencias. No se probó en navegador.
+- **Pendiente:** corregir la COT-17027 a mano (línea en 1, piezas en 7) y confirmar con la asesora si era el SPB0101 (inox) o el SPB1106 (negro).
+- Nota: `npm run build` del frontend no corre en Windows (`CI=false` en el script es sintaxis POSIX); se compiló con `CI=false npx react-scripts build` desde Bash.

@@ -675,6 +675,24 @@ Tres detalles del enganche:
   validación de `requerido` y el 400 lo daba el motor, con el toast genérico en vez del
   "Completa: …" que señala el campo.
 
+**Cada línea es por pieza (2026-10-15).** `totalizar()` multiplica cada línea por `cantidadPiezas`,
+así que la cantidad total escrita en la línea Y en las piezas iguales se cobra al cuadrado. Caso real:
+COT-17027, 7 portaborradores (`SPB1106`, cantidad 7 × 7 piezas) cobrados como 49, cotización inflada
+en unos $4,8 M. Se decidió conservar el modelo (opción A del usuario: las piezas iguales mandan) y
+hacerlo visible, solo en el frontend:
+- La columna se llama **"Cant. por pieza"** y la del subtotal **"Subtotal pieza"**; el pie dice
+  "Materiales por pieza: X × N = Y".
+- `CampoDinamico` recibe también **`piezas`** (de `FormularioModulo`, `Number(input.cantidadPiezas) || 1`).
+  Con más de una pieza, cada línea muestra "7 und × 3 piezas = 21 und en total".
+- **Aviso** si una línea en unidades (`claseDeUnidad === 'unidad'`) tiene la misma cantidad que las
+  piezas iguales (> 1): "Se van a cobrar 7 × 7 = 49 und…". Solo unidades: en m² o ml esa
+  coincidencia puede ser legítima. No bloquea el cálculo.
+- El motor y las cotizaciones guardadas no cambian. COT-17027 hay que corregirla editando el ítem.
+
+Para traer un producto que solo existe en el catálogo del ERP (el buscador lee únicamente
+`cotizador.producto`): Configuración → "Traer del catálogo general", o un script como
+`2026-10-15_cotizador_portaborradores.ts` (SPB0101 / SPB1106) seguido de reiniciar el backend.
+
 ### `descripcionItem` dejó de ser `null` fijo
 
 `TabCotizar` guardaba **todos** los ítems con `descripcionItem: null`, así que todos caían al
