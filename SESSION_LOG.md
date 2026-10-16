@@ -6932,3 +6932,12 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **frontend:** `PlanoSVG.tsx` — `esquinas90Inferiores()` y la marca (cuadrito por dentro, texto por fuera en diagonal); llega sola a pantalla, impresión e imagen del Excel. `EditorPlano.tsx` — selector «El lado a 90° (a escuadra) es el…», guarda el lado inclinado (formato de `pieza` sin cambios).
 - **backend / BD:** sin cambios.
 - **Verificación:** `tsc` y ESLint limpios; render de des1, des2, fij-bat-3chades1, deschor y un desplome invertido rasterizado con Edge headless. La primera versión ponía «90°» por dentro y chocaba con «BOQ 35×30» de la muesca de piso; se movió afuera y se volvió a verificar.
+
+## 2026-10-16 (3) — Cotizador: División / Fachada corrediza con configuración X (una hoja) y largo del riel
+
+**Pedido del usuario:** configuración X (un solo vidrio, corredizo) que pida también la medida del riel. Decisiones: ancho total = ancho del vidrio · en solo vidrio y enmarcada · mismos materiales de la corrediza, con los T-70 · riel ≥ ancho (si no, error), aviso si es menor que 2 × ancho.
+
+- **backend:** `modules/divisionFachada.ts` — opción `X` en `CONFIGURACIONES_CORREDIZA` (el defecto sigue en OX), campo `largoRielCm` (obligatorio, `soloSiValor` corrediza + X), `largoRielM` en `Composicion` (= ancho total fuera de X), ROS0301 / RDU0101 por el largo del riel. `lib/detalleComercial.ts` — «, riel de N mm» en X.
+- **frontend / BD:** sin cambios (el formulario se arma con el `meta`; el sufijo `Cm` da la conversión mm↔cm). Cotizaciones guardadas: ninguna usa X, no se recalculan distinto.
+- **Verificación:** `tsc --noEmit` backend limpio; `pergolaDivision.test.ts` 24/24 (4 nuevas); suite `test:cotizador` 283/283 corrida archivo por archivo — junta, con el backend dev arriba, agota el pooler y falla en archivos ajenos. No se probó en navegador.
+- **Supuesto:** en enmarcada X el T-244 se cobra por el perímetro de la hoja (2 × ancho + 2 × alto).

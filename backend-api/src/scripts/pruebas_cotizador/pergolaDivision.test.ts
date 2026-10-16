@@ -98,6 +98,23 @@ test("formato anterior (puertas/fijos, hojas) se sigue entendiendo", () => {
   assert.equal(composicionDe({ anchoCm: 300, altoCm: 240, apertura: "corrediza", hojasCorredizas: "2", hojasFijas: "2" }).configuracion, "OXXO");
 });
 
+// X (2026-10-16): una hoja corrediza; ancho total = vidrio, riel aparte.
+const SV_X = { ...BASE, tipo: "solo-vidrio", apertura: "corrediza", anchoCm: 100, altoCm: 240, configuracionCorrediza: "X", largoRielCm: 200 };
+
+test("configuración X: 1 hoja del ancho total, sin fijos, riel escrito", () => {
+  const c = composicionDe(SV_X);
+  assert.deepEqual([c.moviles, c.fijos, c.anchoMovilM, c.largoRielM, c.aviso], [1, 0, 1, 2, null]);
+  // En las demás el riel sigue siendo el ancho total.
+  assert.equal(composicionDe(SV_CORREDIZA).largoRielM, 3);
+});
+
+test("configuración X: riel obligatorio, no más corto que la hoja; menor al doble avisa", () => {
+  assert.throws(() => composicionDe({ ...SV_X, largoRielCm: "" }), /largo del riel es obligatorio/);
+  assert.throws(() => composicionDe({ ...SV_X, largoRielCm: 90 }), /más corto que la hoja/);
+  assert.equal(composicionDe({ ...SV_X, largoRielCm: 100 }).aviso?.includes("no abre por completo"), true);
+  assert.match(String(composicionDe({ ...SV_X, largoRielCm: 150 }).aviso), /al menos 2\.000 mm/);
+});
+
 // ─── División: materiales por variante ──────────────────────────────────────
 
 test("solo vidrio batiente: 8 mm, 2 topes, manija, Yale + escudo, esquineros; fijos con U32 y perfil F", () => {
@@ -170,6 +187,31 @@ test("enmarcada corrediza: riel Ducasse, 2 rodamientos por hoja corrediza, picol
   assert.equal(cant(r, "SIL0103"), 25.2); // 4 paños × 2 × (0,75 + 2,4)
 });
 
+test("solo vidrio X: riel Optiglas × largo del riel, 1 kit, T-70, sin U32 ni perfil F", () => {
+  const r: any = calcularItem("division-fachada", SV_X);
+  sinErrores(r);
+  assert.equal(cant(r, "CL6MM03SP"), 2.4);
+  assert.equal(cant(r, "ROS0301"), 2);
+  assert.equal(cant(r, "KOP0102"), 1);
+  assert.equal(cant(r, "MRO1101"), 1);
+  assert.equal(cant(r, "CPI0101"), 1);
+  assert.equal(cant(r, "TUB0103"), 4.8);
+  assert.equal(cant(r, "U320101"), 0);
+  assert.equal(cant(r, "PER0301"), 0);
+  assert.equal(r.areaM2, 2.4);
+});
+
+test("enmarcada X: riel Ducasse × largo del riel, marco y paño de la hoja", () => {
+  const r: any = calcularItem("division-fachada", { ...SV_X, tipo: "enmarcada" });
+  sinErrores(r);
+  assert.equal(cant(r, "RDU0101"), 2);
+  assert.equal(cant(r, "TUB0102"), 6.8); // 2×1 + 2×2,4
+  assert.equal(cant(r, "SIL0103"), 6.8);
+  assert.equal(cant(r, "RDU0102"), 2);
+  assert.equal(cant(r, "CPLEYALE"), 1);
+  assert.equal(cant(r, "MMT0101"), 1);
+});
+
 test("color: se resuelve por perfil; el que no existe cae a mate con aviso", () => {
   const bronce: any = calcularItem("division-fachada", { ...ENM_BATIENTE, colorPerfileria: "bronce" });
   sinErrores(bronce);
@@ -189,6 +231,10 @@ test("frase comercial de la división", () => {
   assert.match(
     (calcularItem("division-fachada", ENM_CORREDIZA) as any).descripcionComercial,
     /división enmarcada en aluminio color mate, vidrio templado 6 mm, corrediza con 2 hojas corredizas y 2 fijas \(OXXO\)/
+  );
+  assert.match(
+    (calcularItem("division-fachada", SV_X) as any).descripcionComercial,
+    /división en vidrio templado 6 mm, corrediza con 1 hoja corrediza \(X\), riel de 2\.000 mm, medidas 1\.000 × 2\.400 mm/
   );
 });
 

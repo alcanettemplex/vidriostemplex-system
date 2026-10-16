@@ -209,7 +209,9 @@ function producto(
       if (comp && corrediza) {
         composicion =
           `corrediza con ${plural(comp.moviles, "hoja corrediza", "hojas corredizas")}` +
-          (comp.fijos > 0 ? ` y ${plural(comp.fijos, "fija", "fijas")}` : "") + ` (${comp.configuracion})`;
+          (comp.fijos > 0 ? ` y ${plural(comp.fijos, "fija", "fijas")}` : "") + ` (${comp.configuracion})` +
+          // X (2026-10-16): el riel se pide aparte y mide más que el vidrio.
+          (comp.configuracion === "X" ? `, riel de ${mil(Math.round(comp.largoRielM * 1000))} mm` : "");
       } else if (comp) {
         composicion =
           `batiente con ${plural(comp.moviles, "puerta", "puertas")}` +

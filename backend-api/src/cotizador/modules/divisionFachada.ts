@@ -89,6 +89,9 @@ export const CONFIGURACIONES_BATIENTE = [
   { value: "OPPO", label: "OPPO — fijo + 2 puertas + fijo" },
 ];
 export const CONFIGURACIONES_CORREDIZA = [
+  // X (2026-10-16, pedido del usuario): una sola hoja que corre sobre la pared.
+  // El ancho total es el del vidrio y el riel se pide aparte (largoRielCm).
+  { value: "X", label: "X — 1 hoja corrediza" },
   { value: "OX", label: "OX — fija + corrediza" },
   { value: "XX", label: "XX — 2 corredizas" },
   { value: "OXO", label: "OXO — fija + corrediza + fija" },
@@ -97,6 +100,7 @@ export const CONFIGURACIONES_CORREDIZA = [
 
 const BATIENTE = [{ campo: "apertura", valores: ["batiente"] }];
 const CORREDIZA = [{ campo: "apertura", valores: ["corrediza"] }];
+const CORREDIZA_X = [...CORREDIZA, { campo: "configuracionCorrediza", valores: ["X"] }];
 const SOLO_VIDRIO_BATIENTE = [
   { campo: "tipo", valores: ["solo-vidrio"] },
   { campo: "apertura", valores: ["batiente"] },
@@ -139,6 +143,8 @@ export const meta = {
     // Dos campos porque la lista depende de la apertura; solo se ve uno.
     { nombre: "configuracionBatiente", tipo: "select", opciones: CONFIGURACIONES_BATIENTE, etiqueta: "Configuración", requerido: true, grupo: "medidas", defecto: "OPO", soloSiValor: BATIENTE },
     { nombre: "configuracionCorrediza", tipo: "select", opciones: CONFIGURACIONES_CORREDIZA, etiqueta: "Configuración", requerido: true, grupo: "medidas", defecto: "OX", soloSiValor: CORREDIZA },
+    // Solo en X: la hoja corre sobre la pared, así que el riel mide más que el vidrio.
+    { nombre: "largoRielCm", tipo: "number", etiqueta: "Largo del riel (mm)", requerido: true, grupo: "medidas", soloSiValor: CORREDIZA_X },
     // Opcional: vacío = todas las hojas del mismo ancho.
     { nombre: "anchoPuertaCm", tipo: "number", etiqueta: "Ancho de puerta (mm, opcional)", requerido: false, grupo: "medidas", soloSiValor: BATIENTE },
     {
@@ -211,6 +217,8 @@ export interface Composicion {
   anchoFijoM: number;
   /** "OPO", "OXXO"… */
   configuracion: string;
+  /** Largo del riel corredizo: el escrito en X, el ancho total en las demás. */
+  largoRielM: number;
   /** Algo que el asesor debe saber (p. ej. ancho de puerta ignorado). */
   aviso: string | null;
 }
@@ -251,7 +259,27 @@ export function composicionDe(input: InputModulo): Composicion {
   const moviles = (configuracion.match(apertura === "corrediza" ? /X/g : /P/g) ?? []).length;
   const fijos = (configuracion.match(/O/g) ?? []).length;
   const anchoIgual = anchoM / (moviles + fijos);
-  const base = { tipo, apertura, anchoM, altoM, moviles, fijos, configuracion };
+  const base = { tipo, apertura, anchoM, altoM, moviles, fijos, configuracion, largoRielM: anchoM };
+
+  // X: el riel lo escribe el asesor. Más corto que la hoja no la sostiene; más
+  // corto que el doble, la hoja no termina de abrir (se cotiza con aviso).
+  if (apertura === "corrediza" && configuracion === "X") {
+    const largoRielM = Number(input?.largoRielCm) / 100;
+    if (!Number.isFinite(largoRielM) || largoRielM <= 0) {
+      throw new Error("En la configuración X el largo del riel es obligatorio y debe ser mayor a 0.");
+    }
+    const mm = (m: number) => Math.round(m * 1000).toLocaleString("es-CO");
+    if (largoRielM < anchoM - 0.0005) {
+      throw new Error(
+        `El riel (${mm(largoRielM)} mm) es más corto que la hoja (${mm(anchoM)} mm): debe medir al menos el ancho del vidrio.`
+      );
+    }
+    const aviso =
+      largoRielM < 2 * anchoM - 0.0005
+        ? `Con un riel de ${mm(largoRielM)} mm la hoja no abre por completo: para abrir del todo el riel debe medir al menos ${mm(2 * anchoM)} mm.`
+        : null;
+    return { ...base, largoRielM, anchoMovilM: anchoM, anchoFijoM: 0, aviso };
+  }
 
   // Corrediza: siempre hojas iguales.
   if (apertura === "corrediza") {
@@ -300,7 +328,7 @@ export function calcular(input: InputModulo) {
   if (descuento < 0 || descuento >= 1) throw new Error("descuentoPct debe ser una fracción entre 0 y 1.");
 
   const comp = composicionDe(input);
-  const { tipo, apertura, anchoM: A, altoM: H, moviles, anchoMovilM, fijos, anchoFijoM } = comp;
+  const { tipo, apertura, anchoM: A, altoM: H, moviles, anchoMovilM, fijos, anchoFijoM, largoRielM } = comp;
   const color = normalizarColor(input?.colorPerfileria) || "mate";
   const seg = String(segmentoCliente);
   const advertencias: string[] = comp.aviso ? [comp.aviso] : [];
@@ -349,7 +377,7 @@ export function calcular(input: InputModulo) {
     ml(C.perfilF, H * fijos);
   } else if (tipo === "solo-vidrio") {
     items.push(lineaCatalogo(C.vidrio6, areaTotal, seg, { unidadOverride: "M2" }));
-    ml(C.rielOptiglas, A);
+    ml(C.rielOptiglas, largoRielM);
     const pesoHoja = anchoMovilM * H * ESPESOR_CORREDIZA_MM * KG_POR_M2_MM;
     const kit = pesoHoja > CAPACIDAD_KIT_60 ? C.kitOptiglas80 : C.kitOptiglas60;
     if (pesoHoja > CAPACIDAD_KIT_80) {
@@ -377,7 +405,7 @@ export function calcular(input: InputModulo) {
   } else {
     items.push(lineaCatalogo(C.vidrio6, areaTotal, seg, { unidadOverride: "M2" }));
     const perimetroPanos = perimetroMovil * (moviles + fijos);
-    ml(C.rielDucasse, A);
+    ml(C.rielDucasse, largoRielM);
     ml(porColor("T244"), 2 * A + 2 * H);
     ml(porColor("ADAPTADOR_175"), perimetroPanos);
     ml(porColor("PISAVIDRIO_177"), perimetroPanos);

@@ -2078,7 +2078,7 @@ cotizaciones reales así). Reglas dadas y **validadas por el usuario**, no reabr
   corte da `SIN_DESPIECE_POR_DISENO`, como un tablero). Medida = ancho × alto total + **configuración**
   en un solo campo (simplificado el mismo día a pedido del usuario: antes eran puertas / fijos / hojas
   corredizas / hojas fijas). Notación del ERP: O = fijo, P = puerta, X = corrediza. Batiente: P, OP,
-  OPO (defecto), PP, OPPO; corrediza: OX (defecto), XX, OXO, OXXO. Son dos campos
+  OPO (defecto), PP, OPPO; corrediza: X (2026-10-16), OX (defecto), XX, OXO, OXXO. Son dos campos
   (`configuracionBatiente` / `configuracionCorrediza`) porque la lista depende de la apertura; solo se
   ve uno. **Ancho de puerta opcional** (solo batiente): vacío = hojas iguales; con valor, la puerta mide
   eso y el resto va a los fijos; sin fijos (P, PP) se ignora con aviso. `composicionDe()` rechaza una
@@ -2090,9 +2090,9 @@ cotizaciones reales así). Reglas dadas y **validadas por el usuario**, no reabr
 | Variante | Materiales |
 |---|---|
 | Solo vidrio batiente | CL8MM03SP × m² · por puerta: ESU1102+EIN1102 **o** ZSE0104 × ancho de puerta, TCA0301 × 2, MRO1101, CER0301+CCE0101 **o** CRE1301 · fijos (como la corrediza): U32 × ancho de fijos, PER0301 × alto × nº fijos |
-| Solo vidrio corrediza | CL6MM03SP × m² · ROS0301 × ancho · kit Optiglas por hoja corrediza (KOP0102 60 kg; KOP0101 si la hoja pasa 60 kg; aviso si pasa 80; peso = m² × 6 mm × 2,5 kg) · MRO1101 y CPI0101 por hoja · U32 × ancho de fijos · PER0301 × alto × nº fijos · T-70 × 2 × alto (dos parales) |
+| Solo vidrio corrediza | CL6MM03SP × m² · ROS0301 × ancho (en X, × largo del riel) · kit Optiglas por hoja corrediza (KOP0102 60 kg; KOP0101 si la hoja pasa 60 kg; aviso si pasa 80; peso = m² × 6 mm × 2,5 kg) · MRO1101 y CPI0101 por hoja · U32 × ancho de fijos · PER0301 × alto × nº fijos · T-70 × 2 × alto (dos parales) |
 | Enmarcada batiente | CL6MM03SP × m² · T-244 × (perímetro + alto × divisiones) · 175 y 177 × perímetro de cada fijo · EMP1301 × perímetro de todos los paños · U57 × perímetro de la puerta · por puerta: bisagra omega × 4, TCA0301, CHE0101 (Yale mini) |
-| Enmarcada corrediza | CL6MM03SP × m² · RDU0101 × ancho · T-244 × perímetro · 175 y 177 × perímetro de los paños · RDU0102 × 2 por hoja corrediza · EMP1301 × perímetro · CPLEYALE y MMT0101 por hoja corrediza |
+| Enmarcada corrediza | CL6MM03SP × m² · RDU0101 × ancho (en X, × largo del riel) · T-244 × perímetro · 175 y 177 × perímetro de los paños · RDU0102 × 2 por hoja corrediza · EMP1301 × perímetro · CPLEYALE y MMT0101 por hoja corrediza |
 
 - **Colores**: tabla `POR_COLOR` en `divisionFachada.ts`. Un color sin código cae a **mate con aviso**.
   Faltan en el catálogo: T-244 gris plata; 175/177 negro; U57 crudo, gris plata y negro; U32 negro,
@@ -2116,6 +2116,16 @@ cotizaciones reales así). Reglas dadas y **validadas por el usuario**, no reabr
 - **Mano de obra de la división cambiada el 2026-10-05**: de $120.000/m² solo con instalación a las
   tarifas de ventanería (ensamble $60.000 siempre + instalación $25.000). Detalle en "Mano de obra por
   producto". La pérgola sigue en $120.000/m². `pergolaDivision.test.ts` pasó de 18 a 20 pruebas; suite 268/268.
+- **Configuración X — una sola hoja corrediza (2026-10-16, pedido del usuario)**, en solo vidrio y en
+  enmarcada. **Ancho total = ancho del vidrio**; el riel se pide aparte en el campo `largoRielCm`
+  («Largo del riel (mm)», obligatorio, visible solo con corrediza + X), porque la hoja corre sobre la pared
+  y el riel mide más que el vidrio. `composicionDe()` devuelve `largoRielM` (en las demás configuraciones
+  = ancho total, así que no cambian). El riel menor que la hoja se **rechaza**; menor que 2 × ancho se
+  cotiza con el **aviso** de que la hoja no abre por completo. Materiales: los de la corrediza de siempre,
+  con el riel (ROS0301 / RDU0101) cobrado por el **largo del riel**. Solo vidrio conserva los dos T-70 ×
+  alto (decisión del usuario) y no lleva U32 ni perfil F; enmarcada cobra T-244, 175 y 177 por el
+  perímetro de la hoja. El m² (y la mano de obra) es solo el del vidrio. La frase comercial agrega
+  «, riel de N mm». `pergolaDivision.test.ts` 20 → 24 pruebas; suite 283/283 (archivo por archivo).
 
 
 ## Blindaje de la cotización aprobada (2026-10-11)
