@@ -141,9 +141,10 @@ export const MENU_ITEMS_CONFIG: ItemMenu[] = [
     claves: 'medicion visita tecnica',
   },
   {
-    // Editor de planos de vidrio templado (2026-09-27). Aislado y solo admin
-    // hasta que el usuario decida cómo se integra con Pedidos PV.
-    text: 'Detalles Técnicos', descripcion: 'Planos de vidrio templado (FOR-005)',
+    // Editor de planos de vidrio templado (2026-09-27). Desde el menú abre el MODO LIBRE
+    // (solo admin, sin ODP, guardado en el navegador). Los planos de un pedido real se
+    // diseñan desde Pedidos PV → «Diseñar» (/detalles-tecnicos/:pedidoId, 2026-10-16).
+    text: 'Detalles Técnicos', descripcion: 'Planos de vidrio templado (FOR-005) · modo libre',
     icon: PencilRuler, path: '/detalles-tecnicos', area: 'produccion', roles: ['admin'],
     claves: 'planos templado vitelsa templacol',
   },

@@ -14,10 +14,15 @@ import {
   Plus as Add, RefreshCw as Refresh, MoreVertical as MoreVert, Search, CheckCircle as CheckCircleOutline,
   Truck as LocalShipping, Hourglass as HourglassEmpty, XCircle as Cancel, TableGrid as TableChart,
   SlidersHorizontal as Tune, Printer as Print, Trash2 as DeleteOutline, AlertTriangle as WarningAmber,
+  PencilRuler,
 } from '../../components/ui/icons';
 import PrintablePedidoVitelsa from './components/PrintablePedidoVitelsa';
 import PrintablePedidoTemplacol from './components/PrintablePedidoTemplacol';
 import { abrirVentanaImpresion } from '../../utils/printWindow';
+import { useNavigate } from 'react-router-dom';
+import { HojasPedido } from '../detalles-tecnicos/modoPedido/HojasPedido';
+import { ESTILOS_HOJA_IMPRESA } from '../detalles-tecnicos/components/HojaDetalle';
+import type { DisenoPedido } from '../detalles-tecnicos/modoPedido/api';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -57,7 +62,9 @@ interface PedidoPV {
   origen: string;
   creado_en: string;
   odp?: { id: number; numero_odp: string; estado_produccion: string; fecha_creacion?: string; proveedor_vidrio?: string | null; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } };
-  items_asignados?: { id: number; espesor: string | null; cantidad: number; ancho_mm: number; alto_mm: number }[];
+  items_asignados?: { id: number; espesor: string | null; cantidad: number; ancho_mm: number; alto_mm: number; dt?: string | null }[];
+  /** Letras DT con plano guardado en el grupo del pedido (detalles técnicos, 2026-10-16). */
+  dt_planos?: string[];
   creador?: { id: number; nombre_completo: string };
   verificador?: { id: number; nombre_completo: string } | null;
 }
@@ -159,6 +166,11 @@ const calcM2Pedido = (p: PedidoPV): number => {
   return toFloat(p.metraje_venta);
 };
 
+// ─── Letras DT del pedido (detalles técnicos, 2026-10-16) ─────────────────────
+// Misma normalización que el backend (`utils/detalleTecnico.ts › normalizarLetra`).
+const letrasDT = (p: PedidoPV): string[] =>
+  Array.from(new Set((p.items_asignados || []).map(it => String(it.dt ?? '').trim().toUpperCase()).filter(Boolean))).sort();
+
 // ─── Orden lógico del pipeline de estados (no alfabético) ────────────────────
 
 const ESTADO_ORDEN: Record<string, number> = Object.fromEntries(
@@ -237,9 +249,11 @@ const AccionesMenu: React.FC<{
   onDetalle: () => void;
   onImprimir: () => void;
   onDescargarExcel: () => void;
+  /** Abre el editor de detalles técnicos. Null = sin permiso o el pedido no tiene letras DT. */
+  onDisenar: (() => void) | null;
   printLoading: boolean;
   excelLoading: boolean;
-}> = ({ pedido, puedeEnviar, puedeGestionar, onEnviar, onConfirmar, onLlegada, onVerificar, onProblema, onGestionarReposicion, onRegistrarReposicion, onDetalle, onImprimir, onDescargarExcel, printLoading, excelLoading }) => {
+}> = ({ pedido, puedeEnviar, puedeGestionar, onEnviar, onConfirmar, onLlegada, onVerificar, onProblema, onGestionarReposicion, onRegistrarReposicion, onDetalle, onImprimir, onDescargarExcel, onDisenar, printLoading, excelLoading }) => {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const open = Boolean(anchor);
 
@@ -264,6 +278,8 @@ const AccionesMenu: React.FC<{
   if (pedido.estado === 'ENTREGADO')
     items.push({ label: '✓ Pedido entregado', action: () => {}, color: '#1b5e20' });
   items.push({ label: 'Ver detalle', action: onDetalle });
+  // Solo si algún ítem tiene letra DT (decisión 2026-10-16) y el usuario puede diseñar.
+  if (onDisenar) items.push({ label: 'Diseñar', action: onDisenar, icon: <PencilRuler size={16} /> });
   if (pedido.odp_id) {
     items.push({ label: printLoading ? 'Cargando...' : 'Imprimir pedido', action: onImprimir, icon: <Print size={16} /> });
     items.push({ label: excelLoading ? 'Generando...' : 'Descargar Excel', action: onDescargarExcel, icon: <TableChart size={16} /> });
@@ -392,7 +408,7 @@ const PedidosPVPage: React.FC = () => {
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
 
   // ─── Impresión ────────────────────────────────────────────────────────────
-  const [printData, setPrintData] = useState<{ pedido: PedidoPV; odp: any } | null>(null);
+  const [printData, setPrintData] = useState<{ pedido: PedidoPV; odp: any; diseno: DisenoPedido | null } | null>(null);
   const [printLoadingId, setPrintLoadingId] = useState<number | null>(null);
   const [excelLoadingId, setExcelLoadingId] = useState<number | null>(null);
   const shouldPrintRef = useRef(false);
@@ -418,6 +434,9 @@ const PedidosPVPage: React.FC = () => {
   const soloLectura = useSoloLectura();
   const puedeGestionar = ['produccion', 'auxiliar_produccion', 'compras', 'admin', 'jefe_produccion'].includes(user?.rol);
   const puedeEnviar = ['asesor_comercial', 'admin', 'gerencia'].includes(user?.rol);
+  // Detalles técnicos (2026-10-16): diseñan admin (y root) y quien gestiona Pedidos PV.
+  const puedeDisenar = !soloLectura && (['admin', 'root'].includes(user?.rol) || !!user?.puede_gestionar_pv);
+  const navigate = useNavigate();
 
   // ─── Carga de datos ───────────────────────────────────────────────────────
 
@@ -923,8 +942,15 @@ const PedidosPVPage: React.FC = () => {
     if (!pedido.odp_id) return;
     setPrintLoadingId(pedido.id);
     try {
-      const { data: odpCompleta } = await axios.get(`${API}/api/odp/${pedido.odp_id}`, { headers });
-      setPrintData({ pedido, odp: odpCompleta });
+      // Los planos DT van detrás del formulario, en el mismo formato del Excel (2026-10-16).
+      // Si no se pueden leer, el pedido se imprime igual, sin planos.
+      const [{ data: odpCompleta }, diseno] = await Promise.all([
+        axios.get(`${API}/api/odp/${pedido.odp_id}`, { headers }),
+        letrasDT(pedido).length
+          ? axios.get<DisenoPedido>(`${API}/api/detalle-tecnico/pedido/${pedido.id}`, { headers }).then(r => r.data).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+      setPrintData({ pedido, odp: odpCompleta, diseno });
       shouldPrintRef.current = true;
     } catch {
       setError('Error al cargar datos de la ODP para imprimir');
@@ -977,6 +1003,8 @@ const PedidosPVPage: React.FC = () => {
           .pv-bold { font-weight: bold; }
           .pv-center { text-align: center; }
           .pv-color { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .dt-planos { break-before: page; page-break-before: always; }
+          ${ESTILOS_HOJA_IMPRESA}
         `,
       });
     }, 150);
@@ -1167,6 +1195,19 @@ const PedidosPVPage: React.FC = () => {
                             {/* Pedido */}
                             <TableCell>
                               <Typography fontWeight={700} fontSize={13}>{p.numero_pedido}</Typography>
+                              {letrasDT(p).length > 0 && (() => {
+                                const letras = letrasDT(p);
+                                const conPlano = letras.filter(l => p.dt_planos?.includes(l));
+                                const completo = conPlano.length === letras.length;
+                                return (
+                                  <Tooltip title={`Detalles técnicos: ${letras.map(l => `${l} ${p.dt_planos?.includes(l) ? '✓' : '(sin plano)'}`).join(' · ')}`}>
+                                    <Chip label={`DT ${conPlano.length}/${letras.length}`} size="small" variant="outlined"
+                                      color={completo ? 'success' : 'warning'}
+                                      onClick={puedeDisenar && p.odp_id ? () => navigate(`/detalles-tecnicos/${p.id}`) : undefined}
+                                      sx={{ fontSize: 11, height: 18, mt: 0.3, fontWeight: 600 }} />
+                                  </Tooltip>
+                                );
+                              })()}
                               {p.estado === 'LLEGADO' && p.estado_reposicion === 'REPUESTO' && (
                                 <Chip label="Reposición · pendiente verificar" size="small" sx={{ fontSize: 11, height: 18, bgcolor: '#fff8e1', color: '#f57f17', mt: 0.3 }} />
                               )}
@@ -1299,6 +1340,7 @@ const PedidosPVPage: React.FC = () => {
                                 onDetalle={() => setModalDetalle(p)}
                                 onImprimir={() => imprimirPedido(p)}
                                 onDescargarExcel={() => descargarExcelPedido(p)}
+                                onDisenar={puedeDisenar && p.odp_id && letrasDT(p).length ? () => navigate(`/detalles-tecnicos/${p.id}`) : null}
                                 printLoading={printLoadingId === p.id}
                                 excelLoading={excelLoadingId === p.id}
                               />
@@ -1369,6 +1411,17 @@ const PedidosPVPage: React.FC = () => {
                                   setItemsSeleccionados(
                                     items.filter((it: any) => it.pedido_pv_id === pv.id).map((it: any) => it.id)
                                   );
+                                  // Bug H3 (TECH_DEBT): el modal arrancaba con DT y observación vacíos y al
+                                  // guardar los borraba. Se precargan con lo que ya tiene cada ítem.
+                                  setItemsExtras(Object.fromEntries(items.map((it: any) => {
+                                    const obs: string = it.observaciones_pv || '';
+                                    const esSello = obs === 'Sello en el canto';
+                                    return [it.id, {
+                                      dt: it.dt || '',
+                                      obsType: esSello ? obs : obs ? 'Otros' : '',
+                                      customObs: esSello ? '' : obs,
+                                    }];
+                                  })));
                                 }}
                                 sx={{ borderRadius: 2, whiteSpace: 'nowrap' }}
                               >
@@ -1858,7 +1911,7 @@ const PedidosPVPage: React.FC = () => {
                                   disabled={!seleccionado}
                                   value={extras.dt}
                                   style={{ fontSize: 12, padding: 4, borderRadius: 4, border: '1px solid #ccc', width: '60px' }}
-                                  onChange={(e) => setItemsExtras(prev => ({ ...prev, [it.id]: { ...extras, dt: e.target.value } }))}
+                                  onChange={(e) => setItemsExtras(prev => ({ ...prev, [it.id]: { ...extras, dt: e.target.value.toUpperCase().slice(0, 10) } }))}
                                 />
                               </TableCell>
                               <TableCell>
@@ -1961,6 +2014,11 @@ const PedidosPVPage: React.FC = () => {
           esTemplacol(proveedorFormato(printData.pedido))
             ? <PrintablePedidoTemplacol pedido={printData.pedido} odp={printData.odp} />
             : <PrintablePedidoVitelsa pedido={printData.pedido} odp={printData.odp} />
+        )}
+        {printData?.diseno && printData.diseno.planos.length > 0 && (
+          <div className="dt-planos">
+            <HojasPedido diseno={printData.diseno} pedidoId={printData.pedido.id} />
+          </div>
         )}
       </div>
 

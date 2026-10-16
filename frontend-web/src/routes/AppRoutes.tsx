@@ -68,10 +68,15 @@ const router = createBrowserRouter(
             <Route element={<RoleRoute allowedRoles={rolesDeRuta('/produccion')} />}>
               <Route path="/produccion" element={<ProduccionPage />} />
             </Route>
-            {/* Detalles técnicos (2026-09-27) — editor de planos de vidrio templado, AISLADO
-                (sin backend, sin vínculo con Pedidos PV): solo admin mientras se decide su integración. */}
+            {/* Detalles técnicos — editor de planos de vidrio templado (FOR-005). Modo libre
+                (solo admin, desde el menú) y modo pedido (2026-10-16, desde «Diseñar» en Gestión PV):
+                este último admite los roles de Pedidos PV y la página exige admin o
+                `puede_gestionar_pv` para editar; los demás lo ven en solo lectura. */}
             <Route element={<RoleRoute allowedRoles={rolesDeRuta('/detalles-tecnicos')} />}>
               <Route path="/detalles-tecnicos" element={<DetallesTecnicosPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={rolesDeRuta('/pedidos-pv')} />}>
+              <Route path="/detalles-tecnicos/:pedidoId" element={<DetallesTecnicosPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={rolesDeRuta('/toma-medidas')} />}>
               <Route path="/toma-medidas" element={<TomaMedidasPage />} />

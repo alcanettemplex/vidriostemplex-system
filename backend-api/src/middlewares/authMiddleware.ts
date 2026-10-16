@@ -36,6 +36,7 @@ const MODULO_POR_PREFIJO: Record<string, string> = {
   compras: 'Compras',
   'inventario-perfileria': 'el Inventario de Perfilería',
   'pedidos-pv': 'los Pedidos PV',
+  'detalle-tecnico': 'los Detalles Técnicos',
   'facturas-salidas': 'Facturas vs Salidas',
   documentos: 'los documentos de la ODP',
   'notas-produccion': 'las notas de producción',

@@ -10,6 +10,7 @@ import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { esTemplacol, bloquesPorProveedor, proveedorParaFormato, mismoProveedor } from '../utils/pedidoPvCapacidad';
 import { recalcularChecksODP } from '../utils/checksAutomaticos';
 import { hoyBogotaISO, diaBogotaISO } from '../utils/fechas';
+import { agregarPlanosAlExcel, inicialesAsesor, letrasConPlanoPorPedido, normalizarLetra } from '../utils/detalleTecnico';
 
 // ─── Esquema de validación ────────────────────────────────────────────────────
 
@@ -246,7 +247,21 @@ export const getPedidosPV = async (req: Request, res: Response) => {
       offset,
     });
 
-    res.json({ rows, count, page, totalPages: Math.ceil(count / limit) });
+    // Letras DT con plano guardado (indicador «DT 1/2» y acción «Diseñar» de Gestión PV).
+    // Los planos cuelgan del pedido principal: una extensión muestra los de su grupo.
+    // Si falla (p. ej. la tabla aún no existe), el listado sale igual, sin el chip DT.
+    const planosPorPedido = await letrasConPlanoPorPedido(rows.map((r) => ({
+      id: r.getDataValue('id'),
+      numero_base: r.getDataValue('numero_base'),
+      odp_id: r.getDataValue('odp_id'),
+      sufijo: r.getDataValue('sufijo'),
+    }))).catch((e) => {
+      console.error('Error leyendo planos DT del listado:', e);
+      return new Map<number, string[]>();
+    });
+    const filas = rows.map((r) => ({ ...r.toJSON(), dt_planos: planosPorPedido.get(r.getDataValue('id')) ?? [] }));
+
+    res.json({ rows: filas, count, page, totalPages: Math.ceil(count / limit) });
   } catch (error) {
     console.error('Error getPedidosPV:', error);
     res.status(500).json({ error: 'Error al obtener pedidos PV' });
@@ -1135,6 +1150,17 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
       : llenarPlantillaVitelsa(wb, datos);
     if (error) return res.status(500).json({ error });
 
+    // Detalles técnicos (2026-10-16): una hoja «PLANO X» por cada letra DT de los ítems de
+    // ESTE pedido que tenga plano. Una letra sin plano no bloquea la descarga, y un fallo de
+    // los planos tampoco: el formulario del proveedor sale siempre.
+    await agregarPlanosAlExcel(wb, pedido, items, {
+      numeroPedido,
+      proveedor: usaTemplacol ? 'TEMPLACOL' : 'VITELSA',
+      numeroOdp,
+      asesorIniciales: inicialesAsesor(asesorNombre) || (pedido.getDataValue('asesor_iniciales') ?? ''),
+      fecha: creadoEn,
+    }).catch((e) => console.error(`Error agregando planos DT al Excel del pedido ${numeroPedido}:`, e));
+
     const buffer = await wb.xlsx.writeBuffer();
     const filename = `PEDIDO ${usaTemplacol ? 'TEMPLACOL' : 'VITELSA'} #${numeroPedido}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -1201,7 +1227,8 @@ export const asignarItems = async (req: Request, res: Response) => {
 
     for (const it of items_data) {
       await ODPItem.update({
-        dt: it.dt || null,
+        // Normalizada: la letra es la llave del plano DT (pedido_pv_plano.letra).
+        dt: normalizarLetra(it.dt),
         observaciones_pv: it.observaciones_pv || null,
       }, { where: { id: it.id }, transaction: t });
     }

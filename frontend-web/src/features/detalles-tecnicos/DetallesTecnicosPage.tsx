@@ -1,10 +1,14 @@
-// Detalles técnicos — editor de planos de vidrio templado (FOR-005) para VITELSA /
-// TEMPLACOL. Traído al ERP el 2026-09-27 desde el prototipo standalone
-// `editor-detalles-tecnicos` (Compra VITELSA), AISLADO: sin backend ni base de
-// datos, el pedido se guarda en localStorage y no toca Pedidos PV. Solo admin.
-// Cómo integrarlo lo decide el usuario (plan en docs/modulos/detalles-tecnicos.md).
-import { useEffect, useRef, useState } from 'react';
+// Detalles técnicos — editor de planos de vidrio templado (FOR-005) para VITELSA / TEMPLACOL.
+// Dos modos (2026-10-16, ver docs/modulos/detalles-tecnicos.md):
+//  - /detalles-tecnicos/:pedidoId — MODO PEDIDO, desde «Diseñar» en Gestión PV: datos del
+//    Pedido PV y su ODP, un plano por letra DT, guardado en la BD.
+//  - /detalles-tecnicos — MODO LIBRE, solo admin desde el menú: un pedido de práctica que vive
+//    en este navegador, para organizar planos sin ODP.
+import { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import {
+  Alert,
   AppBar,
   Box,
   Button,
@@ -25,30 +29,45 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { usePedido, type DatosPlano } from './estado';
-import { letraPlano } from './modelo/geometria';
-import { idsDelGrupo, moverOperaciones } from './modelo/mover';
+import { EJEMPLO, usePedido, type DatosPlano } from './estado';
+import { letraPlano, medidasCaja } from './modelo/geometria';
 import { validarPlano } from './modelo/validaciones';
 import type { Plantilla } from './modelo/tipos';
+import { useAtajos } from './useAtajos';
 import { PanelPedido } from './components/PanelPedido';
-import { HojaDetalle } from './components/HojaDetalle';
+import { HojaDetalle, ESTILOS_HOJA_IMPRESA, type EncabezadoHoja } from './components/HojaDetalle';
 import { EditorPlano } from './components/EditorPlano';
 import { Galeria } from './components/Galeria';
 import { DialogoMedidas } from './components/DialogoMedidas';
+import DisenoPedidoPage from './modoPedido/DisenoPedidoPage';
 import { abrirVentanaImpresion } from '../../utils/printWindow';
-import { FileSpreadsheet as TableChartIcon, Printer as PrintIcon, RefreshCw as RestartAltIcon, Undo2 as UndoIcon, Redo2 as RedoIcon, MoreVertical as MoreVertIcon, Cloud as CloudDoneOutlinedIcon } from '../../components/ui/icons';
-
-const esCampoDeTexto = (el: EventTarget | null) =>
-  el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+import type { RootState } from '../../store/store';
+import { FileSpreadsheet as TableChartIcon, Printer as PrintIcon, RefreshCw as RestartAltIcon, Undo2 as UndoIcon, Redo2 as RedoIcon, MoreVertical as MoreVertIcon, Cloud as CloudDoneOutlinedIcon, FileText as EjemploIcon } from '../../components/ui/icons';
 
 /** Hoja carta para la ventana de impresión (reemplaza el @media print del prototipo). */
-const ESTILOS_IMPRESION = `
-@page { size: letter portrait; margin: 8mm; }
-body { margin: 0; background: #fff; }
-.hoja-imprimible { box-shadow: none !important; max-width: none !important; padding: 0 !important; }
-`;
+const ESTILOS_IMPRESION = `@page { size: letter portrait; margin: 8mm; } body { margin: 0; background: #fff; } ${ESTILOS_HOJA_IMPRESA}`;
 
 export default function DetallesTecnicosPage() {
+  const { pedidoId } = useParams();
+  const user = useSelector((s: RootState) => s.auth.user);
+  if (pedidoId) {
+    const id = Number(pedidoId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return <Box sx={{ p: 4 }}><Alert severity="error">El enlace no corresponde a un pedido PV.</Alert></Box>;
+    }
+    // La ruta admite los roles de Pedidos PV; diseñar exige además admin o `puede_gestionar_pv`.
+    // Los demás pueden abrir en solo lectura: el backend responde `puede_editar: false`.
+    return <DisenoPedidoPage key={id} pedidoId={id} />;
+  }
+  // El modo libre es solo admin (root entra por el bypass general). Aquí se repite el control
+  // porque la ruta con :pedidoId comparte componente y admite más roles.
+  if (user?.rol !== 'admin' && user?.rol !== 'root') {
+    return <Box sx={{ p: 4 }}><Alert severity="info">Los detalles técnicos se abren desde Pedidos PV, con la acción «Diseñar» de cada pedido.</Alert></Box>;
+  }
+  return <ModoLibre />;
+}
+
+function ModoLibre() {
   const st = usePedido();
   const { pedido } = st;
   const [galeria, setGaleria] = useState<'agregar' | 'cambiar' | null>(null);
@@ -57,10 +76,10 @@ export default function DetallesTecnicosPage() {
   const [seleccionOp, setSeleccionOp] = useState<string | null>(null);
   const [exportando, setExportando] = useState(false);
   const [aviso, setAviso] = useState<{ texto: string; deshacer?: boolean } | null>(null);
-  const [confirmarReinicio, setConfirmarReinicio] = useState(false);
+  const [confirmarEmpezar, setConfirmarEmpezar] = useState<'vacio' | 'ejemplo' | null>(null);
+  const [problemasExportar, setProblemasExportar] = useState<string[] | null>(null);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
-  // Copia sin edición de la hoja, oculta: de aquí sale el HTML que se imprime.
-  const hojaImpresionRef = useRef<HTMLDivElement>(null);
+  const [menuImprimir, setMenuImprimir] = useState<HTMLElement | null>(null);
 
   // Si el plano seleccionado ya no existe (p. ej. tras deshacer), se muestra el primero.
   const idxSel = pedido.planos.findIndex((p) => p.id === st.seleccion);
@@ -68,6 +87,16 @@ export default function DetallesTecnicosPage() {
   const plano = idx >= 0 ? pedido.planos[idx] : null;
   const conErrores = pedido.planos.filter((p) => validarPlano(p).some((o) => o.nivel === 'error')).length;
   const seleccionValida = plano && seleccionOp && plano.pieza.operaciones.some((o) => o.id === seleccionOp) ? seleccionOp : null;
+
+  const encabezado: EncabezadoHoja = {
+    numero: pedido.numero,
+    fecha: pedido.fecha,
+    proveedor: pedido.proveedor,
+    odp: pedido.odp,
+    obra: pedido.obra || pedido.cliente,
+    asesor: pedido.asesor,
+  };
+  const filasDe = (p: NonNullable<typeof plano>) => [{ cantidad: p.cantidad, color: p.color, espesor: p.espesor, ...medidasCaja(p.pieza) }];
 
   const seleccionarPlano = (id: string) => {
     st.setSeleccion(id);
@@ -81,41 +110,31 @@ export default function DetallesTecnicosPage() {
     setAviso({ texto: descripcion, deshacer: true });
   };
 
-  // Atajos: deshacer/rehacer, mover con flechas, suprimir y Escape.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const mod = e.ctrlKey || e.metaKey;
-      const k = e.key.toLowerCase();
-      if (mod && k === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        st.deshacer();
-        return;
-      }
-      if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) {
-        e.preventDefault();
-        st.rehacer();
-        return;
-      }
-      if (esCampoDeTexto(e.target) || !plano || !seleccionValida) return;
-      const paso = e.shiftKey ? 10 : 1;
-      const delta = { ArrowLeft: { x: -paso, y: 0 }, ArrowRight: { x: paso, y: 0 }, ArrowUp: { x: 0, y: -paso }, ArrowDown: { x: 0, y: paso } }[e.key];
-      if (delta) {
-        e.preventDefault();
-        const ids = idsDelGrupo(plano.pieza, seleccionValida);
-        st.actualizarPlano(plano.id, (pl) => ({ ...pl, pieza: moverOperaciones(pl.pieza, pl.pieza, ids, delta, 1) }), `teclado:${seleccionValida}`);
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        const n = plano.pieza.operaciones.findIndex((o) => o.id === seleccionValida) + 1;
-        eliminarOps([seleccionValida], `Elemento ${n} eliminado`);
-      } else if (e.key === 'Escape') {
-        setSeleccionOp(null);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+  useAtajos({
+    plano,
+    seleccionId: seleccionValida,
+    editable: true,
+    deshacer: st.deshacer,
+    rehacer: st.rehacer,
+    cambiarPieza: (fn, clave) => plano && st.actualizarPlano(plano.id, (pl) => ({ ...pl, pieza: fn(pl.pieza) }), clave),
+    eliminar: eliminarOps,
+    limpiarSeleccion: () => setSeleccionOp(null),
   });
 
+  /** Lo que conviene revisar antes de exportar: encabezado vacío o de ejemplo, planos con errores. */
+  const revisarAntesDeExportar = (): string[] => {
+    const p: string[] = [];
+    if (!pedido.numero.trim()) p.push('Falta el número de pedido.');
+    if (!pedido.odp.trim()) p.push('Falta la ODP.');
+    if (pedido.numero === EJEMPLO.numero || pedido.odp === EJEMPLO.odp || pedido.cliente === EJEMPLO.cliente) {
+      p.push('El encabezado tiene datos del pedido de ejemplo (número, ODP o cliente).');
+    }
+    if (conErrores) p.push(`${conErrores} plano(s) tienen errores.`);
+    return p;
+  };
+
   const exportar = async () => {
+    setProblemasExportar(null);
     setExportando(true);
     try {
       // ExcelJS pesa ~1 MB: se carga sólo cuando se exporta.
@@ -129,15 +148,30 @@ export default function DetallesTecnicosPage() {
       setExportando(false);
     }
   };
+  const pedirExportar = () => {
+    const p = revisarAntesDeExportar();
+    if (p.length) setProblemasExportar(p);
+    else exportar();
+  };
 
   // Dentro del ERP `window.print()` imprimiría también el menú y la barra: se usa
   // la ventana de impresión común (regla del CLAUDE.md, utils/printWindow.ts).
-  const imprimir = () => {
-    if (!plano || !hojaImpresionRef.current) return;
-    abrirVentanaImpresion({
-      titulo: `Detalle técnico ${pedido.proveedor} ${pedido.numero} · Plano ${letraPlano(idx)}`,
-      contenidoHtml: hojaImpresionRef.current.innerHTML,
-      estilos: ESTILOS_IMPRESION,
+  const imprimir = (todos: boolean) => {
+    setMenuImprimir(null);
+    const lista = todos ? pedido.planos.map((p, i) => ({ p, i })) : plano ? [{ p: plano, i: idx }] : [];
+    if (!lista.length) return;
+    // Las hojas se arman sin edición, en un contenedor fuera del DOM visible.
+    import('react-dom/server').then(({ renderToStaticMarkup }) => {
+      const html = renderToStaticMarkup(
+        <>
+          {lista.map(({ p, i }) => <HojaDetalle key={p.id} encabezado={encabezado} plano={p} letra={letraPlano(i)} filas={filasDe(p)} />)}
+        </>,
+      );
+      abrirVentanaImpresion({
+        titulo: `Detalle técnico ${pedido.proveedor} ${pedido.numero}${todos ? '' : ` · Plano ${letraPlano(idx)}`}`,
+        contenidoHtml: html,
+        estilos: ESTILOS_IMPRESION,
+      });
     });
   };
 
@@ -156,12 +190,14 @@ export default function DetallesTecnicosPage() {
           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 17 }}>
             Detalles técnicos
           </Typography>
-          <Chip size="small" label="Módulo aislado · sin vínculo con Pedidos PV" variant="outlined" />
+          <Tooltip title="Para diseñar los planos de un pedido real, usa «Diseñar» en Pedidos PV → Gestión PV.">
+            <Chip size="small" label="Modo libre · sin ODP · en este navegador" variant="outlined" />
+          </Tooltip>
           <Typography variant="body2" color="text.secondary" sx={{ ml: 1, display: { xs: 'none', md: 'block' } }}>
-            {pedido.proveedor} #{pedido.numero}
+            {pedido.proveedor} #{pedido.numero || '—'}
           </Typography>
           {st.puedeGuardar ? (
-            <Tooltip title={st.ultimoCambio ? `Último cambio guardado a las ${st.ultimoCambio.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}` : 'Los cambios se guardan solos en este navegador'}>
+            <Tooltip title={st.ultimoCambio ? `Último cambio guardado a las ${st.ultimoCambio.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' })}` : 'Los cambios se guardan solos en este navegador'}>
               <Chip size="small" icon={<CloudDoneOutlinedIcon size={18} />} label="Guardado" variant="outlined" color="success" sx={{ display: { xs: 'none', md: 'flex' } }} />
             </Tooltip>
           ) : (
@@ -185,14 +221,18 @@ export default function DetallesTecnicosPage() {
             </span>
           </Tooltip>
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-          <Button size="small" variant="outlined" startIcon={<PrintIcon size={18} />} onClick={imprimir} disabled={!plano}>
-            Imprimir plano
+          <Button size="small" variant="outlined" startIcon={<PrintIcon size={18} />} onClick={(e) => setMenuImprimir(e.currentTarget)} disabled={!plano}>
+            Imprimir
           </Button>
+          <Menu anchorEl={menuImprimir} open={!!menuImprimir} onClose={() => setMenuImprimir(null)}>
+            <MenuItem onClick={() => imprimir(false)}>Plano {idx >= 0 ? letraPlano(idx) : ''}</MenuItem>
+            <MenuItem onClick={() => imprimir(true)}>Todos los planos ({pedido.planos.length})</MenuItem>
+          </Menu>
           <Button
             size="small"
             variant="contained"
             startIcon={exportando ? <CircularProgress size={16} color="inherit" /> : <TableChartIcon size={18} />}
-            onClick={exportar}
+            onClick={pedirExportar}
             disabled={exportando || pedido.planos.length === 0}
           >
             Exportar Excel
@@ -201,16 +241,17 @@ export default function DetallesTecnicosPage() {
             <MoreVertIcon size={18} />
           </IconButton>
           <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
-            <MenuItem
-              onClick={() => {
-                setMenu(null);
-                setConfirmarReinicio(true);
-              }}
-            >
+            <MenuItem onClick={() => { setMenu(null); setConfirmarEmpezar('vacio'); }}>
               <ListItemIcon>
                 <RestartAltIcon size={18} />
               </ListItemIcon>
-              Empezar un pedido nuevo de ejemplo
+              Empezar un pedido vacío
+            </MenuItem>
+            <MenuItem onClick={() => { setMenu(null); setConfirmarEmpezar('ejemplo'); }}>
+              <ListItemIcon>
+                <EjemploIcon size={18} />
+              </ListItemIcon>
+              Cargar el pedido de ejemplo
             </MenuItem>
           </Menu>
         </Toolbar>
@@ -245,9 +286,10 @@ export default function DetallesTecnicosPage() {
         <Box className="zona-hoja" sx={{ overflow: 'auto', p: { xs: 1.5, md: 3 } }}>
           {plano ? (
             <HojaDetalle
-              pedido={pedido}
+              encabezado={encabezado}
               plano={plano}
               letra={letraPlano(idx)}
+              filas={filasDe(plano)}
               resaltarId={resaltarId}
               edicion={{
                 seleccionId: seleccionValida,
@@ -315,39 +357,52 @@ export default function DetallesTecnicosPage() {
         />
       )}
 
-      <Dialog open={confirmarReinicio} onClose={() => setConfirmarReinicio(false)}>
-        <DialogTitle>¿Empezar un pedido nuevo de ejemplo?</DialogTitle>
+      <Dialog open={confirmarEmpezar !== null} onClose={() => setConfirmarEmpezar(null)}>
+        <DialogTitle>{confirmarEmpezar === 'vacio' ? '¿Empezar un pedido vacío?' : '¿Cargar el pedido de ejemplo?'}</DialogTitle>
         <DialogContent>
           <DialogContentText>Se reemplaza el pedido actual. Si te arrepientes, puedes usar Deshacer.</DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmarReinicio(false)}>Cancelar</Button>
+          <Button onClick={() => setConfirmarEmpezar(null)}>Cancelar</Button>
           <Button
             color="error"
             onClick={() => {
-              st.reiniciar();
+              if (confirmarEmpezar) st.empezar(confirmarEmpezar);
               setSeleccionOp(null);
-              setConfirmarReinicio(false);
+              setConfirmarEmpezar(null);
             }}
           >
-            Empezar de nuevo
+            {confirmarEmpezar === 'vacio' ? 'Empezar vacío' : 'Cargar ejemplo'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {plano && (
-        <div ref={hojaImpresionRef} style={{ display: 'none' }} aria-hidden>
-          <HojaDetalle pedido={pedido} plano={plano} letra={letraPlano(idx)} />
-        </div>
-      )}
+      <Dialog open={problemasExportar !== null} onClose={() => setProblemasExportar(null)}>
+        <DialogTitle>Antes de exportar</DialogTitle>
+        <DialogContent>
+          {problemasExportar?.map((p) => (
+            <DialogContentText key={p}>• {p}</DialogContentText>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProblemasExportar(null)}>Revisar</Button>
+          <Button variant="contained" onClick={exportar}>
+            Exportar igual
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
-        open={aviso !== null}
-        autoHideDuration={aviso?.deshacer ? 6000 : 4000}
-        onClose={(_, razon) => razon !== 'clickaway' && setAviso(null)}
-        message={aviso?.texto}
+        open={aviso !== null || st.avisoEstado !== null}
+        autoHideDuration={st.avisoEstado ? 10000 : aviso?.deshacer ? 6000 : 4000}
+        onClose={(_, razon) => {
+          if (razon === 'clickaway') return;
+          setAviso(null);
+          st.limpiarAvisoEstado();
+        }}
+        message={st.avisoEstado ?? aviso?.texto}
         action={
-          aviso?.deshacer ? (
+          !st.avisoEstado && aviso?.deshacer ? (
             <Button
               color="inherit"
               size="small"

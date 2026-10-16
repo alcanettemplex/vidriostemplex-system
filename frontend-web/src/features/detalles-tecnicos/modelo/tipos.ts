@@ -87,6 +87,8 @@ export interface Pieza {
 
 export interface Plano {
   id: string;
+  /** Letra DT del pedido PV (modo pedido). En el modo libre la letra es la posición en la lista. */
+  letra?: string;
   plantillaId: string;
   nombre: string;
   cantidad: number;

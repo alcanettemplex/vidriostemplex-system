@@ -40,7 +40,7 @@ const CAMPO_COMPACTO = {
 } as const;
 
 /** Número en milímetros. Deja el campo vacío mientras se escribe en vez de convertirlo en 0. */
-function Mm({ value, onChange, label, width = 100, min, ayuda }: { value: number; onChange: (n: number) => void; label?: string; width?: number; min?: number; ayuda?: string }) {
+function Mm({ value, onChange, label, width = 100, min, ayuda, disabled }: { value: number; onChange: (n: number) => void; label?: string; width?: number; min?: number; ayuda?: string; disabled?: boolean }) {
   return (
     <TextField
       label={label}
@@ -51,6 +51,7 @@ function Mm({ value, onChange, label, width = 100, min, ayuda }: { value: number
       onFocus={(e) => e.target.select()}
       error={!Number.isFinite(value)}
       helperText={ayuda}
+      disabled={disabled}
       sx={{ width, ...CAMPO_COMPACTO }}
       slotProps={{ htmlInput: { min, step: 1 }, input: { endAdornment: <InputAdornment position="end">mm</InputAdornment> } }}
     />
@@ -142,9 +143,11 @@ interface Props {
   onSeleccionar: (id: string | null) => void;
   /** Elimina procesos avisando con opción de deshacer. */
   onEliminar: (ids: string[], descripcion: string) => void;
+  /** Modo pedido: cantidad, color, espesor, ancho y alto vienen de los vidrios del Pedido PV. */
+  modoPedido?: boolean;
 }
 
-export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onResaltar, seleccionId, onSeleccionar, onEliminar }: Props) {
+export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onResaltar, seleccionId, onSeleccionar, onEliminar, modoPedido = false }: Props) {
   const [verTodo, setVerTodo] = useState(false);
   const [procesosAbierto, setProcesosAbierto] = useState(true);
   const [menuHerraje, setMenuHerraje] = useState<HTMLElement | null>(null);
@@ -403,6 +406,11 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
 
       <Seccion titulo="Datos del vidrio" resumen={`${plano.cantidad} × ${plano.color} ${plano.espesor} mm`} defecto>
         <Stack spacing={1.5}>
+          {modoPedido ? (
+            <Typography variant="body2" color="text.secondary">
+              Cantidad, color y espesor salen de los vidrios del pedido con la letra {letra} (panel izquierdo). Para cambiarlos, corrige el ítem en la ODP.
+            </Typography>
+          ) : (
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
             <TextField
               label="Cantidad"
@@ -433,6 +441,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               sx={{ width: 130 }}
             />
           </Stack>
+          )}
           <FormControlLabel
             control={<Switch checked={plano.selloEnCanto} onChange={(e) => onCambiar((pl) => ({ ...pl, selloEnCanto: e.target.checked }))} />}
             label="Sello del templado en el canto"
@@ -462,7 +471,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
             ]}
           />
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-            <Mm label={p.contorno.tipo === 'desplome-lateral' ? 'Ancho abajo' : 'Ancho'} width={130} value={p.ancho} onChange={(n) => setPieza({ ancho: n }, 'ancho')} />
+            <Mm label={p.contorno.tipo === 'desplome-lateral' ? 'Ancho abajo' : 'Ancho'} width={130} value={p.ancho} onChange={(n) => setPieza({ ancho: n }, 'ancho')} disabled={modoPedido} ayuda={modoPedido ? 'Del pedido' : undefined} />
             {p.contorno.tipo === 'desplome-lateral' && (
               <Mm label="Ancho arriba" width={130} value={p.contorno.anchoSup} onChange={(n) => setPieza({ contorno: { ...(p.contorno as Extract<Contorno, { tipo: 'desplome-lateral' }>), anchoSup: n } }, 'anchoSup')} />
             )}
@@ -471,15 +480,24 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               width={p.contorno.tipo === 'desplome-superior' ? 170 : 130}
               value={p.alto}
               onChange={(n) => setPieza({ alto: n }, 'alto')}
+              disabled={modoPedido}
+              ayuda={modoPedido ? 'Del pedido' : undefined}
             />
             {p.contorno.tipo === 'desplome-superior' && (
               <Mm label={`Alto (lado ${p.contorno.lado === 'der' ? 'derecho' : 'izquierdo'})`} width={170} value={p.contorno.altoLado} onChange={(n) => setPieza({ contorno: { ...(p.contorno as Extract<Contorno, { tipo: 'desplome-superior' }>), altoLado: n } }, 'altoLado')} />
             )}
           </Stack>
           {p.contorno.tipo === 'desplome-lateral' && (
+            // Se pregunta como lo dice el taller (el lado a escuadra); se guarda el lado inclinado,
+            // que es el opuesto: el formato de `pieza` no cambia.
             <Frase>
-              <Typography>El lado inclinado es el</Typography>
-              <Sel value={p.contorno.lado} width={130} opciones={[{ v: 'izq', t: 'izquierdo' }, { v: 'der', t: 'derecho' }]} onChange={(lado) => setPieza({ contorno: { ...(p.contorno as Extract<Contorno, { tipo: 'desplome-lateral' }>), lado } })} />
+              <Typography>El lado a 90° (a escuadra) es el</Typography>
+              <Sel
+                value={p.contorno.lado === 'der' ? 'izq' : 'der'}
+                width={130}
+                opciones={[{ v: 'izq', t: 'izquierdo' }, { v: 'der', t: 'derecho' }]}
+                onChange={(escuadra) => setPieza({ contorno: { ...(p.contorno as Extract<Contorno, { tipo: 'desplome-lateral' }>), lado: escuadra === 'izq' ? 'der' : 'izq' } })}
+              />
             </Frase>
           )}
           {p.contorno.tipo === 'desplome-superior' && (

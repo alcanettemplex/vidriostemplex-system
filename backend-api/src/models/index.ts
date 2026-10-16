@@ -26,6 +26,8 @@ import CatalogoProducto from './catalogo_producto.model';
 import Prospecto from './prospecto.model';
 import InventarioPerfileria from './inventario_perfileria.model';
 import PedidoPV from './pedido_pv.model';
+import PedidoPVPlano from './pedido_pv_plano.model';
+import PedidoPVDtDesbloqueo from './pedido_pv_dt_desbloqueo.model';
 import SalidaAlmacen from './salida_almacen.model';
 import CotizacionCaptura from './cotizacion_captura.model';
 import DetalleSAPImagen from './detalle_sap_imagen.model';
@@ -267,6 +269,13 @@ PedidoPV.belongsTo(Usuario, { foreignKey: 'verificado_por', as: 'verificador' })
 PedidoPV.hasMany(ODPItem, { foreignKey: 'pedido_pv_id', as: 'items_asignados' });
 ODPItem.belongsTo(PedidoPV, { foreignKey: 'pedido_pv_id', as: 'pedidoPV' });
 
+// Detalles técnicos (2026-10-16): planos por letra DT y desbloqueo, colgados del pedido principal.
+PedidoPV.hasMany(PedidoPVPlano, { foreignKey: 'pedido_pv_id', as: 'planos_dt' });
+PedidoPVPlano.belongsTo(PedidoPV, { foreignKey: 'pedido_pv_id', as: 'pedido' });
+PedidoPV.hasOne(PedidoPVDtDesbloqueo, { foreignKey: 'pedido_pv_id', as: 'dt_desbloqueo' });
+PedidoPVDtDesbloqueo.belongsTo(PedidoPV, { foreignKey: 'pedido_pv_id', as: 'pedido' });
+PedidoPVDtDesbloqueo.belongsTo(Usuario, { foreignKey: 'desbloqueado_por', as: 'desbloqueador' });
+
 // ─── Bloque H: Capturas de Cotización ───────────────────────────────────────
 ODP.hasMany(CotizacionCaptura, { foreignKey: 'odp_id', as: 'cotizacion_capturas' });
 CotizacionCaptura.belongsTo(ODP, { foreignKey: 'odp_id' });
@@ -411,6 +420,12 @@ const MODELOS_AUDITADOS = [
   { model: MetaMensual, tabla: 'metas_mensuales', pk: 'id' },
   { model: ConfiguracionGlobal, tabla: 'configuracion_global', pk: 'id' },
   { model: PedidoPV, tabla: 'pedido_pv', pk: 'id' },
+  // Detalles técnicos — 2026-10-16. Auditados pero NO revertibles desde ROOT (fuera de
+  // TABLAS_AUDITABLES): el plano reemplaza y borra su imagen de Cloudinary, así que
+  // revertirlo apuntaría a una imagen que ya no existe; el desbloqueo tiene PK
+  // `pedido_pv_id` y el revertir arma su WHERE con `id`.
+  { model: PedidoPVPlano, tabla: 'pedido_pv_plano', pk: 'id' },
+  { model: PedidoPVDtDesbloqueo, tabla: 'pedido_pv_dt_desbloqueo', pk: 'pedido_pv_id' },
   { model: SalidaAlmacen, tabla: 'salidas_almacen', pk: 'id' },
   { model: CotizacionCaptura, tabla: 'cotizacion_capturas', pk: 'id' },
   { model: Lead, tabla: 'leads', pk: 'id' },
@@ -537,6 +552,8 @@ export {
   RutaODP,
   AgendaInstalacion,
   PedidoPV,
+  PedidoPVPlano,
+  PedidoPVDtDesbloqueo,
   SalidaAlmacen,
   CotizacionCaptura,
   DetalleSAPImagen,

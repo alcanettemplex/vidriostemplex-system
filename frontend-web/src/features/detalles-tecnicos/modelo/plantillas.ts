@@ -5,6 +5,7 @@
 
 import type { Pieza, Plantilla } from './tipos';
 import {
+  agrupar,
   BQ,
   CH,
   PF,
@@ -38,7 +39,7 @@ export const PLANTILLAS: Plantilla[] = [
   { id: 'corr-boton', nombre: 'Corrediza con botón', hoja: 'CORR BOTÓN', familia: 'Corredizas', descripcion: '2 despuntes 30×30, 2 perf. Ø6 para rodamientos y perf. Ø8 para botón.', pieza: pieza(600, 1900, [...perfCorredera(), ...boton(40, 900)], despuntesCorredera()) },
   { id: 'corr-toahor', nombre: 'Corrediza toallero horizontal', hoja: 'CORR TOAHOR', familia: 'Corredizas', descripcion: 'Despuntes 30×30, rodamientos Ø6 y toallero horizontal Ø8 a 950 mm.', pieza: pieza(600, 1900, [...perfCorredera(), ...toalleroHor(50, 950)], despuntesCorredera()) },
   { id: 'corr-toaver', nombre: 'Corrediza toallero vertical', hoja: 'CORR TOAVER', familia: 'Corredizas', descripcion: 'Despuntes 30×30, rodamientos Ø6 y toallero vertical Ø8 (800–1000 mm).', pieza: pieza(600, 1900, [...perfCorredera(), ...toalleroVer(70, 800)], despuntesCorredera()) },
-  { id: 'deslizante', nombre: 'Deslizante', hoja: 'DESLIZANTE', familia: 'Corredizas', descripcion: '2 perf. Ø6 superiores y perf. Ø8 lateral para manija.', pieza: pieza(600, 1900, [PF(6, 30, 'izq', 15, 'sup'), PF(6, 30, 'der', 15, 'sup'), PF(8, 25, 'izq', 0, 'centro')]) },
+  { id: 'deslizante', nombre: 'Deslizante', hoja: 'DESLIZANTE', familia: 'Corredizas', descripcion: '2 perf. Ø6 superiores y perf. Ø8 lateral para manija.', pieza: pieza(600, 1900, [...agrupar('Rodamientos de deslizante', [PF(6, 30, 'izq', 15, 'sup'), PF(6, 30, 'der', 15, 'sup')]), PF(8, 25, 'izq', 0, 'centro')]) },
 
   // ── Glassvit ───────────────────────────────────────────────────────────────
   { id: 'glassvit-boton', nombre: 'Glassvit con botón', hoja: 'GLASSVIT BOTON', familia: 'Glassvit', descripcion: '2 perf. Ø14 superiores a 70 mm y botón Ø8.', pieza: pieza(600, 1900, [...perfGlassvit(70), ...boton(50, 900)]) },

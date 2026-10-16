@@ -6910,3 +6910,25 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **Verificación:** `tsc --noEmit` y `react-scripts build` sin errores ni advertencias. No se probó en navegador.
 - **Pendiente:** corregir la COT-17027 a mano (línea en 1, piezas en 7) y confirmar con la asesora si era el SPB0101 (inox) o el SPB1106 (negro).
 - Nota: `npm run build` del frontend no corre en Windows (`CI=false` en el script es sintaxis POSIX); se compiló con `CI=false npx react-scripts build` desde Bash.
+
+## 2026-10-16 — Detalles Técnicos integrado con Pedidos PV (+ 12 correcciones del módulo)
+
+**Pedido del usuario:** análisis del módulo (inconsistencias y mejoras), luego integración: los datos del encabezado salen del Pedido PV y su ODP; en Gestión PV, la acción «Diseñar» abre el editor de los vidrios con letra DT; botón para ver la ficha ODP; descarga del Excel desde el editor o desde Acciones con los planos dentro. El módulo se mantiene en el menú para admin (modo libre, sin ODP).
+
+**Decisiones del usuario:** un plano por letra DT · letra en «Asignar ítems» y también desde el editor · un solo Excel (formulario oficial + «PLANO X»), cada extensión con solo sus letras, sin hoja RESUMEN · diseñan admin y `puede_gestionar_pv` · bloqueo desde ENVIADO, desbloqueo solo admin hasta que vuelva a bloquear · «Diseñar» solo con letras · imagen en Cloudinary · encabezado: N° pedido, # ODP, iniciales del asesor · letra sin plano: descargar igual · PERF/BOQ de los ítems se actualizan con lo dibujado · «Imprimir pedido» con los planos en formato del Excel.
+
+- **BD:** tablas nuevas `pedido_pv_plano` y `pedido_pv_dt_desbloqueo` (las crea `sync` al arrancar; sin ALTER sobre `pedido_pv` a propósito). Auditadas, no revertibles desde ROOT.
+- **backend:** `detalle_tecnico.controller.ts` + `routes/detalle_tecnico.routes.ts` (`/api/detalle-tecnico`), `utils/detalleTecnico.ts` (reglas + hoja FOR-005 del Excel), `pedido_pv.controller.ts` (`dt_planos` en el listado, hojas «PLANO X» en `generarExcelPedidoPV`, letra normalizada en `asignarItems`), `models/index.ts`, `app.ts`, `authMiddleware.ts`, `templates/logotemplex.png`.
+- **frontend:** modo pedido nuevo (`detalles-tecnicos/modoPedido/*`), `DetallesTecnicosPage.tsx` (elige modo), `estado.ts` (historial genérico), `useAtajos.ts`, `HojaDetalle.tsx` (encabezado y filas por parámetro), `exportar/imagen.ts`, ruta `/detalles-tecnicos/:pedidoId`, `PedidosPVPage.tsx` (Diseñar, chip DT, precarga H3, imprimir con planos), icono `Unlock`.
+- **Correcciones del análisis:** validaciones contra el contorno real, herrajes estándar exentos (0 avisos en las 60 plantillas con espesor 8; antes 7 plantillas avisaban sobre sí mismas), boquetes traslapados o dentro del corte de esquina, espesor ilegible, diálogo de medidas valida antes de crear, ANCHO/ALTO = caja envolvente (igual que el m²), Ctrl+Z y flechas respetan los campos, `hoyBogotaISO`, localStorage con lectura defensiva + espera de 400 ms + aviso entre pestañas, pedido vacío ≠ ejemplo, aviso antes de exportar, imprimir todos, hoja impresa sin página en blanco, nombre de archivo saneado.
+- **Bug H3 cerrado:** «Asignar ítems» precarga letra DT y observación (antes las borraba al guardar).
+- **Verificación:** `tsc --noEmit` backend y frontend sin errores; ESLint limpio; validaciones sobre las 60 plantillas + 4 casos nuevos; Excel de prueba (plantilla VITELSA + «PLANO A») generado y releído: formulario intacto, logo + dibujo, encabezado y filas correctas. **No se probó contra la BD ni en navegador**: guardar un plano escribe en `odp_items` de producción y sube a Cloudinary.
+- **Pendientes:** prueba manual en navegador (ver reporte); confirmar con VITELSA las reglas de temple y si BOQ debe contar las muescas de esquina (D3).
+
+## 2026-10-16 (2) — Detalles Técnicos: esquina a 90° en los desplomes
+
+**Pedido del usuario:** que los fijos con desplome muestren de qué lado va el ángulo a 90°. Decisiones: cuadrito + «90°» solo en la parte inferior; sin ángulo ni largo del lado inclinado; el editor pregunta por el «lado a 90°».
+
+- **frontend:** `PlanoSVG.tsx` — `esquinas90Inferiores()` y la marca (cuadrito por dentro, texto por fuera en diagonal); llega sola a pantalla, impresión e imagen del Excel. `EditorPlano.tsx` — selector «El lado a 90° (a escuadra) es el…», guarda el lado inclinado (formato de `pieza` sin cambios).
+- **backend / BD:** sin cambios.
+- **Verificación:** `tsc` y ESLint limpios; render de des1, des2, fij-bat-3chades1, deschor y un desplome invertido rasterizado con Edge headless. La primera versión ponía «90°» por dentro y chocaba con «BOQ 35×30» de la muesca de piso; se movió afuera y se volvió a verificar.

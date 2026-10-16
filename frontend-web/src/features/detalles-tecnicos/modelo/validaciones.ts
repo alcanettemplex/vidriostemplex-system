@@ -1,16 +1,25 @@
 import {
+  add,
   bordesDe,
+  BORDE_ENTRADA,
+  BORDE_SALIDA,
   centroPerforacion,
+  contornoDe,
   espesorNumerico,
   esHorizontal,
+  EXTREMOS,
   geometriaBoquete,
   largo,
-  limitesDe,
+  mul,
   ORDEN_ESQUINAS,
   sub,
+  tramoBoquete,
+  unit,
   verticesBase,
+  type Pt,
+  type Vert,
 } from './geometria';
-import type { Boquete, Perforacion, Plano } from './tipos';
+import type { BordeId, Boquete, EsquinaId, Perforacion, Pieza, Plano, TratamientoEsquina } from './tipos';
 
 export type Nivel = 'error' | 'aviso';
 export interface Observacion {
@@ -36,6 +45,65 @@ export const REGLAS = {
 export const NOMBRE_ESQUINA = { si: 'de arriba a la izquierda', sd: 'de arriba a la derecha', id: 'de abajo a la derecha', ii: 'de abajo a la izquierda' };
 export const NOMBRE_BORDE = { sup: 'superior', der: 'derecho', inf: 'inferior', izq: 'izquierdo' };
 
+// ── Geometría del contorno real ───────────────────────────────────────────────
+
+/** Contorno como polígono: cada esquina redondeada se reemplaza por su cuerda (queda del lado
+ *  seguro: la cuerda recorta un poco más que el arco). */
+function poligonoDe(p: Pieza): Pt[] {
+  const pts: Vert[] = contornoDe(p);
+  const n = pts.length;
+  const out: Pt[] = [];
+  for (let i = 0; i < n; i++) {
+    const P = pts[i];
+    if (P.r && P.r > 0) {
+      const prev = pts[(i - 1 + n) % n];
+      const next = pts[(i + 1) % n];
+      const r = Math.min(P.r, largo(sub(P, prev)) / 2, largo(sub(next, P)) / 2);
+      out.push(add(P, mul(unit(sub(prev, P)), r)), add(P, mul(unit(sub(next, P)), r)));
+    } else {
+      out.push(P);
+    }
+  }
+  return out;
+}
+
+function distanciaASegmento(p: Pt, a: Pt, b: Pt) {
+  const ab = sub(b, a);
+  const l2 = ab.x * ab.x + ab.y * ab.y;
+  const t = l2 < 1e-9 ? 0 : Math.min(Math.max(((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / l2, 0), 1);
+  return largo(sub(p, { x: a.x + ab.x * t, y: a.y + ab.y * t }));
+}
+
+function dentroDe(p: Pt, poli: Pt[]) {
+  let dentro = false;
+  for (let i = 0, j = poli.length - 1; i < poli.length; j = i++) {
+    const a = poli[i];
+    const b = poli[j];
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) dentro = !dentro;
+  }
+  return dentro;
+}
+
+/** Distancia del borde de la perforación al borde del vidrio. Negativa si corta el borde o
+ *  queda fuera, también cuando cae dentro de una muesca o un despunte. */
+function holguraPerforacion(c: Pt, r: number, poli: Pt[]) {
+  let d = Infinity;
+  for (let i = 0; i < poli.length; i++) d = Math.min(d, distanciaASegmento(c, poli[i], poli[(i + 1) % poli.length]));
+  return dentroDe(c, poli) ? d - r : -(d + r);
+}
+
+/** Cuánto recorta cada esquina del borde `b`, al inicio y al final (recorrido horario). */
+function recorteEnBorde(b: BordeId, esquinas: Record<EsquinaId, TratamientoEsquina>) {
+  const medida = (t: TratamientoEsquina) =>
+    t.tipo === 'radio' ? t.r : t.tipo === 'despunte' || t.tipo === 'muesca' ? (esHorizontal(b) ? t.a : t.b) : 0;
+  const [eIni, eFin] = EXTREMOS[b];
+  // La esquina de inicio es aquella de la que «sale» el borde; la de fin, aquella a la que «entra».
+  return {
+    ini: BORDE_SALIDA[eIni] === b ? medida(esquinas[eIni]) : 0,
+    fin: BORDE_ENTRADA[eFin] === b ? medida(esquinas[eFin]) : 0,
+  };
+}
+
 export function validarPlano(plano: Plano): Observacion[] {
   const obs: Observacion[] = [];
   const p = plano.pieza;
@@ -56,10 +124,13 @@ export function validarPlano(plano: Plano): Observacion[] {
   if (p.contorno.tipo === 'desplome-superior' && !(p.contorno.altoLado > 0)) {
     obs.push({ nivel: 'error', texto: 'Falta el alto del lado más bajo.' });
   }
+  // Sin espesor legible no hay cómo medir las distancias mínimas: se dice, en vez de callarlas.
+  if (!(esp > 0)) {
+    obs.push({ nivel: 'aviso', texto: `No se reconoce el espesor «${plano.espesor || 'vacío'}»: no se revisan las distancias mínimas al borde ni entre perforaciones.` });
+  }
 
   const v = verticesBase(p);
   const bs = bordesDe(v);
-  const L = limitesDe(v);
   const menorLado = Math.min(p.ancho, p.alto);
 
   for (const e of ORDEN_ESQUINAS) {
@@ -75,6 +146,7 @@ export function validarPlano(plano: Plano): Observacion[] {
 
   const perfs = p.operaciones.filter((o): o is Perforacion => o.tipo === 'perforacion');
   const centros = perfs.map((o) => centroPerforacion(p, o, v));
+  const poli = poligonoDe(p);
   // Una perforación que toca un boquete es una cerradura tipo «ojo» (ranura abierta al borde, como en
   // Optiglass): no se le aplica la distancia mínima al borde.
   const cajasBoquete = p.operaciones
@@ -96,12 +168,16 @@ export function validarPlano(plano: Plano): Observacion[] {
       obs.push({ nivel: 'error', texto: `A la perforación ${num(o.id)} le falta el diámetro.`, opId: o.id });
       return;
     }
+    // Herraje estándar (bisagras, rodamientos, Glassvit…): sus cotas y diámetros los fija el
+    // fabricante, así que no se le aplican las distancias recomendadas — avisaría en cada
+    // corrediza. Que se salga del vidrio o se monte sobre otra sigue siendo error.
+    const deHerraje = !!o.grupo;
     const tocaBoquete = cajasBoquete.some((k) => c.x + r >= k.minX && c.x - r <= k.maxX && c.y + r >= k.minY && c.y - r <= k.maxY);
-    const holgura = Math.min(c.x - L.xIzq(c.y), L.xDer(c.y) - c.x, c.y - L.ySup(c.x), L.yInf(c.x) - c.y) - r;
     if (!tocaBoquete) {
+      const holgura = holguraPerforacion(c, r, poli);
       if (holgura < 0) {
-        obs.push({ nivel: 'error', texto: `${nombre} se sale del vidrio o corta el borde.`, opId: o.id });
-      } else if (esp > 0 && holgura < minBorde) {
+        obs.push({ nivel: 'error', texto: `${nombre} se sale del vidrio, corta el borde o cae dentro de un recorte.`, opId: o.id });
+      } else if (esp > 0 && !deHerraje && holgura < minBorde) {
         obs.push({
           nivel: 'aviso',
           texto: `${nombre} queda a ${Math.round(holgura)} mm del borde. Lo recomendado es al menos ${minBorde} mm (2 veces el espesor).`,
@@ -109,14 +185,15 @@ export function validarPlano(plano: Plano): Observacion[] {
         });
       }
     }
-    if (esp > 0 && o.d < esp) {
+    if (esp > 0 && !deHerraje && o.d < esp) {
       obs.push({ nivel: 'aviso', texto: `${nombre} es más pequeña que el espesor del vidrio (${plano.espesor} mm): pregunta al proveedor si la puede hacer.`, opId: o.id });
     }
     for (let j = i + 1; j < perfs.length; j++) {
       const gap = largo(sub(c, centros[j])) - r - perfs[j].d / 2;
+      const mismoHerraje = deHerraje && perfs[j].grupo?.id === o.grupo!.id;
       if (gap < 0) {
         obs.push({ nivel: 'error', texto: `Las perforaciones ${num(o.id)} y ${num(perfs[j].id)} se montan una sobre otra.`, opId: o.id });
-      } else if (esp > 0 && gap < minEntre) {
+      } else if (esp > 0 && !mismoHerraje && gap < minEntre) {
         obs.push({
           nivel: 'aviso',
           texto: `Las perforaciones ${num(o.id)} y ${num(perfs[j].id)} quedan a ${Math.round(gap)} mm entre sí. Lo recomendado es al menos ${minEntre} mm.`,
@@ -126,8 +203,8 @@ export function validarPlano(plano: Plano): Observacion[] {
     }
   });
 
-  for (const o of p.operaciones) {
-    if (o.tipo !== 'boquete') continue;
+  const boquetes = p.operaciones.filter((o): o is Boquete => o.tipo === 'boquete');
+  for (const o of boquetes) {
     const b = bs[o.borde];
     const nombre = `El boquete ${num(o.id)}`;
     if (!(o.largo > 0) || !(o.prof > 0)) {
@@ -136,10 +213,30 @@ export function validarPlano(plano: Plano): Observacion[] {
     }
     if (o.pos < 0 || o.pos + o.largo > b.L + 0.01) {
       obs.push({ nivel: 'error', texto: `${nombre} se sale del borde ${NOMBRE_BORDE[o.borde]} (el borde mide ${Math.round(b.L)} mm).`, opId: o.id });
+    } else {
+      // El tramo útil del borde es el que dejan libre los cortes de sus dos esquinas.
+      const [t1, t2] = tramoBoquete(o, b);
+      const recorte = recorteEnBorde(o.borde, p.esquinas);
+      if (t1 < recorte.ini - 0.01 || t2 > b.L - recorte.fin + 0.01) {
+        obs.push({ nivel: 'error', texto: `${nombre} se mete en el corte de una esquina del borde ${NOMBRE_BORDE[o.borde]}.`, opId: o.id });
+      }
     }
     const perpendicular = esHorizontal(o.borde) ? p.alto : p.ancho;
     if (o.prof > perpendicular * REGLAS.boqueteProfMaxFraccion) {
       obs.push({ nivel: 'aviso', texto: `${nombre} entra más de un tercio del vidrio: riesgo de rotura al templar.`, opId: o.id });
+    }
+  }
+  // Dos boquetes del mismo borde que se traslapan dibujan un contorno que se cruza a sí mismo.
+  for (let i = 0; i < boquetes.length; i++) {
+    for (let j = i + 1; j < boquetes.length; j++) {
+      const a = boquetes[i];
+      const b = boquetes[j];
+      if (a.borde !== b.borde || !(a.largo > 0) || !(b.largo > 0)) continue;
+      const [a1, a2] = tramoBoquete(a, bs[a.borde]);
+      const [b1, b2] = tramoBoquete(b, bs[b.borde]);
+      if (a1 < b2 && b1 < a2) {
+        obs.push({ nivel: 'error', texto: `Los boquetes ${num(a.id)} y ${num(b.id)} se montan uno sobre otro en el borde ${NOMBRE_BORDE[a.borde]}.`, opId: a.id });
+      }
     }
   }
 

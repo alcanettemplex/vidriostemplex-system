@@ -67,7 +67,7 @@ Para no rehacer el rastreo forense completo cada vez que se toca un módulo gran
 | Compras | `docs/modulos/compras.md` | SAP/ODC, PedidoPV, Proveedores (ingesta FE, precios, equivalencias) |
 | Cotizador | `docs/modulos/cotizador.md` | Schema `cotizador`, niveles de corte A/B/C, aptitud de orden, calibración, unidades mm↔cm. **Integrado al ERP desde el 2026-09-27**: permisos por rol (`cotizador/lib/permisos.ts`), vínculo obligatorio a lead/prospecto/cliente/ODP, "Crear ODP", ítems a la SAP, sección en la ficha ODP y tablero en el Dashboard. 9 productos desde el 2026-10-04 (entraron Pérgola y División / Fachada). **Instalación como cargo de la obra desde el 2026-10-11**: una casilla por opción (`propuesta.con_instalacion`, NULL = opción anterior con casilla por producto) |
 | Cotizador — destino | `docs/modulos/cotizador-vision.md` | **Destino, no pendiente.** Para qué se construye el módulo: SAP automática, plano en Det. Técnico, PDF al cliente, estadística comercial. La integración con el ERP se ordenó el 2026-09-27 (ver cotizador.md) |
-| Detalles Técnicos | `docs/modulos/detalles-tecnicos.md` | Editor de planos de vidrio templado (FOR-005) para VITELSA/TEMPLACOL, traído del prototipo standalone. **Aislado desde el 2026-09-27**: solo admin, sin backend ni BD, pedido en `localStorage`; plan de integración con Pedidos PV pendiente de orden |
+| Detalles Técnicos | `docs/modulos/detalles-tecnicos.md` | Editor de planos de vidrio templado (FOR-005) para VITELSA/TEMPLACOL. **Integrado con Pedidos PV desde el 2026-10-16**: «Diseñar» en Gestión PV abre el modo pedido (un plano por letra DT, colgado del pedido principal, imagen en Cloudinary, PERF/BOQ de los vidrios actualizados al guardar, bloqueo por letra desde ENVIADO con desbloqueo de admin); el Excel y el «Imprimir pedido» llevan el formulario del proveedor + hojas «PLANO X». Modo libre (sin ODP, `localStorage`) solo admin desde el menú |
 | Inventario Perfilería | `docs/modulos/inventario.md` | Piezas sobrantes con consecutivo (etiqueta física), índice único desde el 2026-10-03, ingreso automático (MAX+1) e **ingreso con consecutivo asignado por el usuario**, y cómo Compras consume y revierte piezas por consecutivo |
 | Rutas e Instalaciones | `docs/modulos/rutas-instalaciones.md` | Ciclo de ruta/parada/ODP, **pausar saca la ODP de la ruta** (2026-10-05), validaciones al programar, unir rutas, aviso de choque de equipo, pestaña Programados (lista por día y vista por equipo), **orden del día del equipo** (`ruta_odp.orden` = posición en el día del equipo desde el 2026-10-08, "Aceptar orden"), **Recorridos del camión** (`ruta_odp.orden_conductor`, carretera animada por llegadas, franja en la app del conductor), Hoja de Ruta, socket `rutas`. Evidencias aún sin documentar |
 | CRM / Leads | *(pendiente)* | Leads, pipeline CRM, Prospectos |
@@ -210,7 +210,7 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 - **Rutas:** `RutaInstalacion → RutaODP (join) → ruta_instaladores (M:M)`. `forma_pago='credito'` = pago OK automático para instalación. Conductor opcional; sin oficial nadie trabaja la ruta desde la app. **Pausar saca la ODP de la ruta** (vuelve a su bandeja) y una parada pausada ya no mantiene viva la ruta (2026-10-05). Socket propio `emitirCambioRutas()`. Detalle en `docs/modulos/rutas-instalaciones.md`.
 - **Salidas Almacén:** `SA-XXXX` por ODP facturada. UNIQUE por ODP.
 - **Socket ODP:** usar `emitirODPPatch(id, accion)` (en `utils/notificaciones.ts`), nunca `emitirCambio('odp')`. `notificarCambioEstadoODP()` para cambios de estado.
-- **Auditoría:** `requestContext.ts` (AsyncLocalStorage). Hooks en `models/index.ts` (array `MODELOS_AUDITADOS`) cubriendo **47 modelos** (contados el 2026-10-03, incluye 5 del Cotizador) — excluidos: `AuditoriaLog`, `AlertasUmbral`, `AgendaInstalacion` (planeación volátil), `DetalleSAPImagen`, y los 2 modelos legados fuera de `index.ts` (`Produccion`, `ProgramacionInstalacion`). `beforeUpdate`/`beforeDestroy` guardan snapshot previo; `afterCreate`/`afterUpdate`/`afterDestroy` graban `datos_anteriores` en `auditoria_log`. **Los hooks de instancia NO disparan en operaciones bulk** (`Model.destroy({ where })` / `Model.update({...}, { where })`) salvo `individualHooks: true` — ver `TECH_DEBT.md` 2026-07-02.
+- **Auditoría:** `requestContext.ts` (AsyncLocalStorage). Hooks en `models/index.ts` (array `MODELOS_AUDITADOS`) cubriendo **49 modelos** (contados el 2026-10-16, incluye 5 del Cotizador y los 2 de Detalles Técnicos) — excluidos: `AuditoriaLog`, `AlertasUmbral`, `AgendaInstalacion` (planeación volátil), `DetalleSAPImagen`, y los 2 modelos legados fuera de `index.ts` (`Produccion`, `ProgramacionInstalacion`). `beforeUpdate`/`beforeDestroy` guardan snapshot previo; `afterCreate`/`afterUpdate`/`afterDestroy` graban `datos_anteriores` en `auditoria_log`. **Los hooks de instancia NO disparan en operaciones bulk** (`Model.destroy({ where })` / `Model.update({...}, { where })`) salvo `individualHooks: true` — ver `TECH_DEBT.md` 2026-07-02.
 - **Revertir auditoría (panel ROOT):** usa un allow-list independiente, `TABLAS_AUDITABLES` en `root.controller.ts` (44 entradas al 2026-10-03) — no es 1:1 con `MODELOS_AUDITADOS`. `cotizacion_capturas` y `metas_usuario_mensual` se auditan pero no se pueden revertir desde ahí. **Bug conocido:** revertir un registro de `SAP` o `RutaODP` falla siempre (500) por mismatch entre el nombre de tabla real (`sap`, `ruta_odp`, singular) y el string usado en ambos Sets (`saps`, `ruta_odps`, plural) — ver `TECH_DEBT.md` 2026-07-10. (`Cotizacion` tenía el mismo bug; el modelo se retiró el 2026-10-03.)
 
 ### API Endpoints (prefijo `/api`)
@@ -236,6 +236,7 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 | `/dashboard` | dashboard.controller |
 | `/documentos` | sap.controller + toma_medidas.controller (sin controller propio). Las rutas `/documentos/cotizacion*` del COTModal se retiraron el 2026-10-03 |
 | `/pedidos-pv` | pedido_pv.controller |
+| `/detalle-tecnico` | detalle_tecnico.controller — planos DT de un Pedido PV (2026-10-16): `GET /pedido/:id`, `PUT`/`DELETE /pedido/:id/plano/:letra`, `PATCH /pedido/:id/letras`, `PATCH /pedido/:id/bloqueo` (solo admin). Escritura: admin/root o `puede_gestionar_pv`, verificado en el controller. Reglas en `utils/detalleTecnico.ts` (fuera del controller por el ciclo de imports). Ver `docs/modulos/detalles-tecnicos.md` |
 | `/facturas-salidas` | salidas_almacen.controller |
 | `/root` | root.controller (solo rol `root`) |
 | `/cotizacion-capturas` | cotizacion_captura.controller |
@@ -249,7 +250,7 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 
 ---
 
-## Modelos de Base de Datos (69 archivos en `backend-api/src/models/` contando los 21 del Cotizador, 47 auditados — 2026-10-03)
+## Modelos de Base de Datos (71 archivos en `backend-api/src/models/` contando los 21 del Cotizador, 49 auditados — 2026-10-16)
 
 **SIEMPRE importar desde `models/index.ts`** — asociaciones centralizadas. Excepciones (legados, fuera del registro central, sin auditoría): `Produccion` (import directo en `produccion.controller.ts`) y `ProgramacionInstalacion` (en `instalacion.controller.ts`).
 
@@ -277,6 +278,8 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 | `MetaUsuarioMensual` | `metas_usuario_mensual` | Meta individual por asesor/mes, UNIQUE `(usuario_id, anio, mes)`. Auditado pero no revertible desde ROOT (falta en `TABLAS_AUDITABLES`) |
 | `ConfiguracionGlobal` (archivo `configuracion.model.ts`) | `configuracion_global` | `meta_facturacion_mensual`, `meta_odps_cerradas_asesor`, `meta_ciclo_produccion_dias`, `dias_alerta_odp_estancada`, `dias_alerta_cartera_vencida`, `umbral_variacion_precio_pct` (alerta de precio anómalo del módulo Proveedores). El PUT solo acepta esos campos (whitelist `CAMPOS_CONFIGURABLES`, 2026-09-03) |
 | `PedidoPV` | `pedido_pv` | Estados: `PENDIENTE→ENVIADO→CONFIRMADO_PROVEEDOR→LLEGADO→VERIFICADO\|PROBLEMA\|ENTREGADO` |
+| `PedidoPVPlano` | `pedido_pv_plano` | Plano DT (FOR-005) por `(pedido_pv_id, letra)` UNIQUE, del pedido **principal**. `pieza`/`conteos` JSONB, imagen en Cloudinary, `actualizado_en` = control de concurrencia. Auditado, **no revertible** (borra su imagen anterior). 2026-10-16 |
+| `PedidoPVDtDesbloqueo` | `pedido_pv_dt_desbloqueo` | Una fila = admin desbloqueó los planos de un pedido ya enviado. PK `pedido_pv_id`. Tabla propia para no agregar columnas a `pedido_pv`. Auditado, no revertible. 2026-10-16 |
 | `SalidaAlmacen` | `salidas_almacen` | SA-XXXX, UNIQUE por ODP |
 | `AuditoriaLog` | `auditoria_log` | INSERT/UPDATE/DELETE de 34 modelos (excluida de auditarse a sí misma) |
 | `AlertasUmbral` | `alertas_umbral` | Umbrales panel ROOT. Sin auditoría |
@@ -311,7 +314,7 @@ Cada módulo en `frontend-web/src/features/<nombre>/`: página principal + `comp
 | `odp` ⭐ | `/odp` | CRUD + modal detalle (`ODPFichaModal`) |
 | `crm` | `/crm` | Hub comercial: tabs pipeline (Kanban leads), métricas, gerencial, sin_respuesta, reportes, prospectos, monitor, embudo. Distinto de `/prospectos` (CRUD/pipeline clásico de captación) |
 | `produccion` | `/produccion` | Kanban + tabs **Por Imprimir** (cola de OP sin imprimir, con impresión por lote), Pausadas y **Automáticos** (bitácora de los últimos 10 movimientos que hizo el sistema solo) |
-| `detalles-tecnicos` | `/detalles-tecnicos` | Solo `admin`. Editor de planos de vidrio templado + Excel FOR-005 (ExcelJS en el navegador). **Aislado**: sin backend, no toca Pedidos PV. Ver `docs/modulos/detalles-tecnicos.md` |
+| `detalles-tecnicos` | `/detalles-tecnicos`, `/detalles-tecnicos/:pedidoId` | Editor de planos de vidrio templado (FOR-005). **Modo pedido** (`:pedidoId`, desde «Diseñar» en Gestión PV; roles de Pedidos PV, edita admin o `puede_gestionar_pv`) y **modo libre** (menú, solo `admin`, `localStorage`). Ver `docs/modulos/detalles-tecnicos.md` |
 | `instalaciones` | `/instalaciones` | JefeView (incluye tab AgendaTab), InstaladorView, ConductorView |
 | `compras` | `/compras` | ODC: SAPs, Órdenes, Perfilería, Vidrios |
 | `contabilidad` | `/contabilidad` | Facturación y caja |
@@ -320,7 +323,7 @@ Cada módulo en `frontend-web/src/features/<nombre>/`: página principal + `comp
 | `toma-medidas` | `/toma-medidas` | |
 | `inventario` | `/inventario` | Perfilería. Dos ingresos: automático (MAX+1) y con consecutivo asignado por el usuario. Ver `docs/modulos/inventario.md` |
 | `usuarios` | `/usuarios` | Admin usuarios (solo `admin`) |
-| `pedidos-pv` | `/pedidos-pv` | Tab "Por Gestionar": solo `puede_gestionar_pv=true`. Printables por proveedor: `PrintablePedidoTemplacol` si `proveedor='Templacol'`, `PrintablePedidoVitelsa` en cualquier otro caso |
+| `pedidos-pv` | `/pedidos-pv` | Tab "Por Gestionar": solo `puede_gestionar_pv=true`; «Asignar ítems» precarga letra DT y observación (bug H3 cerrado 2026-10-16). Printables por proveedor: `PrintablePedidoTemplacol` si `proveedor='Templacol'`, `PrintablePedidoVitelsa` en cualquier otro caso, seguidos de las hojas FOR-005 de sus letras DT. Gestión PV: chip «DT x/y» y acción «Diseñar» |
 | `facturas-salidas` | `/facturas-salidas` | SA-XXXX; edición: compras/produccion |
 | `proveedores` | `/proveedores` | Solo `root`/`admin`/`compras` (precios de compra = info sensible; compras desde 2026-10-02). Tabs: Consultar Precios, Cargar Facturas, Por Mapear, Proveedores, Equivalencias |
 | `configuracion` | `/configuracion` | Sin catálogo (movido a ROOT) |

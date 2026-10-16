@@ -21,7 +21,8 @@ export interface Borde {
 export const ORDEN_ESQUINAS: EsquinaId[] = ['si', 'sd', 'id', 'ii'];
 export const BORDE_SALIDA: Record<EsquinaId, BordeId> = { si: 'sup', sd: 'der', id: 'inf', ii: 'izq' };
 export const BORDE_ENTRADA: Record<EsquinaId, BordeId> = { si: 'izq', sd: 'sup', id: 'der', ii: 'inf' };
-const EXTREMOS: Record<BordeId, [EsquinaId, EsquinaId]> = {
+/** Esquinas en que empieza y termina cada borde, en el recorrido horario del contorno. */
+export const EXTREMOS: Record<BordeId, [EsquinaId, EsquinaId]> = {
   sup: ['si', 'sd'],
   der: ['sd', 'id'],
   inf: ['id', 'ii'],
@@ -207,18 +208,28 @@ export interface Conteos {
   m2: number;
 }
 
+/**
+ * Ancho y alto del rectángulo que envuelve el vidrio: lo que se imprime en ANCHO y ALTO y
+ * con lo que se calcula el m². Una sola regla para las dos cosas: en un desplome que abre
+ * arriba (`anchoSup` > `ancho`) el vidrio mide `anchoSup` de ancho, no `ancho`.
+ */
+export function medidasCaja(p: Pieza): { ancho: number; alto: number } {
+  const caja = cajaDe(Object.values(verticesBase(p)));
+  return { ancho: Math.round(caja.maxX - caja.minX), alto: Math.round(caja.maxY - caja.minY) };
+}
+
 /** Cantidades por unidad, con las mismas columnas de la orden de pedido del proveedor. */
 export function conteosDe(p: Pieza): Conteos {
   const esq = ORDEN_ESQUINAS.map((e) => p.esquinas[e]);
   const bs = bordesDe(verticesBase(p));
-  const caja = cajaDe(Object.values(verticesBase(p)));
+  const caja = medidasCaja(p);
   return {
     perf: p.operaciones.filter((o) => o.tipo === 'perforacion').length,
     boq: p.operaciones.filter((o) => o.tipo === 'boquete').length + esq.filter((e) => e.tipo === 'muesca').length,
     dsp: esq.filter((e) => e.tipo === 'despunte').length,
     radios: esq.filter((e) => e.tipo === 'radio').length,
     chaflanMl: p.operaciones.reduce((s, o) => (o.tipo === 'chaflan' ? s + bs[o.borde].L / 1000 : s), 0),
-    m2: ((caja.maxX - caja.minX) * (caja.maxY - caja.minY)) / 1e6,
+    m2: (caja.ancho * caja.alto) / 1e6,
   };
 }
 

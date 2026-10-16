@@ -1,10 +1,12 @@
+// Excel del MODO LIBRE (pedido de práctica en el navegador, solo admin). El modo pedido
+// descarga el formulario oficial del proveedor desde el backend, con las hojas «PLANO X»
+// agregadas por `utils/detalleTecnico.ts`. Este archivo conserva la hoja RESUMEN porque en
+// el modo libre no hay formulario oficial que liste los vidrios.
 import ExcelJS from 'exceljs';
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { PlanoSVG } from '../components/PlanoSVG';
 import { fechaLarga, LOGO_DETALLE_TECNICO, PIE_FORMATO } from '../modelo/formato';
-import { conteosDe, encuadre, letraPlano } from '../modelo/geometria';
+import { conteosDe, letraPlano, medidasCaja } from '../modelo/geometria';
 import type { Pedido, Plano } from '../modelo/tipos';
+import { AREA_DIBUJO, encajar, planoAPng } from './imagen';
 
 // Área del dibujo dentro de la hoja: columnas A–J (10 × 10 caracteres ≈ 75 px c/u) y filas 8–45 (20 px c/u).
 // ExcelJS no trae «Carta» en su enum; 1 es el código estándar de Excel para Letter.
@@ -32,30 +34,8 @@ async function urlADataUrl(url: string): Promise<string> {
   });
 }
 
-/** Dibuja el plano a PNG en alta resolución (el Excel no entiende SVG). */
-async function planoAPng(plano: Plano, anchoPx: number, altoPx: number): Promise<string> {
-  const escala = 2.5;
-  const svg = renderToStaticMarkup(
-    createElement(PlanoSVG, { pieza: plano.pieza, selloEnCanto: plano.selloEnCanto, width: anchoPx * escala, height: altoPx * escala }),
-  );
-  const img = new Image();
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-  await img.decode();
-  const canvas = document.createElement('canvas');
-  canvas.width = anchoPx * escala;
-  canvas.height = altoPx * escala;
-  // Fondo transparente: así la imagen no tapa los bordes de celda del marco.
-  const ctx = canvas.getContext('2d')!;
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/png');
-}
-
-/** Tamaño en px que ocupa el dibujo respetando su proporción dentro del área disponible. */
-function encajar(plano: Plano, maxW: number, maxH: number) {
-  const { anchoTotal, altoTotal } = encuadre(plano.pieza);
-  const ratio = anchoTotal / altoTotal;
-  return ratio > maxW / maxH ? { w: maxW, h: maxW / ratio } : { w: maxH * ratio, h: maxH };
-}
+/** Caracteres que Windows no admite en un nombre de archivo. */
+const nombreArchivo = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '-').trim();
 
 function hojaResumen(wb: ExcelJS.Workbook, pedido: Pedido) {
   const ws = wb.addWorksheet('RESUMEN', {
@@ -94,6 +74,7 @@ function hojaResumen(wb: ExcelJS.Workbook, pedido: Pedido) {
   let totalM2 = 0;
   pedido.planos.forEach((pl, i) => {
     const c = conteosDe(pl.pieza);
+    const caja = medidasCaja(pl.pieza);
     const m2 = +(c.m2 * pl.cantidad).toFixed(2);
     totalM2 += m2;
     const fila = ws.getRow(10 + i);
@@ -103,8 +84,8 @@ function hojaResumen(wb: ExcelJS.Workbook, pedido: Pedido) {
       pl.cantidad,
       pl.color,
       pl.espesor,
-      pl.pieza.ancho,
-      pl.pieza.alto,
+      caja.ancho,
+      caja.alto,
       c.perf || null,
       c.boq || null,
       c.dsp || null,
@@ -171,7 +152,7 @@ async function hojaPlano(wb: ExcelJS.Workbook, pedido: Pedido, plano: Plano, let
   caja('D4:H4', 'FECHA');
   caja('I4:J4', fechaLarga(pedido.fecha), { center: true });
   caja('A5:C5', `PROVEEDOR: ${pedido.proveedor}   ODP: ${pedido.odp || '—'}`);
-  caja('D5:H5', `OBRA / CLIENTE FINAL: ${pedido.obra || pedido.cliente || '—'}`);
+  caja('D5:H5', `OBRA: ${pedido.obra || pedido.cliente || '—'}`);
   caja('I5:J5', `PLANO ${letra}`, { bold: true, size: 12, center: true });
 
   // ── Dibujo ────────────────────────────────────────────────────────────────
@@ -190,8 +171,8 @@ async function hojaPlano(wb: ExcelJS.Workbook, pedido: Pedido, plano: Plano, let
       };
     }
   }
-  const { w, h } = encajar(plano, areaW - 40, areaH - 40);
-  const png = await planoAPng(plano, Math.round(w), Math.round(h));
+  const { w, h } = encajar(plano.pieza, AREA_DIBUJO.ancho, AREA_DIBUJO.alto);
+  const png = await planoAPng(plano.pieza, plano.selloEnCanto, w, h);
   const imgId = wb.addImage({ base64: png, extension: 'png' });
   ws.addImage(imgId, {
     tl: { col: (areaW - w) / 2 / ANCHO_COL_PX, row: FILA_INI + (areaH - h) / 2 / ALTO_FILA_PX },
@@ -200,9 +181,10 @@ async function hojaPlano(wb: ExcelJS.Workbook, pedido: Pedido, plano: Plano, let
 
   // ── Datos del ítem ────────────────────────────────────────────────────────
   const c = conteosDe(plano.pieza);
+  const medidas = medidasCaja(plano.pieza);
   const f0 = ultima + 2;
   const enc = ['CANT.', 'COLOR', 'ESP. (mm)', 'ANCHO', 'ALTO', 'PERF', 'BOQ', 'DSP', 'RADIOS', 'CHAFLÁN'];
-  const val: (string | number)[] = [plano.cantidad, plano.color, plano.espesor, plano.pieza.ancho, plano.pieza.alto, c.perf, c.boq, c.dsp, c.radios, c.chaflanMl ? `${c.chaflanMl.toFixed(2)} ml` : ''];
+  const val: (string | number)[] = [plano.cantidad, plano.color, plano.espesor, medidas.ancho, medidas.alto, c.perf, c.boq, c.dsp, c.radios, c.chaflanMl ? `${c.chaflanMl.toFixed(2)} ml` : ''];
   enc.forEach((t, i) => {
     const a = ws.getCell(f0, i + 1);
     a.value = t;
@@ -244,7 +226,7 @@ export async function exportarExcel(pedido: Pedido) {
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `DETALLES TECNICOS ${pedido.proveedor} #${pedido.numero}.xlsx`;
+  a.download = nombreArchivo(`DETALLES TECNICOS ${pedido.proveedor} #${pedido.numero || 'SIN NUMERO'}`) + '.xlsx';
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }

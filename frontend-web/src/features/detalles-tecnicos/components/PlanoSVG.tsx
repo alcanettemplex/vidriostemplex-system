@@ -97,6 +97,18 @@ function repartir(tramos: { ini: number; fin: number; ancho: number }[], gap: nu
   return pos;
 }
 
+/**
+ * Esquinas inferiores que van a 90° en un vidrio con desplome. Desplome lateral: la del lado
+ * vertical (el opuesto al inclinado). Descuadre superior: las dos de abajo. Rectangular: ninguna
+ * (las cuatro van a escuadra y marcarlas sería ruido).
+ */
+export function esquinas90Inferiores(pieza: Pieza): ('ii' | 'id')[] {
+  const c = pieza.contorno;
+  if (c.tipo === 'desplome-lateral') return [c.lado === 'der' ? 'ii' : 'id'];
+  if (c.tipo === 'desplome-superior') return ['ii', 'id'];
+  return [];
+}
+
 export interface Interaccion {
   svgRef: Ref<SVGSVGElement>;
   onPointerDownOp: (id: string, e: ReactPointerEvent) => void;
@@ -379,6 +391,34 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
         <Texto key={e} p={p} f={fc} color={COTA}>
           {t.tipo === 'radio' ? `R ${t.r}` : `DESP. ${t.a}×${t.b}`}
         </Texto>,
+      );
+    }
+  }
+
+  // ── Esquinas a 90° (desplomes) ─────────────────────────────────────────────
+  // En un desplome la diferencia es de unos milímetros en metros de alto: a simple vista no se
+  // nota cuál lado va a escuadra. Se marca con el símbolo de ángulo recto + «90°», solo en la
+  // parte inferior (decisión del usuario, 2026-10-16). Va en el cruce de los dos lados rectos
+  // aunque la esquina tenga despunte o radio: lo que se acota es el ángulo entre los lados.
+  if (conCotas) {
+    const VECINOS: Record<'ii' | 'id', ['id' | 'ii', 'si' | 'sd']> = { ii: ['id', 'si'], id: ['ii', 'sd'] };
+    for (const e of esquinas90Inferiores(pieza)) {
+      const V = v[e];
+      const d1 = unit(sub(v[VECINOS[e][0]], V));
+      const d2 = unit(sub(v[VECINOS[e][1]], V));
+      const s = f * 1.0;
+      const p1 = add(V, mul(d1, s));
+      const p3 = add(V, mul(d2, s));
+      const p2 = add(p1, mul(d2, s));
+      elementos.push(
+        <g key={'r90' + e}>
+          <polyline points={`${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`} fill="none" stroke={TINTA} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+          {/* El texto va por fuera, en diagonal bajo la esquina: por dentro chocaba con la etiqueta
+              de las muescas de piso. Ahí no pasan las líneas auxiliares del ancho ni del alto. */}
+          <Texto p={add(V, add(mul(d1, -f * 1.5), mul(d2, -f * 0.9)))} f={fc} bold>
+            90°
+          </Texto>
+        </g>,
       );
     }
   }

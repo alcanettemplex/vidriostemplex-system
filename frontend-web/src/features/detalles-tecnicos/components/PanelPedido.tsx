@@ -11,7 +11,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { conteosDe, letraPlano } from '../modelo/geometria';
+import { conteosDe, letraPlano, medidasCaja } from '../modelo/geometria';
 import { validarPlano } from '../modelo/validaciones';
 import type { Pedido, Proveedor } from '../modelo/tipos';
 import { PlanoSVG } from './PlanoSVG';
@@ -38,7 +38,7 @@ export function PanelPedido({ pedido, seleccion, onSeleccionar, onCambiarPedido,
     <Stack spacing={2} sx={{ height: '100%' }}>
       <Box>
         <Typography variant="overline" color="text.secondary">
-          Pedido PV
+          Pedido de práctica (modo libre)
         </Typography>
         <Stack spacing={1.25} sx={{ mt: 0.5 }}>
           <Stack direction="row" spacing={1}>
@@ -76,6 +76,7 @@ export function PanelPedido({ pedido, seleccion, onSeleccionar, onCambiarPedido,
           const obs = validarPlano(pl);
           const hayError = obs.some((o) => o.nivel === 'error');
           const activo = pl.id === seleccion;
+          const caja = medidasCaja(pl.pieza);
           return (
             <ListItemButton
               key={pl.id}
@@ -96,7 +97,7 @@ export function PanelPedido({ pedido, seleccion, onSeleccionar, onCambiarPedido,
                   </Typography>
                 </Stack>
                 <Typography variant="caption" color="text.secondary" component="div">
-                  {pl.cantidad} × {pl.pieza.ancho}×{pl.pieza.alto} · {pl.color} {pl.espesor} mm
+                  {pl.cantidad} × {caja.ancho}×{caja.alto} · {pl.color} {pl.espesor} mm
                 </Typography>
                 {obs.length > 0 && (
                   <Stack direction="row" alignItems="center" spacing={0.5} sx={{ color: hayError ? 'error.main' : 'warning.main' }}>
