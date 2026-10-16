@@ -15,7 +15,7 @@ para el tab Cotizaciones, que lee el schema `cotizador`).
 | Alertas | `GET /api/dashboard/alertas` | `getAlertas` | **sin caché** |
 | Cotizaciones | `GET /api/dashboard/cotizaciones` | `getPanelCotizaciones` | 5 min, por alcance |
 | (modal) Cartera Vencida | `GET /api/dashboard/cartera-vencida` | `getCarteraVencida` | 30 min |
-| (modal) Pedidos facturados | `GET /api/dashboard/pedidos-facturados` | `getPedidosFacturados` | 30 min |
+| (modal) Pedidos Cobrados / Facturados | `GET /api/dashboard/pedidos-facturados?modo=&medida=` | `getPedidosFacturados` | 30 min |
 
 Período: `mes_inicio/anio_inicio/mes_fin/anio_fin`, cortado en medianoche de Bogotá (`parsePeriod` →
 `rangoMesesBogota`). Las cifras "del período" filtran por `odp.fecha_creacion`.
@@ -42,6 +42,29 @@ del commit de la transacción):
 
 Caso real que lo motivó: se cargaron las metas de octubre y el tab Ventas siguió mostrando la caché previa
 — meta global $5M (respaldo de Configuración) → "2522%" y $0 en cada asesor.
+
+---
+
+## Visión general — "Pedidos Cobrados" vs "Facturados" (2026-10-16)
+
+Dos tarjetas hermanas, con la misma anatomía (selector de criterio propio, desglose Base/IVA sin
+las OA, barra "Del monto ingresado", "Ver detalle" al mismo modal `PedidosFacturadosModal`):
+
+| Tarjeta | Mide | Creadas y facturadas | Todas facturadas (rango) |
+|---|---|---|---|
+| **Pedidos Cobrados** | **abono** (caja, decisión 2026-09-15) | `abono` de ODPs creadas en el período con FE | `sqlCobradoEnRango`: abono a la fila de la FE principal, adicionales $0 |
+| **Facturados** | **monto de las FE** (devengo) | `sqlFacturadoCreadasEnRango`: principal + **todas** sus adicionales de las ODPs creadas en el período, sin importar la fecha de cada FE | `sqlFacturadoEnRango`: cada FE con fecha en el período y su propio monto — **misma cifra que el Informe Ejecutivo** |
+
+- Campos de `/general`: Cobrados = `facturado_con_factura[_oa]` / `facturado_rango[_oa]` (nombres
+  históricos); Facturados = `fe_monto_creadas[_oa]` / `fe_monto_rango[_oa]`.
+- El modal recibe `medida=abono|monto_fe` (por defecto `abono`) y responde el campo `monto`. Cada
+  combinación replica la regla de su tarjeta: la suma del modal **cuadra con la tarjeta** (verificado
+  2026-10-16 en oct-2026: creadas $9.159.949 / 14 ODPs, rango $93.931.727 / 50 FE).
+- Monto de la FE principal = `COALESCE(monto_factura_principal, valor_total)` (red por TECH_DEBT 2026-07-26).
+- La barra de Facturados se llena hasta 100% pero el número muestra el real: en modo rango puede pasar
+  de 100% (se facturan ODPs de meses anteriores). La de Cobrados conserva el tope en 100%.
+- "Total Recaudado" (abono de todas las ODPs del período, con o sin FE) salió de Visión general el
+  2026-10-16; `total_abonado` sigue en la respuesta y el dato vive en el tab Ventas ("Recaudado").
 
 ---
 
@@ -75,8 +98,8 @@ exigir FE; Ventas con `fecha_entrega` **y filtrado por mes de creación** con `l
 
 - **"Vendido / Contratado"** (antes rotulado "Facturado", 2026-10-08) = `SUM(valor_total)` de las ODPs
   **creadas** en el período, tengan o no FE. No es facturación. El campo del API conserva el nombre
-  `total_facturado_mes` por compatibilidad. En Visión general "facturado" significa otra cosa (abono de ODPs
-  con FE, decisión 2026-09-15) — no confundir.
+  `total_facturado_mes` por compatibilidad. En Visión general "Facturados" sí es monto de FE y "Pedidos
+  Cobrados" es abono de ODPs con FE (ver sección de arriba) — no confundir.
 - **Meta del período** (`metaDelPeriodo`, compartida con Visión general): suma de `metas_usuario_mensual`
   de los meses del período; si nadie tiene meta, `configuracion_global.meta_facturacion_mensual`; si tampoco,
   0 y el panel dice "No hay meta configurada". Ya no hay respaldo fijo de 120.000.000.

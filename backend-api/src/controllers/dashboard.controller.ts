@@ -15,7 +15,7 @@ import {
   Prospecto
 } from '../models';
 import sequelize from '../config/database';
-import { sqlCobradoEnRango } from '../utils/facturacion';
+import { sqlCobradoEnRango, sqlFacturadoEnRango, sqlFacturadoCreadasEnRango } from '../utils/facturacion';
 import { odpsEnRutaActiva } from '../utils/rutasActivas';
 import { consultarCarteraVencida } from '../utils/carteraVencida';
 import {
@@ -142,6 +142,21 @@ export const getGeneralData = async (req: Request, res: Response) => {
     );
     const facturado_rango_oa = Number(froRow?.total) || 0;
 
+    // Tarjeta "Facturados" (2026-10-16): monto de las FE (devengo), no abono. Modo rango =
+    // misma regla que el Informe Ejecutivo (sqlFacturadoEnRango); modo creadas = todas las FE
+    // de las ODPs creadas en el período, sin importar la fecha de cada FE.
+    const [feRow]: any = await sequelize.query(
+      `SELECT ${sqlFacturadoCreadasEnRango(firstDay, lastDay)} AS creadas,
+              ${sqlFacturadoCreadasEnRango(firstDay, lastDay, { soloOA: true })} AS creadas_oa,
+              ${sqlFacturadoEnRango(firstDay, lastDay)} AS rango,
+              ${sqlFacturadoEnRango(firstDay, lastDay, { soloOA: true })} AS rango_oa`,
+      { type: QueryTypes.SELECT }
+    );
+    const fe_monto_creadas    = Number(feRow?.creadas)    || 0;
+    const fe_monto_creadas_oa = Number(feRow?.creadas_oa) || 0;
+    const fe_monto_rango      = Number(feRow?.rango)      || 0;
+    const fe_monto_rango_oa   = Number(feRow?.rango_oa)   || 0;
+
     // Cartera vencida: regla única del dashboard (sin filtro de período) — ver utils/carteraVencida.ts
     const cartera = await consultarCarteraVencida(diasCartera(config));
     const cartera_vencida_total    = cartera.total;
@@ -247,6 +262,10 @@ export const getGeneralData = async (req: Request, res: Response) => {
       facturado_con_factura_oa,
       facturado_rango,
       facturado_rango_oa,
+      fe_monto_creadas,
+      fe_monto_creadas_oa,
+      fe_monto_rango,
+      fe_monto_rango_oa,
       total_abonado: Number(abonos),
       total_abonado_oa,
       cartera_vencida_total,
@@ -829,20 +848,26 @@ export const getPedidosFacturados = async (req: Request, res: Response) => {
   try {
     const { firstDay, lastDay } = parsePeriod(req);
     const modo = req.query.modo === 'facturadas_rango' ? 'facturadas_rango' : 'creadas_facturadas';
+    // Dos tarjetas comparten este detalle: "Pedidos Cobrados" mide abono (caja, decisión
+    // 2026-09-15) y "Facturados" mide el monto de las FE (devengo, 2026-10-16). Cada criterio
+    // replica la regla de su KPI para que la suma del modal coincida con la tarjeta.
+    const medida = req.query.medida === 'monto_fe' ? 'monto_fe' : 'abono';
 
     let result: any[];
 
     if (modo === 'facturadas_rango') {
-      // Una fila por FE (principal + adicionales) cuya fecha cae en el rango. `abono` vive a
-      // nivel de ODP, no por FE: solo la fila Principal lo aporta, la Adicional aporta 0 —
-      // evita triplicar el abono cuando las tres fechas caen en el mismo rango (ver
-      // sqlCobradoEnRango, misma regla, para que la suma siga coincidiendo con el KPI).
+      // Una fila por FE (principal + adicionales) cuya fecha cae en el rango.
+      // - abono: vive a nivel de ODP, no por FE — solo la fila Principal lo aporta y la Adicional
+      //   aporta 0, para no triplicarlo (misma regla que sqlCobradoEnRango).
+      // - monto_fe: cada fila aporta el monto de su FE (misma regla que sqlFacturadoEnRango).
+      const montoPrincipal = medida === 'monto_fe' ? 'COALESCE(o.monto_factura_principal, o.valor_total)' : 'o.abono';
+      const montoAdicional = medida === 'monto_fe' ? 'fa.monto' : '0';
       result = await sequelize.query(`
         SELECT o.id AS id, o.numero_odp, o.fecha_creacion, o.estado_caja,
                c.nombre_razon_social AS cliente_nombre,
                'Principal' AS tipo_fe, o.factura_electronica AS numero_fe,
                o.fecha_factura AS fecha_factura,
-               o.abono AS monto_abonado
+               ${montoPrincipal} AS monto
           FROM odp o JOIN clientes c ON c.id = o.cliente_id
          WHERE o.estado_facturacion = 'FACTURADA' AND o.factura_electronica IS NOT NULL
            -- DATE → medianoche de Colombia, igual que sqlCobradoEnRango (ver utils/facturacion.ts)
@@ -850,21 +875,28 @@ export const getPedidosFacturados = async (req: Request, res: Response) => {
         UNION ALL
         SELECT o.id, o.numero_odp, o.fecha_creacion, o.estado_caja,
                c.nombre_razon_social, 'Adicional' AS tipo_fe, fa.numero_fe,
-               fa.fecha_factura, 0 AS monto_abonado
+               fa.fecha_factura, ${montoAdicional} AS monto
           FROM facturas_adicionales_odp fa
           JOIN odp o ON o.id = fa.odp_id
           JOIN clientes c ON c.id = o.cliente_id
          WHERE o.estado_facturacion = 'FACTURADA' AND fa.fecha_factura BETWEEN :a AND :b
          ORDER BY fecha_factura DESC
       `, { replacements: { a: firstDay, b: lastDay }, type: QueryTypes.SELECT });
-      result = result.map((r: any) => ({ ...r, monto_abonado: Number(r.monto_abonado) }));
+      result = result.map((r: any) => ({ ...r, monto: Number(r.monto) || 0 }));
     } else {
-      // ODPs creadas en el período que ya cuentan con FE. Expone el abono (caja), no el
-      // valor_total (devengo) — decisión de negocio 2026-09-15.
+      // ODPs creadas en el período que ya cuentan con FE, una fila por ODP.
+      // - abono: el abono de la ODP.
+      // - monto_fe: principal + todas sus adicionales, sin importar la fecha de cada FE
+      //   (misma regla que sqlFacturadoCreadasEnRango).
       const items = await ODP.findAll({
         where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, factura_electronica: { [Op.ne]: null } },
         include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
-        attributes: ['id', 'numero_odp', 'fecha_creacion', 'fecha_factura', 'abono', 'estado_caja'],
+        attributes: [
+          'id', 'numero_odp', 'fecha_creacion', 'fecha_factura', 'abono', 'estado_caja',
+          [literal(`COALESCE("ODP"."monto_factura_principal", "ODP"."valor_total")
+                    + COALESCE((SELECT SUM(fa.monto) FROM facturas_adicionales_odp fa WHERE fa.odp_id = "ODP"."id"), 0)`),
+           'monto_fe'],
+        ],
         order: [['fecha_creacion', 'DESC']],
       });
       result = items.map(o => ({
@@ -872,15 +904,15 @@ export const getPedidosFacturados = async (req: Request, res: Response) => {
         numero_odp:     o.getDataValue('numero_odp'),
         fecha_creacion: o.getDataValue('fecha_creacion'),
         fecha_factura:  o.getDataValue('fecha_factura'),
-        monto_abonado:  Number(o.getDataValue('abono')),
+        monto:          Number(medida === 'monto_fe' ? o.get('monto_fe') : o.getDataValue('abono')) || 0,
         estado_caja:    o.getDataValue('estado_caja'),
         cliente_nombre: (o as any).cliente?.nombre_razon_social || 'Sin cliente',
       }));
     }
 
-    const total = result.reduce((acc, r) => acc + r.monto_abonado, 0);
+    const total = result.reduce((acc, r) => acc + r.monto, 0);
 
-    return res.json({ items: result, total, count: result.length, modo });
+    return res.json({ items: result, total, count: result.length, modo, medida });
   } catch (error: any) {
     console.error('Error getPedidosFacturados:', error);
     return res.status(500).json({ error: error.message });

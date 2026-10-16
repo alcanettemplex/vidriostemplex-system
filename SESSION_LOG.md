@@ -6941,3 +6941,14 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **frontend / BD:** sin cambios (el formulario se arma con el `meta`; el sufijo `Cm` da la conversión mm↔cm). Cotizaciones guardadas: ninguna usa X, no se recalculan distinto.
 - **Verificación:** `tsc --noEmit` backend limpio; `pergolaDivision.test.ts` 24/24 (4 nuevas); suite `test:cotizador` 283/283 corrida archivo por archivo — junta, con el backend dev arriba, agota el pooler y falla en archivos ajenos. No se probó en navegador.
 - **Supuesto:** en enmarcada X el T-244 se cobra por el perímetro de la hoja (2 × ancho + 2 × alto).
+
+## 2026-10-16 (4) — Dashboard: la tarjeta «Total Recaudado» se reemplaza por «Facturados»
+
+**Pedido del usuario:** sustituir «Total Recaudado» por una tarjeta «Facturados» con la misma estructura que «Pedidos Cobrados», pero sumando el valor de las facturas. Decisiones: monto de cada FE (no `valor_total`) · los dos modos, con selector independiente · reutilizar el modal de detalle · barra llena hasta 100% con el número real (puede pasar de 100% en modo rango).
+
+- **backend:** `utils/facturacion.ts` — `sqlFacturadoCreadasEnRango()` (principal + todas sus adicionales de las ODPs creadas en el período). `dashboard.controller` `getGeneralData` — `fe_monto_creadas[_oa]` y `fe_monto_rango[_oa]` (este último con `sqlFacturadoEnRango`, la misma del Informe Ejecutivo). `getPedidosFacturados` — parámetro `medida=abono|monto_fe` (por defecto `abono`: «Pedidos Cobrados» no cambia); el campo `monto_abonado` pasa a `monto`.
+- **frontend:** `PanelGeneral.tsx` — tarjeta «Facturados» (FileCheck, esmeralda); selector de criterio, barra y desglose IVA extraídos a `SelectorCriterio` / `BarraDelIngresado` / `desgloseIva` (los compartían dos tarjetas a mano). `PedidosFacturadosModal.tsx` — prop `medida` (títulos, columna «Monto FE», «Total facturado»).
+- **Bugs corregidos de paso (modal):** la fecha de factura salía un día antes (`new Date().toLocaleDateString()` sobre un DATE → `fmtFecha` de `utils/fechas`); `key` repetida cuando una ODP tiene principal + adicional en el mismo rango; el contador decía «ODPs» cuando en modo rango cuenta facturas.
+- **BD:** sin cambios.
+- **Verificación:** `npm run build` backend y `tsc --noEmit` frontend limpios. Script de solo lectura contra la BD (oct-2026): tarjeta = suma del modal en las 4 combinaciones — Facturados creadas $9.159.949 (14 ODPs), rango $93.931.727 (50 FE); Pedidos Cobrados sin cambio ($3.865.553 / $59.952.251). No se verificó visualmente en el navegador.
+- **Pendiente:** verificación visual del usuario. Caché de 30 min: tras el deploy las cifras pueden tardar en aparecer.

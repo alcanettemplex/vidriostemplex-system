@@ -9,12 +9,15 @@ import axios from 'axios';
 
 import API from '../../../services/config';
 import { PeriodParams } from '../hooks/useDashboardData';
+import { fmtFecha as fmtFechaBogota } from '../../../utils/fechas';
 
 const fmtCOP = (n: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 
-const fmtFecha = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+// `fecha_factura` es un día de calendario (DATE) y `fecha_creacion` un momento: `fmtFecha`
+// detecta el tipo. Antes `new Date(iso).toLocaleDateString()` mostraba la FE un día antes.
+const fmtFecha = (v: string | null) =>
+  fmtFechaBogota(v, { day: '2-digit', month: 'short', year: 'numeric' }, '—');
 
 const CAJA_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   CANCELADO:         { label: 'Cancelado',         color: '#166534', bg: '#dcfce7' },
@@ -23,15 +26,37 @@ const CAJA_CONFIG: Record<string, { label: string; color: string; bg: string }> 
   PENDIENTE:         { label: 'Pendiente',           color: '#991b1b', bg: '#fee2e2' },
 };
 
-const MODO_CONFIG: Record<string, { titulo: string; criterio: string }> = {
-  creadas_facturadas: {
-    titulo: 'Pedidos Cobrados — Creadas y facturadas',
-    criterio: 'ODPs creadas dentro del período seleccionado que ya cuentan con factura electrónica, con su abono real (mismo criterio que el número de la tarjeta)',
+type Modo   = 'creadas_facturadas' | 'facturadas_rango';
+type Medida = 'abono' | 'monto_fe';
+
+// Dos tarjetas usan este detalle: "Pedidos Cobrados" (abono, caja) y "Facturados" (monto de
+// las FE, devengo). Cada combinación replica el criterio de su tarjeta para que el total cuadre.
+const MODO_CONFIG: Record<Medida, Record<Modo, { titulo: string; criterio: string }>> = {
+  abono: {
+    creadas_facturadas: {
+      titulo: 'Pedidos Cobrados — Creadas y facturadas',
+      criterio: 'ODPs creadas dentro del período seleccionado que ya cuentan con factura electrónica, con su abono real (mismo criterio que el número de la tarjeta)',
+    },
+    facturadas_rango: {
+      titulo: 'Pedidos Cobrados — Facturas emitidas en el rango',
+      criterio: 'Cada factura electrónica (principal o adicional) cuya fecha cae en el período. El abono de la ODP se asigna a la fila Principal para no duplicarlo; las adicionales aportan $0. La suma coincide con el KPI.',
+    },
   },
-  facturadas_rango: {
-    titulo: 'Pedidos Cobrados — Facturas emitidas en el rango',
-    criterio: 'Cada factura electrónica (principal o adicional) cuya fecha cae en el período. El abono de la ODP se asigna a la fila Principal para no duplicarlo; las adicionales aportan $0. La suma coincide con el KPI.',
+  monto_fe: {
+    creadas_facturadas: {
+      titulo: 'Facturados — Creadas y facturadas',
+      criterio: 'ODPs creadas dentro del período que ya cuentan con factura electrónica. El monto suma la FE principal y sus adicionales, sin importar la fecha de cada una. La suma coincide con el KPI.',
+    },
+    facturadas_rango: {
+      titulo: 'Facturados — Facturas emitidas en el rango',
+      criterio: 'Cada factura electrónica (principal o adicional) cuya fecha cae en el período, con su propio monto. La suma coincide con el KPI y con el Informe Ejecutivo.',
+    },
   },
+};
+
+const MEDIDA_LABELS: Record<Medida, { columna: string; total: string }> = {
+  abono:    { columna: 'Abonado',  total: 'Total cobrado' },
+  monto_fe: { columna: 'Monto FE', total: 'Total facturado' },
 };
 
 interface FacturadoItem {
@@ -39,7 +64,7 @@ interface FacturadoItem {
   numero_odp: string;
   fecha_creacion: string;
   fecha_factura: string | null;
-  monto_abonado: number;
+  monto: number;
   estado_caja: string;
   cliente_nombre: string;
   // Solo en modo 'facturadas_rango' (una fila por factura): datos de la FE.
@@ -47,25 +72,27 @@ interface FacturadoItem {
   tipo_fe?: string; // 'Principal' | 'Adicional'
 }
 
-type SortField = 'numero_odp' | 'cliente_nombre' | 'fecha_creacion' | 'fecha_factura' | 'estado_caja' | 'monto_abonado';
+type SortField = 'numero_odp' | 'cliente_nombre' | 'fecha_creacion' | 'fecha_factura' | 'estado_caja' | 'monto';
 
-const COLUMNS: { field: SortField; label: string; align?: 'right' | 'center' }[] = [
+const columnas = (medida: Medida): { field: SortField; label: string; align?: 'right' | 'center' }[] => [
   { field: 'numero_odp',     label: 'ODP' },
   { field: 'cliente_nombre', label: 'Cliente' },
   { field: 'fecha_creacion', label: 'Fecha creación' },
   { field: 'fecha_factura',  label: 'Fecha facturación' },
   { field: 'estado_caja',    label: 'Estado caja', align: 'center' },
-  { field: 'monto_abonado',  label: 'Abonado', align: 'right' },
+  { field: 'monto',          label: MEDIDA_LABELS[medida].columna, align: 'right' },
 ];
 
 interface Props {
-  modo:     'creadas_facturadas' | 'facturadas_rango';
+  modo:     Modo;
+  /** Qué suma el detalle: abono ("Pedidos Cobrados", por defecto) o monto de FE ("Facturados"). */
+  medida?:  Medida;
   period:   PeriodParams;
   onClose:  () => void;
   onVerODP: (id: number) => void;
 }
 
-const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerODP }) => {
+const PedidosFacturadosModal: React.FC<Props> = ({ modo, medida = 'abono', period, onClose, onVerODP }) => {
   const [items, setItems]     = useState<FacturadoItem[]>([]);
   const [total, setTotal]     = useState(0);
   const [loading, setLoading] = useState(true);
@@ -88,7 +115,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
       const vb = b[sortField];
       if (va === null) return vb === null ? 0 : 1;
       if (vb === null) return -1;
-      if (sortField === 'monto_abonado') return (Number(va) - Number(vb)) * dir;
+      if (sortField === 'monto') return (Number(va) - Number(vb)) * dir;
       return String(va).localeCompare(String(vb), 'es', { numeric: true }) * dir;
     });
   }, [items, sortField, sortDir]);
@@ -104,6 +131,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
           mes_fin:     period.mesFin,
           anio_fin:    period.anioFin,
           modo,
+          medida,
         },
       })
       .then(r => {
@@ -112,9 +140,12 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
       })
       .catch(e => console.error('Error cargando pedidos facturados:', e))
       .finally(() => setLoading(false));
-  }, [modo, period.mesInicio, period.anioInicio, period.mesFin, period.anioFin]);
+  }, [modo, medida, period.mesInicio, period.anioInicio, period.mesFin, period.anioFin]);
 
-  const cfg = MODO_CONFIG[modo];
+  const cfg = MODO_CONFIG[medida][modo];
+  const etiquetas = MEDIDA_LABELS[medida];
+  // En modo rango hay una fila por factura, no por ODP.
+  const porFactura = modo === 'facturadas_rango';
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="lg" PaperProps={{ sx: { borderRadius: 3 } }}>
@@ -135,12 +166,12 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
           <Box>
             <Box display="flex" gap={2} px={3} py={2} bgcolor="#fafafa" borderBottom="1px solid #e1e5eb" flexWrap="wrap">
               <Box>
-                <Typography variant="caption" color="#111620" fontWeight={600} display="block">Total cobrado</Typography>
+                <Typography variant="caption" color="#111620" fontWeight={600} display="block">{etiquetas.total}</Typography>
                 <Typography variant="h6" fontWeight={700} color="primary.main">{fmtCOP(total)}</Typography>
               </Box>
               <Box sx={{ width: '1px', bgcolor: '#e1e5eb' }} />
               <Box>
-                <Typography variant="caption" color="#111620" fontWeight={600} display="block">ODPs</Typography>
+                <Typography variant="caption" color="#111620" fontWeight={600} display="block">{porFactura ? 'Facturas' : 'ODPs'}</Typography>
                 <Typography variant="h6" fontWeight={800} color="#111620" sx={{ fontVariantNumeric: 'tabular-nums' }}>{items.length}</Typography>
               </Box>
             </Box>
@@ -154,7 +185,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow sx={{ '& th': { bgcolor: '#f6f7f9', fontWeight: 600, fontSize: 11, color: '#111620', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e1e5eb' } }}>
-                      {COLUMNS.map(col => (
+                      {columnas(medida).map(col => (
                         <TableCell key={col.field} align={col.align}>
                           <TableSortLabel
                             active={sortField === col.field}
@@ -172,7 +203,8 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
                     {sortedItems.map(item => {
                       const cc = CAJA_CONFIG[item.estado_caja] || { label: item.estado_caja, color: '#3f4858', bg: '#eef0f4' };
                       return (
-                        <TableRow key={item.id} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                        // En modo rango una ODP puede tener principal + adicionales: la clave lleva la FE.
+                        <TableRow key={`${item.id}-${item.tipo_fe ?? ''}-${item.numero_fe ?? ''}`} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
                           <TableCell>
                             <span
                               style={{ color: '#4f46e5', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}
@@ -180,7 +212,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
                             >
                               {item.numero_odp}
                             </span>
-                            {modo === 'facturadas_rango' && item.numero_fe && (
+                            {porFactura && item.numero_fe && (
                               <div style={{ fontSize: 11, color: '#3f4858', fontFamily: 'monospace', marginTop: 2 }}>
                                 FE-{item.numero_fe}{item.tipo_fe === 'Adicional' ? ' · adic.' : ''}
                               </div>
@@ -199,7 +231,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
                             />
                           </TableCell>
                           <TableCell align="right" sx={{ fontWeight: 700, fontSize: 13, color: '#4338ca' }}>
-                            {fmtCOP(item.monto_abonado)}
+                            {fmtCOP(item.monto)}
                           </TableCell>
                         </TableRow>
                       );

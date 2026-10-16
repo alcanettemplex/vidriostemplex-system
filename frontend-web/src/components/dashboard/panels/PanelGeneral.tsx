@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Settings, ClipboardList, Receipt, Wallet, AlertTriangle, Banknote } from '../../ui/icons';
+import { Settings, ClipboardList, Receipt, Wallet, AlertTriangle, FileCheck } from '../../ui/icons';
 import TarjetaKPI from '../TarjetaKPI';
 import {
   BarChart, Bar, LineChart, Line,
@@ -54,20 +54,50 @@ const DesgloseIva: React.FC<{ base: string; iva: string; ivaClassName: string }>
   </div>
 );
 
+// ─── Selector de criterio y barra "Del monto ingresado" ───────────────────────
+// Compartidos por "Pedidos Cobrados" y "Facturados": cada tarjeta tiene su propio criterio.
+type CriterioFE = 'creadas_facturadas' | 'facturadas_rango';
+
+const SelectorCriterio: React.FC<{ valor: CriterioFE; onCambio: (c: CriterioFE) => void }> = ({ valor, onCambio }) => (
+  <div className="flex flex-wrap gap-1 mt-2.5">
+    {([['creadas_facturadas', 'Creadas y facturadas'], ['facturadas_rango', 'Todas facturadas (rango)']] as const).map(([c, label]) => (
+      <button key={c} type="button" onClick={() => onCambio(c)}
+        className={`text-[11px] leading-tight px-2 py-1 rounded-full font-semibold transition-colors ${valor === c ? 'bg-templex-600 text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>
+        {label}
+      </button>
+    ))}
+  </div>
+);
+
+/** `pct` es el porcentaje real; el Medidor recorta a 100 solo al dibujar. */
+const BarraDelIngresado: React.FC<{ pct: number; color?: string }> = ({ pct, color }) => (
+  <div className="mt-3">
+    <div className="flex justify-between text-[12px] mb-1">
+      <span className="text-slate-700">Del monto ingresado</span>
+      <span className="font-semibold text-slate-900 tabular-nums">{Math.round(pct)}%</span>
+    </div>
+    <Medidor pct={pct} alto={6} color={color} />
+  </div>
+);
+
+/** Reparte un monto con IVA en base + IVA, descontando antes la porción de OAs (no llevan IVA). */
+const IVA_RATE = 0.19;
+const desgloseIva = (total: number, porcionOA: number) => {
+  const conIva = total - porcionOA;
+  const iva    = conIva - conIva / (1 + IVA_RATE);
+  return { base: total - iva, iva };
+};
+
 export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: PeriodParams }> = ({ data, isLoading, period }) => {
-  const [criterioKPI, setCriterioKPI]     = useState<'creadas_facturadas' | 'facturadas_rango'>('creadas_facturadas');
-  const rawConFacturaSeleccionado = criterioKPI === 'creadas_facturadas'
-    ? (data?.facturado_con_factura || 0)
-    : (data?.facturado_rango || 0);
+  const [criterioCobrados, setCriterioCobrados]   = useState<CriterioFE>('creadas_facturadas');
+  const [criterioFacturados, setCriterioFacturados] = useState<CriterioFE>('creadas_facturadas');
 
   // Cifras directas: antes contaban desde 0 en cada actualización y el dato "desaparecía".
   const odpsActivas          = data?.odps_activas || 0;
   const facturadoMes         = data?.facturado_mes || 0;
-  const facturadoConFactura  = rawConFacturaSeleccionado;
   const carteraVenc          = data?.cartera_vencida_total || 0;
-  const totalRecaudado       = data?.total_abonado || 0;
   const [openCartera, setOpenCartera]     = useState(false);
-  const [openFacturados, setOpenFacturados] = useState<'creadas_facturadas' | 'facturadas_rango' | null>(null);
+  const [openDetalle, setOpenDetalle]     = useState<{ modo: CriterioFE; medida: 'abono' | 'monto_fe' } | null>(null);
   const [fichaId, setFichaId]             = useState<number | null>(null);
 
   if (isLoading) {
@@ -107,32 +137,30 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
   const metaPct      = data.meta_facturacion_actual > 0
     ? Math.min((data.facturado_mes / data.meta_facturacion_actual) * 100, 100) : 0;
 
-  const IVA_RATE      = 0.19;
-  const rawFacturado  = data?.facturado_mes   || 0;
-  const rawRecaudado  = data?.total_abonado   || 0;
   // Las OAs (Órdenes Azules) no llevan IVA: se descuenta su porción antes del desglose
-  const facturadoOA      = data?.facturado_mes_oa || 0;
-  const recaudadoOA      = data?.total_abonado_oa || 0;
-  const facturadoConIva  = rawFacturado - facturadoOA;
-  const facturadoIva     = facturadoConIva - facturadoConIva / (1 + IVA_RATE);
-  const facturadoBase    = rawFacturado - facturadoIva;
-  const recaudadoConIva  = rawRecaudado - recaudadoOA;
-  const recaudadoIva     = recaudadoConIva - recaudadoConIva / (1 + IVA_RATE);
-  const recaudadoBase    = rawRecaudado - recaudadoIva;
+  const ingresado = desgloseIva(facturadoMes, data?.facturado_mes_oa || 0);
 
-  // Lógica de desglose para la tarjeta de Pedidos Cobrados, según el criterio seleccionado.
-  // Mide abono (caja), no valor_total (devengo) — decisión de negocio 2026-09-15.
-  const rawConFactura      = rawConFacturaSeleccionado;
-  const conFacturaOA       = criterioKPI === 'creadas_facturadas'
-    ? (data?.facturado_con_factura_oa || 0)
-    : (data?.facturado_rango_oa || 0);
-  const conFacturaConIva   = rawConFactura - conFacturaOA;
-  const conFacturaIva      = conFacturaConIva - conFacturaConIva / (1 + IVA_RATE);
-  const conFacturaBase     = rawConFactura - conFacturaIva;
-  const conFacturaPct      = rawFacturado > 0 ? Math.min((rawConFactura / rawFacturado) * 100, 100) : 0;
-  const conFacturaSubtitulo = criterioKPI === 'creadas_facturadas'
+  // Pedidos Cobrados: mide abono (caja), no el monto de la FE — decisión de negocio 2026-09-15.
+  const cobradosCreadas = criterioCobrados === 'creadas_facturadas';
+  const cobrados        = cobradosCreadas ? (data?.facturado_con_factura || 0) : (data?.facturado_rango || 0);
+  const cobradosOA      = cobradosCreadas ? (data?.facturado_con_factura_oa || 0) : (data?.facturado_rango_oa || 0);
+  const cobradosIva     = desgloseIva(cobrados, cobradosOA);
+  const cobradosPct     = facturadoMes > 0 ? Math.min((cobrados / facturadoMes) * 100, 100) : 0;
+  const cobradosSubtitulo = cobradosCreadas
     ? 'Órdenes creadas en el período que ya cuentan con factura electrónica, con su abono real'
     : 'Órdenes facturadas dentro del período, sin importar cuándo fueron creadas, con su abono real';
+
+  // Facturados (2026-10-16): suma el monto de las FE (devengo). En modo rango puede superar el
+  // monto ingresado (se facturan ODPs de meses anteriores): la barra se llena hasta 100% pero
+  // el número muestra el real.
+  const facturadosCreadas = criterioFacturados === 'creadas_facturadas';
+  const facturados        = facturadosCreadas ? (data?.fe_monto_creadas || 0) : (data?.fe_monto_rango || 0);
+  const facturadosOA      = facturadosCreadas ? (data?.fe_monto_creadas_oa || 0) : (data?.fe_monto_rango_oa || 0);
+  const facturadosIva     = desgloseIva(facturados, facturadosOA);
+  const facturadosPct     = facturadoMes > 0 ? (facturados / facturadoMes) * 100 : 0;
+  const facturadosSubtitulo = facturadosCreadas
+    ? 'Valor de las facturas electrónicas de las órdenes creadas en el período'
+    : 'Valor de las facturas electrónicas emitidas en el período, sin importar cuándo se creó la orden';
 
   return (
     <div className="space-y-3">
@@ -156,7 +184,7 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
               <Settings className="w-3.5 h-3.5" />
             </Link>
           }>
-          <DesgloseIva base={fmtM(facturadoBase)} iva={fmtM(facturadoIva)} ivaClassName="text-indigo-700" />
+          <DesgloseIva base={fmtM(ingresado.base)} iva={fmtM(ingresado.iva)} ivaClassName="text-indigo-700" />
           {data.meta_facturacion_actual > 0 && (
             <div className="mt-3">
               <div className="flex justify-between text-[12px] mb-1">
@@ -169,33 +197,14 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
         </TarjetaKPI>
 
         <TarjetaKPI indice={2} rotulo="Pedidos Cobrados" icono={Wallet} tono="indigo"
-          cifra={fmtM(facturadoConFactura)} cifraClassName="text-indigo-700"
-          descripcion={conFacturaSubtitulo}>
-          <div className="flex flex-wrap gap-1 mt-2.5">
-            <button type="button"
-              onClick={() => setCriterioKPI('creadas_facturadas')}
-              className={`text-[11px] leading-tight px-2 py-1 rounded-full font-semibold transition-colors ${criterioKPI === 'creadas_facturadas' ? 'bg-templex-600 text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>
-              Creadas y facturadas
-            </button>
-            <button type="button"
-              onClick={() => setCriterioKPI('facturadas_rango')}
-              className={`text-[11px] leading-tight px-2 py-1 rounded-full font-semibold transition-colors ${criterioKPI === 'facturadas_rango' ? 'bg-templex-600 text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>
-              Todas facturadas (rango)
-            </button>
-          </div>
-          <DesgloseIva base={fmtM(conFacturaBase)} iva={fmtM(conFacturaIva)} ivaClassName="text-indigo-700" />
-          {rawFacturado > 0 && (
-            <div className="mt-3">
-              <div className="flex justify-between text-[12px] mb-1">
-                <span className="text-slate-700">Del monto ingresado</span>
-                <span className="font-semibold text-slate-900 tabular-nums">{Math.round(conFacturaPct)}%</span>
-              </div>
-              <Medidor pct={conFacturaPct} alto={6} />
-            </div>
-          )}
+          cifra={fmtM(cobrados)} cifraClassName="text-indigo-700"
+          descripcion={cobradosSubtitulo}>
+          <SelectorCriterio valor={criterioCobrados} onCambio={setCriterioCobrados} />
+          <DesgloseIva base={fmtM(cobradosIva.base)} iva={fmtM(cobradosIva.iva)} ivaClassName="text-indigo-700" />
+          {facturadoMes > 0 && <BarraDelIngresado pct={cobradosPct} />}
           <button type="button"
             className="self-start text-[12px] font-semibold text-indigo-700 hover:text-indigo-900 mt-1.5 mb-1"
-            onClick={() => setOpenFacturados(criterioKPI)}>
+            onClick={() => setOpenDetalle({ modo: criterioCobrados, medida: 'abono' })}>
             Ver detalle →
           </button>
         </TarjetaKPI>
@@ -212,19 +221,17 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
           <p className="text-[12px] font-semibold text-rose-700 mt-1.5">Ver detalle →</p>
         </TarjetaKPI>
 
-        <TarjetaKPI indice={4} rotulo="Total Recaudado" icono={Banknote} tono="emerald"
-          cifra={fmtM(totalRecaudado)} cifraClassName="text-emerald-700"
-          descripcion="Abonos efectivamente cobrados en el período">
-          <DesgloseIva base={fmtM(recaudadoBase)} iva={fmtM(recaudadoIva)} ivaClassName="text-emerald-700" />
-          {data.facturado_mes > 0 && (
-            <div className="mt-3">
-              <div className="flex justify-between text-[12px] mb-1">
-                <span className="text-slate-700">Del monto ingresado</span>
-                <span className="font-semibold text-slate-900 tabular-nums">{Math.round((rawRecaudado / data.facturado_mes) * 100)}%</span>
-              </div>
-              <Medidor pct={(rawRecaudado / data.facturado_mes) * 100} alto={6} color={ESTADO.bien} />
-            </div>
-          )}
+        <TarjetaKPI indice={4} rotulo="Facturados" icono={FileCheck} tono="emerald"
+          cifra={fmtM(facturados)} cifraClassName="text-emerald-700"
+          descripcion={facturadosSubtitulo}>
+          <SelectorCriterio valor={criterioFacturados} onCambio={setCriterioFacturados} />
+          <DesgloseIva base={fmtM(facturadosIva.base)} iva={fmtM(facturadosIva.iva)} ivaClassName="text-emerald-700" />
+          {facturadoMes > 0 && <BarraDelIngresado pct={facturadosPct} color={ESTADO.bien} />}
+          <button type="button"
+            className="self-start text-[12px] font-semibold text-emerald-700 hover:text-emerald-900 mt-1.5 mb-1"
+            onClick={() => setOpenDetalle({ modo: criterioFacturados, medida: 'monto_fe' })}>
+            Ver detalle →
+          </button>
         </TarjetaKPI>
       </div>
 
@@ -335,11 +342,12 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
       </div>
 
       {openCartera && <CarteraVencidaModal onClose={() => setOpenCartera(false)} onVerODP={setFichaId} />}
-      {openFacturados && (
+      {openDetalle && (
         <PedidosFacturadosModal
-          modo={openFacturados}
+          modo={openDetalle.modo}
+          medida={openDetalle.medida}
           period={period}
-          onClose={() => setOpenFacturados(null)}
+          onClose={() => setOpenDetalle(null)}
           onVerODP={setFichaId}
         />
       )}

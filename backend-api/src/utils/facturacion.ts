@@ -128,6 +128,33 @@ export const sqlCobradoEnRango = (
     ), 0)`;
 };
 
+/**
+ * SQL (subconsulta escalar) que suma el monto de TODAS las FE —principal y adicionales— de las
+ * ODPs CREADAS en [desde, hasta] que ya tienen FE principal, sin importar la fecha de cada FE.
+ * Hermana de `sqlFacturadoEnRango` para el modo "Creadas y facturadas" de la tarjeta
+ * "Facturados" de Visión general (2026-10-16). Mismo COALESCE de red de seguridad en la principal.
+ */
+export const sqlFacturadoCreadasEnRango = (
+  desde: Date | string,
+  hasta: Date | string,
+  opts: { soloOA?: boolean } = {}
+): string => {
+  const d = new Date(desde).toISOString();
+  const h = new Date(hasta).toISOString();
+  const extra = opts.soloOA ? `AND o.tipo_odp = 'OA'` : '';
+  return `
+    COALESCE((
+      SELECT SUM(
+               COALESCE(o.monto_factura_principal, o.valor_total)
+               + COALESCE((SELECT SUM(fa.monto) FROM facturas_adicionales_odp fa WHERE fa.odp_id = o.id), 0)
+             )
+        FROM odp o
+       WHERE o.factura_electronica IS NOT NULL
+         AND o.fecha_creacion BETWEEN '${d}' AND '${h}'
+         ${extra}
+    ), 0)`;
+};
+
 export const whereTieneFacturaEnRango = (
   desde: Date | string,
   hasta: Date | string,
