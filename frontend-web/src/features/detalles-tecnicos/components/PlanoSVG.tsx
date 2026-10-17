@@ -460,6 +460,9 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
   }
 
   // ── Cotas generales ────────────────────────────────────────────────────────
+  // Con vidrios de medidas distintas en la letra, la cota dice ANCHO / ALTO: el número sería el
+  // del primer vidrio y el proveedor lo leería como la medida de todos. La medida real de cada
+  // vidrio va en la tabla. La segunda cota de un desplome conserva su número (decisión del usuario).
   const generales: ReactNode[] = [];
   if (conCotas) {
     const off = f * 3.6;
@@ -468,13 +471,13 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     generales.push(
       ext({ x: v.ii.x, y: v.ii.y + f * 0.4 }, { x: v.ii.x, y: yInf + f * 0.5 }, 'e1'),
       ext({ x: v.id.x, y: v.id.y + f * 0.4 }, { x: v.id.x, y: yInf + f * 0.5 }, 'e2'),
-      <Cota key="ancho" a={{ x: v.ii.x, y: yInf }} b={{ x: v.id.x, y: yInf }} texto={fmt(v.id.x - v.ii.x)} f={f * 1.1} lado={1} color={TINTA} />,
+      <Cota key="ancho" a={{ x: v.ii.x, y: yInf }} b={{ x: v.id.x, y: yInf }} texto={pieza.rotulos?.ancho ? 'ANCHO' : fmt(v.id.x - v.ii.x)} f={f * 1.1} lado={1} color={TINTA} />,
     );
     const xIzq = caja.minX - off;
     generales.push(
       ext({ x: v.si.x - f * 0.4, y: v.si.y }, { x: xIzq - f * 0.5, y: v.si.y }, 'e3'),
       ext({ x: v.ii.x - f * 0.4, y: v.ii.y }, { x: xIzq - f * 0.5, y: v.ii.y }, 'e4'),
-      <Cota key="alto" a={{ x: xIzq, y: v.ii.y }} b={{ x: xIzq, y: v.si.y }} texto={fmt(v.ii.y - v.si.y)} f={f * 1.1} lado={-1} color={TINTA} />,
+      <Cota key="alto" a={{ x: xIzq, y: v.ii.y }} b={{ x: xIzq, y: v.si.y }} texto={pieza.rotulos?.alto ? 'ALTO' : fmt(v.ii.y - v.si.y)} f={f * 1.1} lado={-1} color={TINTA} />,
     );
     if (pieza.contorno.tipo === 'desplome-lateral') {
       const ySup = caja.minY - off;

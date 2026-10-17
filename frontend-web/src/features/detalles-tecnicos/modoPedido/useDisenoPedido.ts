@@ -6,16 +6,18 @@ import {
   cambiarBloqueoDT, cambiarLetrasDT, cargarDiseno, eliminarPlanoDT, esConflicto, ESQUEMA_PIEZA, guardarPlanoDT, mensajeError,
   type DisenoPedido,
 } from './api';
-import { firmaPlano, itemsDeLetra, planoDeDT } from './planos';
+import { chaflanPorMedida, firmaPlano, itemsDeLetra, planoConRotulos, planoDeDT } from './planos';
 
 interface EstadoPlanos {
   planos: Plano[];
 }
 
-/** Lo que hay en la BD de cada letra: firma (para saber si hay cambios) y versión (409). */
+/** Lo que hay en la BD de cada letra: firma (para saber si hay cambios), versión (409) y el
+ *  chaflán por medida que lleva el Excel. */
 interface Guardado {
   firma: string;
   version: string;
+  chaflan?: Record<string, number>;
 }
 
 /**
@@ -44,8 +46,9 @@ export function useDisenoPedido(pedidoId: number) {
         // La firma es la del plano TAL COMO ESTÁ EN LA BD: si se reescaló por medidas nuevas
         // de la ODP, queda como cambio sin guardar y se ve.
         setGuardados(new Map(d.planos.map((p) => [p.letra, {
-          firma: firmaPlano({ ...planoDeDT(p, []), pieza: p.pieza }),
+          firma: firmaPlano({ ...planoDeDT(p, []), pieza: p.pieza }, p.conteos?.chaflanPorMedida),
           version: p.actualizado_en,
+          chaflan: p.conteos?.chaflanPorMedida,
         }])));
         reiniciarCon({ planos });
       }
@@ -65,14 +68,32 @@ export function useDisenoPedido(pedidoId: number) {
     cargar(true);
   }, [cargar]);
 
-  const planos = hist.presente.planos;
+  // Los rótulos ANCHO/ALTO dependen de los vidrios de cada letra, que cambian fuera del historial
+  // (la ODP, o cambiar la letra de un vidrio): se recalculan aquí en vez de guardarse en el estado,
+  // y así lo que se ve, se imprime y se guarda siempre coincide. Si cambian respecto de lo guardado,
+  // el plano queda «sin guardar» y la imagen del Excel se regenera al guardar. Quien no puede
+  // guardar (solo lectura) ve lo guardado: un pendiente que no puede resolver le deshabilitaría
+  // «Descargar Excel».
+  const presentes = hist.presente.planos;
+  const planos = useMemo(
+    () => (datos?.puede_editar ? presentes.map((p) => planoConRotulos(p, datos.items, datos.letras_bloqueadas)) : presentes),
+    [presentes, datos],
+  );
+
+  // Chaflán por medida (2026-10-17): igual que los rótulos, se recalcula con los vidrios de hoy
+  // solo donde se puede guardar; en una letra bloqueada o en solo lectura vale lo guardado.
+  const chaflanDe = useCallback((p: Plano) => {
+    if (!p.letra) return undefined;
+    if (!datos?.puede_editar || datos.letras_bloqueadas.includes(p.letra)) return guardados.get(p.letra)?.chaflan;
+    return chaflanPorMedida(p.pieza, itemsDeLetra(datos.items, p.letra));
+  }, [datos, guardados]);
 
   /** Letras con cambios sin guardar: planos nuevos o modificados, y planos quitados. */
   const pendientes = useMemo(() => {
-    const cambiados = planos.filter((p) => p.letra && guardados.get(p.letra)?.firma !== firmaPlano(p)).map((p) => p.letra!);
+    const cambiados = planos.filter((p) => p.letra && guardados.get(p.letra)?.firma !== firmaPlano(p, chaflanDe(p))).map((p) => p.letra!);
     const quitados = Array.from(guardados.keys()).filter((l) => !planos.some((p) => p.letra === l));
     return { cambiados, quitados, hay: cambiados.length + quitados.length > 0 };
-  }, [planos, guardados]);
+  }, [planos, guardados, chaflanDe]);
 
   /** Guarda todo lo pendiente. Devuelve los errores (vacío = todo bien). */
   const guardar = useCallback(async (): Promise<string[]> => {
@@ -89,6 +110,7 @@ export function useDisenoPedido(pedidoId: number) {
           const { w, h } = encajar(plano.pieza);
           const imagen = await planoAPng(plano.pieza, plano.selloEnCanto, w, h);
           const c = conteosDe(plano.pieza);
+          const chaflan = chaflanDe(plano);
           const guardado = await guardarPlanoDT(pedidoId, letra, {
             plantilla_id: plano.plantillaId || null,
             nombre: plano.nombre.trim() || `Plano ${letra}`,
@@ -96,13 +118,13 @@ export function useDisenoPedido(pedidoId: number) {
             observaciones: plano.observaciones,
             pieza: plano.pieza,
             esquema: ESQUEMA_PIEZA,
-            conteos: { ...c, chaflanMl: +c.chaflanMl.toFixed(3), m2: +c.m2.toFixed(4) },
+            conteos: { ...c, chaflanMl: +c.chaflanMl.toFixed(3), m2: +c.m2.toFixed(4), ...(chaflan ? { chaflanPorMedida: chaflan } : {}) },
             imagen,
             imagen_ancho: w,
             imagen_alto: h,
             version: guardados.get(letra)?.version ?? null,
           });
-          nuevos.set(letra, { firma: firmaPlano(plano), version: guardado.actualizado_en });
+          nuevos.set(letra, { firma: firmaPlano(plano, chaflan), version: guardado.actualizado_en, chaflan });
         } catch (e) {
           errores.push(esConflicto(e) ? mensajeError(e, '') : `Plano ${letra}: ${mensajeError(e, 'no se pudo guardar')}`);
         }
@@ -122,7 +144,7 @@ export function useDisenoPedido(pedidoId: number) {
     // PERF/BOQ de los vidrios cambiaron en el servidor: se refrescan los datos, no los planos.
     await cargar(false);
     return errores;
-  }, [datos, guardados, pendientes, planos, pedidoId, cargar]);
+  }, [datos, guardados, pendientes, planos, pedidoId, cargar, chaflanDe]);
 
   const cambiarLetras = useCallback(async (cambios: { item_id: number; letra: string | null }[]) => {
     await cambiarLetrasDT(pedidoId, cambios);

@@ -141,6 +141,42 @@ sale en el formato **FOR-005** (una hoja «PLANO X» por plano).
   imagen sin la marca hasta que se vuelva a guardar.
 - ANCHO/ALTO impresos y m² usan **una sola regla**: la caja envolvente (`medidasCaja`). Antes un
   desplome que abre arriba imprimía 600 y calculaba el m² con 630.
+- **Cotas ANCHO / ALTO con palabra** (2026-10-17, decisión del usuario): si los vidrios de la letra
+  miden distinto en un eje, la cota general de ese eje dice `ANCHO` o `ALTO` en vez del número del
+  primer vidrio; cada eje por separado. Cotas de herrajes y la segunda cota de un desplome siguen
+  con número; la tabla de la hoja conserva la medida de cada vidrio; el modo libre no cambia.
+  - Regla única `rotulosDeLetra()` en `modoPedido/planos.ts`, sobre **todos** los vidrios de la letra
+    en el grupo (principal + extensiones): hay una sola imagen por letra.
+  - Se guarda en la pieza como `rotulos?: { ancho, alto }` (opcional en el Zod de `piezaSchema`, sin
+    subir `ESQUEMA_PIEZA`): el Excel usa la imagen de Cloudinary, no redibuja, así que lo que muestra
+    la imagen tiene que quedar registrado para detectar cuándo cambia.
+  - `useDisenoPedido` los **recalcula en vivo** (`planoConRotulos`) y, si difieren de lo guardado,
+    el plano queda «Sin guardar». **Excepto** letras bloqueadas y usuarios de solo lectura: no pueden
+    guardar, y un pendiente sin resolver deshabilita «Descargar Excel» de todo el pedido.
+  - `firmaPlano` compara los rótulos como texto fijo (`A-`, `-H`…) y no por `JSON.stringify`: el
+    JSONB de Postgres reordena las claves y el plano recién leído nunca coincidiría.
+  - `planoDeDT` deja los rótulos como se guardaron: «Imprimir pedido» desde Gestión PV sale igual
+    que la imagen del Excel.
+  - Planos guardados antes del cambio con vidrios de medidas distintas: el Excel conserva el número
+    hasta que alguien abre el editor y guarda (aparecen como «Sin guardar»).
+- **Un plano sirve para todos los vidrios de su letra aunque midan distinto** (2026-10-17, el
+  propósito de la regla anterior). La pieza llevada a otra medida con `piezaConMedidas` (la misma
+  del reescalado) es el plano de ese vidrio, porque los herrajes se miden desde los bordes o el centro.
+  - **Validación por medida** — `validarLetra(plano, vidrios)` en `modoPedido/planos.ts`: valida el
+    dibujo y además cada **otra** medida de la letra (con el espesor de ese vidrio); agrega los
+    avisos nuevos con «En el vidrio de 700 × 1800: …». Se usa en el editor (`EditorPlano` prop
+    `validar`), en el diálogo de medidas (`DialogoMedidas` prop `validar`), en el ícono de error del
+    panel de letras y en el aviso previo a «Descargar Excel». El modo libre sigue con `validarPlano`.
+    ⚠️ `piezaConMedidas` clona con **ids nuevos** (mismo orden): `validarLetra` devuelve el `opId`
+    original por posición; sin eso, un clic en el aviso no seleccionaba nada.
+  - **Chaflán por fila** — en pantalla e impresión, `filasDe(items, pieza)` calcula los metros de
+    cada vidrio con su medida (`FilaVidrio.chaflanMl`). El Excel del servidor no tiene geometría:
+    al guardar, `conteos.chaflanPorMedida` lleva `{"700x1800": 0.7, …}` (opcional en el Zod, claves
+    `^\d+x\d+$`, máx. 200) y `hojaPlano` lo busca fila por fila; una medida que no está usa
+    `chaflanMl` (el del dibujo), como antes. Si las medidas de una letra con chaflán cambian, el
+    plano queda «Sin guardar» (`firmaPlano(p, chaflan)` compara solo las medidas distintas de la del
+    dibujo, así un plano viejo de una sola medida no se marca), salvo letra bloqueada o solo lectura.
+  - La segunda cota de un desplome **sigue con el número del primer vidrio** (decisión del usuario).
 
 ## Validaciones (`modelo/validaciones.ts › REGLAS`)
 

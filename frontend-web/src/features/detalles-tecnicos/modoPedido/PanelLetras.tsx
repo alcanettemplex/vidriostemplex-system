@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Box, Chip, Divider, List, ListItemButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
-import { validarPlano } from '../modelo/validaciones';
 import type { Plano } from '../modelo/tipos';
 import { PlanoSVG } from '../components/PlanoSVG';
 import type { DisenoPedido, ItemDT } from './api';
-import { itemsDeLetra } from './planos';
+import { itemsDeLetra, validarLetra } from './planos';
 import { AlertCircle as ErrorIcon, AlertTriangle as AvisoIcon, Lock as LockIcon } from '../../../components/ui/icons';
 
 interface Props {
@@ -74,7 +73,7 @@ export function PanelLetras({ datos, letras, planos, letraSel, pendientes, onSel
         {letras.map((l) => {
           const plano = planos.find((p) => p.letra === l);
           const items = itemsDeLetra(datos.items, l);
-          const obs = plano ? validarPlano(plano) : [];
+          const obs = plano ? validarLetra(plano, items) : [];
           const hayError = obs.some((o) => o.nivel === 'error');
           const bloqueada = datos.letras_bloqueadas.includes(l);
           return (

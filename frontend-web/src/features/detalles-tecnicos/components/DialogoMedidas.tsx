@@ -15,9 +15,9 @@ import {
 } from '@mui/material';
 import type { DatosPlano } from '../estado';
 import { piezaConMedidas } from '../modelo/plantillas';
-import type { Plantilla } from '../modelo/tipos';
+import type { Plano, Plantilla } from '../modelo/tipos';
 import { COLORES, ESPESORES } from '../modelo/opciones';
-import { validarPlano } from '../modelo/validaciones';
+import { validarPlano, type Observacion } from '../modelo/validaciones';
 import { PlanoSVG } from './PlanoSVG';
 
 interface Props {
@@ -30,6 +30,8 @@ interface Props {
   /** Modo pedido: las medidas, la cantidad, el color y el espesor vienen de los vidrios del
    *  Pedido PV y no se editan aquí. El texto explica de dónde salen. */
   medidasDelPedido?: string;
+  /** Modo pedido: valida contra todas las medidas de la letra (`validarLetra`). Sin esto, solo el dibujo. */
+  validar?: (plano: Plano) => Observacion[];
 }
 
 const MIN_MM = 50;
@@ -38,7 +40,7 @@ const MIN_MM = 50;
  * Se abre al elegir una plantilla. La plantilla trae medidas de ejemplo, que casi nunca son las del
  * pedido: aquí se piden las reales antes de crear el plano.
  */
-export function DialogoMedidas({ plantilla, inicial, modo, onCancelar, onConfirmar, medidasDelPedido }: Props) {
+export function DialogoMedidas({ plantilla, inicial, modo, onCancelar, onConfirmar, medidasDelPedido, validar = validarPlano }: Props) {
   const [ancho, setAncho] = useState(String(inicial.ancho));
   const [alto, setAlto] = useState(String(inicial.alto));
   const [cantidad, setCantidad] = useState(String(inicial.cantidad));
@@ -56,7 +58,7 @@ export function DialogoMedidas({ plantilla, inicial, modo, onCancelar, onConfirm
   // La plantilla llevada a estas medidas puede dejar herrajes fuera del vidrio (un botón a
   // 1000 mm en una hoja de 600): se avisa antes de crear el plano, no después.
   const observaciones = valido
-    ? validarPlano({ id: '', plantillaId: plantilla.id, nombre: plantilla.nombre, cantidad: n, color, espesor, selloEnCanto: false, observaciones: '', pieza: vista })
+    ? validar({ id: '', plantillaId: plantilla.id, nombre: plantilla.nombre, cantidad: n, color, espesor, selloEnCanto: false, observaciones: '', pieza: vista })
     : [];
   const errores = observaciones.filter((o) => o.nivel === 'error');
   const fijo = !!medidasDelPedido;

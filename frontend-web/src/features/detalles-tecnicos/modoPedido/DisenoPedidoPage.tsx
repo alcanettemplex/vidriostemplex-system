@@ -13,8 +13,7 @@ import ODPFichaModal from '../../odp/components/ODPFichaModal';
 import { abrirVentanaImpresion } from '../../../utils/printWindow';
 import { fmtMomento } from '../../../utils/fechas';
 import { medidasCaja } from '../modelo/geometria';
-import { validarPlano } from '../modelo/validaciones';
-import type { Plantilla } from '../modelo/tipos';
+import type { Plano, Plantilla } from '../modelo/tipos';
 import type { DatosPlano } from '../estado';
 import { useAtajos } from '../useAtajos';
 import { HojaDetalle, ESTILOS_HOJA_IMPRESA } from '../components/HojaDetalle';
@@ -22,7 +21,7 @@ import { EditorPlano } from '../components/EditorPlano';
 import { Galeria } from '../components/Galeria';
 import { DialogoMedidas } from '../components/DialogoMedidas';
 import { descargarExcelPedidoPV, encabezadoDe, filasDe, mensajeError, type PedidoDelGrupo } from './api';
-import { datosDeItems, itemsDeLetra, letrasDe, medidasDistintas } from './planos';
+import { datosDeItems, itemsDeLetra, letrasDe, medidasDistintas, validarLetra } from './planos';
 import { PanelLetras } from './PanelLetras';
 import { HojasPedido } from './HojasPedido';
 import { useDisenoPedido } from './useDisenoPedido';
@@ -63,6 +62,8 @@ export default function DisenoPedidoPage({ pedidoId }: { pedidoId: number }) {
   const bloqueada = !!datos && !!letraSel && datos.letras_bloqueadas.includes(letraSel);
   const editable = !!datos?.puede_editar && !bloqueada;
   const seleccionValida = plano && seleccionOp && plano.pieza.operaciones.some((o) => o.id === seleccionOp) ? seleccionOp : null;
+  // Un plano sirve para todos los vidrios de su letra: se valida contra cada medida (2026-10-17).
+  const validarConLetra = (pl: Plano) => validarLetra(pl, itemsLetra);
 
   const eliminarOps = (ids: string[], descripcion: string) => {
     if (!plano || !editable) return;
@@ -119,7 +120,7 @@ export default function DisenoPedidoPage({ pedidoId }: { pedidoId: number }) {
     for (const l of letrasPedido) {
       const pl = planos.find((p) => p.letra === l);
       if (!pl) problemas.push(`La letra ${l} no tiene plano: el Excel sale sin su hoja.`);
-      else if (validarPlano(pl).some((o) => o.nivel === 'error')) problemas.push(`El plano ${l} tiene errores: revísalo antes de enviarlo.`);
+      else if (validarLetra(pl, itemsDeLetra(datos.items, l)).some((o) => o.nivel === 'error')) problemas.push(`El plano ${l} tiene errores: revísalo antes de enviarlo.`);
     }
     if (problemas.length) setDescargaPendiente({ pedido, problemas });
     else descargar(pedido);
@@ -308,7 +309,7 @@ export default function DisenoPedidoPage({ pedidoId }: { pedidoId: number }) {
               encabezado={enc}
               plano={plano}
               letra={letraSel}
-              filas={filasDe(itemsLetra)}
+              filas={filasDe(itemsLetra, plano.pieza)}
               resaltarId={resaltarId}
               edicion={editable ? {
                 seleccionId: seleccionValida,
@@ -359,6 +360,7 @@ export default function DisenoPedidoPage({ pedidoId }: { pedidoId: number }) {
                   plano={plano}
                   letra={letraSel}
                   modoPedido
+                  validar={validarConLetra}
                   onCambiar={(fn, clave) => st.actualizarPlano(plano.id, fn, clave)}
                   onCambiarPlantilla={() => setGaleria('cambiar')}
                   onResaltar={setResaltarId}
@@ -390,6 +392,7 @@ export default function DisenoPedidoPage({ pedidoId }: { pedidoId: number }) {
           modo={elegida.modo}
           inicial={datosIniciales()}
           medidasDelPedido={`Medidas, cantidad, color y espesor de los vidrios con la letra ${letraSel}. El dibujo usa la medida del primero.`}
+          validar={validarConLetra}
           onCancelar={() => setElegida(null)}
           onConfirmar={(d) => {
             if (elegida.modo === 'cambiar' && plano) st.reemplazarPlantilla(plano.id, elegida.plantilla, d);

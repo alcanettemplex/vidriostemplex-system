@@ -139,7 +139,11 @@ export interface EncabezadoPlano {
   fecha: Date | null;
 }
 
-interface Conteos { perf: number; boq: number; dsp: number; radios: number; chaflanMl: number; m2: number }
+interface Conteos {
+  perf: number; boq: number; dsp: number; radios: number; chaflanMl: number; m2: number;
+  /** Metros de chaflán por medida de vidrio de la letra (`"700x1800"`), desde el 2026-10-17. */
+  chaflanPorMedida?: Record<string, number>;
+}
 
 const fechaCorta = (d: Date | null) => {
   if (!d) return '';
@@ -258,11 +262,18 @@ export async function hojaPlano(
     a.border = borde;
   });
   const vacioSiCero = (v: unknown) => (v === null || v === undefined || v === '' || Number(v) === 0 ? '' : (v as ExcelJS.CellValue));
-  const chaflan = Number(c.chaflanMl) > 0 ? `${Number(c.chaflanMl).toFixed(2)} ml` : '';
+  // Chaflán de cada vidrio con su propia medida: el editor lo calcula y lo guarda por medida.
+  // Una medida que no está en el mapa (plano guardado antes, o letra bloqueada cuyas medidas
+  // cambiaron después) usa el del dibujo, como antes del 2026-10-17.
+  const chaflanDe = (it: { ancho_mm?: unknown; alto_mm?: unknown }) => {
+    const porMedida = c.chaflanPorMedida?.[`${Number(it.ancho_mm)}x${Number(it.alto_mm)}`];
+    const ml = typeof porMedida === 'number' ? porMedida : Number(c.chaflanMl);
+    return ml > 0 ? `${ml.toFixed(2)} ml` : '';
+  };
   filas.forEach((it, k) => {
     const valores: ExcelJS.CellValue[] = [
       vacioSiCero(it.cantidad), (it.color as string) ?? '', (it.espesor as string) ?? '', vacioSiCero(it.ancho_mm), vacioSiCero(it.alto_mm),
-      vacioSiCero(c.perf), vacioSiCero(c.boq), vacioSiCero(c.dsp), vacioSiCero(c.radios), chaflan,
+      vacioSiCero(c.perf), vacioSiCero(c.boq), vacioSiCero(c.dsp), vacioSiCero(c.radios), chaflanDe(it),
     ];
     valores.forEach((v, i) => {
       const b = ws.getCell(f0 + 1 + k, i + 1);

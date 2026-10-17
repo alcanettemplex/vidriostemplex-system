@@ -2,13 +2,18 @@
 // la respuesta. Axios con el token que agrega el interceptor global (services/httpInterceptors.ts).
 import axios from 'axios';
 import API from '../../../services/config';
-import type { Conteos } from '../modelo/geometria';
+import { conteosDe, type Conteos } from '../modelo/geometria';
 import type { Pieza } from '../modelo/tipos';
+import { piezaParaMedida } from './planos';
 import { diaBogotaISO } from '../../../utils/fechas';
 import type { EncabezadoHoja, FilaVidrio } from '../components/HojaDetalle';
 
 /** Versión del formato de `pieza` que se guarda en `pedido_pv_plano.esquema`. */
 export const ESQUEMA_PIEZA = 1;
+
+/** Conteos como se guardan: los del dibujo y, si lleva chaflán, sus metros por medida de vidrio
+ *  de la letra (`"700x1800": 4.1`), que el Excel del servidor usa fila por fila (2026-10-17). */
+export type ConteosGuardados = Conteos & { chaflanPorMedida?: Record<string, number> };
 
 export interface ItemDT {
   id: number;
@@ -38,7 +43,7 @@ export interface PlanoDT {
   observaciones: string | null;
   pieza: Pieza;
   esquema: number;
-  conteos: Conteos;
+  conteos: ConteosGuardados;
   imagen_url: string | null;
   actualizado_en: string;
 }
@@ -80,7 +85,7 @@ export interface GuardarPlanoBody {
   observaciones: string;
   pieza: Pieza;
   esquema: number;
-  conteos: Conteos;
+  conteos: ConteosGuardados;
   imagen: string;
   imagen_ancho: number;
   imagen_alto: number;
@@ -139,11 +144,18 @@ export function encabezadoDe(d: DisenoPedido, numeroPedido = d.encabezado.numero
   };
 }
 
-export const filasDe = (items: ItemDT[]): FilaVidrio[] =>
-  items.map((i) => ({
+/** Una fila por vidrio. Con la pieza, el chaflán de cada fila se mide con la medida de ese
+ *  vidrio: un canto de 750 no da los mismos metros que uno de 600 (2026-10-17). */
+export const filasDe = (items: ItemDT[], pieza?: Pieza): FilaVidrio[] => {
+  const conChaflan = !!pieza?.operaciones.some((o) => o.tipo === 'chaflan');
+  return items.map((i) => ({
     cantidad: i.cantidad ?? '',
     color: i.color ?? '',
     espesor: i.espesor ?? '',
     ancho: i.ancho_mm ?? '',
     alto: i.alto_mm ?? '',
+    ...(pieza && conChaflan && i.ancho_mm && i.ancho_mm > 0 && i.alto_mm && i.alto_mm > 0
+      ? { chaflanMl: conteosDe(piezaParaMedida(pieza, i.ancho_mm, i.alto_mm)).chaflanMl }
+      : {}),
   }));
+};

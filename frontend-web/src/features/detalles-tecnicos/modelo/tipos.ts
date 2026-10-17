@@ -77,12 +77,25 @@ export interface Nota extends OpBase {
 
 export type Operacion = Perforacion | Boquete | Chaflan | Nota;
 
+/**
+ * Qué cota general se escribe con palabra (ANCHO / ALTO) en vez del número. Modo pedido: los
+ * vidrios de la letra miden distinto en ese eje y el dibujo, a escala con el primero, no
+ * representa a todos (2026-10-17). Lo calcula `rotulosDeLetra`, nunca el usuario; se guarda en
+ * la pieza para que la imagen de Cloudinary (la del Excel) y el editor no se contradigan.
+ */
+export interface RotulosCota {
+  ancho: boolean;
+  alto: boolean;
+}
+
 export interface Pieza {
   ancho: number;
   alto: number;
   contorno: Contorno;
   esquinas: Record<EsquinaId, TratamientoEsquina>;
   operaciones: Operacion[];
+  /** Ausente = las dos cotas con número (modo libre y letras con vidrios iguales). */
+  rotulos?: RotulosCota;
 }
 
 export interface Plano {

@@ -51,6 +51,9 @@ const piezaSchema = z.object({
   contorno,
   esquinas: z.object({ si: tratamiento, sd: tratamiento, id: tratamiento, ii: tratamiento }).strict(),
   operaciones: z.array(operacion).max(200),
+  // Cotas generales escritas como ANCHO / ALTO (vidrios de la letra con medidas distintas).
+  // Opcional: los planos guardados antes del 2026-10-17 no lo traen y siguen siendo válidos.
+  rotulos: z.object({ ancho: z.boolean(), alto: z.boolean() }).strict().optional(),
 }).strict();
 
 const guardarPlanoSchema = z.object({
@@ -67,6 +70,11 @@ const guardarPlanoSchema = z.object({
     radios: z.number().int().nonnegative(),
     chaflanMl: z.number().nonnegative(),
     m2: z.number().nonnegative(),
+    // Metros de chaflán por medida de vidrio de la letra (`"700x1800": 4.1`, 2026-10-17): un
+    // plano sirve para vidrios de varias medidas y el Excel no tiene la geometría para medirlos.
+    chaflanPorMedida: z.record(z.string().regex(/^\d+x\d+$/), z.number().nonnegative())
+      .refine((r) => Object.keys(r).length <= 200, 'Demasiadas medidas en un plano.')
+      .optional(),
   }).strict(),
   imagen: z.string().startsWith('data:image/png;base64,').max(MAX_IMAGEN_BASE64),
   imagen_ancho: z.number().int().positive().max(2000),

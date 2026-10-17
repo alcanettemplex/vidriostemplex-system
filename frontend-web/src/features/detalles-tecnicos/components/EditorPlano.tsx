@@ -26,7 +26,7 @@ import { conteosDe } from '../modelo/geometria';
 import { HERRAJES } from '../modelo/herrajes';
 import { COLORES, DIAMETROS, ESPESORES } from '../modelo/opciones';
 import { nuevoId } from '../modelo/plantillas';
-import { validarPlano } from '../modelo/validaciones';
+import { validarPlano, type Observacion } from '../modelo/validaciones';
 import type { BordeId, Contorno, EsquinaId, Operacion, Pieza, Plano, TratamientoEsquina } from '../modelo/tipos';
 import { ChevronDown as ExpandMoreIcon, Trash2 as DeleteOutlineIcon, Plus as AddIcon, Wrench as BuildOutlinedIcon, CheckCircle as CheckCircleOutlineIcon, LinkBreak as LinkOffIcon, Hand as PanToolOutlinedIcon } from '../../../components/ui/icons';
 
@@ -145,16 +145,18 @@ interface Props {
   onEliminar: (ids: string[], descripcion: string) => void;
   /** Modo pedido: cantidad, color, espesor, ancho y alto vienen de los vidrios del Pedido PV. */
   modoPedido?: boolean;
+  /** Modo pedido: valida contra todas las medidas de la letra (`validarLetra`). Sin esto, solo el dibujo. */
+  validar?: (plano: Plano) => Observacion[];
 }
 
-export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onResaltar, seleccionId, onSeleccionar, onEliminar, modoPedido = false }: Props) {
+export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onResaltar, seleccionId, onSeleccionar, onEliminar, modoPedido = false, validar = validarPlano }: Props) {
   const [verTodo, setVerTodo] = useState(false);
   const [procesosAbierto, setProcesosAbierto] = useState(true);
   const [menuHerraje, setMenuHerraje] = useState<HTMLElement | null>(null);
   const [gruposAbiertos, setGruposAbiertos] = useState<Set<string>>(new Set());
   const tarjetas = useRef(new Map<string, HTMLDivElement>());
   const p = plano.pieza;
-  const obs = validarPlano(plano);
+  const obs = validar(plano);
   const c = conteosDe(p);
   const numero = (id: string) => p.operaciones.findIndex((o) => o.id === id) + 1;
   const clave = (campo: string) => `campo:${plano.id}:${campo}`;

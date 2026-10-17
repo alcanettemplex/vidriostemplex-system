@@ -6952,3 +6952,25 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **BD:** sin cambios.
 - **Verificación:** `npm run build` backend y `tsc --noEmit` frontend limpios. Script de solo lectura contra la BD (oct-2026): tarjeta = suma del modal en las 4 combinaciones — Facturados creadas $9.159.949 (14 ODPs), rango $93.931.727 (50 FE); Pedidos Cobrados sin cambio ($3.865.553 / $59.952.251). No se verificó visualmente en el navegador.
 - **Pendiente:** verificación visual del usuario. Caché de 30 min: tras el deploy las cifras pueden tardar en aparecer.
+
+## 2026-10-17 — Detalles Técnicos: cotas generales ANCHO / ALTO cuando los vidrios de la letra miden distinto
+
+**Pedido del usuario:** que la cota del ancho diga «ANCHO» y la del alto «ALTO». Decisiones: solo en la cota del plano (la tabla sigue con la medida de cada vidrio) · automático, cuando los vidrios de la letra difieren en ese eje · la segunda cota de los desplomes sigue con número.
+
+- **frontend:** `modelo/tipos.ts` — `RotulosCota` y `Pieza.rotulos?`. `PlanoSVG.tsx` — las dos cotas generales escriben la palabra según `pieza.rotulos`. `modoPedido/planos.ts` — `rotulosDeLetra` (regla única, por eje, sobre todo el grupo), `conRotulos`, `planoConRotulos`; `firmaPlano` compara los rótulos como texto fijo (el JSONB reordena claves). `useDisenoPedido.ts` — los planos expuestos llevan los rótulos recalculados en vivo; lo que se ve, se imprime y se sube a Cloudinary coincide.
+- **backend:** `detalle_tecnico.controller.ts` — `piezaSchema` acepta `rotulos` opcional.
+- **BD:** sin cambios (JSONB; campo opcional, `ESQUEMA_PIEZA` igual).
+- **Riesgo detectado y evitado durante la ejecución:** recalcular los rótulos de una letra bloqueada o para un usuario de solo lectura dejaba un «Sin guardar» imposible de resolver, y eso deshabilita «Descargar Excel» del pedido. Ahí se conservan los guardados.
+- **Verificación:** `tsc --noEmit` backend y frontend limpios; servidores dev recompilados sin avisos; script de verificación con 11 casos (regla por eje, firma con claves reordenadas, plano viejo pendiente solo si difiere, letra bloqueada, SVG renderizado con y sin palabras): 11/11. No se probó en navegador ni guardando contra la BD.
+- **Pendiente:** planos ya guardados con vidrios de medidas distintas conservan el número en el Excel hasta que se abran y se guarden.
+
+## 2026-10-17 (2) — Detalles Técnicos: un plano para vidrios de varias medidas (validación por medida y chaflán por fila)
+
+**Contexto del usuario:** las cotas ANCHO/ALTO existen porque vidrios de medidas distintas comparten el mismo diseño: un solo plano por letra. Revisado con ese propósito, quedaban dos cosas atadas al primer vidrio. Decisiones: validar contra cada medida · chaflán fila por fila · la segunda cota del desplome sigue con número.
+
+- **frontend:** `modoPedido/planos.ts` — `validarLetra`, `chaflanPorMedida`, `piezaParaMedida`, `claveMedida`; `firmaPlano(p, chaflan)`. `api.ts` — `ConteosGuardados`, `filasDe(items, pieza)` con chaflán por fila. `HojaDetalle.tsx` — `FilaVidrio.chaflanMl`. `EditorPlano.tsx` / `DialogoMedidas.tsx` — prop opcional `validar`. `PanelLetras.tsx`, `DisenoPedidoPage.tsx`, `HojasPedido.tsx` — usan `validarLetra` y `filasDe(…, pieza)`. `useDisenoPedido.ts` — guarda `chaflanPorMedida` y lo compara para el «Sin guardar».
+- **backend:** `detalle_tecnico.controller.ts` — `conteos.chaflanPorMedida` opcional. `utils/detalleTecnico.ts › hojaPlano` — chaflán por fila con respaldo al del dibujo.
+- **BD:** sin cambios (JSONB `conteos`, campo opcional).
+- **Bug encontrado al verificar:** `piezaConMedidas` clona con ids nuevos; los avisos de las otras medidas apuntaban a un herraje inexistente. Corregido devolviendo el id original por posición.
+- **Verificación:** `tsc --noEmit` frontend y backend limpios; ESLint frontend limpio; scripts de verificación: 12/12 lógica nueva, 11/11 rótulos (regresión), 4/4 hoja «PLANO A» del Excel armada con ExcelJS sobre un plano simulado (sin BD). No se probó en navegador ni guardando contra la BD.
+- **Deuda previa (ya en `TECH_DEBT.md` 2026-10-02):** `npm --prefix backend-api run lint` no corre (ESLint 10 sin `eslint.config.js`); el backend se verificó solo con `tsc`.

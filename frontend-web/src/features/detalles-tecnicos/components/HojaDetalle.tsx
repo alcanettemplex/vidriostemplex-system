@@ -25,6 +25,9 @@ export interface FilaVidrio {
   espesor: string;
   ancho: number | string;
   alto: number | string;
+  /** Metros de chaflán de ESTE vidrio (modo pedido, vidrios de varias medidas en la letra).
+   *  Ausente = el del dibujo. */
+  chaflanMl?: number;
 }
 
 interface Props {
@@ -54,7 +57,8 @@ export const ESTILOS_HOJA_IMPRESA = `
 export function HojaDetalle({ encabezado, plano, letra, filas, resaltarId, edicion }: Props) {
   const c = conteosDe(plano.pieza);
   const observaciones = [plano.selloEnCanto ? 'SELLO EN EL CANTO' : '', plano.observaciones].filter(Boolean).join(' · ');
-  const conteos = [c.perf, c.boq, c.dsp, c.radios, c.chaflanMl ? `${c.chaflanMl.toFixed(2)} ml` : ''];
+  const ml = (m: number) => (m ? `${m.toFixed(2)} ml` : '');
+  const conteosDeFila = (f: FilaVidrio) => [c.perf, c.boq, c.dsp, c.radios, ml(f.chaflanMl ?? c.chaflanMl)];
   return (
     <div
       className="hoja-imprimible"
@@ -129,7 +133,7 @@ export function HojaDetalle({ encabezado, plano, letra, filas, resaltarId, edici
         <tbody>
           {filas.map((f, k) => (
             <tr key={k}>
-              {[f.cantidad, f.color, f.espesor, f.ancho, f.alto, ...conteos].map((v, i) => (
+              {[f.cantidad, f.color, f.espesor, f.ancho, f.alto, ...conteosDeFila(f)].map((v, i) => (
                 <td key={i} style={celda}>
                   {v === 0 || v === '0' ? '' : v}
                 </td>
