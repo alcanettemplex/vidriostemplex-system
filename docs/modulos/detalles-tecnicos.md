@@ -177,6 +177,28 @@ sale en el formato **FOR-005** (una hoja «PLANO X» por plano).
     plano queda «Sin guardar» (`firmaPlano(p, chaflan)` compara solo las medidas distintas de la del
     dibujo, así un plano viejo de una sola medida no se marca), salvo letra bloqueada o solo lectura.
   - La segunda cota de un desplome **sigue con el número del primer vidrio** (decisión del usuario).
+- **Desplome lateral: la medida del pedido es el ancho MAYOR** (2026-10-17). La hoja del pedido
+  lleva el ancho mayor; antes el editor la ponía siempre en el **ancho de abajo** (bloqueado), así
+  que un «abre arriba» de 1150 quedaba con 1150 abajo y 1180 arriba, imprimía ANCHO 1180 y no
+  había forma de corregirlo.
+  - `medidaPedido(pieza)` en `modelo/plantillas.ts` = `max(ancho, anchoSup)` × `alto`. Reemplaza a
+    `pieza.ancho` en toda comparación con el pedido (`planoDeDT`, `piezaParaMedida`, claves de
+    medida, firma). `piezaConMedidas(p, W, H)` pone W en el lado mayor y conserva la diferencia.
+  - Editor, modo pedido: selector **«Más ancho: abajo / arriba»** (intercambia los dos anchos; los
+    herrajes se miden desde los bordes y no se mueven); el lado mayor queda «Del pedido» y el menor
+    se escribe, topado a la medida del pedido («Máx. 1150»). Resumen de la sección = `medidaPedido`.
+  - Cota del plano con rótulos: la palabra **ANCHO** va en la cota del lado mayor (arriba en un
+    «abre arriba»); la otra conserva su número.
+  - Modo libre: el «Ancho» del diálogo de medidas también es el ancho mayor.
+  - El **descuadre del borde superior no cambió** (decisión del usuario): `alto` sigue siendo el del
+    pedido aunque `altoLado` sea mayor.
+  - Planos «abre arriba» guardados antes (1150 abajo, 1180 arriba) se corrigen solos al abrir y
+    quedan «Sin guardar».
+- **Una letra bloqueada o un usuario de solo lectura no reescala el plano al abrirlo**
+  (`planoDeDT(…, soloLectura)`, 2026-10-17). Antes, si la ODP cambiaba la medida del primer vidrio
+  de una letra ya enviada, el plano quedaba «Sin guardar» sin poder guardarse y eso deshabilitaba
+  «Descargar Excel» del pedido. «Imprimir pedido» de Gestión PV imprime la letra enviada tal como
+  la tiene el proveedor.
 
 ## Validaciones (`modelo/validaciones.ts › REGLAS`)
 

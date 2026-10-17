@@ -31,6 +31,7 @@ import {
 } from '@mui/material';
 import { EJEMPLO, usePedido, type DatosPlano } from './estado';
 import { letraPlano, medidasCaja } from './modelo/geometria';
+import { medidaPedido } from './modelo/plantillas';
 import { validarPlano } from './modelo/validaciones';
 import type { Plantilla } from './modelo/tipos';
 import { useAtajos } from './useAtajos';
@@ -177,10 +178,11 @@ function ModoLibre() {
 
   /** Valores con los que arranca el diálogo de medidas. */
   const datosIniciales = (pl: Plantilla, modo: 'agregar' | 'cambiar'): DatosPlano => {
-    if (modo === 'cambiar' && plano) return { ancho: plano.pieza.ancho, alto: plano.pieza.alto, cantidad: plano.cantidad, color: plano.color, espesor: plano.espesor };
+    // El ancho es el que se imprime (en un desplome, el mayor): `piezaConMedidas` lo espera así.
+    if (modo === 'cambiar' && plano) return { ...medidaPedido(plano.pieza), cantidad: plano.cantidad, color: plano.color, espesor: plano.espesor };
     // Al agregar, color y espesor se toman del último plano: casi siempre todo el pedido es igual.
     const ultimo = pedido.planos[pedido.planos.length - 1];
-    return { ancho: pl.pieza.ancho, alto: pl.pieza.alto, cantidad: 1, color: ultimo?.color ?? 'INC', espesor: ultimo?.espesor ?? pl.espesor ?? '8' };
+    return { ...medidaPedido(pl.pieza), cantidad: 1, color: ultimo?.color ?? 'INC', espesor: ultimo?.espesor ?? pl.espesor ?? '8' };
   };
 
   return (

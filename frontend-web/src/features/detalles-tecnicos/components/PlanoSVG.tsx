@@ -463,6 +463,11 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
   // Con vidrios de medidas distintas en la letra, la cota dice ANCHO / ALTO: el número sería el
   // del primer vidrio y el proveedor lo leería como la medida de todos. La medida real de cada
   // vidrio va en la tabla. La segunda cota de un desplome conserva su número (decisión del usuario).
+  // En el desplome lateral la medida del pedido es el ancho MAYOR (`medidaPedido`): en un «abre
+  // arriba» la palabra va en la cota de arriba y la de abajo conserva su número.
+  const anchoMayorArriba = pieza.contorno.tipo === 'desplome-lateral' && pieza.contorno.anchoSup > pieza.ancho;
+  const palabraAbajo = !!pieza.rotulos?.ancho && !anchoMayorArriba;
+  const palabraArriba = !!pieza.rotulos?.ancho && anchoMayorArriba;
   const generales: ReactNode[] = [];
   if (conCotas) {
     const off = f * 3.6;
@@ -471,7 +476,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     generales.push(
       ext({ x: v.ii.x, y: v.ii.y + f * 0.4 }, { x: v.ii.x, y: yInf + f * 0.5 }, 'e1'),
       ext({ x: v.id.x, y: v.id.y + f * 0.4 }, { x: v.id.x, y: yInf + f * 0.5 }, 'e2'),
-      <Cota key="ancho" a={{ x: v.ii.x, y: yInf }} b={{ x: v.id.x, y: yInf }} texto={pieza.rotulos?.ancho ? 'ANCHO' : fmt(v.id.x - v.ii.x)} f={f * 1.1} lado={1} color={TINTA} />,
+      <Cota key="ancho" a={{ x: v.ii.x, y: yInf }} b={{ x: v.id.x, y: yInf }} texto={palabraAbajo ? 'ANCHO' : fmt(v.id.x - v.ii.x)} f={f * 1.1} lado={1} color={TINTA} />,
     );
     const xIzq = caja.minX - off;
     generales.push(
@@ -484,7 +489,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       generales.push(
         ext({ x: v.si.x, y: v.si.y - f * 0.4 }, { x: v.si.x, y: ySup - f * 0.5 }, 'e5'),
         ext({ x: v.sd.x, y: v.sd.y - f * 0.4 }, { x: v.sd.x, y: ySup - f * 0.5 }, 'e6'),
-        <Cota key="anchoSup" a={{ x: v.si.x, y: ySup }} b={{ x: v.sd.x, y: ySup }} texto={fmt(v.sd.x - v.si.x)} f={f * 1.1} lado={-1} color={TINTA} />,
+        <Cota key="anchoSup" a={{ x: v.si.x, y: ySup }} b={{ x: v.sd.x, y: ySup }} texto={palabraArriba ? 'ANCHO' : fmt(v.sd.x - v.si.x)} f={f * 1.1} lado={-1} color={TINTA} />,
       );
     }
     if (pieza.contorno.tipo === 'desplome-superior') {

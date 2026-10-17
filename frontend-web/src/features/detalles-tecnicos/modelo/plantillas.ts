@@ -125,12 +125,30 @@ export function clonarPieza(p: Pieza): Pieza {
 }
 
 /**
+ * Ancho × alto que representa la medida del vidrio en el pedido. En un desplome lateral el ancho
+ * es el MAYOR de los dos (abajo o arriba): la hoja del pedido lleva el ancho mayor y es el que se
+ * imprime en ANCHO (`medidasCaja`). El descuadre del borde superior sigue con `alto` tal cual
+ * (decisión del usuario, 2026-10-17).
+ */
+export function medidaPedido(p: Pieza): { ancho: number; alto: number } {
+  const ancho = p.contorno.tipo === 'desplome-lateral' ? Math.max(p.ancho, p.contorno.anchoSup) : p.ancho;
+  return { ancho, alto: p.alto };
+}
+
+/**
  * La pieza de una plantilla llevada a otras medidas. Las perforaciones y boquetes se miden desde los
- * bordes, así que se reubican solos; los desplomes conservan su diferencia de medida.
+ * bordes, así que se reubican solos; los desplomes conservan su diferencia de medida. En el desplome
+ * lateral `ancho` es el ancho MAYOR (ver `medidaPedido`): un «abre arriba» lo pone arriba. Antes iba
+ * siempre abajo, y un «abre arriba» de 1150 salía con 1180 arriba, sin cuadrar con el pedido.
  */
 export function piezaConMedidas(p: Pieza, ancho: number, alto: number): Pieza {
   const c = clonarPieza(p);
-  if (c.contorno.tipo === 'desplome-lateral') c.contorno = { ...c.contorno, anchoSup: ancho + (c.contorno.anchoSup - p.ancho) };
+  let anchoAbajo = ancho;
+  if (c.contorno.tipo === 'desplome-lateral') {
+    const d = c.contorno.anchoSup - p.ancho;
+    if (d > 0) anchoAbajo = ancho - d;
+    c.contorno = { ...c.contorno, anchoSup: anchoAbajo + d };
+  }
   if (c.contorno.tipo === 'desplome-superior') c.contorno = { ...c.contorno, altoLado: alto + (c.contorno.altoLado - p.alto) };
-  return { ...c, ancho, alto };
+  return { ...c, ancho: anchoAbajo, alto };
 }

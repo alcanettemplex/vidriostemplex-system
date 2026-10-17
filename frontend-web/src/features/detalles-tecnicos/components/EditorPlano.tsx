@@ -25,7 +25,7 @@ import {
 import { conteosDe } from '../modelo/geometria';
 import { HERRAJES } from '../modelo/herrajes';
 import { COLORES, DIAMETROS, ESPESORES } from '../modelo/opciones';
-import { nuevoId } from '../modelo/plantillas';
+import { medidaPedido, nuevoId } from '../modelo/plantillas';
 import { validarPlano, type Observacion } from '../modelo/validaciones';
 import type { BordeId, Contorno, EsquinaId, Operacion, Pieza, Plano, TratamientoEsquina } from '../modelo/tipos';
 import { ChevronDown as ExpandMoreIcon, Trash2 as DeleteOutlineIcon, Plus as AddIcon, Wrench as BuildOutlinedIcon, CheckCircle as CheckCircleOutlineIcon, LinkBreak as LinkOffIcon, Hand as PanToolOutlinedIcon } from '../../../components/ui/icons';
@@ -183,6 +183,12 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seleccionId]);
+
+  // Desplome lateral: la medida del pedido es el ancho MAYOR, abajo o arriba (2026-10-17). En modo
+  // pedido ese lado queda bloqueado y el otro se escribe, sin pasarse de la medida del pedido.
+  const desplome = p.contorno.tipo === 'desplome-lateral' ? p.contorno : null;
+  const mayorArriba = !!desplome && desplome.anchoSup > p.ancho;
+  const anchoPedido = medidaPedido(p).ancho;
 
   const cambiarForma = (tipo: Contorno['tipo']) => {
     if (tipo === 'rectangular') setPieza({ contorno: { tipo } });
@@ -459,7 +465,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
         </Stack>
       </Seccion>
 
-      <Seccion titulo="Medidas y forma" resumen={`${p.ancho} × ${p.alto} mm`} defecto>
+      <Seccion titulo="Medidas y forma" resumen={`${anchoPedido} × ${p.alto} mm`} defecto>
         <Stack spacing={1.5}>
           <Sel
             label="Forma del vidrio"
@@ -472,10 +478,37 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               { v: 'desplome-superior', t: 'Con el borde de arriba inclinado (descuadre)' },
             ]}
           />
+          {modoPedido && desplome && (
+            <Frase>
+              <Typography>Más ancho</Typography>
+              <Sel
+                value={mayorArriba ? 'arriba' : 'abajo'}
+                width={130}
+                opciones={[{ v: 'abajo', t: 'abajo' }, { v: 'arriba', t: 'arriba' }]}
+                // Se intercambian los dos anchos: el del pedido pasa al otro lado. Los herrajes se
+                // miden desde los bordes, así que no se mueven.
+                onChange={(lado) => lado !== (mayorArriba ? 'arriba' : 'abajo') && setPieza({ ancho: desplome.anchoSup, contorno: { ...desplome, anchoSup: p.ancho } })}
+              />
+            </Frase>
+          )}
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-            <Mm label={p.contorno.tipo === 'desplome-lateral' ? 'Ancho abajo' : 'Ancho'} width={130} value={p.ancho} onChange={(n) => setPieza({ ancho: n }, 'ancho')} disabled={modoPedido} ayuda={modoPedido ? 'Del pedido' : undefined} />
-            {p.contorno.tipo === 'desplome-lateral' && (
-              <Mm label="Ancho arriba" width={130} value={p.contorno.anchoSup} onChange={(n) => setPieza({ contorno: { ...(p.contorno as Extract<Contorno, { tipo: 'desplome-lateral' }>), anchoSup: n } }, 'anchoSup')} />
+            <Mm
+              label={desplome ? 'Ancho abajo' : 'Ancho'}
+              width={130}
+              value={p.ancho}
+              onChange={(n) => setPieza({ ancho: modoPedido && mayorArriba ? Math.min(n, anchoPedido) : n }, 'ancho')}
+              disabled={modoPedido && !mayorArriba}
+              ayuda={modoPedido ? (mayorArriba ? `Máx. ${anchoPedido}` : 'Del pedido') : undefined}
+            />
+            {desplome && (
+              <Mm
+                label="Ancho arriba"
+                width={130}
+                value={desplome.anchoSup}
+                onChange={(n) => setPieza({ contorno: { ...desplome, anchoSup: modoPedido && !mayorArriba ? Math.min(n, anchoPedido) : n } }, 'anchoSup')}
+                disabled={modoPedido && mayorArriba}
+                ayuda={modoPedido ? (mayorArriba ? 'Del pedido' : `Máx. ${anchoPedido}`) : undefined}
+              />
             )}
             <Mm
               label={p.contorno.tipo === 'desplome-superior' ? `Alto (lado ${p.contorno.lado === 'der' ? 'izquierdo' : 'derecho'})` : 'Alto'}

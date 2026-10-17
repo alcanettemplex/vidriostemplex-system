@@ -21,7 +21,8 @@ interface Props {
 export function HojasPedido({ diseno, pedidoId, planos, letra }: Props) {
   const pedido = pedidoId !== undefined ? diseno.pedidos.find((p) => p.id === pedidoId) : undefined;
   const enc = encabezadoDe(diseno, pedido?.numero_pedido);
-  const lista = planos ?? diseno.planos.map((p) => planoDeDT(p, itemsDeLetra(diseno.items, p.letra)));
+  // Sin planos del editor, se imprime lo guardado; una letra ya enviada sale tal como la tiene el proveedor.
+  const lista = planos ?? diseno.planos.map((p) => planoDeDT(p, itemsDeLetra(diseno.items, p.letra), diseno.letras_bloqueadas.includes(p.letra)));
   const letras = letrasDe(diseno, lista).filter((l) => (letra ? l === letra : true));
   return (
     <>

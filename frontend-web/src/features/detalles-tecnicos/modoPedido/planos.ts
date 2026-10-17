@@ -1,5 +1,5 @@
 import { conteosDe } from '../modelo/geometria';
-import { piezaConMedidas } from '../modelo/plantillas';
+import { medidaPedido, piezaConMedidas } from '../modelo/plantillas';
 import type { Pieza, Plano, RotulosCota } from '../modelo/tipos';
 import { validarPlano, type Observacion } from '../modelo/validaciones';
 import type { DisenoPedido, ItemDT, PlanoDT } from './api';
@@ -19,13 +19,18 @@ export function letrasDe(d: DisenoPedido, planos: { letra?: string }[] = d.plano
 /**
  * Plano guardado → plano del editor. El dibujo se muestra con las medidas del PRIMER vidrio
  * de la letra (decisión 2026-10-16): si la ODP cambió esas medidas, el plano se reescala solo
- * —los herrajes se miden desde los bordes— y queda como cambio sin guardar.
+ * —los herrajes se miden desde los bordes— y queda como cambio sin guardar. Se compara con
+ * `medidaPedido` (en un desplome, el ancho mayor). Con `soloLectura` (letra bloqueada porque su
+ * pedido ya se envió, o usuario que no puede editar) no se reescala: quedaría «sin guardar» sin
+ * poder guardarse, y eso deshabilita «Descargar Excel»; además el papel del proveedor es el
+ * guardado (2026-10-17).
  */
-export function planoDeDT(p: PlanoDT, itemsLetra: ItemDT[]): Plano {
+export function planoDeDT(p: PlanoDT, itemsLetra: ItemDT[], soloLectura = false): Plano {
   const primero = itemsLetra[0];
   const ancho = primero?.ancho_mm ?? 0;
   const alto = primero?.alto_mm ?? 0;
-  const reescalar = ancho > 0 && alto > 0 && (p.pieza.ancho !== ancho || p.pieza.alto !== alto);
+  const actual = medidaPedido(p.pieza);
+  const reescalar = !soloLectura && ancho > 0 && alto > 0 && (actual.ancho !== ancho || actual.alto !== alto);
   return {
     id: `dt-${p.letra}`,
     letra: p.letra,
@@ -86,12 +91,20 @@ export function datosDeItems(itemsLetra: ItemDT[]) {
 export const claveMedida = (ancho: number, alto: number) => `${ancho}x${alto}`;
 
 /** La pieza llevada a la medida de un vidrio de la letra (la misma si ya mide eso). */
-export const piezaParaMedida = (pieza: Pieza, ancho: number, alto: number): Pieza =>
-  ancho === pieza.ancho && alto === pieza.alto ? pieza : piezaConMedidas(pieza, ancho, alto);
+export const piezaParaMedida = (pieza: Pieza, ancho: number, alto: number): Pieza => {
+  const m = medidaPedido(pieza);
+  return ancho === m.ancho && alto === m.alto ? pieza : piezaConMedidas(pieza, ancho, alto);
+};
+
+/** Clave de la medida del pedido que representa el dibujo. */
+const clavePropia = (pieza: Pieza) => {
+  const m = medidaPedido(pieza);
+  return claveMedida(m.ancho, m.alto);
+};
 
 /** Medidas de la letra distintas de la del dibujo, una vez cada una, con el espesor de su vidrio. */
 function otrasMedidas(pieza: Pieza, itemsLetra: ItemDT[]) {
-  const vistas = new Set([claveMedida(pieza.ancho, pieza.alto)]);
+  const vistas = new Set([clavePropia(pieza)]);
   const otras: { ancho: number; alto: number; espesor: string }[] = [];
   for (const i of itemsLetra) {
     if (!(i.ancho_mm && i.ancho_mm > 0 && i.alto_mm && i.alto_mm > 0)) continue;
@@ -155,7 +168,7 @@ export function chaflanPorMedida(pieza: Pieza, itemsLetra: ItemDT[]): Record<str
 export const firmaPlano = (p: Plano, chaflan?: Record<string, number>) => {
   const { rotulos, ...pieza } = p.pieza;
   const r = `${rotulos?.ancho ? 'A' : '-'}${rotulos?.alto ? 'H' : '-'}`;
-  const propia = claveMedida(p.pieza.ancho, p.pieza.alto);
+  const propia = clavePropia(p.pieza);
   const c = Object.keys(chaflan ?? {}).filter((k) => k !== propia).sort().join(',');
   return JSON.stringify({ n: p.nombre, t: p.plantillaId, s: p.selloEnCanto, o: p.observaciones, p: pieza, r, c });
 };

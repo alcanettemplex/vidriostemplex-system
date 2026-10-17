@@ -6974,3 +6974,12 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **Bug encontrado al verificar:** `piezaConMedidas` clona con ids nuevos; los avisos de las otras medidas apuntaban a un herraje inexistente. Corregido devolviendo el id original por posición.
 - **Verificación:** `tsc --noEmit` frontend y backend limpios; ESLint frontend limpio; scripts de verificación: 12/12 lógica nueva, 11/11 rótulos (regresión), 4/4 hoja «PLANO A» del Excel armada con ExcelJS sobre un plano simulado (sin BD). No se probó en navegador ni guardando contra la BD.
 - **Deuda previa (ya en `TECH_DEBT.md` 2026-10-02):** `npm --prefix backend-api run lint` no corre (ESLint 10 sin `eslint.config.js`); el backend se verificó solo con `tsc`.
+
+## 2026-10-17 (3) — Detalles Técnicos: en el desplome, la medida del pedido es el ancho mayor
+
+**Pedido del usuario:** en un fijo con desplome, la hoja del pedido trae el ancho mayor, pero el editor lo ponía siempre abajo y bloqueado: un «abre arriba» quedaba invertido sin forma de corregirlo. Decisiones: selector «Más ancho: abajo / arriba» con el lado mayor bloqueado y el menor editable · el descuadre del borde superior no se toca.
+
+- **frontend:** `modelo/plantillas.ts` — `medidaPedido()` (ancho mayor × alto) y `piezaConMedidas` pone la medida en el lado mayor. `EditorPlano.tsx` — selector «Más ancho», lado mayor «Del pedido», menor topado («Máx. N»), resumen con `medidaPedido`. `PlanoSVG.tsx` — la palabra ANCHO va en la cota del lado mayor. `modoPedido/planos.ts` — comparaciones con `medidaPedido`; `planoDeDT(…, soloLectura)`. `useDisenoPedido.ts`, `HojasPedido.tsx` — pasan `soloLectura`. `DetallesTecnicosPage.tsx`, `DialogoMedidas.tsx` — el ancho del diálogo es el mayor.
+- **backend / BD:** sin cambios (formato de `pieza` igual).
+- **Corregido de paso (señalado en la sesión anterior):** una letra bloqueada o un usuario de solo lectura ya no reescala el plano al abrirlo; antes quedaba «Sin guardar» imposible de resolver y deshabilitaba «Descargar Excel».
+- **Verificación:** `tsc --noEmit` y ESLint frontend limpios; scripts: 13/13 desplome (plantillas abre arriba/abajo, rectangular y descuadre sin cambios, plano viejo corregido al abrir, bloqueado sin reescalar, sin «Sin guardar» falso, cota ANCHO en el lado mayor) + 11/11 y 11/11 de regresión. No se probó en navegador.

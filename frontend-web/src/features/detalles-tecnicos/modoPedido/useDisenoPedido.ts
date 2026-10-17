@@ -42,7 +42,7 @@ export function useDisenoPedido(pedidoId: number) {
       setDatos(d);
       setErrorCarga(null);
       if (completo) {
-        const planos = d.planos.map((p) => planoDeDT(p, itemsDeLetra(d.items, p.letra)));
+        const planos = d.planos.map((p) => planoDeDT(p, itemsDeLetra(d.items, p.letra), !d.puede_editar || d.letras_bloqueadas.includes(p.letra)));
         // La firma es la del plano TAL COMO ESTÁ EN LA BD: si se reescaló por medidas nuevas
         // de la ODP, queda como cambio sin guardar y se ve.
         setGuardados(new Map(d.planos.map((p) => [p.letra, {

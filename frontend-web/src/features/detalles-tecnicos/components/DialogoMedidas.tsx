@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { DatosPlano } from '../estado';
-import { piezaConMedidas } from '../modelo/plantillas';
+import { medidaPedido, piezaConMedidas } from '../modelo/plantillas';
 import type { Plano, Plantilla } from '../modelo/tipos';
 import { COLORES, ESPESORES } from '../modelo/opciones';
 import { validarPlano, type Observacion } from '../modelo/validaciones';
@@ -131,7 +131,7 @@ export function DialogoMedidas({ plantilla, inicial, modo, onCancelar, onConfirm
                 {fijo
                   ? medidasDelPedido
                   : modo === 'agregar'
-                  ? `La plantilla trae ${plantilla.pieza.ancho} × ${plantilla.pieza.alto} mm como ejemplo. Las perforaciones y boquetes se reubican solos según las medidas.`
+                  ? `La plantilla trae ${medidaPedido(plantilla.pieza).ancho} × ${plantilla.pieza.alto} mm como ejemplo. Las perforaciones y boquetes se reubican solos según las medidas.`
                   : 'Se reemplaza el dibujo por el de esta plantilla, con las medidas que indiques.'}
               </Typography>
             </Stack>
