@@ -39,6 +39,21 @@ export const meta = {
     // es sólo presentación — el frontend convierte antes de enviar el valor.
     { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho (mm)", requerido: true, grupo: "medidas" },
     { nombre: "altoCm", tipo: "number", etiqueta: "Alto (mm)", requerido: true, grupo: "medidas" },
+    // Sentido de apertura (2026-10-17), SIEMPRE visto desde el exterior. Solo
+    // lo usa el dibujo del anexo del PDF (lib/dibujoPdf.ts): no toca el precio,
+    // el despiece ni la descripción. Opcional: sin él la hoja se dibuja sin
+    // símbolo de apertura y el anexo dice "Sentido de apertura por definir".
+    {
+      nombre: "abreHacia",
+      tipo: "select",
+      opciones: [
+        { value: "izquierda", label: "Izquierda (vista exterior)" },
+        { value: "derecha", label: "Derecha (vista exterior)" },
+      ],
+      etiqueta: "Abre hacia",
+      requerido: false,
+      grupo: "medidas",
+    },
     {
       nombre: "espesorVidrioMm",
       tipo: "select",

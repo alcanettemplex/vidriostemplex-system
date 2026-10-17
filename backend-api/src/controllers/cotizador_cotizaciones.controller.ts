@@ -15,6 +15,8 @@ import * as empresaStore from '../cotizador/store/empresaStore';
 import { folioCotizacion, generarPdfCotizacion, nombreArchivoCotizacion } from '../cotizador/lib/generadorPdfCotizacion';
 import { ODP } from '../models';
 import { getParametros } from '../cotizador/lib/catalogo';
+import { getGeometriaOverrides } from '../cotizador/cache';
+import { dibujoDeItem } from '../cotizador/lib/dibujoPdf';
 import { nivelCotizador } from '../cotizador/lib/permisos';
 import * as vinculos from '../cotizador/lib/vinculos';
 import { ErrorVinculo } from '../cotizador/lib/vinculos';
@@ -562,9 +564,19 @@ export const descargarPdfPropuesta = async (req: Request, res: Response) => {
       ? (((await ODP.findByPk(odpId, { attributes: ['numero_odp'] }))?.getDataValue('numero_odp') as string | undefined) ?? null)
       : null;
     const cotizacionPdf = { ...(cot as CotizacionPdf), odpNumero };
+    // Dibujo de cada ítem para el anexo de diseños (2026-10-17). `dibujoDeItem`
+    // nunca lanza: un ítem que no se puede dibujar sale sin tarjeta.
+    const overrides = getGeometriaOverrides();
+    const propuestaConDibujos: PropuestaPdf = {
+      ...propuesta,
+      items: (propuesta.items ?? []).map((it) => ({
+        ...it,
+        dibujo: dibujoDeItem(it.moduloId, it.input, it.resultado as Parameters<typeof dibujoDeItem>[2], overrides),
+      })),
+    };
     const buffer = await generarPdfCotizacion({
       cotizacion: cotizacionPdf,
-      propuesta,
+      propuesta: propuestaConDibujos,
       otrasPropuestas: propuestas.filter((p) => p.id !== ids.pid),
       empresa,
       ivaPct: getParametros().iva,

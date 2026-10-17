@@ -30,6 +30,7 @@ import {
   type CotizacionPdf,
 } from '../../cotizador/lib/generadorPdfCotizacion';
 import { manoObraPorItem } from '../../cotizador/lib/cargos';
+import { dibujoDeItem } from '../../cotizador/lib/dibujoPdf';
 
 before(async () => { await cache.precargar(); });
 after(async () => { await sequelize.close(); });
@@ -264,4 +265,63 @@ test('PDF real: sin empresa configurada no revienta y avisa lo pendiente', async
   const texto = textoDelPdf(await generarPdfCotizacion({ cotizacion: COT, propuesta: propuesta(), empresa: null, ivaPct: 0.19 }));
   assert.ok(texto.includes('[Datos bancarios pendientes]'));
   assert.ok(texto.includes('[Garantía pendiente]'));
+});
+
+// ─── Anexo de diseños (2026-10-17) ──────────────────────────────────────────
+// El dibujo lo calcula el controlador con `dibujoDeItem`; aquí se arma igual,
+// con un `resultado` guardado mínimo (diseño + medidas).
+
+const resultadoDiseno = (diseno: string, id: string, anchoCm: number, altoCm: number) => ({
+  diseno: { id, diseno },
+  medidas: { vano: null, fabricacion: { anchoCm, altoCm } },
+  cortes: { vidrios: [] },
+});
+
+function conDibujo(it: ItemPdf, r: ReturnType<typeof resultadoDiseno>): ItemPdf {
+  return { ...it, resultado: r, dibujo: dibujoDeItem(it.moduloId, it.input, r, {}) };
+}
+
+const PLEGABLE_INPUT = { disenoId: 'Cabina Batiente::PP_PLEGABLE', anchoCm: 120, altoCm: 190, espesorVidrioMm: 8, conInstalacion: true, abreHacia: 'derecha' };
+const R_PLEGABLE = resultadoDiseno('PP_PLEGABLE', 'Cabina Batiente::PP_PLEGABLE', 120, 190);
+const cabina = (orden: number, ubicacion: string, extra: Record<string, unknown> = {}): ItemPdf =>
+  conDibujo({ orden, moduloId: 'cabinas-batientes', cantidadPiezas: 1, subtotalConAiu: 900000, input: { ...PLEGABLE_INPUT, descripcionItem: ubicacion, ...extra } }, R_PLEGABLE);
+
+const paginas = (pdf: Buffer) => (pdf.toString('latin1').match(/\/Type \/Page\b/g) ?? []).length;
+
+test('PDF real: sin ítems con diseño no hay anexo ni "Ver diseño en el anexo"', async () => {
+  const texto = textoDelPdf(await generarPdfCotizacion({ cotizacion: COT, propuesta: propuesta(), empresa: EMPRESA, ivaPct: 0.19 }));
+  assert.ok(!texto.includes('ANEXO'));
+  assert.ok(!texto.includes('Ver diseño en el anexo'));
+});
+
+test('PDF real: anexo con los diseños, idénticos agrupados, apertura y el mismo total', async () => {
+  const ventana = conDibujo(VENTANA, resultadoDiseno('OX', 'Sistema5020::OX', 150, 100));
+  const items = [ventana, cabina(1, 'Baño principal'), cabina(2, 'Baño social'), { ...ESPEJO, orden: 3 }];
+  const sinAnexo = propuesta({ items: items.map(({ dibujo: _d, ...it }) => it) });
+  const conAnexo = propuesta({ items });
+  const pdfSin = await generarPdfCotizacion({ cotizacion: COT, propuesta: sinAnexo, empresa: EMPRESA, ivaPct: 0.19 });
+  const pdfCon = await generarPdfCotizacion({ cotizacion: COT, propuesta: conAnexo, empresa: EMPRESA, ivaPct: 0.19 });
+  const texto = textoDelPdf(pdfCon);
+
+  assert.ok(texto.includes('ANEXO · DISEÑOS COTIZADOS'));
+  assert.equal(texto.split('Ver diseño en el anexo').length - 1, 3, 'tres ítems con dibujo; el espejo no');
+  assert.ok(texto.includes('ÍTEM 1'));
+  assert.ok(texto.includes('ÍTEMS 2 Y 3'), 'las dos cabinas idénticas van en una tarjeta');
+  assert.ok(texto.includes('Productos idénticos · Baño principal, Baño social'));
+  assert.ok(texto.includes('Abre hacia la derecha (vista exterior)'));
+  assert.ok(texto.includes('Hoja corrediza') && texto.includes('Paño fijo'), 'leyenda de símbolos');
+  assert.ok(!texto.includes('ÍTEM 4'), 'el espejo sin diseño no tiene tarjeta');
+  assert.ok(paginas(pdfCon) > paginas(pdfSin), 'el anexo va en hoja aparte');
+  // El anexo no mueve plata: el total impreso es el mismo.
+  assert.ok(texto.includes(normal(moneda(conAnexo.totales.total))));
+  assert.ok(textoDelPdf(pdfSin).includes(normal(moneda(conAnexo.totales.total))));
+});
+
+test('PDF real: cabina en L con aviso y vista frontal; sin "Abre hacia", apertura por definir', async () => {
+  const enL = cabina(0, 'Baño de huéspedes', { enL: true, abreHacia: undefined });
+  const texto = textoDelPdf(await generarPdfCotizacion({ cotizacion: COT, propuesta: propuesta({ items: [enL] }), empresa: EMPRESA, ivaPct: 0.19 }));
+  assert.ok(texto.includes('Cabina en L'));
+  assert.ok(texto.includes('VISTA FRONTAL (LADO X)'));
+  assert.ok(texto.includes('Vista desde arriba'));
+  assert.ok(texto.includes('Sentido de apertura por definir'));
 });

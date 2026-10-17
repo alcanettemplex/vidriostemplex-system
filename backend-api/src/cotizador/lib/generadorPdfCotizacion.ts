@@ -38,6 +38,16 @@ import { getModulo } from "../modules/registry";
 import { esCargoManoObra, manoObraPorItem } from "./cargos";
 import { descripcionComercial, personalizacionComercial } from "./detalleComercial";
 import type { ResumenPersonalizacionLaxo } from "./detalleComercial";
+import {
+  agruparIdenticos,
+  leyendaSimbolos,
+  rotuloItems,
+  svgDiseno,
+  svgPlantaL,
+  textoAvisoL,
+  type DibujoItem,
+  type GrupoAnexo,
+} from "./dibujoPdf";
 
 pdfMake.setFonts(helvetica);
 // pdfkit resuelve las 14 fuentes estándar por el mismo camino que un archivo
@@ -85,6 +95,10 @@ export interface ItemPdf {
     diseno?: { sistema?: string; etiqueta?: string | null; diseno?: string } | null;
     personalizacion?: ResumenPersonalizacionLaxo | null;
   } | null;
+  /** Dibujo para el anexo (2026-10-17). Lo calcula el controlador con
+   * `dibujoDeItem` (necesita las correcciones de geometría de la caché, que
+   * este generador no lee). Ausente = el ítem no sale en el anexo. */
+  dibujo?: DibujoItem | null;
 }
 
 export interface CargoPdf {
@@ -247,6 +261,81 @@ function filaTotal(etiqueta: string, valor: number, opts: { negativo?: boolean; 
   ];
 }
 
+const ALERTA = { fondo: "#FFF6E5", borde: "#E8B04B", titulo: "#8A5A00" };
+
+/**
+ * Tarjeta de un grupo del anexo: número(s) de ítem, unidades, dibujo, sentido
+ * de apertura (solo puertas de cabina), aviso de cabina en L y descripción.
+ * Un grupo de idénticos imprime la descripción sin ubicación y lista las
+ * ubicaciones en la anotación.
+ */
+function tarjetaAnexo(g: GrupoAnexo) {
+  const { entrada } = g;
+  const d = entrada.dibujo;
+  const agrupado = g.numeros.length > 1;
+  const input = agrupado ? { ...(entrada.input ?? {}), descripcionItem: "" } : entrada.input;
+  const descripcion = descripcionComercial(entrada.moduloId, input, entrada.resultado) ||
+    getModulo(entrada.moduloId ?? "")?.meta?.nombre || "Producto";
+  const esPuerta = d.tipo === "cabinaBatiente" && d.plano.paneles.some((p) => ["Z", "P", "B"].includes(p.tipo.toUpperCase()));
+  const avisoL = d.enL
+    ? {
+        table: {
+          widths: ["auto", "*"],
+          body: [[
+            { svg: svgPlantaL(d.cotaAnchoMm, d.ladoYMm), width: 92, margin: [2, 2, 0, 0] },
+            {
+              stack: [
+                { text: "Cabina en L", style: "avisoTitulo" },
+                { text: textoAvisoL(d.cotaAnchoMm, d.ladoYMm), style: "avisoTexto" },
+                { text: "Vista desde arriba", style: "avisoRotulo" },
+              ],
+              margin: [6, 4, 4, 4],
+            },
+          ]],
+        },
+        layout: {
+          fillColor: () => ALERTA.fondo,
+          hLineWidth: () => 0.8,
+          vLineWidth: () => 0.8,
+          hLineColor: () => ALERTA.borde,
+          vLineColor: () => ALERTA.borde,
+          paddingLeft: () => 0,
+          paddingRight: () => 0,
+        },
+        margin: [0, 6, 0, 0],
+      }
+    : null;
+  return {
+    stack: [
+      {
+        columns: [
+          { text: rotuloItems(g.numeros), style: "anexoItem", width: "*" },
+          { text: g.piezas > 1 ? `${g.piezas} unidades` : "1 unidad", style: "anexoCantidad", width: "auto" },
+        ],
+        margin: [0, 0, 0, 2],
+      },
+      agrupado
+        ? { text: `Productos idénticos${g.ubicaciones.length ? " · " + g.ubicaciones.join(", ") : ""}`, style: "anexoAgrupado" }
+        : null,
+      d.enL
+        ? { text: "VISTA FRONTAL (LADO X)", style: "anexoRotuloVista", alignment: "center", margin: [0, 4, 0, 2] }
+        : { text: " ", fontSize: 4 },
+      { svg: svgDiseno(d), fit: [225, d.enL ? 150 : 190], alignment: "center" },
+      esPuerta
+        ? {
+            text: d.apertura ? `Abre hacia la ${d.apertura} (vista exterior)` : "Sentido de apertura por definir",
+            style: d.apertura ? "anexoApertura" : "anexoAperturaPendiente",
+            alignment: "center",
+            margin: [0, 4, 0, 0],
+          }
+        : null,
+      avisoL,
+      { text: descripcion, style: "anexoDescripcion", margin: [0, 6, 0, 0] },
+    ].filter(Boolean),
+    margin: [10, 10, 10, 10],
+  };
+}
+
 /**
  * Arma el `docDefinition` y lo renderiza a un Buffer PDF.
  *
@@ -305,6 +394,7 @@ export async function generarPdfCotizacion({
         stack: [
           { text: descripcion },
           personalizado ? { text: personalizado, style: "detalleItem", italics: true } : null,
+          it.dibujo ? { text: "Ver diseño en el anexo", style: "verAnexo" } : null,
         ].filter(Boolean),
         style: "tablaCelda",
       },
@@ -584,6 +674,58 @@ export async function generarPdfCotizacion({
     id: BLOQUE_CONDICIONES,
   });
 
+  // --- Anexo: diseños cotizados (2026-10-17) --------------------------------
+  // Va después del recuadro de aprobación, en hoja aparte. Ver lib/dibujoPdf.ts.
+  const entradasAnexo = items.flatMap((it, i) =>
+    it.dibujo
+      ? [{ numero: i + 1, moduloId: it.moduloId, input: it.input, resultado: it.resultado, cantidadPiezas: it.cantidadPiezas, dibujo: it.dibujo }]
+      : []
+  );
+  if (entradasAnexo.length > 0) {
+    const grupos = agruparIdenticos(entradasAnexo);
+    const filas: unknown[][] = [];
+    for (let k = 0; k < grupos.length; k += 2) {
+      filas.push([tarjetaAnexo(grupos[k]), grupos[k + 1] ? tarjetaAnexo(grupos[k + 1]) : { text: "" }]);
+    }
+    content.push({
+      pageBreak: "before",
+      stack: [
+        {
+          columns: [
+            { text: "ANEXO · DISEÑOS COTIZADOS", style: "tituloAnexo", width: "*" },
+            { text: folio, style: "folioAnexo", width: "auto" },
+          ],
+        },
+        { canvas: [{ type: "rect", x: 0, y: 0, w: 515, h: 2, color: COLOR.navy }], margin: [0, 6, 0, 6] },
+        {
+          text: "Esquema ilustrativo de cada producto, visto desde el exterior. Medidas en milímetros (ancho × alto); las definitivas se confirman en la toma de medidas.",
+          style: "nota",
+          margin: [0, 0, 0, 6],
+        },
+        {
+          columns: leyendaSimbolos(entradasAnexo.map((e) => e.dibujo)).map((l) => ({
+            width: "auto",
+            columns: [
+              { svg: l.svg, width: 22 },
+              { text: l.texto, style: "leyenda", width: "auto", noWrap: true, margin: [4, 4, 0, 0] },
+            ],
+          })),
+          columnGap: 14,
+          margin: [0, 0, 0, 10],
+        },
+      ],
+    });
+    content.push({
+      table: { widths: ["*", "*"], dontBreakRows: true, body: filas },
+      layout: {
+        hLineWidth: () => 0.8,
+        vLineWidth: () => 0.8,
+        hLineColor: () => COLOR.grayBorder,
+        vLineColor: () => COLOR.grayBorder,
+      },
+    });
+  }
+
   const docDefinition: Record<string, unknown> = {
     info: {
       title: nombreArchivoCotizacion(folio, cotizacion.odpNumero, cotizacion.cliente.nombre),
@@ -642,6 +784,21 @@ export async function generarPdfCotizacion({
       totalDestacadoValue: { fontSize: 11, bold: true, color: COLOR.white, alignment: "right", margin: [4, 6, 4, 6] },
       condicion: { fontSize: 8, color: COLOR.gray, margin: [0, 0, 0, 4] },
       pie: { fontSize: 7, color: COLOR.gray },
+      // Anexo de diseños (2026-10-17)
+      verAnexo: { fontSize: 7.5, bold: true, color: COLOR.blue, margin: [0, 2, 0, 0] },
+      tituloAnexo: { fontSize: 14, bold: true, color: COLOR.navy },
+      folioAnexo: { fontSize: 11, bold: true, color: COLOR.blue, margin: [0, 3, 0, 0] },
+      leyenda: { fontSize: 7.5, color: COLOR.grayDark },
+      anexoItem: { fontSize: 10, bold: true, color: COLOR.navy },
+      anexoCantidad: { fontSize: 8, color: COLOR.gray, margin: [0, 1, 0, 0] },
+      anexoAgrupado: { fontSize: 7.5, italics: true, color: COLOR.blue },
+      anexoRotuloVista: { fontSize: 7, bold: true, color: COLOR.gray, characterSpacing: 0.5 },
+      anexoApertura: { fontSize: 8, bold: true, color: COLOR.navy },
+      anexoAperturaPendiente: { fontSize: 8, italics: true, color: COLOR.gray },
+      anexoDescripcion: { fontSize: 7.5, color: COLOR.grayDark, lineHeight: 1.15 },
+      avisoTitulo: { fontSize: 8.5, bold: true, color: ALERTA.titulo, margin: [0, 0, 0, 2] },
+      avisoTexto: { fontSize: 7.5, color: COLOR.grayDark, lineHeight: 1.1 },
+      avisoRotulo: { fontSize: 6.5, italics: true, color: COLOR.gray, margin: [0, 3, 0, 0] },
     },
   };
 

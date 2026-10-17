@@ -544,6 +544,47 @@ a mano, el asesor marca `APROBADA` en el sistema). Botón "Descargar PDF" en
 - **Pendiente, no hecho:** un PDF único comparativo con todas las opciones (hoy es un PDF por
   propuesta con las demás opciones en resumen + total).
 
+### Anexo de diseños (2026-10-17)
+
+Al final del PDF, en hoja aparte después del recuadro de aprobación, el cliente ve el **esquema de
+cada producto que tiene diseño**. En la tabla de precios, cada uno de esos ítems dice «Ver diseño en el
+anexo». Sin ningún ítem con diseño no hay anexo. Lógica en `lib/dibujoPdf.ts` (puro); el generador
+solo maqueta la tarjeta (`tarjetaAnexo`).
+
+- **De dónde sale el dibujo:** `planoDeResultadoGuardado(resultado, overrides)` —el mismo cálculo que
+  `GET /cotizaciones/:id/items/:itemId/plano`, que desde ese día lo llama en vez de tener su copia—,
+  solo con lo guardado en el ítem. El controlador del PDF arma `item.dibujo` con `dibujoDeItem` (lee
+  las correcciones de geometría de la caché; el generador sigue sin leer nada). `dibujoDeItem` nunca
+  lanza: un ítem que no se puede dibujar sale sin tarjeta y el PDF se genera igual.
+- **SVG incrustado con `{ svg }` de pdfmake** (usa `svg-to-pdfkit`, ya incluido): vectorial, sin
+  dependencias nuevas, el PDF casi no pesa más. El SVG solo lleva números y textos fijos, nunca texto
+  del usuario: no hay nada que escapar.
+- **Decisiones del usuario:** cuadrícula 2×2 · vista **exterior** · cotas solo de ancho y alto total,
+  con la **medida que escribió el asesor** (`medidas.vano` y, si no, `fabricacion`), no la de
+  fabricación · ↔ en la hoja corrediza, «FIJO» en el paño fijo, triángulo punteado en la proyectante
+  (bisagra arriba) y en la hoja que abre de las cabinas (punta hacia la bisagra) · leyenda solo con los
+  símbolos presentes · diseños sin escala exacta se dibujan igual (hojas iguales).
+- **Color:** el marco toma `colorPerfileria` (mate, bronce, gris plata, blanco, crudo, negro; otro →
+  mate). **Cabinas:** vidrio templado sin marco; la corrediza con el riel superior; la variante
+  `_MARCO` con marco.
+- **«Abre hacia»** (`abreHacia`: `izquierda`|`derecha`, vista exterior): campo **opcional** de Cabinas
+  batientes (grupo medidas). **Solo lo usa el dibujo**: no toca precio, despiece ni descripción
+  (decisión del usuario). Sin él: sin símbolo ni bisagras, y la tarjeta dice «Sentido de apertura por
+  definir» — es el caso de todas las cabinas guardadas antes del 2026-10-17. En un plegable todas las
+  hojas apuntan hacia el mismo lado (la de la pared tiene la bisagra en la pared; la otra, en la unión).
+- **Idénticos agrupados** (`agruparIdenticos`): mismo dibujo (paneles, cotas, color, apertura, L) y
+  misma descripción **sin la ubicación** → una tarjeta «ÍTEMS 3 Y 4», unidades sumadas y la anotación
+  «Productos idénticos · Baño principal, Baño social». La descripción de la tarjeta sale sin ubicación.
+- **Cabina en L:** se dibuja el frente con el rótulo «VISTA FRONTAL (LADO X)» y un recuadro de aviso con
+  la L **vista desde arriba** (`svgPlantaL`) y el texto de `textoAvisoL`. Con lado Y (Glasvit en L) la L
+  va a escala con las dos medidas; sin él (batiente en L, el formulario no tiene lado Y) el costado se
+  dibuja a la mitad del frente y se rotula «Costado» sin número. La orientación real de la L no se
+  guarda: el costado sale siempre a la izquierda (es la forma, no la posición).
+- **Pruebas:** `dibujoPdf.test.ts` (18) y 3 casos de generación real en `pdf.test.ts` (sin anexo, anexo
+  con agrupación y total intacto, cabina en L sin apertura).
+- ⚠️ **El dibujo existe dos veces:** en pantalla (`DiagramaProducto.tsx`, React) y en el PDF (SVG del
+  backend). Ver `TECH_DEBT.md` 2026-10-17.
+
 ---
 
 ## Hoja de Trabajo (2026-09-21, rediseñada 2026-09-22)

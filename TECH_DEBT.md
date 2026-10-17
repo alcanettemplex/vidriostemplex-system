@@ -1705,3 +1705,17 @@ la cotización aprobada"). Quedó fuera, a propósito:
 3. **Dos "Crear propuesta" simultáneos** chocan con el UNIQUE `(cotizacion_id, etiqueta)` y el
    segundo recibe el 500 genérico "No se pudo crear la propuesta" — baja, ~10 min (bloquear la
    cabecera como en `actualizar`).
+
+## 2026-10-17 — Cotizador: anexo de diseños en el PDF (lo que quedó señalado)
+
+Ver `docs/modulos/cotizador.md` → "Anexo de diseños".
+
+1. **El dibujo del producto existe dos veces** — media, ~3 h: la pantalla lo pinta en React
+   (`frontend-web/src/features/cotizador/components/DiagramaProducto.tsx`) y el PDF con el SVG de
+   `backend-api/src/cotizador/lib/dibujoPdf.ts`. Los dos salen del mismo `Plano`, pero solo el del PDF
+   tiene color, símbolos de apertura y cabinas sin marco. Unificar: que la pantalla pida el SVG al
+   backend (o compartir la función) para que no se vuelvan a separar.
+2. **Orientación de la cabina en L** — baja, ~1 h: no se guarda de qué lado va el costado; la vista
+   desde arriba lo pone siempre a la izquierda. Si el usuario lo pide, un campo como "Abre hacia".
+3. **Cabinas batientes en L sin lado Y** — baja: el formulario de batientes no tiene campo para el
+   costado; la vista desde arriba lo rotula "Costado" sin medida.

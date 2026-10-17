@@ -6983,3 +6983,13 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **backend / BD:** sin cambios (formato de `pieza` igual).
 - **Corregido de paso (señalado en la sesión anterior):** una letra bloqueada o un usuario de solo lectura ya no reescala el plano al abrirlo; antes quedaba «Sin guardar» imposible de resolver y deshabilitaba «Descargar Excel».
 - **Verificación:** `tsc --noEmit` y ESLint frontend limpios; scripts: 13/13 desplome (plantillas abre arriba/abajo, rectangular y descuadre sin cambios, plano viejo corregido al abrir, bloqueado sin reescalar, sin «Sin guardar» falso, cota ANCHO en el lado mayor) + 11/11 y 11/11 de regresión. No se probó en navegador.
+
+## 2026-10-17 (4) — Cotizador: anexo de diseños en el PDF de cotización
+
+**Pedido del usuario:** incluir en el PDF que se envía al cliente el diseño de lo cotizado, cuando el ítem lo tiene. Se revisaron tres PDF de ejemplo (COT-17005, COT-17021 y una mezcla en memoria con cabinas en L) antes de implementar. Decisiones: anexo al final en cuadrícula 2×2 · solo ancho y alto total, con la medida que escribió el asesor · símbolos de corrediza / fijo / apertura · diseños sin escala exacta se incluyen · vista exterior · campo «Abre hacia» opcional en Cabinas batientes, solo para el dibujo · marco del color cotizado · cabina batiente solo vidrio, corrediza con riel · idénticos agrupados con anotación · cabina en L con aviso y la L vista desde arriba.
+
+- **backend:** `cotizador/lib/dibujoPdf.ts` (nuevo, puro): `planoDeResultadoGuardado`, `dibujoDeItem`, `agruparIdenticos`, `svgDiseno`, `svgPlantaL`, `leyendaSimbolos`, `textoAvisoL`. `generadorPdfCotizacion.ts` — `ItemPdf.dibujo`, «Ver diseño en el anexo» y el anexo (`tarjetaAnexo`). `cotizador_cotizaciones.controller.ts › descargarPdfPropuesta` — calcula el dibujo de cada ítem. `cotizador_plano.controller.ts › planoDeItem` — usa `planoDeResultadoGuardado` (misma respuesta). `modules/cabinasBatientes.ts` — campo `abreHacia`.
+- **frontend:** sin cambios (el formulario se arma con `meta.campos`; la descarga ya existía).
+- **BD:** sin cambios (`abreHacia` vive en el JSONB `input`).
+- **Verificación:** `tsc` backend limpio; `test:cotizador` 304/304, con `dibujoPdf.test.ts` (18) nuevo y 3 casos nuevos en `pdf.test.ts`. La primera corrida falló en suites que dependen de la caché y no se tocaron (falla pasajera de conexión al precargar); la segunda pasó completa. PDF real de la COT-17005 generado por el mismo camino del endpoint y revisado convertido a imagen. No se probó el formulario en el navegador.
+- **Deuda:** dibujo duplicado pantalla/PDF, orientación de la L y lado Y de batientes → `TECH_DEBT.md` 2026-10-17. ESLint del backend sigue sin configuración (deuda previa).

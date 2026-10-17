@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import { calcularPlano } from '../cotizador/lib/planoProducto';
 import { getDiseno, esNivelAptoParaCorte } from '../cotizador/lib/motorDespiece';
 import { ordenarParaTaller } from '../cotizador/lib/ordenCorte';
+import { planoDeResultadoGuardado } from '../cotizador/lib/dibujoPdf';
 import * as cache from '../cotizador/cache';
 import * as store from '../cotizador/store/cotizacionStore';
 import type { Diseno } from '../cotizador/tipos';
@@ -114,36 +115,11 @@ export const planoDeItem = async (req: Request, res: Response) => {
       });
     }
 
-    const resultado = item.resultado;
-    const disenoInfo = resultado?.diseno;
-    if (!disenoInfo?.diseno) {
-      return res
-        .status(400)
-        .json({ error: 'Este ítem se cotizó con medidas libres, no por diseño: no tiene plano.' });
-    }
-    const fabricacion = resultado.medidas?.fabricacion;
-    if (!fabricacion) {
-      return res.status(400).json({ error: 'Este ítem no tiene una medida de fabricación guardada.' });
-    }
-
-    // `resultado.diseno` sólo guarda {id, sistema, diseno, etiqueta, paneles,
-    // nivelCorte} — no `modulo`. Sólo hace falta para la regla especial de
-    // espejo, así que se infiere del prefijo del propio código en vez de volver
-    // al catálogo: eso rompería la promesa de que este endpoint funciona aunque
-    // el diseño ya no exista. Ningún otro módulo usa ese prefijo.
-    const modulo = String(disenoInfo.diseno).startsWith('ESP_') ? 'espejo' : undefined;
-
-    res.json(
-      calcularPlano({
-        codigoDiseno: disenoInfo.diseno,
-        modulo,
-        anchoFabMm: Number(fabricacion.anchoCm) * 10,
-        altoFabMm: Number(fabricacion.altoCm) * 10,
-        vidrios: resultado.cortes?.vidrios ?? [],
-        disenoId: disenoInfo.id,
-        overrides: cache.getGeometriaOverrides(),
-      })
-    );
+    // Mismo cálculo que el anexo del PDF (`planoDeResultadoGuardado`, 2026-10-17):
+    // solo lo guardado en `item.resultado`, sin volver al catálogo de diseños.
+    const r = planoDeResultadoGuardado(item.resultado, cache.getGeometriaOverrides());
+    if ('error' in r) return res.status(400).json({ error: r.error });
+    res.json(r.plano);
   } catch (e) {
     console.error('planoDeItem:', e instanceof Error ? e.message : e);
     res.status(500).json({ error: 'No se pudo calcular el plano de este ítem.' });
