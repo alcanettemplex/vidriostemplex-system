@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
  * Normaliza texto para comparar en una búsqueda: sin tildes, minúsculas y sin espacios
  * en los extremos. "  Martínez " y "martinez" quedan iguales.
  * Es la misma normalización que aplica el backend (normalizarTermino + translate() en
- * contabilidad.controller.ts), para que el filtro local y el del servidor coincidan.
+ * backend-api/src/utils/busquedaODP.ts), para que el filtro local y el del servidor coincidan.
  */
 export const normalizarTexto = (s?: string | null): string =>
   (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();

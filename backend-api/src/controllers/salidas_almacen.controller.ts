@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Op, literal } from 'sequelize';
 import { ODP, Cliente, Usuario, NoConformidad, FacturaAdicionalODP } from '../models';
 import SalidaAlmacen from '../models/salida_almacen.model';
+import { condicionBusquedaODP } from '../utils/busquedaODP';
 
 const salidaSchema = z.object({
   numero_sa: z.string().min(1, 'El número SA es requerido'),
@@ -153,6 +154,34 @@ export const getNcSinSalida = async (_req: Request, res: Response) => {
   }
 };
 
+// ─── GET: Ubicar ODP que no aparece en ninguna lista del módulo ──────────────
+// El buscador general del frontend busca primero en lo que ya cargó (las 5 listas, sin
+// filtro de mes). Solo si ahí no hay nada llama a este endpoint, para decir POR QUÉ la ODP
+// no está (sin facturar, NC sin instalar…) o que no existe. Misma regla de búsqueda que
+// Contabilidad (utils/busquedaODP).
+const ubicarSchema = z.object({ q: z.string().trim().min(2, 'Escribe al menos 2 caracteres para buscar').max(100) }).strict();
+
+export const ubicarODP = async (req: Request, res: Response) => {
+  try {
+    const { q } = ubicarSchema.parse(req.query);
+    const odps = await ODP.findAll({
+      where: { [Op.and]: [literal(condicionBusquedaODP('"ODP"."id"', q))] },
+      include: INCLUDE_ODP,
+      attributes: [
+        'id', 'numero_odp', 'tipo_odp', 'estado_produccion', 'estado_facturacion', 'factura_electronica', 'es_no_conformidad',
+        [literal('EXISTS (SELECT 1 FROM salidas_almacen sa WHERE sa.odp_id = "ODP"."id")'), 'tiene_salida'],
+      ],
+      order: [['id', 'DESC']],
+      limit: 10,
+    });
+    res.json(odps);
+  } catch (e: any) {
+    if (e.name === 'ZodError') return res.status(400).json({ error: e.issues?.[0]?.message || 'Datos inválidos.' });
+    console.error('ubicarODP:', e.message);
+    res.status(500).json({ error: 'No se pudo buscar la ODP. Intenta de nuevo.' });
+  }
+};
+
 // ─── POST: Crear salida de almacén ───────────────────────────────────────────
 export const createSalida = async (req: Request, res: Response) => {
   try {
@@ -173,7 +202,7 @@ export const createSalida = async (req: Request, res: Response) => {
     import('../server').then(({ emitirCambio }) => emitirCambio('facturas_salidas')).catch(() => {});
     res.status(201).json(salida);
   } catch (e: any) {
-    if (e.name === 'ZodError') return res.status(400).json({ error: e.errors[0].message });
+    if (e.name === 'ZodError') return res.status(400).json({ error: e.issues?.[0]?.message || 'Datos inválidos.' });
     console.error('createSalida:', e.message);
     res.status(500).json({ error: 'Error al crear salida de almacén' });
   }
@@ -191,7 +220,7 @@ export const updateSalida = async (req: Request, res: Response) => {
     await salida.update({ numero_sa: data.numero_sa, fecha_sa: data.fecha_sa });
     res.json(salida);
   } catch (e: any) {
-    if (e.name === 'ZodError') return res.status(400).json({ error: e.errors[0].message });
+    if (e.name === 'ZodError') return res.status(400).json({ error: e.issues?.[0]?.message || 'Datos inválidos.' });
     console.error('updateSalida:', e.message);
     res.status(500).json({ error: 'Error al actualizar salida de almacén' });
   }

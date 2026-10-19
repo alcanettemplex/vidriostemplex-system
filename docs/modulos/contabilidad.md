@@ -35,9 +35,10 @@ Una sola regla, `pestanaDeODP()` en `contabilidad.utils.ts`, espejada en SQL por
 
 ## Búsqueda
 
-**Regla única en el servidor:** `condicionBusquedaODP(odpIdExpr, q)` en el controller. Encuentra coincidencias en el número de ODP, la FE principal y las adicionales, el nombre del cliente, el NIT (tal como está guardado y también comparando solo dígitos, a partir de 3) y el asesor. La usan:
+**Regla única en el servidor:** `condicionBusquedaODP(odpIdExpr, q)` en `utils/busquedaODP.ts` (estaba privada en el controller; se movió el 2026-10-19 para compartirla con Facturas vs Salidas). Encuentra coincidencias en el número de ODP, la FE principal y las adicionales, el nombre del cliente, el NIT (tal como está guardado y también comparando solo dígitos, a partir de 3) y el asesor. La usan:
 - `GET /odps?q=`, sobre `"ODP"."id"`;
-- `GET /pagos?q=`, sobre `"Pago"."odp_id"`, sumando el recibo (`referencia_pago`) y las observaciones.
+- `GET /pagos?q=`, sobre `"Pago"."odp_id"`, sumando el recibo (`referencia_pago`) y las observaciones;
+- `GET /facturas-salidas/ubicar?q=` (Facturas vs Salidas, ver abajo).
 
 **Detalles de la implementación:**
 - **Sin tildes:** la BD **no tiene `unaccent`** instalada, así que se usa `translate()` nativo de Postgres sobre `lower()`. El término llega normalizado igual (NFD sin diacríticos).
@@ -50,6 +51,17 @@ Una sola regla, `pestanaDeODP()` en `contabilidad.utils.ts`, espejada en SQL por
 - Consulta `/odps?q=&limit=30` y `/pagos?q=&limit=8` en paralelo, y marca cada ODP con su pestaña y, si aplica, "Cartera Vencida · N días", cruzando con `cartera_detalle`.
 - **Clic en una etiqueta:** cambia a esa pestaña y deja su buscador escrito con el número de ODP (`irAPestana`). **Clic en el número:** abre la ficha.
 - **Respeta el rol:** oculta lo que el rol no puede ver y avisa cuántos resultados ocultó. Para el asistente no consulta pagos.
+
+## Facturas vs Salidas (`/facturas-salidas`)
+
+Control de qué ODP facturadas, OA y NC ya tienen su salida de almacén (`SA-…`, `SFV-…` para OA). Un registro por ODP (`salidas_almacen.odp_id` UNIQUE).
+
+- **Carga:** la página trae las 5 listas completas, **sin filtro de mes en el servidor** (`/facturadas`, `/con-salida`, `/oa-pendientes`, `/con-salida-oa`, `/nc`); el mes, la pestaña y los filtros se aplican en el navegador. `/con-salida` trae **todo el histórico** (489 filas el 2026-10-19): candidato a paginar si el egress lo pide.
+- **Qué cae en cada lista:** Facturadas = `estado_facturacion='FACTURADA'` sin salida (**no excluye OA**: una OA facturada saldría también en OA; 0 casos el 2026-10-19). NC = `es_no_conformidad` en INSTALADA/ENTREGADA sin salida. Con salida se parte por `tipo_odp` OA / no OA.
+- **Buscador general (2026-10-19):** encima de las pestañas, ignora mes, pestaña y filtros. Índice por ODP (`indiceGlobal`) armado con las 5 listas: cada resultado dice **dónde está** (clic → `irA()` cambia pestaña, subpestaña y mes) y trae **la misma acción** que en su pestaña (Registrar SA / SFV / SA de NC, o editar/eliminar la salida). Una OA presente en Facturadas y OA sale una vez con **Registrar SFV**.
+- **ODP fuera del módulo:** si no hay coincidencias locales, tras 400 ms consulta `GET /ubicar?q=` (misma regla `condicionBusquedaODP`, máx. 10, incluye `tiene_salida`). Las que sí están en el módulo (coincidieron por NIT o asesor) se muestran como resultado normal; las demás con su motivo (`motivoAusencia`: sin facturar, NC sin instalar, o página desactualizada).
+- **Buscadores por pestaña:** sin tildes y con las FE adicionales, vía `coincideBusqueda` de `utils/busqueda.ts`.
+- **Corregido el 2026-10-19:** con Zod 4, `e.errors` ya no existe; `createSalida`/`updateSalida` con datos inválidos lanzaban `TypeError` dentro del `catch` y la petición quedaba sin respuesta. Ahora `e.issues`.
 
 ## Tiempo real
 

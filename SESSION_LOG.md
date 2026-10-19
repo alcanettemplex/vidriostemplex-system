@@ -7015,3 +7015,12 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **BD:** sin cambios (JSONB `pieza`).
 - **Verificación:** `tsc --noEmit` backend y frontend limpios, ESLint limpio; script con centro en los 4 cantos × 2 extremos, contorno SVG, conteo PERF, los 7 avisos, arrastre a otro canto y canto inclinado de desplome. No se probó en navegador.
 - **Despliegue:** backend antes o junto con el frontend.
+
+## 2026-10-19 (3) — Facturas vs Salidas: buscador general
+
+**Pedido del usuario:** un buscador que muestre la ODP buscada sin importar pestaña ni mes, y que permita registrar la SA si está facturada y sin salida. Decisiones: si la ODP no está en el módulo, decir por qué (endpoint nuevo) · corregir de paso los buscadores de cada pestaña · una OA facturada sin salida se registra como SFV.
+
+- **backend:** `utils/busquedaODP.ts` (nuevo) — `condicionBusquedaODP` y sus helpers, movidos sin cambios desde `contabilidad.controller.ts` (que ahora los importa). `salidas_almacen.controller.ts` — `ubicarODP` (`GET /facturas-salidas/ubicar?q=`, Zod `.strict()`, 2–100 caracteres, máx. 10, mismos roles de lectura). Corregido: `e.errors[0]` → `e.issues` (Zod 4) en crear/editar salida, que dejaban la petición colgada con datos inválidos.
+- **frontend:** `FacturasSalidasPage.tsx` — buscador general con índice por ODP, ubicación clicable (pestaña + mes), acción por fila, consulta a `/ubicar` cuando no hay coincidencias locales y motivo de ausencia; buscadores por pestaña con `coincideBusqueda` (sin tildes, FE adicionales); selector de año acepta el año al que lleva «Ir a». `utils/busqueda.ts` — comentario apuntando al util nuevo.
+- **BD:** sin cambios.
+- **Verificación:** `tsc` backend y frontend limpios, ESLint del page limpio. Contra la BD (solo lectura): `/ubicar` con ODP sin facturar (motivo correcto), término inexistente (vacío), 1 carácter (400), ODP facturada (`enModulo`), parámetro extra (400 por `.strict()`); Contabilidad `q=peña` y `q=PENA` devuelven lo mismo tras mover la regla. No se probó en navegador.

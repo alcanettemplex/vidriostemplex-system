@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Op } from 'sequelize';
 import { ODP, Cliente, Usuario, Pago, FacturaAdicionalODP, sequelize } from '../models';
 import { hoyBogotaISO, inicioDiaBogota, diaCalendarioISO, diferenciaDias } from '../utils/fechas';
+import { condicionBusquedaODP, normalizarTermino, patronLike, sinTildes } from '../utils/busquedaODP';
 
 // Helper: recalcula abono/pendiente/estado_caja de una ODP a partir de sus pagos actuales
 const recalcularFinanciero = async (odp_id: number, t: any) => {
@@ -38,51 +39,7 @@ const pagoSchema = z.object({
   fecha: z.string().optional(), // ISO date string YYYY-MM-DD; si no se envía usa NOW
 });
 
-// ─── Búsqueda ────────────────────────────────────────────────────────────────
-// La BD no tiene la extensión `unaccent`: `translate()` es nativo de Postgres y quita las
-// tildes sin migración. El término llega ya normalizado igual desde normalizarTermino().
-const sinTildes = (expr: string) =>
-  `translate(lower(coalesce(${expr}, '')), 'áàäâãéèëêíìïîóòöôõúùüûñç', 'aaaaaeeeeiiiiooooouuuunc')`;
-
-const normalizarTermino = (q: string) =>
-  q.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-
-// Patrón LIKE seguro: escapa los comodines con '!' y lo pasa por sequelize.escape (no se
-// concatena texto del usuario sin escapar).
-const patronLike = (termino: string) =>
-  sequelize.escape(`%${termino.replace(/[!%_]/g, (c) => `!${c}`)}%`);
-
-/**
- * Condición SQL "esta ODP coincide con el término": número de ODP, FE principal y
- * adicionales, cliente (nombre y NIT, también sin puntos ni guiones) y asesor.
- * Es la única fuente de la regla de búsqueda: la usan /odps (sobre "ODP"."id") y
- * /pagos (sobre "Pago"."odp_id"), para que ambas encuentren exactamente lo mismo.
- */
-const condicionBusquedaODP = (odpIdExpr: string, q: string): string => {
-  const termino = normalizarTermino(q);
-  const like = patronLike(termino);
-  const digitos = q.replace(/\D/g, '');
-  const porNitSinFormato = digitos.length >= 3
-    ? `OR regexp_replace(coalesce(c.numero_documento, ''), '\\D', '', 'g') LIKE ${patronLike(digitos)} ESCAPE '!'`
-    : '';
-  return `EXISTS (
-    SELECT 1 FROM odp o
-    LEFT JOIN clientes c ON c.id = o.cliente_id
-    LEFT JOIN usuarios u ON u.id = o.asesor_id
-    WHERE o.id = ${odpIdExpr} AND (
-      ${sinTildes('o.numero_odp')} LIKE ${like} ESCAPE '!'
-      OR ${sinTildes('o.factura_electronica')} LIKE ${like} ESCAPE '!'
-      OR ${sinTildes('c.nombre_razon_social')} LIKE ${like} ESCAPE '!'
-      OR ${sinTildes('c.numero_documento')} LIKE ${like} ESCAPE '!'
-      ${porNitSinFormato}
-      OR ${sinTildes('u.nombre_completo')} LIKE ${like} ESCAPE '!'
-      OR EXISTS (
-        SELECT 1 FROM facturas_adicionales_odp f
-        WHERE f.odp_id = o.id AND ${sinTildes('f.numero_fe')} LIKE ${like} ESCAPE '!'
-      )
-    )
-  )`;
-};
+// Búsqueda: la regla única vive en utils/busquedaODP.ts (compartida con Facturas vs Salidas).
 
 // Proceso Completado = ODP (no OA) con FE registrada y caja CANCELADO. Misma regla que
 // pestanaDeODP() en el frontend (features/contabilidad/components/contabilidad.utils.ts).

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
@@ -14,6 +14,7 @@ import { es } from 'date-fns/locale';
 
 import API from '../../services/config';
 import { hoyBogotaISO } from '../../utils/fechas';
+import { coincideBusqueda, normalizarTexto } from '../../utils/busqueda';
 
 const fmtFecha = (f: string | null | undefined) => {
   if (!f) return '—';
@@ -61,6 +62,12 @@ const BadgeAnticipada = () => (
 
 type Tab = 'facturadas' | 'oa' | 'nc' | 'con_salida';
 type SubTabConSalida = 'odps' | 'oa';
+
+const numerosFE = (o?: { factura_electronica?: string | null; facturas_adicionales?: { numero_fe: string }[] }) =>
+  [o?.factura_electronica, ...(o?.facturas_adicionales?.map(f => f.numero_fe) ?? [])];
+
+/** Mínimo de caracteres para el buscador general (igual que el endpoint /ubicar). */
+const MIN_BUSQUEDA = 2;
 
 const TIPO_ERROR_NC: Record<string, { label: string; cls: string }> = {
   ERROR_INTERNO: { label: 'Error interno',  cls: 'bg-red-50 text-red-800 border border-red-200' },
@@ -118,6 +125,57 @@ interface SalidaAlmacen {
   };
 }
 
+/** Dónde aparece una ODP dentro del módulo (una ODP puede estar en dos listas: OA facturada). */
+interface Ubicacion {
+  tab: Tab;
+  sub?: SubTabConSalida;
+  etiqueta: string;
+  /** Fecha con la que esa pestaña filtra por mes (null = aparece en cualquier mes). */
+  fechaMes: string | null | undefined;
+}
+
+interface ResultadoGlobal {
+  id: number;
+  numero_odp: string;
+  cliente: string;
+  estado_produccion?: string;
+  fe: (string | null | undefined)[];
+  fecha_factura?: string | null;
+  ubicaciones: Ubicacion[];
+  /** Texto en el que busca el buscador general. */
+  campos: (string | null | undefined)[];
+  facturada?: ODPFacturada;
+  oa?: OAPendiente;
+  nc?: ODPNoConformidad;
+  salida?: { s: SalidaAlmacen; esOA: boolean };
+}
+
+/** ODP que no está en ninguna lista del módulo (respuesta de /ubicar). */
+interface ODPUbicada {
+  id: number;
+  numero_odp: string;
+  tipo_odp: string | null;
+  estado_produccion: string;
+  estado_facturacion: string | null;
+  factura_electronica: string | null;
+  es_no_conformidad: boolean | null;
+  tiene_salida: boolean;
+  cliente: { id: number; nombre_razon_social: string } | null;
+}
+
+/** Por qué una ODP no aparece en Facturas vs Salidas. */
+const motivoAusencia = (o: ODPUbicada) => {
+  const estado = getEstadoODP(o.estado_produccion).label;
+  if (o.tiene_salida) return 'Ya tiene salida registrada, pero no aparece en la página: actualízala con el botón de recargar.';
+  if (o.es_no_conformidad && !['INSTALADA', 'ENTREGADA'].includes(o.estado_produccion) && o.estado_facturacion !== 'FACTURADA') {
+    return `Es una No Conformidad en «${estado}»: aparece en «No Conformidades» cuando quede instalada o entregada.`;
+  }
+  if (o.tipo_odp !== 'OA' && o.estado_facturacion !== 'FACTURADA') {
+    return `No está facturada (producción: ${estado}). Aparece en «Facturadas» cuando Contabilidad registre su factura.`;
+  }
+  return 'No aparece en la página: actualízala con el botón de recargar.';
+};
+
 interface ModalSAState {
   odp?: ODPFacturada | OAPendiente | ODPNoConformidad;
   salida?: SalidaAlmacen;
@@ -152,6 +210,10 @@ const FacturasSalidasPage: React.FC = () => {
   const [busquedaConSalidaOA,  setBusquedaConSalidaOA]  = useState('');
   const [filtroCajaFacturadas, setFiltroCajaFacturadas] = useState('');
   const [soloAnticipadas,      setSoloAnticipadas]      = useState(false);
+  const [busquedaGlobal,       setBusquedaGlobal]       = useState('');
+  const [ubicadas,             setUbicadas]             = useState<ODPUbicada[] | null>(null);
+  const [buscandoRemoto,       setBuscandoRemoto]       = useState(false);
+  const [errorRemoto,          setErrorRemoto]          = useState<string | null>(null);
 
   const [modalSA,    setModalSA]    = useState<ModalSAState | null>(null);
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
@@ -246,76 +308,161 @@ const FacturasSalidasPage: React.FC = () => {
     } catch { return true; }
   };
 
+  // Buscadores de cada pestaña: sin tildes y con las FE adicionales (2026-10-19).
   const facturadasFiltradas = facturadas.filter(o => {
     if (!mesCorrecto(o.fecha_factura)) return false;
     if (filtroCajaFacturadas && o.estado_caja !== filtroCajaFacturadas) return false;
-    // Va antes del bloque de búsqueda: ese hace return temprano y saltaría este filtro.
     if (soloAnticipadas && !esFacturaAnticipada(o.estado_produccion)) return false;
-    if (busquedaFacturadas) {
-      const q = busquedaFacturadas.toLowerCase();
-      return (
-        o.numero_odp.toLowerCase().includes(q) ||
-        (o.cliente?.nombre_razon_social || '').toLowerCase().includes(q) ||
-        (o.factura_electronica || '').toLowerCase().includes(q)
-      );
-    }
-    return true;
+    return coincideBusqueda(busquedaFacturadas, [o.numero_odp, o.cliente?.nombre_razon_social, ...numerosFE(o)]);
   });
 
-  const oaFiltradas = oaPendientes.filter(oa => {
-    if (!mesCorrecto(oa.fecha_creacion)) return false;
-    if (busquedaOA) {
-      const q = busquedaOA.toLowerCase();
-      return (
-        oa.numero_odp.toLowerCase().includes(q) ||
-        (oa.cliente?.nombre_razon_social || '').toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const oaFiltradas = oaPendientes.filter(oa =>
+    mesCorrecto(oa.fecha_creacion) && coincideBusqueda(busquedaOA, [oa.numero_odp, oa.cliente?.nombre_razon_social]));
 
-  const conSalidaFiltradas = conSalida.filter(s => {
-    if (!mesCorrecto(s.fecha_sa)) return false;
-    if (busquedaConSalida) {
-      const q = busquedaConSalida.toLowerCase();
-      return (
-        (s.odp?.numero_odp || '').toLowerCase().includes(q) ||
-        (s.odp?.cliente?.nombre_razon_social || '').toLowerCase().includes(q) ||
-        (s.odp?.factura_electronica || '').toLowerCase().includes(q) ||
-        (s.numero_sa || '').toLowerCase().includes(q) ||
-        (s.creador?.nombre_completo || '').toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const conSalidaFiltradas = conSalida.filter(s =>
+    mesCorrecto(s.fecha_sa) && coincideBusqueda(busquedaConSalida,
+      [s.odp?.numero_odp, s.odp?.cliente?.nombre_razon_social, ...numerosFE(s.odp), s.numero_sa, s.creador?.nombre_completo]));
 
-  const ncFiltradas = odpsNc.filter(nc => {
-    if (!mesCorrecto(nc.fecha_creacion)) return false;
-    if (busquedaNc) {
-      const q = busquedaNc.toLowerCase();
-      return (
-        nc.numero_odp.toLowerCase().includes(q) ||
-        (nc.cliente?.nombre_razon_social || '').toLowerCase().includes(q) ||
-        (nc.odp_padre?.numero_odp || '').toLowerCase().includes(q) ||
-        (nc.no_conformidad_origen?.tipo_error || '').toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const ncFiltradas = odpsNc.filter(nc =>
+    mesCorrecto(nc.fecha_creacion) && coincideBusqueda(busquedaNc, [
+      nc.numero_odp, nc.cliente?.nombre_razon_social, nc.odp_padre?.numero_odp,
+      nc.no_conformidad_origen?.tipo_error, TIPO_ERROR_NC[nc.no_conformidad_origen?.tipo_error || '']?.label]));
 
-  const conSalidaOAFiltradas = conSalidaOA.filter(s => {
-    if (!mesCorrecto(s.fecha_sa)) return false;
-    if (busquedaConSalidaOA) {
-      const q = busquedaConSalidaOA.toLowerCase();
+  const conSalidaOAFiltradas = conSalidaOA.filter(s =>
+    mesCorrecto(s.fecha_sa) && coincideBusqueda(busquedaConSalidaOA,
+      [s.odp?.numero_odp, s.odp?.cliente?.nombre_razon_social, s.numero_sa, s.creador?.nombre_completo]));
+
+  // ── Buscador general: todas las listas, sin mes ni pestaña ni filtros ──────
+  // Índice por ODP: una OA facturada sin salida está a la vez en Facturadas y en OA.
+  const indiceGlobal = useMemo(() => {
+    const m = new Map<number, ResultadoGlobal>();
+    const entrada = (base: Omit<ResultadoGlobal, 'ubicaciones' | 'campos' | 'fe'>, fe: (string | null | undefined)[]) => {
+      let r = m.get(base.id);
+      if (!r) {
+        r = { ...base, fe, ubicaciones: [], campos: [] };
+        m.set(base.id, r);
+      }
+      if (!r.estado_produccion && base.estado_produccion) r.estado_produccion = base.estado_produccion;
+      if (!r.fe.some(Boolean) && fe.some(Boolean)) r.fe = fe;
+      if (!r.fecha_factura && base.fecha_factura) r.fecha_factura = base.fecha_factura;
+      return r;
+    };
+    for (const o of facturadas) {
+      const r = entrada({ id: o.id, numero_odp: o.numero_odp, cliente: o.cliente?.nombre_razon_social || '', estado_produccion: o.estado_produccion, fecha_factura: o.fecha_factura }, numerosFE(o));
+      r.facturada = o;
+      r.ubicaciones.push({ tab: 'facturadas', etiqueta: 'Facturada · pendiente SA', fechaMes: o.fecha_factura });
+      r.campos.push(o.numero_odp, o.cliente?.nombre_razon_social, ...numerosFE(o));
+    }
+    for (const oa of oaPendientes) {
+      const r = entrada({ id: oa.id, numero_odp: oa.numero_odp, cliente: oa.cliente?.nombre_razon_social || '', estado_produccion: oa.estado_produccion }, []);
+      r.oa = oa;
+      r.ubicaciones.push({ tab: 'oa', etiqueta: 'OA · pendiente SFV', fechaMes: oa.fecha_creacion });
+      r.campos.push(oa.numero_odp, oa.cliente?.nombre_razon_social);
+    }
+    for (const nc of odpsNc) {
+      const r = entrada({ id: nc.id, numero_odp: nc.numero_odp, cliente: nc.cliente?.nombre_razon_social || '', estado_produccion: nc.estado_produccion }, []);
+      r.nc = nc;
+      r.ubicaciones.push({ tab: 'nc', etiqueta: 'No Conformidad · pendiente SA', fechaMes: nc.fecha_creacion });
+      r.campos.push(nc.numero_odp, nc.cliente?.nombre_razon_social, nc.odp_padre?.numero_odp);
+    }
+    const conSalidaDe = (lista: SalidaAlmacen[], esOA: boolean) => {
+      for (const s of lista) {
+        if (!s.odp) continue;
+        const r = entrada({ id: s.odp.id, numero_odp: s.odp.numero_odp, cliente: s.odp.cliente?.nombre_razon_social || '', estado_produccion: s.odp.estado_produccion, fecha_factura: s.odp.fecha_factura }, numerosFE(s.odp));
+        r.salida = { s, esOA };
+        r.ubicaciones.push({ tab: 'con_salida', sub: esOA ? 'oa' : 'odps', etiqueta: `${esOA ? 'OA con salida' : 'Con salida'} ${s.numero_sa} · ${fmtFecha(s.fecha_sa)}`, fechaMes: s.fecha_sa });
+        r.campos.push(s.odp.numero_odp, s.odp.cliente?.nombre_razon_social, ...numerosFE(s.odp), s.numero_sa);
+      }
+    };
+    conSalidaDe(conSalida, false);
+    conSalidaDe(conSalidaOA, true);
+    return m;
+  }, [facturadas, oaPendientes, odpsNc, conSalida, conSalidaOA]);
+
+  const buscandoGlobal = normalizarTexto(busquedaGlobal).length >= MIN_BUSQUEDA;
+  const resultadosGlobales = useMemo(
+    () => (buscandoGlobal ? Array.from(indiceGlobal.values()).filter(r => coincideBusqueda(busquedaGlobal, r.campos)) : []),
+    [buscandoGlobal, indiceGlobal, busquedaGlobal],
+  );
+
+  // Sin coincidencias en las listas se pregunta al servidor (que además busca por NIT y asesor)
+  // para mostrar la ODP si sí está en el módulo, o decir por qué no está.
+  const consultaRemota = useRef(0);
+  const sinLocales = buscandoGlobal && resultadosGlobales.length === 0;
+  useEffect(() => {
+    setUbicadas(null);
+    setErrorRemoto(null);
+    const n = ++consultaRemota.current;
+    if (!sinLocales) { setBuscandoRemoto(false); return; }
+    setBuscandoRemoto(true);
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await axios.get<ODPUbicada[]>(`${API}/api/facturas-salidas/ubicar`, { headers, params: { q: busquedaGlobal.trim() } });
+        if (n === consultaRemota.current) setUbicadas(data);
+      } catch (e: any) {
+        if (n === consultaRemota.current) setErrorRemoto(e.response?.data?.error || 'No se pudo buscar la ODP en el sistema. Revisa la conexión e intenta de nuevo.');
+      } finally {
+        if (n === consultaRemota.current) setBuscandoRemoto(false);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [sinLocales, busquedaGlobal]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Las que devolvió el servidor y sí están en el módulo (coincidieron por NIT o asesor) se
+  // muestran como resultado normal, con su acción; las demás, con el motivo de su ausencia.
+  const resultadosVisibles = resultadosGlobales.length
+    ? resultadosGlobales
+    : (ubicadas ?? []).flatMap(u => indiceGlobal.get(u.id) ?? []);
+  const ausentes = (ubicadas ?? []).filter(u => !indiceGlobal.has(u.id));
+
+  /** Lleva a la pestaña (y al mes) donde está la ODP y cierra el buscador general. */
+  const irA = (u: Ubicacion) => {
+    setTab(u.tab);
+    if (u.sub) setSubTabConSalida(u.sub);
+    if (u.fechaMes) {
+      try {
+        const d = parseISO(u.fechaMes);
+        setFiltroMes(d.getMonth() + 1);
+        setFiltroAnio(d.getFullYear());
+      } catch { /* fecha ilegible: se queda el mes elegido */ }
+    }
+    setBusquedaGlobal('');
+  };
+
+  /** Acción de la fila del buscador general: la misma que tendría en su pestaña. */
+  const accionResultado = (r: ResultadoGlobal) => {
+    if (!puedeEditar) return null;
+    if (r.salida) {
+      const { s, esOA } = r.salida;
       return (
-        (s.odp?.numero_odp || '').toLowerCase().includes(q) ||
-        (s.odp?.cliente?.nombre_razon_social || '').toLowerCase().includes(q) ||
-        (s.numero_sa || '').toLowerCase().includes(q) ||
-        (s.creador?.nombre_completo || '').toLowerCase().includes(q)
+        <div className="flex gap-2">
+          <button onClick={() => abrirEditar(s, esOA)} title="Editar salida"
+            className="p-1.5 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition">
+            <Pencil className="w-4 h-4" />
+          </button>
+          <button onClick={() => eliminarSA(s.id, esOA)} title="Eliminar salida"
+            className="p-1.5 text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       );
     }
-    return true;
-  });
+    // OA facturada sin salida: está en Facturadas y en OA; se registra como SFV (es una OA).
+    const registrar = r.oa
+      ? { fn: () => abrirCrearOA(r.oa!), texto: 'Registrar SFV', cls: 'bg-indigo-600 hover:bg-indigo-700' }
+      : r.facturada
+        ? { fn: () => abrirCrearODP(r.facturada!), texto: 'Registrar SA', cls: 'bg-violet-600 hover:bg-violet-700' }
+        : r.nc
+          ? { fn: () => abrirCrearNc(r.nc!), texto: 'Registrar SA', cls: 'bg-rose-600 hover:bg-rose-700' }
+          : null;
+    if (!registrar) return null;
+    return (
+      <button onClick={registrar.fn}
+        className={`flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold whitespace-nowrap rounded-lg transition shadow-sm ${registrar.cls}`}>
+        <Plus className="w-3.5 h-3.5" /> {registrar.texto}
+      </button>
+    );
+  };
 
   // Universo de anticipadas del período (independiente del chip, para no autoanularse el contador)
   const anticipadasDelPeriodo = facturadas.filter(
@@ -323,7 +470,8 @@ const FacturasSalidasPage: React.FC = () => {
   );
 
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const anios = Array.from({ length: 4 }, (_, i) => hoy.getFullYear() - i);
+  // «Ir a la pestaña» puede llevar a un año más viejo que los 4 del selector: se agrega.
+  const anios = Array.from(new Set([...Array.from({ length: 4 }, (_, i) => hoy.getFullYear() - i), filtroAnio])).sort((a, b) => b - a);
 
   const TABS: { key: Tab; label: string; icon: React.ElementType; count: number }[] = [
     { key: 'facturadas', label: 'Facturadas',             icon: FileCheck,      count: facturadasFiltradas.length },
@@ -427,6 +575,111 @@ const FacturasSalidasPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Buscador general — ignora pestaña, mes y filtros */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-card p-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input value={busquedaGlobal} onChange={e => setBusquedaGlobal(e.target.value)}
+            placeholder="Buscar en todo el módulo: ODP, OA, cliente, factura, SA o SFV (sin importar pestaña ni mes)"
+            aria-label="Buscar ODP en todo el módulo"
+            className="w-full pl-9 pr-10 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
+          {busquedaGlobal && (
+            <button onClick={() => setBusquedaGlobal('')} title="Limpiar búsqueda" aria-label="Limpiar búsqueda"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-500 hover:bg-slate-100">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        {busquedaGlobal.trim() && !buscandoGlobal && (
+          <p className="text-xs text-slate-600 mt-2">Escribe al menos {MIN_BUSQUEDA} caracteres.</p>
+        )}
+      </div>
+
+      {buscandoGlobal ? (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50 text-sm text-slate-800">
+            {loading
+              ? 'Cargando el módulo…'
+              : resultadosVisibles.length
+                ? <>Resultados en todo el módulo: <b>{resultadosVisibles.length}</b>. Clic en la ubicación para ir a su pestaña y mes.</>
+                : buscandoRemoto
+                  ? 'No está en las listas del módulo. Buscando en el sistema…'
+                  : 'No está en las listas del módulo.'}
+          </div>
+          {resultadosVisibles.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    {['ODP', 'Cliente', 'Dónde está', 'Estado Producción', 'N° Factura Electrónica', 'Fecha Factura', puedeEditar ? 'Acción' : ''].filter(Boolean).map(h => (
+                      <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {resultadosVisibles.map(r => {
+                    const fes = r.fe.filter(Boolean) as string[];
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-4 font-mono font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(r.id)}>{r.numero_odp}</td>
+                        <td className="px-5 py-4 font-semibold text-slate-900">{r.cliente || '—'}</td>
+                        <td className="px-5 py-4">
+                          <div className="flex flex-col items-start gap-1">
+                            {r.ubicaciones.map(u => (
+                              <button key={u.etiqueta} onClick={() => irA(u)} title="Ir a esta pestaña y su mes"
+                                className="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap border border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100 transition">
+                                {u.etiqueta} →
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex flex-col items-start gap-1">
+                            {r.estado_produccion ? <BadgeEstado estado={r.estado_produccion} /> : <span className="text-slate-500">—</span>}
+                            {r.facturada && esFacturaAnticipada(r.estado_produccion) && <BadgeAnticipada />}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          {fes.length
+                            ? (
+                              <div className="flex flex-wrap items-center gap-1">
+                                {fes.map((fe, i) => (
+                                  <span key={fe + i} className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap border ${i === 0 ? 'bg-blue-50 text-blue-800 border-blue-200' : 'bg-indigo-50 text-indigo-800 border-indigo-200'}`}>{fe}</span>
+                                ))}
+                              </div>
+                            )
+                            : <span className="text-slate-500">—</span>}
+                        </td>
+                        <td className="px-5 py-4 text-slate-800 whitespace-nowrap">{fmtFecha(r.fecha_factura)}</td>
+                        {puedeEditar && <td className="px-5 py-4">{accionResultado(r)}</td>}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {!resultadosVisibles.length && !buscandoRemoto && (
+            <div className="px-5 py-6 space-y-3">
+              {errorRemoto && <p className="text-sm text-rose-700">{errorRemoto}</p>}
+              {ubicadas && ausentes.length === 0 && !errorRemoto && (
+                <p className="text-sm text-slate-700">No existe ninguna ODP que coincida con «{busquedaGlobal.trim()}». Revisa el número, el cliente o la factura.</p>
+              )}
+              {ausentes.map(u => (
+                <div key={u.id} className="flex flex-wrap items-start gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50/60">
+                  <span className="font-mono font-bold text-indigo-700 cursor-pointer hover:underline whitespace-nowrap" onClick={() => setFichaOdpId(u.id)}>{u.numero_odp}</span>
+                  <span className="font-semibold text-slate-900">{u.cliente?.nombre_razon_social || '—'}</span>
+                  <BadgeEstado estado={u.estado_produccion} />
+                  <p className="basis-full text-sm text-amber-900">{motivoAusencia(u)}</p>
+                </div>
+              ))}
+              {ausentes.length === 10 && (
+                <p className="text-xs text-slate-600">Se muestran las 10 más recientes: escribe más para afinar la búsqueda.</p>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (<>
       {/* Tabs principales — estilo carpeta */}
       <FolderTabs
         tabs={TABS.map(t => { const Icon = t.icon; return { key: t.key, label: t.label, icon: <Icon className="w-4 h-4" />, badge: t.count }; })}
@@ -839,6 +1092,7 @@ const FacturasSalidasPage: React.FC = () => {
           )}
         </>
       )}
+      </>)}
 
       {/* ── MODAL SA / SFV ── */}
       {modalSA && (

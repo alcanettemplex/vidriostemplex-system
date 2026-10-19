@@ -5,6 +5,7 @@ import {
   getOAPendientes,
   getConSalidaOA,
   getNcSinSalida,
+  ubicarODP,
   createSalida,
   updateSalida,
   deleteSalida,
@@ -25,6 +26,7 @@ router.get('/con-salida',          authMiddleware, PUEDE_VER,    getConSalida);
 router.get('/oa-pendientes',       authMiddleware, PUEDE_VER,    getOAPendientes);
 router.get('/con-salida-oa',       authMiddleware, PUEDE_VER,    getConSalidaOA);
 router.get('/nc',                  authMiddleware, PUEDE_VER,    getNcSinSalida);
+router.get('/ubicar',              authMiddleware, PUEDE_VER,    ubicarODP);
 router.post('/:odp_id/salida',     authMiddleware, PUEDE_EDITAR, createSalida);
 router.put('/salida/:id',          authMiddleware, PUEDE_EDITAR, updateSalida);
 router.delete('/salida/:id',       authMiddleware, PUEDE_EDITAR, deleteSalida);
