@@ -283,7 +283,7 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 | `SalidaAlmacen` | `salidas_almacen` | SA-XXXX, UNIQUE por ODP |
 | `AuditoriaLog` | `auditoria_log` | INSERT/UPDATE/DELETE de 34 modelos (excluida de auditarse a sí misma) |
 | `AlertasUmbral` | `alertas_umbral` | Umbrales panel ROOT. Sin auditoría |
-| `FacturaAdicionalODP` | `facturas_adicionales_odp` | FE 2ª/3ª de una ODP. Principal sigue en `odp.factura_electronica`. Máx 3 FE totales |
+| `FacturaAdicionalODP` | `facturas_adicionales_odp` | FE 2ª a 5ª de una ODP. Principal sigue en `odp.factura_electronica`. Máx 5 FE totales (1 principal + 4 adicionales, `MAX_FACTURAS_ADICIONALES` en `odp.controller.ts`, espejo en `FacturaElectronicaModal.tsx`; desde 2026-10-19) |
 | `Lead` ⭐ | `leads` | Núcleo del CRM. `estado_crm`: `NUEVO→ASIGNADO→EN_CONTACTO→COTIZANDO→SEGUIMIENTO→VISITA_TECNICA→FRIO→APROBADO\|PERDIDO`. `ultima_actividad` denormalizado, mantenido por hook `LeadEvento.afterCreate` |
 | `LeadEvento` | `lead_eventos` | Bitácora del lead. `tipo` ENUM PG `enum_lead_eventos_tipo`: `CREACION, ASIGNACION, COMUNICACION, SEGUIMIENTO, PASE_A_FRIO, CAMBIO_ESTADO, CONVERSION` |
 | `LeadImagen` | `lead_imagenes` | Imágenes Cloudinary del lead |

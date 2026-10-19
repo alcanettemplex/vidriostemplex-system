@@ -6993,3 +6993,15 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **BD:** sin cambios (`abreHacia` vive en el JSONB `input`).
 - **Verificación:** `tsc` backend limpio; `test:cotizador` 304/304, con `dibujoPdf.test.ts` (18) nuevo y 3 casos nuevos en `pdf.test.ts`. La primera corrida falló en suites que dependen de la caché y no se tocaron (falla pasajera de conexión al precargar); la segunda pasó completa. PDF real de la COT-17005 generado por el mismo camino del endpoint y revisado convertido a imagen. No se probó el formulario en el navegador.
 - **Deuda:** dibujo duplicado pantalla/PDF, orientación de la L y lado Y de batientes → `TECH_DEBT.md` 2026-10-17. ESLint del backend sigue sin configuración (deuda previa).
+
+## 2026-10-19 — Contabilidad: hasta 4 FE adicionales por ODP (5 en total)
+
+**Pedido del usuario:** subir de 2 a 4 las facturas electrónicas adicionales de una ODP. Decisión: lectura literal, 1 principal + 4 adicionales = 5 FE en total.
+
+- **backend:** `odp.controller.ts` — `MAX_FACTURAS_ADICIONALES` de 2 a 4 (el mensaje de error se arma con la constante). Comentarios «2ª/3ª» → «2ª a 5ª» en el controller, `factura_adicional_odp.model.ts`, `models/index.ts` y `odp.routes.ts`.
+- **frontend:** `FacturaElectronicaModal.tsx` — el `< 2` literal pasa a la constante `MAX_FE_ADICIONALES = 4` (espejo del backend) y el aviso de límite se calcula con ella.
+- **BD:** sin cambios. `facturas_adicionales_odp` no tiene CHECK, trigger ni índice que limite la cantidad.
+- **Impacto revisado:** todas las vistas que muestran adicionales las recorren con `map` o «+N» (Contabilidad, Buscador Maestro, ficha ODP Financiero/Imprimir, Facturas vs Salidas, Buscador avanzado de Supervisión). Dashboard, cartera y búsqueda por FE suman o buscan sobre toda la tabla. El tope de monto (suma de FE ≤ `valor_total`) no cambia.
+- **Verificación:** `tsc --noEmit` backend y frontend limpios; ESLint del modal limpio. No se probó agregar FE contra la BD (el backend local apunta a la base real).
+- **Pendiente propuesto y no aplicado:** el conteo, la validación del saldo y el `create` de `agregarFacturaAdicional` no van en transacción con bloqueo de la ODP; dos altas simultáneas podrían pasar el tope de cantidad o de monto.
+- **Incidente del día (sin cambio de código):** en producción, entre el 15 % y el 30 % de las peticiones a Render quedaban sin respuesta (incluido `/health`), con el proceso sano (uptime continuo) y sin pérdidas hacia otros sitios desde la misma red. Producción se quedaba en «Cargando Tablero de Taller…» porque las llamadas axios no tienen timeout. Tras el «Restart» del usuario en Render, 20/20 respondieron (el uptime mostró el mismo proceso). El servicio está en el plan **Free** de Render. Propuestos: timeout global de axios con reintento, y `keepAliveTimeout`/`headersTimeout` en `server.ts`.

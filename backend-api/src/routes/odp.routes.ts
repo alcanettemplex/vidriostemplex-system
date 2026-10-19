@@ -98,7 +98,7 @@ router.patch('/:id/facturar', authMiddleware, requireRole('admin', 'gerencia', '
 // Estado de caja: contabilidad, admin, gerencia pueden cambiar estado_caja manualmente
 router.patch('/:id/caja', authMiddleware, requireRole('admin', 'gerencia', 'contabilidad'), actualizarEstadoCaja);
 
-// Facturas electrónicas adicionales (2ª/3ª): contabilidad, admin, gerencia
+// Facturas electrónicas adicionales (2ª a 5ª): contabilidad, admin, gerencia
 router.post('/:id/facturas-adicionales', authMiddleware, requireRole('admin', 'gerencia', 'contabilidad'), agregarFacturaAdicional);
 router.delete('/:id/facturas-adicionales/:facturaId', authMiddleware, requireRole('admin', 'gerencia', 'contabilidad'), eliminarFacturaAdicional);
 

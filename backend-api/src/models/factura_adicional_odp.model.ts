@@ -1,7 +1,7 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../config/database';
 
-// Facturas electrónicas ADICIONALES de una ODP (2ª y 3ª).
+// Facturas electrónicas ADICIONALES de una ODP (2ª a 5ª; tope en odp.controller).
 // La FE principal sigue en odp.factura_electronica / fecha_factura.
 class FacturaAdicionalODP extends Model {}
 

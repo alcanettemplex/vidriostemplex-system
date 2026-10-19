@@ -1717,10 +1717,10 @@ export const facturarODP = async (req: Request, res: Response) => {
   }
 };
 
-// Máximo de facturas electrónicas por ODP: 1 principal + 2 adicionales
-const MAX_FACTURAS_ADICIONALES = 2;
+// Máximo de facturas electrónicas por ODP: 1 principal + 4 adicionales (5 en total)
+const MAX_FACTURAS_ADICIONALES = 4;
 
-// ─── Agregar factura electrónica adicional (2ª/3ª) ──────────────────────────
+// ─── Agregar factura electrónica adicional (2ª a 5ª) ────────────────────────
 // La FE principal vive en odp.factura_electronica; aquí solo se registran las extra.
 export const agregarFacturaAdicional = async (req: Request, res: Response) => {
   try {

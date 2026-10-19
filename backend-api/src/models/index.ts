@@ -250,7 +250,7 @@ Pago.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 Usuario.hasMany(Pago, { foreignKey: 'registrado_por', as: 'pagos_registrados' });
 Pago.belongsTo(Usuario, { foreignKey: 'registrado_por', as: 'registrador' });
 
-// ─── Facturas electrónicas adicionales (2ª y 3ª FE de una ODP) ───────────────
+// ─── Facturas electrónicas adicionales (2ª a 5ª FE de una ODP) ───────────────
 ODP.hasMany(FacturaAdicionalODP, { foreignKey: 'odp_id', as: 'facturas_adicionales' });
 FacturaAdicionalODP.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 Usuario.hasMany(FacturaAdicionalODP, { foreignKey: 'creado_por', as: 'facturas_adicionales_creadas' });

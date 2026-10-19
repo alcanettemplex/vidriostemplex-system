@@ -7,6 +7,10 @@ import API from '../../../services/config';
 import { hoyBogotaISO } from '../../../utils/fechas';
 import { headers, fmt, fmtFecha, formatMiles, parseMiles } from './contabilidad.utils';
 
+// Mismo tope que MAX_FACTURAS_ADICIONALES en backend-api/src/controllers/odp.controller.ts
+// (1 principal + 4 adicionales); el backend es quien lo hace cumplir.
+const MAX_FE_ADICIONALES = 4;
+
 interface Props {
   /** ODP objetivo. Requiere: id, numero_odp, valor_total, factura_electronica,
    *  fecha_factura, monto_factura_principal, facturas_adicionales. */
@@ -26,7 +30,7 @@ interface Props {
 
 /**
  * Modal de facturación electrónica de una ODP: FE principal (número, fecha, monto),
- * contador de saldo por facturar y CRUD de las FE adicionales (2ª y 3ª).
+ * contador de saldo por facturar y CRUD de las FE adicionales (2ª a 5ª).
  *
  * Extraído de ContabilidadPage para reutilizarse desde la ficha de la ODP.
  * Endpoints: PATCH /odp/:id/facturar · POST|DELETE /odp/:id/facturas-adicionales
@@ -174,7 +178,7 @@ const FacturaElectronicaModal: React.FC<Props> = ({ odp, onClose, onSaved, onAdi
                 </div>
               )}
 
-              {feAdicionales.length < 2 ? (
+              {feAdicionales.length < MAX_FE_ADICIONALES ? (
                 <div className="flex flex-wrap items-end gap-2">
                   <div className="flex-1 min-w-[110px]">
                     <label className="block text-[11px] font-semibold text-slate-900 mb-0.5 uppercase">FE No.</label>
@@ -199,7 +203,7 @@ const FacturaElectronicaModal: React.FC<Props> = ({ odp, onClose, onSaved, onAdi
                   </button>
                 </div>
               ) : (
-                <p className="text-[11px] text-slate-600 italic">Límite alcanzado (3 facturas en total).</p>
+                <p className="text-[11px] text-slate-600 italic">Límite alcanzado ({MAX_FE_ADICIONALES + 1} facturas en total).</p>
               )}
             </div>
           )}
