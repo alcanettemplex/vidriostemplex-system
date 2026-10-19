@@ -9,6 +9,7 @@ import {
   encuadre,
   esHorizontal,
   geometriaBoquete,
+  geometriaMediaPerforacion,
   largo,
   limitesDe,
   mul,
@@ -352,6 +353,80 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       const nn = { x: -dd.y, y: dd.x };
       const lado = nn.x * -borde.n.x + nn.y * -borde.n.y > 0 ? 1 : -1;
       // Si la distancia es corta, el número se corre hacia el boquete para que no choque con la esquina.
+      const w = anchoTexto(fmt(o.pos), fc);
+      const t = o.pos < w + fc ? (w / 2 + fc * 0.4) / o.pos + 1 : 0.5;
+      elementos.push(<Cota key={o.id + 'p'} a={ini} b={fin} texto={fmt(o.pos)} f={fc} lado={lado} color={col} t={t} />);
+    }
+  }
+
+  // ── Medias perforaciones ───────────────────────────────────────────────────
+  // El semicírculo ya va recortado en el contorno; aquí van la zona de agarre, el realce, la cruz
+  // de centro sobre el canto, la etiqueta y la cota del extremo del canto al centro.
+  for (const o of pieza.operaciones) {
+    if (o.tipo !== 'media-perforacion') continue;
+    const borde = bs[o.borde];
+    const g = geometriaMediaPerforacion(o, borde);
+    const activo = destacado(o.id);
+    const col = activo ? ACENTO : COTA;
+    const r = Math.max(g.r, f * 0.28);
+    if (interaccion) {
+      elementos.push(
+        <circle
+          key={o.id + 'z'}
+          data-op={o.id}
+          cx={g.C.x}
+          cy={g.C.y}
+          r={Math.max(r, f * 0.8)}
+          fill={sel.has(o.id) ? 'rgba(21,101,192,.18)' : 'transparent'}
+          stroke={sel.has(o.id) ? ACENTO : 'none'}
+          strokeWidth={1}
+          vectorEffect="non-scaling-stroke"
+          onPointerDown={alPresionar(o.id)}
+          style={agarre}
+          className="solo-pantalla"
+        />,
+      );
+    }
+    if (activo && g.r > 0) {
+      elementos.push(
+        <path
+          key={o.id + 'a'}
+          d={`M${g.A.x} ${g.A.y} A${g.r} ${g.r} 0 0 0 ${g.D.x} ${g.D.y}`}
+          fill="none"
+          stroke={ACENTO}
+          strokeWidth={2.5}
+          vectorEffect="non-scaling-stroke"
+          pointerEvents="none"
+        />,
+      );
+    }
+    pastilla(o.id, add(g.C, mul(borde.n, -f * 1.6)));
+    if (!conCotas) continue;
+    const brazo = r * 1.6;
+    const a1 = add(g.C, mul(borde.d, -brazo));
+    const a2 = add(g.C, mul(borde.d, brazo));
+    const n2 = add(g.C, mul(borde.n, brazo));
+    elementos.push(
+      <g key={o.id + 'c'} pointerEvents="none">
+        <line x1={a1.x} y1={a1.y} x2={a2.x} y2={a2.y} stroke={COTA} strokeWidth={0.5} vectorEffect="non-scaling-stroke" />
+        <line x1={g.C.x} y1={g.C.y} x2={n2.x} y2={n2.y} stroke={COTA} strokeWidth={0.5} vectorEffect="non-scaling-stroke" />
+      </g>,
+    );
+    const pLbl = add(g.C, mul(borde.n, r + f * 1.3));
+    const anchor = Math.abs(borde.n.x) > 0.5 ? (borde.n.x < 0 ? 'end' : 'start') : 'middle';
+    elementos.push(
+      <Texto key={o.id + 'l'} p={pLbl} f={fc} anchor={anchor} color={col} bold>
+        {`½ PERF. Ø${fmt(o.d)} mm`}
+      </Texto>,
+    );
+    if (o.pos > 0) {
+      const off = mul(borde.n, -f * 1.4);
+      const origen = origenBoquete(o, borde);
+      const ini = add(origen, off);
+      const fin = add(g.C, off);
+      const dd = unit(sub(fin, ini));
+      const nn = { x: -dd.y, y: dd.x };
+      const lado = nn.x * -borde.n.x + nn.y * -borde.n.y > 0 ? 1 : -1;
       const w = anchoTexto(fmt(o.pos), fc);
       const t = o.pos < w + fc ? (w / 2 + fc * 0.4) / o.pos + 1 : 0.5;
       elementos.push(<Cota key={o.id + 'p'} a={ini} b={fin} texto={fmt(o.pos)} f={fc} lado={lado} color={col} t={t} />);

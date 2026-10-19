@@ -7005,3 +7005,13 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **Verificación:** `tsc --noEmit` backend y frontend limpios; ESLint del modal limpio. No se probó agregar FE contra la BD (el backend local apunta a la base real).
 - **Pendiente propuesto y no aplicado:** el conteo, la validación del saldo y el `create` de `agregarFacturaAdicional` no van en transacción con bloqueo de la ODP; dos altas simultáneas podrían pasar el tope de cantidad o de monto.
 - **Incidente del día (sin cambio de código):** en producción, entre el 15 % y el 30 % de las peticiones a Render quedaban sin respuesta (incluido `/health`), con el proceso sano (uptime continuo) y sin pérdidas hacia otros sitios desde la misma red. Producción se quedaba en «Cargando Tablero de Taller…» porque las llamadas axios no tienen timeout. Tras el «Restart» del usuario en Render, 20/20 respondieron (el uptime mostró el mismo proceso). El servicio está en el plan **Free** de Render. Propuestos: timeout global de axios con reintento, y `keepAliveTimeout`/`headersTimeout` en `server.ts`.
+
+## 2026-10-19 (2) — Detalles Técnicos: media perforación sobre el canto
+
+**Pedido del usuario:** poder poner media perforación en el borde de un vidrio (no existía; ni la perforación ni el boquete la dibujaban bien). Decisiones: Ø y posición sobre el canto, centro siempre sobre el canto · cuenta como PERF · la posición se mide del extremo del canto al centro · validaciones solo como aviso, dejan diseñar.
+
+- **frontend:** `modelo/tipos.ts` — `MediaPerforacion`. `modelo/geometria.ts` — `geometriaMediaPerforacion`, semicírculo en el contorno (`Vert.arco`, arco en `pathDe`), PERF en `conteosDe`. `modelo/validaciones.ts` — arco a polígono (16 puntos) y 7 avisos. `modelo/mover.ts` — `reubicarMediaPerforacion`, `bordeMasCercano` extraído del boquete. `PlanoSVG.tsx` — agarre, realce, cruz, etiqueta «½ PERF.» y cota. `EditorPlano.tsx` — botón «Media perforación» y su formulario.
+- **backend:** `detalle_tecnico.controller.ts` — tipo nuevo en el esquema Zod (sin él, guardar daba 400).
+- **BD:** sin cambios (JSONB `pieza`).
+- **Verificación:** `tsc --noEmit` backend y frontend limpios, ESLint limpio; script con centro en los 4 cantos × 2 extremos, contorno SVG, conteo PERF, los 7 avisos, arrastre a otro canto y canto inclinado de desplome. No se probó en navegador.
+- **Despliegue:** backend antes o junto con el frontend.

@@ -9,6 +9,7 @@ import {
   esHorizontal,
   EXTREMOS,
   geometriaBoquete,
+  geometriaMediaPerforacion,
   largo,
   mul,
   ORDEN_ESQUINAS,
@@ -19,7 +20,7 @@ import {
   type Pt,
   type Vert,
 } from './geometria';
-import type { BordeId, Boquete, EsquinaId, Perforacion, Pieza, Plano, TratamientoEsquina } from './tipos';
+import type { BordeId, Boquete, EsquinaId, MediaPerforacion, Perforacion, Pieza, Plano, TratamientoEsquina } from './tipos';
 
 export type Nivel = 'error' | 'aviso';
 export interface Observacion {
@@ -47,15 +48,28 @@ export const NOMBRE_BORDE = { sup: 'superior', der: 'derecho', inf: 'inferior', 
 
 // ── Geometría del contorno real ───────────────────────────────────────────────
 
+/** Puntos por semicírculo de una media perforación al pasarla a polígono (error < 0,5 % del radio). */
+const PASOS_ARCO = 16;
+
 /** Contorno como polígono: cada esquina redondeada se reemplaza por su cuerda (queda del lado
- *  seguro: la cuerda recorta un poco más que el arco). */
+ *  seguro: la cuerda recorta un poco más que el arco); el semicírculo de una media perforación,
+ *  por puntos sobre el arco. */
 function poligonoDe(p: Pieza): Pt[] {
   const pts: Vert[] = contornoDe(p);
   const n = pts.length;
   const out: Pt[] = [];
   for (let i = 0; i < n; i++) {
     const P = pts[i];
-    if (P.r && P.r > 0) {
+    if (P.arco && P.arco > 0 && i > 0) {
+      const A = pts[i - 1];
+      const u = unit(sub(P, A));
+      const hacia = { x: -u.y, y: u.x }; // normal hacia adentro del vidrio
+      const C = mul(add(A, P), 0.5);
+      for (let k = 1; k <= PASOS_ARCO; k++) {
+        const th = (Math.PI * k) / PASOS_ARCO;
+        out.push(add(C, add(mul(u, -P.arco * Math.cos(th)), mul(hacia, P.arco * Math.sin(th)))));
+      }
+    } else if (P.r && P.r > 0) {
       const prev = pts[(i - 1 + n) % n];
       const next = pts[(i + 1) % n];
       const r = Math.min(P.r, largo(sub(P, prev)) / 2, largo(sub(next, P)) / 2);
@@ -239,6 +253,55 @@ export function validarPlano(plano: Plano): Observacion[] {
       }
     }
   }
+
+  // Medias perforaciones: todo es aviso, ninguna regla impide diseñar (decisión del usuario, 2026-10-19).
+  const medias = p.operaciones.filter((o): o is MediaPerforacion => o.tipo === 'media-perforacion');
+  const tramosMedia = medias.map((o) => geometriaMediaPerforacion(o, bs[o.borde]));
+  medias.forEach((o, i) => {
+    const b = bs[o.borde];
+    const { t1, t2 } = tramosMedia[i];
+    const nombre = `La media perforación ${num(o.id)} (Ø${o.d})`;
+    if (!(o.d > 0)) {
+      obs.push({ nivel: 'aviso', texto: `A la media perforación ${num(o.id)} le falta el diámetro.`, opId: o.id });
+      return;
+    }
+    const recorte = recorteEnBorde(o.borde, p.esquinas);
+    const libreIni = t1 - recorte.ini;
+    const libreFin = b.L - recorte.fin - t2;
+    if (t1 < -0.01 || t2 > b.L + 0.01) {
+      obs.push({ nivel: 'aviso', texto: `${nombre} se sale del borde ${NOMBRE_BORDE[o.borde]} (el borde mide ${Math.round(b.L)} mm).`, opId: o.id });
+    } else if (libreIni < -0.01 || libreFin < -0.01) {
+      obs.push({ nivel: 'aviso', texto: `${nombre} se mete en el corte de una esquina del borde ${NOMBRE_BORDE[o.borde]}.`, opId: o.id });
+    } else if (esp > 0 && Math.min(libreIni, libreFin) < minBorde) {
+      obs.push({
+        nivel: 'aviso',
+        texto: `${nombre} queda a ${Math.round(Math.min(libreIni, libreFin))} mm de la esquina. Lo recomendado es al menos ${minBorde} mm (2 veces el espesor).`,
+        opId: o.id,
+      });
+    }
+    if (esp > 0 && o.d < esp) {
+      obs.push({ nivel: 'aviso', texto: `${nombre} es más pequeña que el espesor del vidrio (${plano.espesor} mm): pregunta al proveedor si la puede hacer.`, opId: o.id });
+    }
+    for (const q of boquetes) {
+      if (q.borde !== o.borde || !(q.largo > 0)) continue;
+      const [q1, q2] = tramoBoquete(q, b);
+      if (t1 < q2 && q1 < t2) obs.push({ nivel: 'aviso', texto: `${nombre} se monta sobre el boquete ${num(q.id)}.`, opId: o.id });
+    }
+    for (let j = i + 1; j < medias.length; j++) {
+      const otra = medias[j];
+      if (otra.borde !== o.borde || !(otra.d > 0)) continue;
+      const gap = Math.max(tramosMedia[j].t1 - t2, t1 - tramosMedia[j].t2);
+      if (gap < 0) {
+        obs.push({ nivel: 'aviso', texto: `Las medias perforaciones ${num(o.id)} y ${num(otra.id)} se montan una sobre otra.`, opId: o.id });
+      } else if (esp > 0 && gap < minEntre) {
+        obs.push({
+          nivel: 'aviso',
+          texto: `Las medias perforaciones ${num(o.id)} y ${num(otra.id)} quedan a ${Math.round(gap)} mm entre sí. Lo recomendado es al menos ${minEntre} mm.`,
+          opId: o.id,
+        });
+      }
+    }
+  });
 
   return obs;
 }

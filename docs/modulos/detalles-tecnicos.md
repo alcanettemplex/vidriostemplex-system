@@ -2,7 +2,8 @@
 
 Editor de **planos de vidrio templado** para los pedidos a VITELSA / TEMPLACOL. Reemplaza el Excel
 `1.1 DETALLES TECNICOS.xlsx` (60 hojas dibujadas a mano con bordes de celda): cada plano es una
-**plantilla paramétrica** —contorno, esquinas (despunte, radio, muesca), perforaciones, boquetes,
+**plantilla paramétrica** —contorno, esquinas (despunte, radio, muesca), perforaciones, medias
+perforaciones, boquetes,
 chaflanes y notas— que se dibuja a escala con cotas automáticas, se valida contra reglas de temple y
 sale en el formato **FOR-005** (una hoja «PLANO X» por plano).
 
@@ -214,6 +215,24 @@ De referencia de la industria; **avisan, no bloquean**, hasta confirmarlas con V
   error. Espesor ilegible → aviso explícito (antes apagaba en silencio las distancias).
 - El diálogo de medidas muestra los errores **antes** de crear el plano (p. ej. un botón a 1000 mm en
   una hoja de 600).
+
+## Media perforación (2026-10-19)
+
+Proceso `media-perforacion` (`modelo/tipos.ts`): semicírculo abierto al canto con el **centro exactamente
+sobre el canto**. Campos `borde`, `pos`, `desde` (`inicio|fin`, como el boquete) y `d`. **`pos` se mide
+del extremo del canto al centro** (decisión del usuario), no al inicio como en el boquete.
+- Es parte del **contorno** (`contornoDe`: vértice con `arco` = radio; `pathDe` lo dibuja con `A … 0 0 0`,
+  barrido hacia adentro). Por eso las perforaciones cercanas se validan contra él sin código extra, y
+  funciona en cantos inclinados de desplome.
+- **Cuenta como PERF** (`conteosDe`): Excel, hoja FOR-005, galería y la actualización de PERF del vidrio
+  al guardar la toman sin cambios.
+- Validaciones (todas **aviso**, ninguna impide diseñar — decisión del usuario): falta Ø, se sale del
+  canto, se mete en el corte de una esquina, a menos de 2× espesor de la esquina, Ø menor que el
+  espesor, encima de un boquete, encima de / a menos de 2× espesor de otra media perforación del canto.
+- Arrastre: se desliza por el canto y salta al canto más cercano; en grupo se queda en su canto.
+- Dibujo: cruz de centro, etiqueta «½ PERF. Ø14 mm», cota del extremo al centro.
+- Backend: rama nueva en el `discriminatedUnion` Zod de `detalle_tecnico.controller.ts`. Ninguna plantilla
+  ni herraje la usa todavía.
 
 ## Modo libre (solo admin)
 

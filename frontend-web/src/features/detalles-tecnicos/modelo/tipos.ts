@@ -60,6 +60,19 @@ export interface Boquete extends OpBase {
   radio: number;
 }
 
+/**
+ * Media perforación: semicírculo abierto al canto, con el centro exactamente sobre el canto. `pos` es la
+ * distancia desde el extremo de referencia del canto hasta el centro ('inicio' como en el boquete).
+ * Cuenta como PERF en la orden de pedido.
+ */
+export interface MediaPerforacion extends OpBase {
+  tipo: 'media-perforacion';
+  borde: BordeId;
+  pos: number;
+  desde: 'inicio' | 'fin';
+  d: number;
+}
+
 /** Chaflán / bisel sobre un canto completo. */
 export interface Chaflan extends OpBase {
   tipo: 'chaflan';
@@ -75,7 +88,7 @@ export interface Nota extends OpBase {
   y: number;
 }
 
-export type Operacion = Perforacion | Boquete | Chaflan | Nota;
+export type Operacion = Perforacion | MediaPerforacion | Boquete | Chaflan | Nota;
 
 /**
  * Qué cota general se escribe con palabra (ANCHO / ALTO) en vez del número. Modo pedido: los

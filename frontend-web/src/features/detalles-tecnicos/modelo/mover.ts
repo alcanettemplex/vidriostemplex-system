@@ -1,8 +1,8 @@
 // Reubicación de procesos a partir de una posición en el plano (arrastre con el mouse o flechas).
 // Convierte la posición en milímetros a las medidas que se guardan: distancia al borde más cercano.
 
-import { bordesDe, cajaDe, centroPerforacion, geometriaBoquete, largo, limitesDe, ORDEN_ESQUINAS, sub, unit, verticesBase, type Pt } from './geometria';
-import type { BordeId, Boquete, EsquinaId, Nota, Operacion, Perforacion, Pieza } from './tipos';
+import { bordesDe, cajaDe, centroPerforacion, geometriaBoquete, geometriaMediaPerforacion, largo, limitesDe, ORDEN_ESQUINAS, sub, unit, verticesBase, type Pt } from './geometria';
+import type { BordeId, Boquete, EsquinaId, MediaPerforacion, Nota, Operacion, Perforacion, Pieza } from './tipos';
 
 const clamp = (v: number, min: number, max: number) => (min > max ? (min + max) / 2 : Math.min(Math.max(v, min), max));
 export const redondear = (v: number, paso: number) => Math.round(v / paso) * paso;
@@ -39,18 +39,20 @@ export function reubicarPerforacion(p: Pieza, o: Perforacion, c: Pt, paso: numbe
   return { ...o, refX, refY, x, y };
 }
 
+/** Borde del vidrio más cercano a `c` (en empate, se queda en `actual`). */
+function bordeMasCercano(v: Record<EsquinaId, Pt>, c: Pt, actual: BordeId): BordeId {
+  const bordes: BordeId[] = ['sup', 'der', 'inf', 'izq'];
+  return bordes.reduce((mejor, b) => {
+    const [a1, b1] = NATURAL[b];
+    const [a2, b2] = NATURAL[mejor];
+    return distanciaASegmento(c, v[a1], v[b1]) < distanciaASegmento(c, v[a2], v[b2]) ? b : mejor;
+  }, actual);
+}
+
 /** Boquete con su centro lo más cerca posible de `c`. Puede saltar a otro borde si `cambiarBorde`. */
 export function reubicarBoquete(p: Pieza, o: Boquete, c: Pt, paso: number, cambiarBorde = true): Boquete {
   const v = verticesBase(p);
-  let borde = o.borde;
-  if (cambiarBorde) {
-    const bordes: BordeId[] = ['sup', 'der', 'inf', 'izq'];
-    borde = bordes.reduce((mejor, b) => {
-      const [a1, b1] = NATURAL[b];
-      const [a2, b2] = NATURAL[mejor];
-      return distanciaASegmento(c, v[a1], v[b1]) < distanciaASegmento(c, v[a2], v[b2]) ? b : mejor;
-    }, borde);
-  }
+  const borde = cambiarBorde ? bordeMasCercano(v, c, o.borde) : o.borde;
   const [ea, eb] = NATURAL[borde];
   const A = v[ea];
   const L = largo(sub(v[eb], A));
@@ -58,6 +60,20 @@ export function reubicarBoquete(p: Pieza, o: Boquete, c: Pt, paso: number, cambi
   const ini = clamp(dot(sub(c, A), unit(sub(v[eb], A))) - lb / 2, 0, L - lb);
   const desde = ini + lb / 2 <= L / 2 ? 'inicio' : 'fin';
   const pos = clamp(redondear(desde === 'inicio' ? ini : L - ini - lb, paso), 0, L - lb);
+  return { ...o, borde, desde, pos };
+}
+
+/** Media perforación con el centro sobre el canto, lo más cerca posible de `c`. `pos` se mide al centro. */
+export function reubicarMediaPerforacion(p: Pieza, o: MediaPerforacion, c: Pt, paso: number, cambiarBorde = true): MediaPerforacion {
+  const v = verticesBase(p);
+  const borde = cambiarBorde ? bordeMasCercano(v, c, o.borde) : o.borde;
+  const [ea, eb] = NATURAL[borde];
+  const A = v[ea];
+  const L = largo(sub(v[eb], A));
+  const r = Math.min(o.d > 0 ? o.d / 2 : 0, L / 2);
+  const t = clamp(dot(sub(c, A), unit(sub(v[eb], A))), r, L - r);
+  const desde = t <= L / 2 ? 'inicio' : 'fin';
+  const pos = clamp(redondear(desde === 'inicio' ? t : L - t, paso), r, L - r);
   return { ...o, borde, desde, pos };
 }
 
@@ -76,6 +92,7 @@ export function puntoDe(p: Pieza, o: Operacion): Pt | null {
     const g = geometriaBoquete(o, bordesDe(v)[o.borde]);
     return { x: (g.A.x + g.D.x) / 2, y: (g.A.y + g.D.y) / 2 };
   }
+  if (o.tipo === 'media-perforacion') return geometriaMediaPerforacion(o, bordesDe(v)[o.borde]).C;
   if (o.tipo === 'nota') {
     const k = cajaDe(ORDEN_ESQUINAS.map((e) => v[e]));
     return { x: k.minX + ((k.maxX - k.minX) * o.x) / 100, y: k.minY + ((k.maxY - k.minY) * o.y) / 100 };
@@ -85,7 +102,7 @@ export function puntoDe(p: Pieza, o: Operacion): Pt | null {
 
 /**
  * Desplaza `ids` en `delta` milímetros partiendo de su estado en `original` (así un arrastre largo no
- * acumula redondeos). En grupo, los boquetes se quedan en su borde.
+ * acumula redondeos). En grupo, los boquetes y las medias perforaciones se quedan en su borde.
  */
 export function moverOperaciones(actual: Pieza, original: Pieza, ids: string[], delta: Pt, paso: number): Pieza {
   const enGrupo = ids.length > 1;
@@ -97,6 +114,7 @@ export function moverOperaciones(actual: Pieza, original: Pieza, ids: string[], 
     const destino = { x: p0.x + delta.x, y: p0.y + delta.y };
     if (o.tipo === 'perforacion') nuevas.set(id, reubicarPerforacion(actual, o, destino, paso));
     if (o.tipo === 'boquete') nuevas.set(id, reubicarBoquete(actual, o, destino, paso, !enGrupo));
+    if (o.tipo === 'media-perforacion') nuevas.set(id, reubicarMediaPerforacion(actual, o, destino, paso, !enGrupo));
     if (o.tipo === 'nota') nuevas.set(id, reubicarNota(actual, o, destino));
   }
   return { ...actual, operaciones: actual.operaciones.map((o) => nuevas.get(o.id) ?? o) };

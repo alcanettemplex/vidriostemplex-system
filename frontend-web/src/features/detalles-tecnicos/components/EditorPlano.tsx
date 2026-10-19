@@ -130,7 +130,7 @@ const BORDES: { v: BordeId; t: string }[] = [
   { v: 'inf', t: 'inferior' },
   { v: 'izq', t: 'izquierdo' },
 ];
-const NOMBRE_OP: Record<Operacion['tipo'], string> = { perforacion: 'Perforación', boquete: 'Boquete', chaflan: 'Chaflán', nota: 'Texto' };
+const NOMBRE_OP: Record<Operacion['tipo'], string> = { perforacion: 'Perforación', 'media-perforacion': 'Media perforación', boquete: 'Boquete', chaflan: 'Chaflán', nota: 'Texto' };
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 interface Props {
@@ -235,7 +235,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
           </Box>
           <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
             {NOMBRE_OP[o.tipo]}
-            {o.tipo === 'perforacion' && Number.isFinite(o.d) && ` Ø${o.d}`}
+            {(o.tipo === 'perforacion' || o.tipo === 'media-perforacion') && Number.isFinite(o.d) && ` Ø${o.d}`}
             {o.tipo === 'boquete' && ` ${o.largo}×${o.prof}`}
           </Typography>
           <Tooltip title="Quitar">
@@ -282,6 +282,41 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
                 Desde el centro: un número negativo va hacia la izquierda o hacia arriba.
               </Typography>
             )}
+          </Stack>
+        )}
+
+        {o.tipo === 'media-perforacion' && (
+          <Stack spacing={1}>
+            <Frase>
+              <Typography>Diámetro</Typography>
+              <Autocomplete
+                freeSolo
+                disableClearable
+                options={DIAMETROS.map(String)}
+                inputValue={Number.isFinite(o.d) ? String(o.d) : ''}
+                onInputChange={(_, v) => setOp(o.id, { d: v === '' ? NaN : Number(v) }, 'd')}
+                renderInput={(params) => <TextField {...params} size="small" type="number" error={!Number.isFinite(o.d)} />}
+                sx={{ width: 96 }}
+              />
+              <Typography>mm</Typography>
+            </Frase>
+            <Frase>
+              <Typography>En el borde</Typography>
+              <Sel value={o.borde} width={130} onChange={(borde) => setOp(o.id, { borde }, 'borde')} opciones={BORDES} />
+            </Frase>
+            <Frase>
+              <Typography>Centro a</Typography>
+              <Mm value={o.pos} onChange={(pos) => setOp(o.id, { pos }, 'pos')} />
+              <Sel
+                value={o.desde}
+                width={176}
+                onChange={(desde) => setOp(o.id, { desde }, 'desde')}
+                opciones={o.borde === 'sup' || o.borde === 'inf' ? [{ v: 'inicio', t: 'del extremo izquierdo' }, { v: 'fin', t: 'del extremo derecho' }] : [{ v: 'inicio', t: 'desde arriba' }, { v: 'fin', t: 'desde el piso' }]}
+              />
+            </Frase>
+            <Typography variant="caption" color="text.secondary">
+              El centro queda sobre el canto: se corta medio círculo. Cuenta como perforación (PERF).
+            </Typography>
           </Stack>
         )}
 
@@ -611,6 +646,14 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               size="small"
               variant="outlined"
               startIcon={<AddIcon size={18} />}
+              onClick={() => agregarOps((pz) => ({ ...pz, operaciones: [...pz.operaciones, { id: nuevoId(), tipo: 'media-perforacion', borde: 'der', pos: Math.round(pz.alto / 2), desde: 'inicio', d: 14 }] }))}
+            >
+              Media perforación
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<AddIcon size={18} />}
               onClick={() => agregarOps((pz) => ({ ...pz, operaciones: [...pz.operaciones, { id: nuevoId(), tipo: 'boquete', borde: 'der', pos: Math.round(pz.alto / 2), desde: 'inicio', largo: 30, prof: 30, radio: 0 }] }))}
             >
               Boquete
@@ -646,7 +689,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
             if (b.tipo === 'solo') return tarjeta(b.op, false);
             const abierto = gruposAbiertos.has(b.id);
             const activo = b.ops.some((o) => o.id === seleccionId);
-            const conteo = b.ops.every((o) => o.tipo === 'perforacion') ? plural(b.ops.length, 'perforación', 'perforaciones') : plural(b.ops.length, 'elemento', 'elementos');
+            const conteo = b.ops.every((o) => o.tipo === 'perforacion' || o.tipo === 'media-perforacion') ? plural(b.ops.length, 'perforación', 'perforaciones') : plural(b.ops.length, 'elemento', 'elementos');
             return (
               <Paper key={b.id} variant="outlined" sx={{ borderColor: activo ? 'primary.main' : 'divider', overflow: 'hidden' }}>
                 <Stack

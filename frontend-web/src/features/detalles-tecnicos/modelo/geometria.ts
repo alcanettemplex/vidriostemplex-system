@@ -1,12 +1,14 @@
-import type { BordeId, Boquete, EsquinaId, Perforacion, Pieza, TratamientoEsquina } from './tipos';
+import type { BordeId, Boquete, EsquinaId, MediaPerforacion, Perforacion, Pieza, TratamientoEsquina } from './tipos';
 
 export interface Pt {
   x: number;
   y: number;
 }
-/** Vértice del contorno; `r` > 0 lo redondea con ese radio. */
+/** Vértice del contorno; `r` > 0 lo redondea con ese radio. `arco` > 0: se llega a él desde el
+ *  vértice anterior por un semicírculo de ese radio, hacia adentro del vidrio (media perforación). */
 export interface Vert extends Pt {
   r?: number;
+  arco?: number;
 }
 export interface Borde {
   S: Pt;
@@ -102,10 +104,20 @@ export function tramoBoquete(b: Boquete, borde: Borde): [number, number] {
   return desdeS ? [b.pos, b.pos + b.largo] : [borde.L - b.pos - b.largo, borde.L - b.pos];
 }
 
-/** Punto del canto desde donde se mide `pos` del boquete. */
-export function origenBoquete(b: Boquete, borde: Borde): Pt {
+/** Punto del canto desde donde se mide `pos` del boquete o de la media perforación. */
+export function origenBoquete(b: Pick<Boquete, 'borde' | 'desde'>, borde: Borde): Pt {
   const desdeS = (b.borde === 'sup' || b.borde === 'der') !== (b.desde === 'fin');
   return desdeS ? borde.S : borde.T;
+}
+
+/** Media perforación: centro `C` sobre el canto y tramo [t1, t2] que ocupa, medido desde S. */
+export function geometriaMediaPerforacion(o: MediaPerforacion, borde: Borde) {
+  const desdeS = (o.borde === 'sup' || o.borde === 'der') !== (o.desde === 'fin');
+  const t = desdeS ? o.pos : borde.L - o.pos;
+  const r = o.d > 0 ? o.d / 2 : 0;
+  const t1 = t - r;
+  const t2 = t + r;
+  return { C: add(borde.S, mul(borde.d, t)), A: add(borde.S, mul(borde.d, t1)), D: add(borde.S, mul(borde.d, t2)), r, t1, t2 };
 }
 
 export function geometriaBoquete(b: Boquete, borde: Borde) {
@@ -115,20 +127,23 @@ export function geometriaBoquete(b: Boquete, borde: Borde) {
   return { A, B: add(A, mul(borde.n, b.prof)), C: add(D, mul(borde.n, b.prof)), D, t1, t2 };
 }
 
+/** Recortes de un canto (boquetes y medias perforaciones), en el orden en que se recorren. */
 function puntosBoquetes(bid: BordeId, borde: Borde, p: Pieza): Vert[] {
-  const lista = p.operaciones
-    .filter((o): o is Boquete => o.tipo === 'boquete' && o.borde === bid)
-    .map((b) => ({ b, g: geometriaBoquete(b, borde) }))
-    .sort((x, y) => x.g.t1 - y.g.t1);
-  const pts: Vert[] = [];
-  for (const { b, g } of lista) {
-    const r = b.radio > 0 ? b.radio : undefined;
-    pts.push(g.A, { ...g.B, r }, { ...g.C, r }, g.D);
+  const lista: { t1: number; pts: Vert[] }[] = [];
+  for (const o of p.operaciones) {
+    if (o.tipo === 'boquete' && o.borde === bid) {
+      const g = geometriaBoquete(o, borde);
+      const r = o.radio > 0 ? o.radio : undefined;
+      lista.push({ t1: g.t1, pts: [g.A, { ...g.B, r }, { ...g.C, r }, g.D] });
+    } else if (o.tipo === 'media-perforacion' && o.borde === bid) {
+      const g = geometriaMediaPerforacion(o, borde);
+      if (g.r > 0) lista.push({ t1: g.t1, pts: [g.A, { ...g.D, arco: g.r }] });
+    }
   }
-  return pts;
+  return lista.sort((x, y) => x.t1 - y.t1).flatMap((x) => x.pts);
 }
 
-/** Contorno completo del vidrio (esquinas tratadas + boquetes), en sentido horario. */
+/** Contorno completo del vidrio (esquinas tratadas + boquetes + medias perforaciones), en sentido horario. */
 export function contornoDe(p: Pieza): Vert[] {
   const v = verticesBase(p);
   const bs = bordesDe(v);
@@ -150,6 +165,11 @@ export function pathDe(pts: Vert[]): string {
     const prev = pts[(i - 1 + n) % n];
     const next = pts[(i + 1) % n];
     const cmd = i === 0 ? 'M' : 'L';
+    // Semicírculo hacia adentro: con el contorno en sentido horario (Y hacia abajo), barrido 0.
+    if (P.arco && P.arco > 0 && i > 0) {
+      segs.push(`A${f2(P.arco)} ${f2(P.arco)} 0 0 0 ${f2(P.x)} ${f2(P.y)}`);
+      continue;
+    }
     if (P.r && P.r > 0) {
       const r = Math.min(P.r, largo(sub(P, prev)) / 2, largo(sub(next, P)) / 2);
       if (r > 0.01) {
@@ -224,7 +244,7 @@ export function conteosDe(p: Pieza): Conteos {
   const bs = bordesDe(verticesBase(p));
   const caja = medidasCaja(p);
   return {
-    perf: p.operaciones.filter((o) => o.tipo === 'perforacion').length,
+    perf: p.operaciones.filter((o) => o.tipo === 'perforacion' || o.tipo === 'media-perforacion').length,
     boq: p.operaciones.filter((o) => o.tipo === 'boquete').length + esq.filter((e) => e.tipo === 'muesca').length,
     dsp: esq.filter((e) => e.tipo === 'despunte').length,
     radios: esq.filter((e) => e.tipo === 'radio').length,
