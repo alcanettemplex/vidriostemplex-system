@@ -7024,3 +7024,28 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **frontend:** `FacturasSalidasPage.tsx` — buscador general con índice por ODP, ubicación clicable (pestaña + mes), acción por fila, consulta a `/ubicar` cuando no hay coincidencias locales y motivo de ausencia; buscadores por pestaña con `coincideBusqueda` (sin tildes, FE adicionales); selector de año acepta el año al que lleva «Ir a». `utils/busqueda.ts` — comentario apuntando al util nuevo.
 - **BD:** sin cambios.
 - **Verificación:** `tsc` backend y frontend limpios, ESLint del page limpio. Contra la BD (solo lectura): `/ubicar` con ODP sin facturar (motivo correcto), término inexistente (vacío), 1 carácter (400), ODP facturada (`enModulo`), parámetro extra (400 por `.strict()`); Contabilidad `q=peña` y `q=PENA` devuelven lo mismo tras mover la regla. No se probó en navegador.
+
+## 2026-10-19 (4) — CRM: leads de Alejandro en SEGUIMIENTO → PERDIDO
+
+**Pedido del usuario:** pasar a perdidos por no contestar todos los leads de Alejandro en seguimiento. Decisiones: motivo «No respondió (ghosting total)» (el de `MotivoPerdidaModal`, 542 usos) · se deja el lead 3177 (Carlos Mora, entró a seguimiento el 2026-10-17).
+
+- **Datos (producción):** script `scripts/2026-10-19_leads_alejandro_seguimiento_a_perdido.ts`, simulado y luego aplicado con `--aplicar`. 13 leads (2103, 2240, 2349, 2393, 2535, 2531, 2651, 2700, 2695, 2164, 2716, 2739, 2645) de Alejandro Ardila (id 13) a PERDIDO con `fecha_perdido` y evento CAMBIO_ESTADO; misma lógica que `updateLeadStatus`. Una transacción, `.update()` por instancia, auditado a ROOT y revertible desde el panel ROOT. Ninguno ligado a ODP, prospecto, cliente ni cotización.
+- **Verificación:** 13/13 en PERDIDO con el motivo, 13/13 en `auditoria_log`, 13 eventos en la bitácora. Alejandro queda con 1 en SEGUIMIENTO (3177), 90 perdidos, 20 aprobados, 9 fríos.
+- **Observado:** existen dos listas de motivos de pérdida distintas en el frontend (`MotivoPerdidaModal.tsx` y `LeadDetalleModal.tsx`, más la del buscador de Supervisión); en la BD conviven «No respondió (ghosting total)» y «Sin respuesta del cliente» para lo mismo, lo que parte las estadísticas de motivos.
+
+## 2026-10-20 — Reporte de calidad de leads de octubre (sin cambio de código)
+
+**Pedido del usuario:** reporte en PDF para Redes Sociales y Marketing sobre la calidad de los leads de octubre. Entregado en `Descargas/Reporte_Calidad_Leads_Octubre_2026.pdf` (4 páginas), con datos del 1 al 20 de octubre (consultas de solo lectura, hora de Bogotá).
+
+- **Hallazgos:** 289 leads (−21 % frente al 1–20 de septiembre); 56 % no responde el primer contacto; Facebook trae el 49 % del volumen con 72 % de no respuesta y 1 venta; la Web hace 5 de las 6 ventas; el 48 % llega sin producto de interés.
+- **Observado en los datos:** en el CRM, «No responde» = lead en NUEVO sin asesor (163 de 163). El campo `respondio` no se actualiza después del primer contacto (hay ventas en «Espera de información»). El 28 % de las pérdidas quedó como «Otro», y hay motivos duplicados con nombres distintos.
+
+## 2026-10-20 (2) — Detalles Técnicos: boquete con alivios y contorno en arco
+
+**Pedido del usuario:** no podía dibujar una puerta de 600 × 1760 con dos boquetes de bisagra con alivios Ø16 ni un semicírculo de 935 × 1870. Decisiones: el centro de cada alivio va sobre el lado del boquete y el «fondo» se mide del canto a su punto más profundo · los alivios son parte del boquete (no suman PERF) · el semicírculo es una forma nueva («remate en arco») que se ajusta sola a la medida · el arco cuenta 1 en RADIOS · se agregan 2 plantillas · la posición del boquete se sigue midiendo hasta su inicio.
+
+- **frontend:** `modelo/tipos.ts` — `Boquete.alivio?: { d, fondo }` y `Contorno { tipo: 'arco', lado }`. `modelo/geometria.ts` — vértice con arco general (`Vert.circ`, `barridoArco`, `puntosSobreArco`), `geometriaAlivios`, `bordeCurvo`/`radioArco`/`esquinasDe`, arco en `contornoDe` y `pathDe`, RADIOS +1 y chaflán en el arco = π·r en `conteosDe`. `modelo/validaciones.ts` — arcos al polígono, error si el arco no cabe o si hay boquete/media perforación en el canto curvo, recorte de los cantos vecinos al arco, 4 avisos de alivios, traslape de boquetes contando los alivios. `modelo/mover.ts` — el arrastre no salta al canto curvo. `PlanoSVG.tsx` — etiqueta «BOQ 60×38 · ALIVIOS Ø16» y cota del fondo, línea «R 935», chaflán que sigue la curva. `EditorPlano.tsx` — opción «Con un lado en arco», selector de lado, esquinas del arco deshabilitadas, casilla «Con alivios». `modelo/plantillas.ts` + `constructores.ts` — plantillas «Puerta con boquetes de alivio» y «Semicírculo» (`BQA`, `NOTA`, `arco`). `Galeria.tsx` — plantilla sin hoja de Excel se muestra como «Nueva».
+- **backend:** `detalle_tecnico.controller.ts` — Zod: `alivio` opcional en el boquete y rama `arco` en el contorno (sin esto, guardar daba 400).
+- **BD:** sin cambios (JSONB `pieza`, campos opcionales, sin subir `ESQUEMA_PIEZA`).
+- **Verificación:** `tsc --noEmit` backend y frontend limpios; ESLint limpio. Foto de las 60 plantillas antes y después: trazo, conteos y validaciones idénticos, 0 avisos con espesor 8 en las 62. Render del `PlanoSVG` real con arco a la derecha, arriba (con boquete con alivios) e izquierda. 10 casos borde de validación. **No se probó en el navegador ni se guardó un plano contra la BD.**
+- **Despliegue:** backend antes o junto con el frontend.

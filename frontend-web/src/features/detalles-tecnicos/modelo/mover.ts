@@ -1,7 +1,7 @@
 // Reubicación de procesos a partir de una posición en el plano (arrastre con el mouse o flechas).
 // Convierte la posición en milímetros a las medidas que se guardan: distancia al borde más cercano.
 
-import { bordesDe, cajaDe, centroPerforacion, geometriaBoquete, geometriaMediaPerforacion, largo, limitesDe, ORDEN_ESQUINAS, sub, unit, verticesBase, type Pt } from './geometria';
+import { bordeCurvo, bordesDe, cajaDe, centroPerforacion, geometriaBoquete, geometriaMediaPerforacion, largo, limitesDe, ORDEN_ESQUINAS, sub, unit, verticesBase, type Pt } from './geometria';
 import type { BordeId, Boquete, EsquinaId, MediaPerforacion, Nota, Operacion, Perforacion, Pieza } from './tipos';
 
 const clamp = (v: number, min: number, max: number) => (min > max ? (min + max) / 2 : Math.min(Math.max(v, min), max));
@@ -39,9 +39,10 @@ export function reubicarPerforacion(p: Pieza, o: Perforacion, c: Pt, paso: numbe
   return { ...o, refX, refY, x, y };
 }
 
-/** Borde del vidrio más cercano a `c` (en empate, se queda en `actual`). */
-function bordeMasCercano(v: Record<EsquinaId, Pt>, c: Pt, actual: BordeId): BordeId {
-  const bordes: BordeId[] = ['sup', 'der', 'inf', 'izq'];
+/** Borde del vidrio más cercano a `c` (en empate, se queda en `actual`). Nunca salta al canto
+ *  curvo de un arco: ahí no van recortes. */
+function bordeMasCercano(v: Record<EsquinaId, Pt>, c: Pt, actual: BordeId, curvo: BordeId | null = null): BordeId {
+  const bordes = (['sup', 'der', 'inf', 'izq'] as BordeId[]).filter((b) => b !== curvo);
   return bordes.reduce((mejor, b) => {
     const [a1, b1] = NATURAL[b];
     const [a2, b2] = NATURAL[mejor];
@@ -52,7 +53,7 @@ function bordeMasCercano(v: Record<EsquinaId, Pt>, c: Pt, actual: BordeId): Bord
 /** Boquete con su centro lo más cerca posible de `c`. Puede saltar a otro borde si `cambiarBorde`. */
 export function reubicarBoquete(p: Pieza, o: Boquete, c: Pt, paso: number, cambiarBorde = true): Boquete {
   const v = verticesBase(p);
-  const borde = cambiarBorde ? bordeMasCercano(v, c, o.borde) : o.borde;
+  const borde = cambiarBorde ? bordeMasCercano(v, c, o.borde, bordeCurvo(p)) : o.borde;
   const [ea, eb] = NATURAL[borde];
   const A = v[ea];
   const L = largo(sub(v[eb], A));
@@ -66,7 +67,7 @@ export function reubicarBoquete(p: Pieza, o: Boquete, c: Pt, paso: number, cambi
 /** Media perforación con el centro sobre el canto, lo más cerca posible de `c`. `pos` se mide al centro. */
 export function reubicarMediaPerforacion(p: Pieza, o: MediaPerforacion, c: Pt, paso: number, cambiarBorde = true): MediaPerforacion {
   const v = verticesBase(p);
-  const borde = cambiarBorde ? bordeMasCercano(v, c, o.borde) : o.borde;
+  const borde = cambiarBorde ? bordeMasCercano(v, c, o.borde, bordeCurvo(p)) : o.borde;
   const [ea, eb] = NATURAL[borde];
   const A = v[ea];
   const L = largo(sub(v[eb], A));

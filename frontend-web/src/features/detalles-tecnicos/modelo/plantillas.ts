@@ -6,7 +6,9 @@
 import type { Pieza, Plantilla } from './tipos';
 import {
   agrupar,
+  arco,
   BQ,
+  BQA,
   CH,
   PF,
   bisagras,
@@ -18,6 +20,7 @@ import {
   esq,
   mue,
   muescaPiso,
+  NOTA,
   muescasFijo,
   nuevoId,
   perfCorredera,
@@ -95,6 +98,8 @@ export const PLANTILLAS: Plantilla[] = [
   { id: 'recibidor-picoloro', nombre: 'Recibidor Picoloro', hoja: 'RECIBIDOR PICOLORO', familia: 'Puertas', descripcion: 'Boquete recto 75×35 para recibidor.', pieza: pieza(600, 2100, [BQ('der', 1000, 'fin', 75, 35)]) },
   { id: 'recibidor-redondo', nombre: 'Recibidor redondo', hoja: 'RECIBIDOR REDONDO', familia: 'Puertas', descripcion: 'Boquete redondeado 75×30 para recibidor.', pieza: pieza(600, 2100, [BQ('der', 1000, 'fin', 75, 30, 15)]) },
   { id: 'glass-rect-nave', nombre: 'Glass rectangular nave', hoja: 'GLASS RECT. NAVE', familia: 'Puertas', descripcion: 'Perf. Ø17 y Ø12 superiores para herraje y 2 perf. Ø8 de manija.', pieza: pieza(700, 2000, [PF(17, 60, 'izq', 30, 'sup'), PF(17, 60, 'der', 30, 'sup'), PF(12, 60, 'izq', 86, 'sup'), PF(12, 60, 'der', 86, 'sup'), PF(8, 40, 'izq', 1000, 'inf'), PF(8, 40, 'izq', 1200, 'inf')]) },
+  // Plantillas nuevas (2026-10-20), sin hoja en el Excel: del plano que mandó el taller.
+  { id: 'pta-boquetes-alivio', nombre: 'Puerta con boquetes de alivio', hoja: '', familia: 'Puertas', descripcion: '2 boquetes 60×38 en el canto izquierdo con alivios Ø16 hasta 40 mm, centrados a 300 de arriba y de abajo, y 2 perf. Ø14 de manija a 400 mm.', pieza: pieza(600, 1760, [...agrupar('Boquetes de bisagra', [BQA('izq', 270, 'inicio', 60, 38, 16, 40), BQA('izq', 270, 'fin', 60, 38, 16, 40)]), PF(14, 70, 'der', 680, 'inf'), PF(14, 70, 'der', 1080, 'inf')]) },
   { id: 'glass-rect-fijo', nombre: 'Glass rectangular fijo', hoja: 'GLASS RECT. FIJO', familia: 'Puertas', descripcion: '2 perf. Ø14 superiores a 60×60 mm.', pieza: pieza(500, 2000, [PF(14, 60, 'izq', 60, 'sup'), PF(14, 60, 'der', 60, 'sup')]) },
 
   // ── Formas y perforaciones ─────────────────────────────────────────────────
@@ -107,6 +112,7 @@ export const PLANTILLAS: Plantilla[] = [
   { id: 'vid-2radhor', nombre: 'Vidrio 2 radios horizontal', hoja: 'VID 2RADHOR', familia: 'Formas y perforaciones', descripcion: 'Radios en las 2 esquinas superiores.', selloEnCanto: true, pieza: pieza(900, 500, [], esq({ si: rad(40), sd: rad(40) })) },
   { id: 'boquete', nombre: 'Boquete de esquina 300×300', hoja: 'BOQUETE', familia: 'Formas y perforaciones', descripcion: 'Corte en L de 300×300 mm en la esquina superior izquierda.', pieza: pieza(1000, 800, [], esq({ si: mue(300, 300) })) },
   { id: 'boquete-esq', nombre: 'Boquete de esquina inferior', hoja: 'BOQUETE ESQ.', familia: 'Formas y perforaciones', descripcion: 'Corte rectangular pequeño en la esquina inferior izquierda.', pieza: pieza(500, 1900, [], esq({ ii: mue(60, 100) })) },
+  { id: 'semicirculo', nombre: 'Semicírculo', hoja: '', familia: 'Formas y perforaciones', descripcion: 'Medio círculo: el lado derecho completo en arco. El ancho es la mitad del alto.', pieza: pieza(935, 1870, [NOTA('BORDE PULIDO MATE', 45, 50)], esq(), arco('der')) },
   { id: 'deschor', nombre: 'Descuadre horizontal', hoja: 'DESCHOR', familia: 'Formas y perforaciones', descripcion: 'Canto superior inclinado (lado derecho más bajo).', pieza: pieza(1200, 700, [], esq(), { tipo: 'desplome-superior', lado: 'der', altoLado: 520 }) },
 ];
 

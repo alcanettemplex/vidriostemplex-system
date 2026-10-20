@@ -9,6 +9,14 @@ export interface Pt {
 export interface Vert extends Pt {
   r?: number;
   arco?: number;
+  /** Se llega a él desde el vértice anterior por un arco de circunferencia de centro `c`, en sentido
+   *  horario (visto en el plano) o antihorario. Alivios de boquete y contorno en arco. */
+  circ?: ArcoCirc;
+}
+export interface ArcoCirc {
+  c: Pt;
+  r: number;
+  horario: boolean;
 }
 export interface Borde {
   S: Pt;
@@ -40,6 +48,50 @@ export const unit = (a: Pt): Pt => {
   return l < 1e-9 ? { x: 0, y: 0 } : { x: a.x / l, y: a.y / l };
 };
 export const esHorizontal = (b: BordeId) => b === 'sup' || b === 'inf';
+
+// ── Contorno en arco ─────────────────────────────────────────────────────────
+
+/** Canto curvo de un contorno en arco; null en las demás formas. */
+export const bordeCurvo = (p: Pieza): BordeId | null => (p.contorno.tipo === 'arco' ? p.contorno.lado : null);
+
+/** Radio del arco: la mitad del canto curvo. */
+export function radioArco(p: Pieza): number {
+  const b = bordeCurvo(p);
+  if (!b) return 0;
+  return (esHorizontal(b) ? p.ancho : p.alto) / 2;
+}
+
+/** Tratamientos de esquina que valen: las dos esquinas del canto curvo las reemplaza el arco. */
+export function esquinasDe(p: Pieza): Record<EsquinaId, TratamientoEsquina> {
+  const b = bordeCurvo(p);
+  if (!b) return p.esquinas;
+  const [e1, e2] = EXTREMOS[b];
+  return { ...p.esquinas, [e1]: { tipo: 'recta' }, [e2]: { tipo: 'recta' } };
+}
+
+/** Ángulo recorrido de `desde` a `hasta` alrededor de `a.c`, con signo (+ = horario en el plano). */
+export function barridoArco(desde: Pt, a: ArcoCirc, hasta: Pt): number {
+  const a0 = Math.atan2(desde.y - a.c.y, desde.x - a.c.x);
+  const a1 = Math.atan2(hasta.y - a.c.y, hasta.x - a.c.x);
+  let d = a1 - a0;
+  if (a.horario) while (d <= 1e-9) d += 2 * Math.PI;
+  else while (d >= -1e-9) d -= 2 * Math.PI;
+  return d;
+}
+
+/** Puntos sobre el arco de `desde` a `hasta` (sin `desde`, con `hasta`), uno cada `paso` radianes. */
+export function puntosSobreArco(desde: Pt, a: ArcoCirc, hasta: Pt, paso = Math.PI / 16): Pt[] {
+  const d = barridoArco(desde, a, hasta);
+  const a0 = Math.atan2(desde.y - a.c.y, desde.x - a.c.x);
+  const n = Math.max(2, Math.ceil(Math.abs(d) / paso));
+  const out: Pt[] = [];
+  for (let k = 1; k < n; k++) {
+    const th = a0 + (d * k) / n;
+    out.push({ x: a.c.x + a.r * Math.cos(th), y: a.c.y + a.r * Math.sin(th) });
+  }
+  out.push(hasta);
+  return out;
+}
 
 /** Las 4 esquinas del vidrio sin tratamientos, desplazadas para que el mínimo quede en (0,0). */
 export function verticesBase(p: Pieza): Record<EsquinaId, Pt> {
@@ -127,11 +179,57 @@ export function geometriaBoquete(b: Boquete, borde: Borde) {
   return { A, B: add(A, mul(borde.n, b.prof)), C: add(D, mul(borde.n, b.prof)), D, t1, t2 };
 }
 
+export type ProblemaAlivio = 'faltan-medidas' | 'corta-canto' | 'no-toca' | 'se-juntan';
+
+/**
+ * Alivios de un boquete: un círculo de Ø `d` en cada lado, con el centro sobre el lado a
+ * `fondo − d/2` del canto. Devuelve el tramo del contorno de A a D que reemplaza al boquete, o el
+ * problema por el que no se puede dibujar (entonces el boquete se dibuja sin alivios).
+ * - fondo ≤ prof: cada círculo vuelve al mismo lado del boquete.
+ * - fondo > prof (el caso del taller: 38 de boquete y alivio hasta 40): el círculo pasa el fondo y
+ *   el arco termina sobre él.
+ */
+export function geometriaAlivios(b: Boquete, borde: Borde): { pts: Vert[]; r: number; centros: [Pt, Pt] } | { problema: ProblemaAlivio } | null {
+  if (!b.alivio) return null;
+  const { d: diam, fondo } = b.alivio;
+  if (!(diam > 0) || !(fondo > 0) || !(b.prof > 0) || !(b.largo > 0)) return { problema: 'faltan-medidas' };
+  const r = diam / 2;
+  const c = fondo - r;
+  if (c - r < -0.01) return { problema: 'corta-canto' };
+  if (c - r >= b.prof - 0.01) return { problema: 'no-toca' };
+  const g = geometriaBoquete(b, borde);
+  const { d, n } = borde;
+  const C1 = add(g.A, mul(n, c));
+  const C2 = add(g.D, mul(n, c));
+  const arco = (C: Pt): ArcoCirc => ({ c: C, r, horario: false });
+  const ini1 = add(g.A, mul(n, c - r));
+  const ini2 = add(g.D, mul(n, c - r));
+  if (fondo <= b.prof + 0.01) {
+    return {
+      r,
+      centros: [C1, C2],
+      pts: [g.A, ini1, { ...add(g.A, mul(n, fondo)), circ: arco(C1) }, g.B, g.C, add(g.D, mul(n, fondo)), { ...ini2, circ: arco(C2) }, g.D],
+    };
+  }
+  const s = Math.sqrt(Math.max(r * r - (b.prof - c) ** 2, 0));
+  if (2 * s >= b.largo - 0.01) return { problema: 'se-juntan' };
+  const E1 = add(g.B, mul(d, s));
+  const E2 = add(g.C, mul(d, -s));
+  return { r, centros: [C1, C2], pts: [g.A, ini1, { ...E1, circ: arco(C1) }, E2, { ...ini2, circ: arco(C2) }, g.D] };
+}
+
 /** Recortes de un canto (boquetes y medias perforaciones), en el orden en que se recorren. */
 function puntosBoquetes(bid: BordeId, borde: Borde, p: Pieza): Vert[] {
   const lista: { t1: number; pts: Vert[] }[] = [];
+  // El canto curvo de un arco no lleva recortes (la validación lo marca como error).
+  if (bid === bordeCurvo(p)) return [];
   for (const o of p.operaciones) {
     if (o.tipo === 'boquete' && o.borde === bid) {
+      const al = geometriaAlivios(o, borde);
+      if (al && 'pts' in al) {
+        lista.push({ t1: geometriaBoquete(o, borde).t1, pts: al.pts });
+        continue;
+      }
       const g = geometriaBoquete(o, borde);
       const r = o.radio > 0 ? o.radio : undefined;
       lista.push({ t1: g.t1, pts: [g.A, { ...g.B, r }, { ...g.C, r }, g.D] });
@@ -147,11 +245,24 @@ function puntosBoquetes(bid: BordeId, borde: Borde, p: Pieza): Vert[] {
 export function contornoDe(p: Pieza): Vert[] {
   const v = verticesBase(p);
   const bs = bordesDe(v);
+  const esquinas = esquinasDe(p);
+  const curvo = bordeCurvo(p);
+  // Arco: la esquina donde empieza el canto curvo se corre `r` hacia adentro sobre el canto
+  // anterior, y a la esquina donde termina se llega por el semicírculo (hacia afuera, horario).
+  const arco = curvo ? (() => {
+    const b = bs[curvo];
+    const r = radioArco(p);
+    return { ini: EXTREMOS[curvo][0], fin: EXTREMOS[curvo][1], P1: add(b.S, mul(b.n, r)), P2: add(b.T, mul(b.n, r)), c: add(mul(add(b.S, b.T), 0.5), mul(b.n, r)), r };
+  })() : null;
   const out: Vert[] = [];
   for (const e of ORDEN_ESQUINAS) {
-    out.push(...puntosEsquina(e, v, bs, p.esquinas[e]));
+    if (arco && e === arco.ini) out.push(arco.P1);
+    else if (arco && e === arco.fin) out.push({ ...arco.P2, circ: { c: arco.c, r: arco.r, horario: true } });
+    else out.push(...puntosEsquina(e, v, bs, esquinas[e]));
     out.push(...puntosBoquetes(BORDE_SALIDA[e], bs[BORDE_SALIDA[e]], p));
   }
+  // Un trazo no puede empezar por un arco (se llega a él desde el vértice anterior).
+  if (out[0]?.circ) out.push(out.shift()!);
   return out;
 }
 
@@ -165,6 +276,12 @@ export function pathDe(pts: Vert[]): string {
     const prev = pts[(i - 1 + n) % n];
     const next = pts[(i + 1) % n];
     const cmd = i === 0 ? 'M' : 'L';
+    if (P.circ && i > 0) {
+      const barrido = barridoArco(prev, P.circ, P);
+      const grande = Math.abs(barrido) > Math.PI + 1e-6 ? 1 : 0;
+      segs.push(`A${f2(P.circ.r)} ${f2(P.circ.r)} 0 ${grande} ${P.circ.horario ? 1 : 0} ${f2(P.x)} ${f2(P.y)}`);
+      continue;
+    }
     // Semicírculo hacia adentro: con el contorno en sentido horario (Y hacia abajo), barrido 0.
     if (P.arco && P.arco > 0 && i > 0) {
       segs.push(`A${f2(P.arco)} ${f2(P.arco)} 0 0 0 ${f2(P.x)} ${f2(P.y)}`);
@@ -240,15 +357,20 @@ export function medidasCaja(p: Pieza): { ancho: number; alto: number } {
 
 /** Cantidades por unidad, con las mismas columnas de la orden de pedido del proveedor. */
 export function conteosDe(p: Pieza): Conteos {
-  const esq = ORDEN_ESQUINAS.map((e) => p.esquinas[e]);
+  const tratadas = esquinasDe(p);
+  const esq = ORDEN_ESQUINAS.map((e) => tratadas[e]);
   const bs = bordesDe(verticesBase(p));
   const caja = medidasCaja(p);
+  const curvo = bordeCurvo(p);
+  // El canto curvo mide medio perímetro de su círculo, no la cuerda.
+  const largoCanto = (b: BordeId) => (b === curvo ? Math.PI * radioArco(p) : bs[b].L);
   return {
     perf: p.operaciones.filter((o) => o.tipo === 'perforacion' || o.tipo === 'media-perforacion').length,
     boq: p.operaciones.filter((o) => o.tipo === 'boquete').length + esq.filter((e) => e.tipo === 'muesca').length,
     dsp: esq.filter((e) => e.tipo === 'despunte').length,
-    radios: esq.filter((e) => e.tipo === 'radio').length,
-    chaflanMl: p.operaciones.reduce((s, o) => (o.tipo === 'chaflan' ? s + bs[o.borde].L / 1000 : s), 0),
+    // El arco cuenta como un radio (decisión del usuario, 2026-10-20).
+    radios: esq.filter((e) => e.tipo === 'radio').length + (curvo ? 1 : 0),
+    chaflanMl: p.operaciones.reduce((s, o) => (o.tipo === 'chaflan' ? s + largoCanto(o.borde) / 1000 : s), 0),
     m2: (caja.ancho * caja.alto) / 1e6,
   };
 }

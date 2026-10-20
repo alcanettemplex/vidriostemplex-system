@@ -1,5 +1,6 @@
 import {
   add,
+  bordeCurvo,
   bordesDe,
   BORDE_ENTRADA,
   BORDE_SALIDA,
@@ -7,12 +8,16 @@ import {
   contornoDe,
   espesorNumerico,
   esHorizontal,
+  esquinasDe,
   EXTREMOS,
+  geometriaAlivios,
   geometriaBoquete,
   geometriaMediaPerforacion,
   largo,
   mul,
   ORDEN_ESQUINAS,
+  puntosSobreArco,
+  radioArco,
   sub,
   tramoBoquete,
   unit,
@@ -20,7 +25,7 @@ import {
   type Pt,
   type Vert,
 } from './geometria';
-import type { BordeId, Boquete, EsquinaId, MediaPerforacion, Perforacion, Pieza, Plano, TratamientoEsquina } from './tipos';
+import type { BordeId, Boquete, EsquinaId, MediaPerforacion, Perforacion, Pieza, Plano } from './tipos';
 
 export type Nivel = 'error' | 'aviso';
 export interface Observacion {
@@ -60,7 +65,10 @@ function poligonoDe(p: Pieza): Pt[] {
   const out: Pt[] = [];
   for (let i = 0; i < n; i++) {
     const P = pts[i];
-    if (P.arco && P.arco > 0 && i > 0) {
+    if (P.circ && i > 0) {
+      // Arco general (alivios de boquete, contorno en arco): puntos sobre la circunferencia.
+      out.push(...puntosSobreArco(pts[i - 1], P.circ, P));
+    } else if (P.arco && P.arco > 0 && i > 0) {
       const A = pts[i - 1];
       const u = unit(sub(P, A));
       const hacia = { x: -u.y, y: u.x }; // normal hacia adentro del vidrio
@@ -106,16 +114,30 @@ function holguraPerforacion(c: Pt, r: number, poli: Pt[]) {
   return dentroDe(c, poli) ? d - r : -(d + r);
 }
 
-/** Cuánto recorta cada esquina del borde `b`, al inicio y al final (recorrido horario). */
-function recorteEnBorde(b: BordeId, esquinas: Record<EsquinaId, TratamientoEsquina>) {
-  const medida = (t: TratamientoEsquina) =>
-    t.tipo === 'radio' ? t.r : t.tipo === 'despunte' || t.tipo === 'muesca' ? (esHorizontal(b) ? t.a : t.b) : 0;
+/** Cuánto recorta cada esquina del borde `b`, al inicio y al final (recorrido horario). En un
+ *  contorno en arco, los cantos vecinos al curvo pierden el radio del arco en ese extremo. */
+function recorteEnBorde(b: BordeId, p: Pieza) {
+  const esquinas = esquinasDe(p);
+  const curvo = bordeCurvo(p);
+  const medida = (e: EsquinaId) => {
+    if (curvo && curvo !== b && EXTREMOS[curvo].includes(e)) return radioArco(p);
+    const t = esquinas[e];
+    return t.tipo === 'radio' ? t.r : t.tipo === 'despunte' || t.tipo === 'muesca' ? (esHorizontal(b) ? t.a : t.b) : 0;
+  };
   const [eIni, eFin] = EXTREMOS[b];
   // La esquina de inicio es aquella de la que «sale» el borde; la de fin, aquella a la que «entra».
   return {
-    ini: BORDE_SALIDA[eIni] === b ? medida(esquinas[eIni]) : 0,
-    fin: BORDE_ENTRADA[eFin] === b ? medida(esquinas[eFin]) : 0,
+    ini: BORDE_SALIDA[eIni] === b ? medida(eIni) : 0,
+    fin: BORDE_ENTRADA[eFin] === b ? medida(eFin) : 0,
   };
+}
+
+/** Tramo del canto que ocupa un boquete, contando lo que sus alivios se abren a cada lado. */
+function tramoOcupado(o: Boquete, b: ReturnType<typeof bordesDe>[BordeId]): [number, number] {
+  const [t1, t2] = tramoBoquete(o, b);
+  const al = geometriaAlivios(o, b);
+  const r = al && 'pts' in al ? al.r : 0;
+  return [t1 - r, t2 + r];
 }
 
 export function validarPlano(plano: Plano): Observacion[] {
@@ -138,6 +160,22 @@ export function validarPlano(plano: Plano): Observacion[] {
   if (p.contorno.tipo === 'desplome-superior' && !(p.contorno.altoLado > 0)) {
     obs.push({ nivel: 'error', texto: 'Falta el alto del lado más bajo.' });
   }
+  const curvo = bordeCurvo(p);
+  if (curvo) {
+    const r = radioArco(p);
+    const recto = esHorizontal(curvo) ? p.alto : p.ancho;
+    if (recto < r - 0.01) {
+      obs.push({
+        nivel: 'error',
+        texto: `El arco no cabe: con el lado curvo ${NOMBRE_BORDE[curvo]} el vidrio debe medir al menos ${Math.round(r * 10) / 10} mm de ${esHorizontal(curvo) ? 'alto' : 'ancho'} (la mitad del lado curvo).`,
+      });
+    }
+    for (const o of p.operaciones) {
+      if ((o.tipo === 'boquete' || o.tipo === 'media-perforacion') && o.borde === curvo) {
+        obs.push({ nivel: 'error', texto: `El borde ${NOMBRE_BORDE[curvo]} es el arco: ahí no se puede hacer ${o.tipo === 'boquete' ? 'un boquete' : 'una media perforación'}. Pásalo a otro borde.`, opId: o.id });
+      }
+    }
+  }
   // Sin espesor legible no hay cómo medir las distancias mínimas: se dice, en vez de callarlas.
   if (!(esp > 0)) {
     obs.push({ nivel: 'aviso', texto: `No se reconoce el espesor «${plano.espesor || 'vacío'}»: no se revisan las distancias mínimas al borde ni entre perforaciones.` });
@@ -147,8 +185,9 @@ export function validarPlano(plano: Plano): Observacion[] {
   const bs = bordesDe(v);
   const menorLado = Math.min(p.ancho, p.alto);
 
+  const esquinas = esquinasDe(p);
   for (const e of ORDEN_ESQUINAS) {
-    const t = p.esquinas[e];
+    const t = esquinas[e];
     if (t.tipo === 'radio' && t.r > menorLado / 2) {
       obs.push({ nivel: 'error', texto: `El radio de la esquina ${NOMBRE_ESQUINA[e]} es mayor que la mitad del lado.` });
     }
@@ -167,8 +206,12 @@ export function validarPlano(plano: Plano): Observacion[] {
     .filter((o): o is Boquete => o.tipo === 'boquete')
     .map((o) => {
       const g = geometriaBoquete(o, bs[o.borde]);
-      const xs = [g.A.x, g.B.x, g.C.x, g.D.x];
-      const ys = [g.A.y, g.B.y, g.C.y, g.D.y];
+      const al = geometriaAlivios(o, bs[o.borde]);
+      // Con alivios, la caja se abre lo que los círculos salen a cada lado y al fondo.
+      const pts = [g.A, g.B, g.C, g.D];
+      if (al && 'pts' in al) for (const c of al.centros) pts.push(add(c, { x: al.r, y: al.r }), sub(c, { x: al.r, y: al.r }));
+      const xs = pts.map((q) => q.x);
+      const ys = pts.map((q) => q.y);
       return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
     });
   const minBorde = REGLAS.distanciaCantoXEspesor * esp;
@@ -229,8 +272,8 @@ export function validarPlano(plano: Plano): Observacion[] {
       obs.push({ nivel: 'error', texto: `${nombre} se sale del borde ${NOMBRE_BORDE[o.borde]} (el borde mide ${Math.round(b.L)} mm).`, opId: o.id });
     } else {
       // El tramo útil del borde es el que dejan libre los cortes de sus dos esquinas.
-      const [t1, t2] = tramoBoquete(o, b);
-      const recorte = recorteEnBorde(o.borde, p.esquinas);
+      const [t1, t2] = tramoOcupado(o, b);
+      const recorte = recorteEnBorde(o.borde, p);
       if (t1 < recorte.ini - 0.01 || t2 > b.L - recorte.fin + 0.01) {
         obs.push({ nivel: 'error', texto: `${nombre} se mete en el corte de una esquina del borde ${NOMBRE_BORDE[o.borde]}.`, opId: o.id });
       }
@@ -239,6 +282,18 @@ export function validarPlano(plano: Plano): Observacion[] {
     if (o.prof > perpendicular * REGLAS.boqueteProfMaxFraccion) {
       obs.push({ nivel: 'aviso', texto: `${nombre} entra más de un tercio del vidrio: riesgo de rotura al templar.`, opId: o.id });
     }
+    // Alivios: todo aviso, como el resto de reglas que no están confirmadas con el proveedor.
+    const al = geometriaAlivios(o, b);
+    if (al && 'problema' in al) {
+      const del = `del boquete ${num(o.id)}`;
+      const texto = {
+        'faltan-medidas': `A los alivios ${del} les falta el diámetro o el fondo.`,
+        'corta-canto': `Los alivios ${del} cortan el canto: el fondo debe ser mayor que el diámetro.`,
+        'no-toca': `Los alivios ${del} quedan más adentro que el fondo del boquete y no lo tocan.`,
+        'se-juntan': `Los dos alivios ${del} se juntan en el fondo: el boquete es muy angosto para ese diámetro.`,
+      }[al.problema];
+      obs.push({ nivel: 'aviso', texto: `${texto} El plano lo muestra sin alivios.`, opId: o.id });
+    }
   }
   // Dos boquetes del mismo borde que se traslapan dibujan un contorno que se cruza a sí mismo.
   for (let i = 0; i < boquetes.length; i++) {
@@ -246,8 +301,8 @@ export function validarPlano(plano: Plano): Observacion[] {
       const a = boquetes[i];
       const b = boquetes[j];
       if (a.borde !== b.borde || !(a.largo > 0) || !(b.largo > 0)) continue;
-      const [a1, a2] = tramoBoquete(a, bs[a.borde]);
-      const [b1, b2] = tramoBoquete(b, bs[b.borde]);
+      const [a1, a2] = tramoOcupado(a, bs[a.borde]);
+      const [b1, b2] = tramoOcupado(b, bs[b.borde]);
       if (a1 < b2 && b1 < a2) {
         obs.push({ nivel: 'error', texto: `Los boquetes ${num(a.id)} y ${num(b.id)} se montan uno sobre otro en el borde ${NOMBRE_BORDE[a.borde]}.`, opId: a.id });
       }
@@ -265,7 +320,7 @@ export function validarPlano(plano: Plano): Observacion[] {
       obs.push({ nivel: 'aviso', texto: `A la media perforación ${num(o.id)} le falta el diámetro.`, opId: o.id });
       return;
     }
-    const recorte = recorteEnBorde(o.borde, p.esquinas);
+    const recorte = recorteEnBorde(o.borde, p);
     const libreIni = t1 - recorte.ini;
     const libreFin = b.L - recorte.fin - t2;
     if (t1 < -0.01 || t2 > b.L + 0.01) {
@@ -284,7 +339,7 @@ export function validarPlano(plano: Plano): Observacion[] {
     }
     for (const q of boquetes) {
       if (q.borde !== o.borde || !(q.largo > 0)) continue;
-      const [q1, q2] = tramoBoquete(q, b);
+      const [q1, q2] = tramoOcupado(q, b);
       if (t1 < q2 && q1 < t2) obs.push({ nivel: 'aviso', texto: `${nombre} se monta sobre el boquete ${num(q.id)}.`, opId: o.id });
     }
     for (let j = i + 1; j < medias.length; j++) {

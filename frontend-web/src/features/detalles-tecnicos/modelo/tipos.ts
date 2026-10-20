@@ -22,7 +22,13 @@ export type Contorno =
   /** Un lado vertical inclinado: el canto superior mide `anchoSup`, el inferior mide `ancho`. */
   | { tipo: 'desplome-lateral'; lado: 'izq' | 'der'; anchoSup: number }
   /** Canto superior inclinado: el lado indicado mide `altoLado`, el opuesto mide `alto`. */
-  | { tipo: 'desplome-superior'; lado: 'izq' | 'der'; altoLado: number };
+  | { tipo: 'desplome-superior'; lado: 'izq' | 'der'; altoLado: number }
+  /**
+   * Remate en arco de medio punto: el canto `lado` completo es un semicírculo de radio = la mitad
+   * de ese canto. Si el lado recto mide exactamente ese radio, el vidrio es un semicírculo. El radio
+   * sale de las medidas, así que el arco se ajusta solo al cambiar el vidrio (2026-10-20).
+   */
+  | { tipo: 'arco'; lado: BordeId };
 
 /** Procesos que forman un mismo herraje (p. ej. las 4 perforaciones de un par de bisagras): se mueven juntos. */
 export interface Grupo {
@@ -56,8 +62,14 @@ export interface Boquete extends OpBase {
   desde: 'inicio' | 'fin';
   largo: number;
   prof: number;
-  /** Radio de las esquinas internas del boquete (0 = en escuadra). */
+  /** Radio de las esquinas internas del boquete (0 = en escuadra). No aplica si lleva alivios. */
   radio: number;
+  /**
+   * Alivios (2026-10-20): un círculo de Ø `d` en cada lado del boquete, con el centro sobre ese lado
+   * y su punto más profundo a `fondo` del canto (centro a `fondo − d/2`). Son parte del boquete: no
+   * cuentan como PERF. Ausente = boquete sin alivios.
+   */
+  alivio?: { d: number; fondo: number };
 }
 
 /**
@@ -141,7 +153,7 @@ export interface Pedido {
 export interface Plantilla {
   id: string;
   nombre: string;
-  /** Nombre de la hoja en «1.1 DETALLES TECNICOS.xlsx» de donde sale. */
+  /** Nombre de la hoja en «1.1 DETALLES TECNICOS.xlsx» de donde sale ('' = plantilla nueva, sin hoja). */
   hoja: string;
   familia: string;
   descripcion: string;

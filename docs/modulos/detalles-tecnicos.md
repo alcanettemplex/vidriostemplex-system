@@ -256,3 +256,24 @@ del extremo del canto al centro** (decisión del usuario), no al inicio como en 
 - El **renderizador de plano → imagen** quedó resuelto aquí (el navegador genera el PNG al guardar).
   El Cotizador tiene la misma necesidad (`cotizador-vision.md`): puede reutilizar este camino.
 - Los componentes siguen en MUI; re-maquetar al sistema «Cristal y Aluminio» sigue pendiente.
+
+## Boquete con alivios (2026-10-20)
+
+Campo opcional `Boquete.alivio = { d, fondo }`: un círculo de Ø `d` a cada lado del boquete, con el centro **sobre el lado** del boquete a `fondo − d/2` del canto; `fondo` es la distancia del canto al **punto más profundo** del alivio (decisión del usuario, leída del plano del taller: boquete 60 × 38, alivio Ø16 hasta 40).
+- Geometría en `geometriaAlivios` (`modelo/geometria.ts`): devuelve el tramo del contorno que reemplaza al boquete, o un problema. Si `fondo ≤ prof`, cada arco vuelve al mismo lado del boquete; si `fondo > prof`, termina sobre el fondo. Usa el vértice de arco general `Vert.circ` (centro, radio, sentido), que también usa el contorno en arco.
+- **Son parte del boquete, no cuentan como PERF** (BOQ no cambia). Con alivios no se usa `radio`.
+- Avisos (no bloquean): faltan medidas, cortan el canto (`fondo < d`), no tocan el boquete, los dos alivios se juntan en el fondo. En esos casos el plano se dibuja **sin alivios** y el aviso lo dice.
+- El traslape entre boquetes, el corte de esquina y la exención «tipo ojo» de perforaciones cuentan lo que los alivios se abren a los lados.
+
+## Contorno en arco (2026-10-20)
+
+`Contorno { tipo: 'arco', lado }`: el canto `lado` completo es un **semicírculo de radio = la mitad de ese canto**. Si el lado recto mide exactamente el radio, el vidrio es un semicírculo (935 × 1870); si mide más, es un rectángulo con remate en arco (ventana o puerta en arco); si mide menos, **error** («el arco no cabe»).
+- Sin parámetros propios: `piezaConMedidas` lo reescala solo y una letra con vidrios de medidas distintas sigue siendo válida.
+- `verticesBase` sigue siendo el rectángulo envolvente: cotas, m² y `limitesDe` usan la caja. Las perforaciones referidas al lado curvo se miden desde la línea que toca el arco. **El m² es el del rectángulo**, no el área del semicírculo.
+- `esquinasDe(p)` anula las dos esquinas del canto curvo (las reemplaza el arco); el editor las deshabilita y al elegir el arco las deja rectas. Toda lectura geométrica de esquinas pasa por `esquinasDe`, no por `p.esquinas`.
+- **RADIOS = 1** por el arco (decisión del usuario). Un chaflán en el canto curvo mide π·r y se dibuja siguiendo la curva.
+- Errores: boquete o media perforación en el canto curvo; boquete en un canto vecino que se mete en el tramo que ocupa el arco (`recorteEnBorde` le da al vecino el radio del arco en ese extremo). El arrastre nunca salta al canto curvo.
+- Dibujo: línea de radio a 45° con «R 935». Las marcas de 90° de los desplomes no aplican.
+- Fuera de alcance: arco rebajado (flecha menor que el radio) y arcos en dos cantos.
+
+**Plantillas nuevas** (sin hoja en el Excel, la galería las muestra como «Nueva»): «Puerta con boquetes de alivio» (Puertas) y «Semicírculo» (Formas y perforaciones). Con ellas el catálogo tiene **62** y sigue con 0 avisos con espesor 8.

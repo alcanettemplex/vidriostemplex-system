@@ -92,7 +92,7 @@ export function Galeria({ abierta, titulo, onCerrar, onElegir }: Props) {
                       {p.nombre}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
-                      Hoja «{p.hoja.trim()}» · {p.familia}
+                      {p.hoja.trim() ? `Hoja «${p.hoja.trim()}»` : 'Nueva'} · {p.familia}
                     </Typography>
                     <Typography variant="caption" component="div" sx={{ lineHeight: 1.3 }}>
                       {p.descripcion}

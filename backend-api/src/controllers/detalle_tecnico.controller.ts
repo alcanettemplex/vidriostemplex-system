@@ -32,7 +32,8 @@ const operacion = z.discriminatedUnion('tipo', [
   z.object({ id: z.string().max(60), grupo, tipo: z.literal('perforacion'), d: num, x: num, refX: z.enum(['izq', 'der', 'centro']), y: num, refY: z.enum(['sup', 'inf', 'centro']) }).strict(),
   // Media perforación (2026-10-19): centro sobre el canto, `pos` medido al centro. Cuenta como PERF.
   z.object({ id: z.string().max(60), grupo, tipo: z.literal('media-perforacion'), borde: z.enum(['sup', 'der', 'inf', 'izq']), pos: num, desde: z.enum(['inicio', 'fin']), d: num }).strict(),
-  z.object({ id: z.string().max(60), grupo, tipo: z.literal('boquete'), borde: z.enum(['sup', 'der', 'inf', 'izq']), pos: num, desde: z.enum(['inicio', 'fin']), largo: num, prof: num, radio: num }).strict(),
+  // `alivio` (2026-10-20): un círculo a cada lado del boquete. Opcional: los planos anteriores no lo traen.
+  z.object({ id: z.string().max(60), grupo, tipo: z.literal('boquete'), borde: z.enum(['sup', 'der', 'inf', 'izq']), pos: num, desde: z.enum(['inicio', 'fin']), largo: num, prof: num, radio: num, alivio: z.object({ d: num, fondo: num }).strict().optional() }).strict(),
   z.object({ id: z.string().max(60), grupo, tipo: z.literal('chaflan'), borde: z.enum(['sup', 'der', 'inf', 'izq']), ancho: num }).strict(),
   z.object({ id: z.string().max(60), grupo, tipo: z.literal('nota'), texto: z.string().max(200), x: num, y: num }).strict(),
 ]);
@@ -46,6 +47,8 @@ const contorno = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('rectangular') }).strict(),
   z.object({ tipo: z.literal('desplome-lateral'), lado: z.enum(['izq', 'der']), anchoSup: num }).strict(),
   z.object({ tipo: z.literal('desplome-superior'), lado: z.enum(['izq', 'der']), altoLado: num }).strict(),
+  // Remate en arco de medio punto (2026-10-20): el canto `lado` completo es un semicírculo.
+  z.object({ tipo: z.literal('arco'), lado: z.enum(['sup', 'der', 'inf', 'izq']) }).strict(),
 ]);
 const piezaSchema = z.object({
   ancho: num.positive(),

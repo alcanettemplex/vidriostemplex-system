@@ -3,11 +3,14 @@ import {
   add,
   BORDE_ENTRADA,
   BORDE_SALIDA,
+  bordeCurvo,
   bordesDe,
   centroPerforacion,
   contornoDe,
   encuadre,
   esHorizontal,
+  esquinasDe,
+  geometriaAlivios,
   geometriaBoquete,
   geometriaMediaPerforacion,
   largo,
@@ -16,6 +19,7 @@ import {
   ORDEN_ESQUINAS,
   origenBoquete,
   pathDe,
+  radioArco,
   sub,
   unit,
   type Pt,
@@ -149,6 +153,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
   const centros = perfs.map((o) => centroPerforacion(pieza, o, v));
   const rVisual = (d: number) => Math.max(d / 2, conCotas ? f * 0.28 : m * 0.01);
   const fc = f * 0.8;
+  const curvo = bordeCurvo(pieza);
 
   const elementos: ReactNode[] = [];
   const numeros: ReactNode[] = [];
@@ -171,13 +176,18 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     if (o.tipo !== 'chaflan') continue;
     const b = bs[o.borde];
     const w = Math.max(o.ancho, f * 0.5);
-    const s = add(b.S, mul(b.n, w));
-    const t = add(b.T, mul(b.n, w));
-    const pLbl = add(mul(add(b.S, b.T), 0.5), mul(b.n, w + f * 1.1));
+    // En el canto curvo de un arco el chaflán sigue la curva, por dentro, a `w` del borde.
+    const enArco = o.borde === curvo;
+    const rA = radioArco(pieza);
+    const cA = add(mul(add(b.S, b.T), 0.5), mul(b.n, rA));
+    const s = enArco ? add(cA, mul(b.d, -(rA - w))) : add(b.S, mul(b.n, w));
+    const t = enArco ? add(cA, mul(b.d, rA - w)) : add(b.T, mul(b.n, w));
+    const d = enArco ? `M${s.x} ${s.y} A${rA - w} ${rA - w} 0 0 1 ${t.x} ${t.y}` : `M${s.x} ${s.y} L${t.x} ${t.y}`;
+    const pLbl = enArco ? add(cA, mul(b.n, -(rA - w - f * 1.1))) : add(mul(add(b.S, b.T), 0.5), mul(b.n, w + f * 1.1));
     elementos.push(
       <g key={o.id} onPointerDown={alPresionar(o.id)} style={interaccion ? { cursor: 'pointer' } : undefined}>
-        {interaccion && <line x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke="transparent" strokeWidth={14} vectorEffect="non-scaling-stroke" />}
-        <line x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke={ACENTO} strokeDasharray="6 4" strokeWidth={destacado(o.id) ? 2.6 : 1.2} vectorEffect="non-scaling-stroke" />
+        {interaccion && <path d={d} fill="none" stroke="transparent" strokeWidth={14} vectorEffect="non-scaling-stroke" />}
+        <path d={d} fill="none" stroke={ACENTO} strokeDasharray="6 4" strokeWidth={destacado(o.id) ? 2.6 : 1.2} vectorEffect="non-scaling-stroke" />
         {conCotas && (
           <Texto p={pLbl} f={f * 0.85} color={ACENTO}>
             {`CHAFLÁN ${o.ancho} mm`}
@@ -335,9 +345,20 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     const inward = mul(add(g.B, g.C), 0.5);
     const pLbl = add(inward, mul(borde.n, f * 1.3));
     const anchor = Math.abs(borde.n.x) > 0.5 ? (borde.n.x < 0 ? 'end' : 'start') : 'middle';
-    const etiqueta = `BOQ ${o.largo}×${o.prof}${o.radio ? ` R${o.radio}` : ''}`;
+    const al = geometriaAlivios(o, borde);
+    const conAlivio = !!al && 'pts' in al;
+    const etiqueta = conAlivio ? `BOQ ${o.largo}×${o.prof} · ALIVIOS Ø${fmt(o.alivio!.d)}` : `BOQ ${o.largo}×${o.prof}${o.radio ? ` R${o.radio}` : ''}`;
     pastilla(o.id, add(inward, mul(borde.n, -f * 1.6)));
     if (!conCotas) continue;
+    if (conAlivio) {
+      // Fondo de los alivios: del canto al punto más profundo, junto al alivio del lado A.
+      const lateral = mul(borde.d, -(al.r + fc * 1.2));
+      const a = add(g.A, lateral);
+      const b = add(a, mul(borde.n, o.alivio!.fondo));
+      elementos.push(
+        <Cota key={o.id + 'f'} a={a} b={b} texto={fmt(o.alivio!.fondo)} f={fc} lado={1} color={col} t={o.alivio!.fondo < anchoTexto(fmt(o.alivio!.fondo), fc) + fc ? 1.8 : 0.5} />,
+      );
+    }
     elementos.push(
       <Texto key={o.id + 'l'} p={pLbl} f={fc} anchor={anchor} color={col} bold={activo}>
         {etiqueta}
@@ -435,8 +456,9 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
 
   // ── Esquinas ───────────────────────────────────────────────────────────────
   if (conCotas) {
+    const esquinas = esquinasDe(pieza);
     for (const e of ORDEN_ESQUINAS) {
-      const t = pieza.esquinas[e];
+      const t = esquinas[e];
       if (t.tipo === 'recta') continue;
       const V = v[e];
       if (t.tipo === 'muesca') {
@@ -468,6 +490,26 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
         </Texto>,
       );
     }
+  }
+
+  // ── Radio del arco ─────────────────────────────────────────────────────────
+  if (conCotas && curvo) {
+    const b = bs[curvo];
+    const rA = radioArco(pieza);
+    const cA = add(mul(add(b.S, b.T), 0.5), mul(b.n, rA));
+    // Línea de radio a 45° (hacia el final del canto): no choca con la etiqueta de un chaflán, que va
+    // en el centro del arco, ni con las notas, que suelen ir al medio del vidrio.
+    const u = unit(add(mul(b.n, -1), b.d));
+    const enArco = add(cA, mul(u, rA));
+    elementos.push(
+      <g key="radioArco" pointerEvents="none">
+        <line x1={cA.x} y1={cA.y} x2={enArco.x} y2={enArco.y} stroke={COTA} strokeWidth={0.6} vectorEffect="non-scaling-stroke" />
+        <circle cx={cA.x} cy={cA.y} r={f * 0.15} fill={COTA} />
+        <Texto p={add(cA, add(mul(u, rA * 0.62), mul({ x: -u.y, y: u.x }, -fc * 0.8)))} f={fc} color={COTA} bold>
+          {`R ${fmt(rA)}`}
+        </Texto>
+      </g>,
+    );
   }
 
   // ── Esquinas a 90° (desplomes) ─────────────────────────────────────────────

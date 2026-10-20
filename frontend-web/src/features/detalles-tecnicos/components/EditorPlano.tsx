@@ -22,7 +22,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { conteosDe } from '../modelo/geometria';
+import { conteosDe, EXTREMOS, radioArco } from '../modelo/geometria';
 import { HERRAJES } from '../modelo/herrajes';
 import { COLORES, DIAMETROS, ESPESORES } from '../modelo/opciones';
 import { medidaPedido, nuevoId } from '../modelo/plantillas';
@@ -58,9 +58,9 @@ function Mm({ value, onChange, label, width = 100, min, ayuda, disabled }: { val
   );
 }
 
-function Sel<T extends string>({ value, onChange, opciones, width = 170, label }: { value: T; onChange: (v: T) => void; opciones: { v: T; t: string }[]; width?: number; label?: string }) {
+function Sel<T extends string>({ value, onChange, opciones, width = 170, label, disabled }: { value: T; onChange: (v: T) => void; opciones: { v: T; t: string }[]; width?: number; label?: string; disabled?: boolean }) {
   return (
-    <TextField select size="small" label={label} value={value} onChange={(e) => onChange(e.target.value as T)} sx={{ width, ...CAMPO_COMPACTO }}>
+    <TextField select size="small" label={label} value={value} onChange={(e) => onChange(e.target.value as T)} disabled={disabled} sx={{ width, ...CAMPO_COMPACTO }}>
       {opciones.map((o) => (
         <MenuItem key={o.v} value={o.v}>
           {o.t}
@@ -194,7 +194,15 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
     if (tipo === 'rectangular') setPieza({ contorno: { tipo } });
     if (tipo === 'desplome-lateral') setPieza({ contorno: { tipo, lado: 'der', anchoSup: Math.round(p.ancho * 0.95) } });
     if (tipo === 'desplome-superior') setPieza({ contorno: { tipo, lado: 'der', altoLado: Math.round(p.alto * 0.85) } });
+    if (tipo === 'arco') ponerArco('der');
   };
+  /** El arco reemplaza las dos esquinas de su canto: quedan rectas (y deshabilitadas abajo). */
+  const ponerArco = (lado: BordeId) => {
+    const [e1, e2] = EXTREMOS[lado];
+    setPieza({ contorno: { tipo: 'arco', lado }, esquinas: { ...p.esquinas, [e1]: { tipo: 'recta' }, [e2]: { tipo: 'recta' } } });
+  };
+  const ladoArco = p.contorno.tipo === 'arco' ? p.contorno.lado : null;
+  const esquinasDelArco: EsquinaId[] = ladoArco ? EXTREMOS[ladoArco] : [];
 
   const errores = obs.filter((o) => o.nivel === 'error');
   const avisos = obs.filter((o) => o.nivel === 'aviso');
@@ -236,7 +244,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
           <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
             {NOMBRE_OP[o.tipo]}
             {(o.tipo === 'perforacion' || o.tipo === 'media-perforacion') && Number.isFinite(o.d) && ` Ø${o.d}`}
-            {o.tipo === 'boquete' && ` ${o.largo}×${o.prof}`}
+            {o.tipo === 'boquete' && ` ${o.largo}×${o.prof}${o.alivio ? ' con alivios' : ''}`}
           </Typography>
           <Tooltip title="Quitar">
             <IconButton
@@ -342,13 +350,41 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               <Typography>a lo largo y entra</Typography>
               <Mm value={o.prof} onChange={(prof) => setOp(o.id, { prof }, 'prof')} />
             </Frase>
-            <Frase>
-              <Typography>Esquinas de adentro redondeadas</Typography>
-              <Mm value={o.radio} min={0} onChange={(radio) => setOp(o.id, { radio }, 'radio')} />
-            </Frase>
-            <Typography variant="caption" color="text.secondary">
-              0 mm = esquinas en escuadra.
-            </Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={!!o.alivio}
+                  // Por defecto el alivio pasa 2 mm del fondo, como el boquete de bisagra del taller (38 → 40).
+                  onChange={(e) => setOp(o.id, { alivio: e.target.checked ? { d: 16, fondo: (Number.isFinite(o.prof) ? o.prof : 38) + 2 } : undefined }, 'alivio')}
+                />
+              }
+              label={<Typography variant="body2">Con alivios (una perforación a cada lado)</Typography>}
+            />
+            {o.alivio ? (
+              <>
+                <Frase>
+                  <Typography>Alivios de Ø</Typography>
+                  <Mm value={o.alivio.d} min={0} onChange={(d) => setOp(o.id, { alivio: { ...o.alivio!, d } }, 'alivio.d')} />
+                  <Typography>hasta</Typography>
+                  <Mm value={o.alivio.fondo} min={0} onChange={(fondo) => setOp(o.id, { alivio: { ...o.alivio!, fondo } }, 'alivio.fondo')} />
+                  <Typography>del canto</Typography>
+                </Frase>
+                <Typography variant="caption" color="text.secondary">
+                  El centro de cada alivio va sobre el lado del boquete; la medida llega a su punto más profundo. Son parte del boquete: no cuentan como PERF.
+                </Typography>
+              </>
+            ) : (
+              <>
+                <Frase>
+                  <Typography>Esquinas de adentro redondeadas</Typography>
+                  <Mm value={o.radio} min={0} onChange={(radio) => setOp(o.id, { radio }, 'radio')} />
+                </Frase>
+                <Typography variant="caption" color="text.secondary">
+                  0 mm = esquinas en escuadra.
+                </Typography>
+              </>
+            )}
           </Stack>
         )}
 
@@ -511,6 +547,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               { v: 'rectangular', t: 'Rectangular' },
               { v: 'desplome-lateral', t: 'Con un lado inclinado (desplome)' },
               { v: 'desplome-superior', t: 'Con el borde de arriba inclinado (descuadre)' },
+              { v: 'arco', t: 'Con un lado en arco (semicírculo)' },
             ]}
           />
           {modoPedido && desplome && (
@@ -570,6 +607,17 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               />
             </Frase>
           )}
+          {ladoArco && (
+            <Stack spacing={0.5}>
+              <Frase>
+                <Typography>El lado curvo es el</Typography>
+                <Sel value={ladoArco} width={130} opciones={BORDES} onChange={ponerArco} />
+              </Frase>
+              <Typography variant="caption" color="text.secondary">
+                {`Radio ${Math.round(radioArco(p) * 10) / 10} mm (la mitad del lado curvo). Es un semicírculo exacto cuando el ${ladoArco === 'sup' || ladoArco === 'inf' ? 'alto' : 'ancho'} mide lo mismo que el radio.`}
+              </Typography>
+            </Stack>
+          )}
           {p.contorno.tipo === 'desplome-superior' && (
             <Frase>
               <Typography>El lado más bajo es el</Typography>
@@ -583,6 +631,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
         <Stack spacing={1.5}>
           {ESQUINAS.map(({ id, nombre, bordeH, bordeV }) => {
             const t = p.esquinas[id];
+            const enArco = esquinasDelArco.includes(id);
             return (
               <Stack key={id} spacing={1}>
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -591,8 +640,9 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
                     {nombre}
                   </Typography>
                   <Sel
-                    value={t.tipo}
+                    value={enArco ? 'recta' : t.tipo}
                     width={210}
+                    disabled={enArco}
                     opciones={[
                       { v: 'recta', t: 'Recta' },
                       { v: 'despunte', t: 'Despunte (corte en diagonal)' },
@@ -602,14 +652,19 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
                     onChange={(tipo) => setEsquina(id, tipo === 'recta' ? { tipo } : tipo === 'radio' ? { tipo, r: 20 } : { tipo, a: 30, b: 30 })}
                   />
                 </Stack>
-                {t.tipo === 'radio' && (
+                {enArco && (
+                  <Typography variant="caption" color="text.secondary" sx={{ pl: 4.5 }}>
+                    Esta esquina va en el arco.
+                  </Typography>
+                )}
+                {!enArco && t.tipo === 'radio' && (
                   <Frase>
                     <Box sx={{ width: 26 }} />
                     <Typography>Radio de</Typography>
                     <Mm value={t.r} onChange={(r) => setEsquina(id, { ...t, r }, `${id}:r`)} />
                   </Frase>
                 )}
-                {(t.tipo === 'despunte' || t.tipo === 'muesca') && (
+                {!enArco && (t.tipo === 'despunte' || t.tipo === 'muesca') && (
                   <Frase>
                     <Box sx={{ width: 26 }} />
                     <Mm value={t.a} onChange={(a) => setEsquina(id, { ...t, a }, `${id}:a`)} />

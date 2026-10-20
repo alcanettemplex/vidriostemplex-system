@@ -16,7 +16,20 @@ export const BQ = (borde: BordeId, pos: number, desde: 'inicio' | 'fin', largo: 
   prof,
   radio,
 });
+/** Boquete con un alivio de Ø `d` a cada lado, hasta `fondo` del canto. */
+export const BQA = (borde: BordeId, pos: number, desde: 'inicio' | 'fin', largo: number, prof: number, d: number, fondo: number): Operacion => ({
+  id: nuevoId(),
+  tipo: 'boquete',
+  borde,
+  pos,
+  desde,
+  largo,
+  prof,
+  radio: 0,
+  alivio: { d, fondo },
+});
 export const CH = (borde: BordeId, ancho: number): Operacion => ({ id: nuevoId(), tipo: 'chaflan', borde, ancho });
+export const NOTA = (texto: string, x: number, y: number): Operacion => ({ id: nuevoId(), tipo: 'nota', texto, x, y });
 
 export const recta = (): TratamientoEsquina => ({ tipo: 'recta' });
 export const dsp = (a: number, b = a): TratamientoEsquina => ({ tipo: 'despunte', a, b });
@@ -31,6 +44,7 @@ export const esq = (p: Partial<Record<EsquinaId, TratamientoEsquina>> = {}): Rec
 });
 export const RECT: Contorno = { tipo: 'rectangular' };
 export const desplome = (lado: 'izq' | 'der', anchoSup: number): Contorno => ({ tipo: 'desplome-lateral', lado, anchoSup });
+export const arco = (lado: BordeId): Contorno => ({ tipo: 'arco', lado });
 
 export const pieza = (ancho: number, alto: number, operaciones: Operacion[] = [], esquinas = esq(), contorno: Contorno = RECT): Pieza => ({
   ancho,
