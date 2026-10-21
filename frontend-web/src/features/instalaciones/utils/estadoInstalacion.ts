@@ -17,6 +17,7 @@ export interface ODPInstalacion {
   forma_pago?: string | null;
   autorizacion_especial_despacho?: boolean | null;
   estado_facturacion?: string | null;
+  tipo_odp?: string | null;
 }
 
 export type Tono = 'ok' | 'info' | 'aviso' | 'neutro';
@@ -53,11 +54,12 @@ export const estadoPago = (odp?: ODPInstalacion | null): Etiqueta & { aprobado: 
 
 /**
  * Factura electrónica para instalar. Mismo criterio que FACTURA_OK. `null` cuando la
- * etiqueta no aporta: garantía, reproceso o crédito no requieren factura para salir.
+ * etiqueta no aporta: garantía, reproceso, crédito u OA (nunca se factura) no requieren
+ * factura para salir.
  */
 export const estadoFactura = (odp?: ODPInstalacion | null): Etiqueta | null => {
   if (odp?.estado_facturacion === 'FACTURADA') return { label: 'Facturada', tono: 'ok' };
-  if (odp?.es_garantia || odp?.es_no_conformidad || odp?.forma_pago === 'credito') return null;
+  if (odp?.es_garantia || odp?.es_no_conformidad || odp?.forma_pago === 'credito' || odp?.tipo_odp === 'OA') return null;
   return { label: 'Sin factura', tono: 'aviso' };
 };
 

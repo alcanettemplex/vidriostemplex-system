@@ -296,7 +296,8 @@ const facturaOkParaRuta = (odp: ODP): boolean =>
     odp.estado_facturacion === 'FACTURADA' ||
     odp.es_garantia === true ||
     odp.es_no_conformidad === true ||
-    odp.forma_pago === 'credito';
+    odp.forma_pago === 'credito' ||
+    odp.tipo_odp === 'OA';
 
 const getPaymentInfo = (odp: ODP): { label: string; cls: string } => {
     if (odp.forma_pago === 'credito') return { label: 'Crédito', cls: 'bg-blue-50 text-blue-700' };

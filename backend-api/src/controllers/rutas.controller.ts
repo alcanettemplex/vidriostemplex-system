@@ -159,7 +159,7 @@ const INCLUDE_RUTA_LISTA = async (): Promise<any[]> => [
         // Hoja de Ruta impresa (contacto en obra y descripción).
         attributes: ['id', 'numero_odp', 'cliente_id', 'asesor_id', 'direccion_instalacion',
           'instalacion', 'acarreo', 'es_garantia', 'es_no_conformidad', 'estado_caja',
-          'autorizacion_especial_despacho', 'forma_pago', 'estado_facturacion',
+          'autorizacion_especial_despacho', 'forma_pago', 'estado_facturacion', 'tipo_odp',
           'nombre_recibe', 'telefono_recibe', 'descripcion_pedido',
           // Resultado real de cada parada en Completados (RutaCard, 2026-10-06).
           'estado_produccion'],
@@ -284,15 +284,38 @@ const REQUIERE_SERVICIO = {
   [Op.or as any]: [{ instalacion: true }, { acarreo: true }],
 };
 
-// Condición de factura electrónica para instalar (garantías, NC y crédito están exentas)
+// Condición de factura electrónica para instalar. Exentas: garantías, NC, crédito y las OA
+// (Orden Azul: sin IVA y sin factura electrónica, nunca se facturan — OA-3846, 2026-10-21).
+// Tres consumidores en este archivo: FACTURA_OK (pestaña Listos), SIN_FACTURA_PENDIENTE
+// (pestaña Espera de factura) y cumpleFactura (validación al programar). Espejo en el
+// frontend: estadoFactura (instalaciones/utils/estadoInstalacion.ts) y facturaOkParaRuta
+// (ProduccionPage.tsx). Si cambia aquí, cambiar allá.
 const FACTURA_OK = {
   [Op.or as any]: [
     { estado_facturacion: 'FACTURADA' },
     { es_garantia: true },
     { es_no_conformidad: true },
     { forma_pago: 'credito' },
+    { tipo_odp: 'OA' },
   ],
 };
+
+// Negación exacta de FACTURA_OK, con los NULL tratados como "no cumple".
+const SIN_FACTURA_PENDIENTE = {
+  es_garantia: { [Op.not]: true },
+  es_no_conformidad: { [Op.not]: true },
+  forma_pago: { [Op.or]: [{ [Op.ne]: 'credito' }, { [Op.is]: null }] },
+  estado_facturacion: { [Op.or]: [{ [Op.ne]: 'FACTURADA' }, { [Op.is]: null }] },
+  tipo_odp: { [Op.ne]: 'OA' },
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const cumpleFactura = (o: any): boolean =>
+  o.estado_facturacion === 'FACTURADA' ||
+  o.es_garantia === true ||
+  o.es_no_conformidad === true ||
+  o.forma_pago === 'credito' ||
+  o.tipo_odp === 'OA';
 
 // Validación defensiva: las ODPs deben cumplir pago y facturación para poder programarse.
 // Devuelve los numero_odp que incumplen cada condición (createRuta y ODPs nuevas en updateRuta).
@@ -305,7 +328,7 @@ const validarElegibilidadProgramacion = async (
     where: { id: { [Op.in]: odpIds } },
     attributes: [
       'id', 'numero_odp', 'estado_caja', 'autorizacion_especial_despacho',
-      'forma_pago', 'es_garantia', 'es_no_conformidad', 'estado_facturacion',
+      'forma_pago', 'es_garantia', 'es_no_conformidad', 'estado_facturacion', 'tipo_odp',
     ],
     transaction: t,
   })) as any[];
@@ -315,12 +338,6 @@ const validarElegibilidadProgramacion = async (
     o.autorizacion_especial_despacho === true ||
     o.forma_pago === 'credito' ||
     o.es_garantia === true;
-
-  const cumpleFactura = (o: any) =>
-    o.estado_facturacion === 'FACTURADA' ||
-    o.es_garantia === true ||
-    o.es_no_conformidad === true ||
-    o.forma_pago === 'credito';
 
   return {
     sinPago: filas.filter((o) => !cumplePago(o)).map((o) => o.numero_odp as string),
@@ -396,14 +413,11 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
         include: INCLUDE_ODP_BASICO,
         order: [['fecha_entrega', 'ASC']],
       }),
-      // Pestaña 4: producción lista + pago OK pero SIN factura electrónica (excluye garantía/NC/crédito)
+      // Pestaña 4: producción lista + pago OK pero SIN factura electrónica (excluye garantía/NC/crédito/OA)
       ODP.findAll({
         where: {
           estado_produccion: 'LISTO_INSTALAR',
-          es_garantia: { [Op.not]: true },
-          es_no_conformidad: { [Op.not]: true },
-          forma_pago: { [Op.or]: [{ [Op.ne]: 'credito' }, { [Op.is]: null }] },
-          estado_facturacion: { [Op.or]: [{ [Op.ne]: 'FACTURADA' }, { [Op.is]: null }] },
+          ...SIN_FACTURA_PENDIENTE,
           ...excluirEnRuta,
           [Op.and as any]: [PAGO_OK, REQUIERE_SERVICIO],
         },
@@ -1159,7 +1173,7 @@ export const getRecorridos = async (req: Request, res: Response) => {
             model: ODP, as: 'odp',
             attributes: ['id', 'numero_odp', 'direccion_instalacion', 'instalacion', 'acarreo',
               'es_garantia', 'es_no_conformidad', 'estado_caja', 'autorizacion_especial_despacho',
-              'forma_pago', 'estado_facturacion'],
+              'forma_pago', 'estado_facturacion', 'tipo_odp'],
             include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
           }],
         },

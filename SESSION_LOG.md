@@ -7049,3 +7049,13 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **BD:** sin cambios (JSONB `pieza`, campos opcionales, sin subir `ESQUEMA_PIEZA`).
 - **Verificación:** `tsc --noEmit` backend y frontend limpios; ESLint limpio. Foto de las 60 plantillas antes y después: trazo, conteos y validaciones idénticos, 0 avisos con espesor 8 en las 62. Render del `PlanoSVG` real con arco a la derecha, arriba (con boquete con alivios) e izquierda. 10 casos borde de validación. **No se probó en el navegador ni se guardó un plano contra la BD.**
 - **Despliegue:** backend antes o junto con el frontend.
+
+## 2026-10-21 — Instalaciones: las OA no exigen factura para programarse
+
+**Pedido del usuario:** la OA-3846 (JUAN GONZALO TIRADO, convertida de ODP-24416 el 2026-10-08) aparecía en la Agenda como «FACTURA» (espera de factura), pero las OA no llevan factura electrónica. Al crear la ruta, el servidor la habría rechazado con 400 «Sin factura electrónica». Decisión: la OA sigue exigiendo pago, solo deja de exigir factura.
+
+- **backend:** `rutas.controller.ts` — `tipo_odp = 'OA'` como exención en `FACTURA_OK`; la condición de la pestaña Espera de factura pasa a la constante `SIN_FACTURA_PENDIENTE` (negación exacta de `FACTURA_OK`, excluye OA); `cumpleFactura` sale de `validarElegibilidadProgramacion` y queda junto a las otras dos (deuda: la regla estaba copiada en tres sitios). `tipo_odp` agregado a `INCLUDE_RUTA_LISTA`, a `getRecorridos` y a la consulta de la validación.
+- **frontend:** `instalaciones/utils/estadoInstalacion.ts` — `estadoFactura` devuelve `null` para OA (la RutaCard ya no pinta «Sin factura»). `ProduccionPage.tsx` — `facturaOkParaRuta` exime OA (pestaña Acarreos: «No requiere»).
+- **BD:** sin cambios.
+- **Verificación:** `tsc --noEmit` backend y frontend limpios. `GET /api/rutas/odps-para-gestion` contra el backend local (solo lectura): OA-3846 pasa a `listos` (pago CANCELADO), `espera_factura` queda en 0. No se creó una ruta real para probar `validarElegibilidadProgramacion` (escribiría en producción).
+- **Docs:** `docs/modulos/rutas-instalaciones.md` — exenciones de factura y dónde vive la regla.
