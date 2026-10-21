@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout } from '../../features/auth/authSlice';
+import { cerrarSesion } from '../../services/httpInterceptors';
 import { clear } from '../../store/notificationsSlice';
 import { RootState } from '../../store/store';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -122,9 +122,7 @@ const Navbar: React.FC = () => {
   };
 
   const handleLogout = () => {
-    dispatch(logout());
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    cerrarSesion();
     navigate('/login');
   };
 

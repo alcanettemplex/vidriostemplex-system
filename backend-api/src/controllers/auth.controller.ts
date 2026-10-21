@@ -63,7 +63,9 @@ export const login = async (req: Request, res: Response) => {
     const token = jwt.sign(
       { id: user.getDataValue('id'), rol: user.getDataValue('rol') },
       JWT_SECRET,
-      { expiresIn: '8h' }
+      // 12 h (2026-10-21, antes 8 h): cubre la jornada completa. El frontend avisa
+      // 10 min antes y cierra la sesión al vencer (services/httpInterceptors.ts).
+      { expiresIn: '12h' }
     );
 
     const userData = user.toJSON();
