@@ -4,10 +4,39 @@ import { toast } from 'react-toastify';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import {
   Calendar, ChevronLeft, ChevronRight, Plus, X as XIcon, GripVertical,
-  MapPin, Route, Inbox, Search, StickyNote, Check,
+  MapPin, Route, Inbox, Search, StickyNote, Check, User,
 } from '../../../components/ui/icons';
 
 import API from '../../../services/config';
+
+// ─── Asesor ───────────────────────────────────────────────────────────────────
+
+// Nombre y primer apellido (decisión del usuario, 2026-10-21): la fila del día ya lleva
+// cliente, dirección y condición. Con 4 palabras se asume "nombre nombre apellido apellido";
+// con 2 o 3, que la segunda ya es el primer apellido.
+const nombreCorto = (completo?: string | null): string => {
+  const p = (completo || '').trim().split(/\s+/).filter(Boolean);
+  if (p.length >= 4) return `${p[0]} ${p[2]}`;
+  return p.slice(0, 2).join(' ');
+};
+
+const Asesor: React.FC<{ odp: any; className?: string }> = ({ odp, className = '' }) => {
+  const nombre = odp?.asesor?.nombre_completo;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 min-w-0 ${nombre ? 'text-slate-700' : 'text-slate-500 italic'} ${className}`}
+      title={nombre ? `Asesor: ${nombre}` : 'La ODP no tiene asesor asignado'}
+    >
+      <User className="w-3 h-3 flex-shrink-0" />
+      <span className="truncate">{nombre ? nombreCorto(nombre) : 'Sin asesor'}</span>
+    </span>
+  );
+};
+
+/** Coincidencia del buscador: N° ODP, cliente o asesor */
+const coincide = (odp: any, q: string): boolean =>
+  !q || [odp?.numero_odp, odp?.cliente?.nombre_razon_social, odp?.asesor?.nombre_completo]
+    .some((v) => typeof v === 'string' && v.toLowerCase().includes(q));
 
 // ─── Helpers de fecha ─────────────────────────────────────────────────────────
 
@@ -180,7 +209,7 @@ const AgendaTab: React.FC<Props> = ({
     () => odpsConCondicion
       .filter(({ odp }) => !odp.agenda)
       .filter(({ condicion }) => filtros[condicion])
-      .filter(({ odp }) => !q || odp.numero_odp?.toLowerCase().includes(q) || odp.cliente?.nombre_razon_social?.toLowerCase().includes(q)),
+      .filter(({ odp }) => coincide(odp, q)),
     [odpsConCondicion, filtros, q]
   );
 
@@ -190,7 +219,7 @@ const AgendaTab: React.FC<Props> = ({
     const map: Record<string, any[]> = {};
     for (const f of dias) map[f] = [];
     for (const e of agenda) {
-      if (q && !(e.odp?.numero_odp?.toLowerCase().includes(q) || e.odp?.cliente?.nombre_razon_social?.toLowerCase().includes(q))) continue;
+      if (!coincide(e.odp, q)) continue;
       if (map[e.fecha_tentativa]) map[e.fecha_tentativa].push(e);
     }
     for (const f of dias) map[f].sort((a, b) => a.orden - b.orden);
@@ -337,6 +366,7 @@ const AgendaTab: React.FC<Props> = ({
                 {odp?.numero_odp}
               </button>
               <span className="text-sm font-semibold text-slate-900 truncate">{odp?.cliente?.nombre_razon_social}</span>
+              <Asesor odp={odp} className="text-xs px-1.5 py-0.5 rounded-md bg-slate-100 flex-shrink-0 max-w-[160px]" />
               {cond && (
                 <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wide flex-shrink-0 ${COND_META[cond].badge}`} title={COND_META[cond].label}>
                   {COND_META[cond].corto}
@@ -411,7 +441,7 @@ const AgendaTab: React.FC<Props> = ({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
           <input
             type="text"
-            placeholder="Buscar ODP o cliente..."
+            placeholder="Buscar ODP, cliente o asesor..."
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder-slate-400"
@@ -483,7 +513,11 @@ const AgendaTab: React.FC<Props> = ({
                                   {COND_META[condicion].corto}
                                 </span>
                               </div>
-                              <p className="text-xs text-slate-800 truncate mt-0.5">{o.cliente?.nombre_razon_social}</p>
+                              <div className="flex items-center gap-1.5 text-xs mt-0.5 min-w-0">
+                                <span className="text-slate-800 truncate">{o.cliente?.nombre_razon_social}</span>
+                                <span className="text-slate-400 flex-shrink-0">·</span>
+                                <Asesor odp={o} className="flex-shrink-0 max-w-[180px]" />
+                              </div>
                             </div>
                           )}
                         </Draggable>
@@ -543,6 +577,7 @@ const AgendaTab: React.FC<Props> = ({
                                     </span>
                                   </span>
                                   <span className="block text-[11px] text-slate-800 truncate">{o.cliente?.nombre_razon_social}</span>
+                                  <Asesor odp={o} className="text-[11px] max-w-full" />
                                 </button>
                               ))}
                             </div>

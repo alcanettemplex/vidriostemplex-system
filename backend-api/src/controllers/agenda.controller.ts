@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { Op, QueryTypes } from 'sequelize';
 import { z } from 'zod';
-import { AgendaInstalacion, ODP, Cliente, sequelize } from '../models';
+import { AgendaInstalacion, ODP, Cliente, Usuario, sequelize } from '../models';
 import { emitirCambioRutas } from '../utils/notificaciones';
 
 // ─── Elegibilidad ─────────────────────────────────────────────────────────────
@@ -48,10 +48,14 @@ const INCLUDE_ODP_AGENDA = [
   {
     model: ODP, as: 'odp',
     attributes: [
-      'id', 'numero_odp', 'cliente_id', 'direccion_instalacion', 'estado_produccion',
+      'id', 'numero_odp', 'cliente_id', 'asesor_id', 'direccion_instalacion', 'estado_produccion',
       'instalacion', 'acarreo', 'es_garantia', 'estado_caja', 'autorizacion_especial_despacho',
     ],
-    include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
+    include: [
+      { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+      // Asesor en cada fila de la Agenda (2026-10-21). La bandeja lo trae de odps-para-gestion.
+      { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+    ],
   },
 ];
 

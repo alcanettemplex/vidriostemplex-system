@@ -7068,3 +7068,22 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **backend / BD:** sin cambios.
 - **Verificación:** `tsc` y ESLint limpios. Con `GET /api/odp/garantias/all` (solo lectura) y la misma regla: 25 garantías → 0 activas, 23 realizadas, 2 anuladas; contador de Garantías 23. No se probó en el navegador.
 - **Observado, sin tocar:** `scripts/reporte_semanal.js` cuenta como «garantías activas» todo lo que no está ENTREGADA ni PAUSADA (incluye ANULADA e INSTALADA).
+
+## 2026-10-21 (3) — Sesión de 12 horas con aviso previo y cierre limpio al vencer
+
+**Pedido del usuario:** pasadas 8 horas desde el login «fallaba el token». Causa: el JWT vencía a las 8 h y el frontend no manejaba el 401. Cada pantalla fallaba a su manera, con el token muerto guardado, y recargar no lo arreglaba. Decisión: subir a 12 h, arreglar el aviso y avisar 10 min antes. Se descartaron la renovación deslizante y el refresh token.
+
+- **backend:** `auth.controller.ts` — `expiresIn: '12h'` (antes `'8h'`). Los tokens ya emitidos conservan sus 8 h.
+- **frontend:** `services/httpInterceptors.ts` — `cerrarSesion()` (limpia sessionStorage, localStorage sobrante y `axios.defaults.headers.common.Authorization`, y hace `dispatch(logout())`; `ProtectedRoute` redirige) y `cerrarSesionExpirada()` (además, toast con `toastId` fijo). Se dispara por tres vías: 401 de la API propia **excepto `/api/auth/login`** (clave errada también es 401), temporizador a la hora del `exp` del JWT (cubre Root, Informe Ejecutivo y Configuración, que usan `fetch`) y la comprobación al cargar con un token ya vencido. Aviso previo 10 min antes con la hora de vencimiento en Bogotá (`fmtHora`). Los temporizadores se reprograman con `store.subscribe` cada vez que cambia `auth.token`. `Navbar.tsx` — «Salir» usa `cerrarSesion()`; antes borraba `localStorage`, donde no está el token.
+- **BD:** sin cambios.
+- **Verificación:** `tsc --noEmit` backend y frontend limpios. Decodificación del `exp` probada con un JWT real de 12 h. **No se probó en el navegador** (habría que esperar el vencimiento o firmar un token corto).
+- **Despliegue:** independiente; el backend da las 12 h y el frontend maneja cualquier vencimiento.
+
+## 2026-10-21 (4) — Agenda de Instalaciones: asesor en cada ODP
+
+**Pedido del usuario:** mostrar el asesor de cada ODP en la pestaña Agenda. Decisión: forma corta (nombre y primer apellido).
+
+- **backend:** `agenda.controller.ts` — `INCLUDE_ODP_AGENDA` suma `asesor_id` y el include `Usuario as 'asesor'` (`id`, `nombre_completo`). Cubre listar, colocar y mover. La bandeja ya lo traía de `odps-para-gestion` (`INCLUDE_ODP_BASICO`).
+- **frontend:** `AgendaTab.tsx` — componente `Asesor` (pastilla con ícono; nombre completo en el tooltip; «Sin asesor» si falta) en la fila del día, en la tarjeta de la bandeja y en el menú «+ ODP». `nombreCorto()`: 4 palabras → 1.ª + 3.ª; 2 o 3 → las dos primeras. El buscador también filtra por asesor (`coincide()` reemplaza las dos condiciones duplicadas).
+- **BD:** sin cambios.
+- **Verificación:** `tsc` backend y frontend y ESLint limpios. Consulta de solo lectura sobre las ODP en LISTO_INSTALAR: 6 asesores, 0 ODP sin asesor. **Limitación:** «Alba Lucia Castro» queda como «Alba Lucia», porque con 3 palabras no se distingue un nombre compuesto de dos apellidos. No se probó en el navegador.
