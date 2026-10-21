@@ -389,6 +389,7 @@ const ODPListPage: React.FC = () => {
             setListado(prev => prev
                 ? { ...prev, rows: prev.rows.map(o => o.id === id ? { ...o, ...res.data } : o) }
                 : prev);
+            setGarantias(prev => prev.map(o => o.id === id ? { ...o, ...res.data } : o));
             setAnulandoOdp(null);
             setMotivoAnulacion('');
             toast.success(`${res.data.numero_odp} — ODP anulada`);
@@ -408,6 +409,7 @@ const ODPListPage: React.FC = () => {
             setListado(prev => prev
                 ? { ...prev, rows: prev.rows.map(o => o.id === odp.id ? { ...o, ...res.data } : o) }
                 : prev);
+            setGarantias(prev => prev.map(o => o.id === odp.id ? { ...o, ...res.data } : o));
             toast.success(`${res.data.numero_odp} — ODP reactivada`);
         } catch (err: any) {
             toast.error(err.response?.data?.error || 'Error al reactivar ODP');
@@ -423,28 +425,38 @@ const ODPListPage: React.FC = () => {
         }
     };
 
+    // Una garantía anulada no es activa ni realizada: va a la pestaña Anuladas, junto a las ODP.
     const ESTADOS_REALIZADAS = ['INSTALADA', 'ENTREGADA'];
-    const garantiasActivas = garantias.filter(g => !ESTADOS_REALIZADAS.includes(g.estado_produccion));
+    const garantiasAnuladas = garantias.filter(g => g.estado_produccion === 'ANULADA');
+    const garantiasActivas = garantias.filter(g => g.estado_produccion !== 'ANULADA' && !ESTADOS_REALIZADAS.includes(g.estado_produccion));
     const garantiasRealizadas = garantias.filter(g => ESTADOS_REALIZADAS.includes(g.estado_produccion));
 
     // Filas actuales según tab activo
     const currentRows = activeTab === 'completadas' ? (searchResults?.rows || [])
         : activeTab === 'garantia' ? (garantiaSubTab === 'realizadas' ? garantiasRealizadas : garantiasActivas)
+        : activeTab === 'anuladas' ? [...(listado?.rows || []), ...garantiasAnuladas]
         : (listado?.rows || []);
 
     // Listas de asesores y años únicos para filtros
     const asesoresUnicos = Array.from(new Set(currentRows.map(o => o.asesor?.nombre_completo).filter(Boolean)));
     const aniosUnicos = Array.from(new Set(currentRows.map(o => diaCalendario(o.fecha_entrega)?.getFullYear() ?? null).filter(Boolean) as number[])).sort((a, b) => b - a);
 
-    // Segmentación por tabs
+    // Segmentación por tabs: siempre sobre el listado completo, no sobre las filas de la
+    // pestaña abierta. Antes, con Garantías abierta, "Activas" marcaba 0 y "Anuladas"
+    // contaba las garantías (2026-10-21).
+    const listadoRows = listado?.rows || [];
     const ESTADOS_LISTAS = ['LISTO_INSTALAR', 'PROGRAMADA'];
     // Con Daños tiene prioridad: una ODP con daño pendiente de revisar solo aparece en esa tab.
-    const odpsConDano = currentRows.filter(o => o.tiene_dano_instalacion === true);
-    const odpsActivas = currentRows.filter(o => !o.tiene_dano_instalacion && !['VISITA_TECNICA', ...ESTADOS_LISTAS, ...ESTADOS_COMPLETADAS, 'ANULADA'].includes(o.estado_produccion));
-    const odpsVisita = currentRows.filter(o => !o.tiene_dano_instalacion && o.estado_produccion === 'VISITA_TECNICA');
-    const odpsListas = currentRows.filter(o => !o.tiene_dano_instalacion && ESTADOS_LISTAS.includes(o.estado_produccion));
-    const odpsCompletadas = currentRows.filter(o => !o.tiene_dano_instalacion && ESTADOS_COMPLETADAS.includes(o.estado_produccion));
-    const odpsAnuladas = currentRows.filter(o => !o.tiene_dano_instalacion && o.estado_produccion === 'ANULADA');
+    const odpsConDano = listadoRows.filter(o => o.tiene_dano_instalacion === true);
+    const odpsActivas = listadoRows.filter(o => !o.tiene_dano_instalacion && !['VISITA_TECNICA', ...ESTADOS_LISTAS, ...ESTADOS_COMPLETADAS, 'ANULADA'].includes(o.estado_produccion));
+    const odpsVisita = listadoRows.filter(o => !o.tiene_dano_instalacion && o.estado_produccion === 'VISITA_TECNICA');
+    const odpsListas = listadoRows.filter(o => !o.tiene_dano_instalacion && ESTADOS_LISTAS.includes(o.estado_produccion));
+    // Completadas sale del buscador server-side (el listado no las trae).
+    const odpsCompletadas = (searchResults?.rows || []).filter(o => !o.tiene_dano_instalacion && ESTADOS_COMPLETADAS.includes(o.estado_produccion));
+    const odpsAnuladas = [
+        ...listadoRows.filter(o => !o.tiene_dano_instalacion && o.estado_produccion === 'ANULADA'),
+        ...garantiasAnuladas,
+    ];
 
     const tabBase = activeTab === 'visita' ? odpsVisita
         : activeTab === 'listas' ? odpsListas
@@ -529,7 +541,7 @@ const ODPListPage: React.FC = () => {
                         { key: 'listas',      label: 'Listas para instalar', icon: <Truck className="w-4 h-4" />,         badge: odpsListas.length || undefined },
                         { key: 'completadas', label: 'Completadas',          icon: <CheckCircle2 className="w-4 h-4" />,  badge: countCompletadas || undefined },
                         { key: 'con_dano',    label: 'Con Daños',            icon: <AlertTriangle className="w-4 h-4" />, badge: odpsConDano.length || undefined },
-                        { key: 'garantia',    label: 'Garantías',            icon: <Shield className="w-4 h-4" />,        badge: garantias.length || undefined },
+                        { key: 'garantia',    label: 'Garantías',            icon: <Shield className="w-4 h-4" />,        badge: (garantias.length - garantiasAnuladas.length) || undefined },
                         { key: 'anuladas',    label: 'Anuladas',             icon: <Ban className="w-4 h-4" />,           badge: odpsAnuladas.length || undefined },
                         // Consulta transversal con 11 filtros. Solo `admin`: cruza producción
                         // contra cartera. El backend lo exige también (requireRole en la ruta);

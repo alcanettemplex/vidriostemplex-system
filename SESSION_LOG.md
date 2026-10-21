@@ -7059,3 +7059,12 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **BD:** sin cambios.
 - **Verificación:** `tsc --noEmit` backend y frontend limpios. `GET /api/rutas/odps-para-gestion` contra el backend local (solo lectura): OA-3846 pasa a `listos` (pago CANCELADO), `espera_factura` queda en 0. No se creó una ruta real para probar `validarElegibilidadProgramacion` (escribiría en producción).
 - **Docs:** `docs/modulos/rutas-instalaciones.md` — exenciones de factura y dónde vive la regla.
+
+## 2026-10-21 (2) — ODP: garantías anuladas en la pestaña Anuladas
+
+**Pedido del usuario:** las garantías G-0001 (ODP-23965) y G-0002 (ODP-23968), anuladas, aparecían en «Garantías → Activas» en vez de «Anuladas».
+
+- **frontend:** `ODPListPage.tsx` — `garantiasAnuladas` se separa: «Garantías → Activas» excluye ANULADA y «Anuladas» suma las garantías anuladas a las ODP anuladas (se distinguen por el chip «G-000x»). El contador de Garantías no cuenta las anuladas. **Bug adicional corregido:** los contadores de las pestañas se calculaban sobre las filas de la pestaña abierta (en Garantías, «Activas» marcaba 0 y «Anuladas» contaba las garantías); ahora salen siempre del listado completo. Anular y reactivar también actualizan la lista de garantías al instante, sin esperar el socket.
+- **backend / BD:** sin cambios.
+- **Verificación:** `tsc` y ESLint limpios. Con `GET /api/odp/garantias/all` (solo lectura) y la misma regla: 25 garantías → 0 activas, 23 realizadas, 2 anuladas; contador de Garantías 23. No se probó en el navegador.
+- **Observado, sin tocar:** `scripts/reporte_semanal.js` cuenta como «garantías activas» todo lo que no está ENTREGADA ni PAUSADA (incluye ANULADA e INSTALADA).
