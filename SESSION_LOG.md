@@ -7097,3 +7097,8 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **BD:** sin cambios.
 - **Verificación:** `tsc --noEmit` backend y frontend limpios. No se probó en el navegador.
 - **Segunda pasada (mismo día, por orden del usuario):** se borró `components/LeadCard.tsx`, que estaba huérfano y conservaba la regla vieja. `intentos_seguimiento` vuelve a 0 al pasar a una etapa activa en `updateLeadStatus` (al cerrar en FRIO, PERDIDO o APROBADO se conserva como constancia) y en `recuperarLead`. Ese reinicio corrige un bug encontrado en el camino: un lead recuperado desde Frío con 3 intentos volvía a Frío con el primer intento del nuevo asesor. Los leads que ya tienen intentos acumulados no se migran: el contador se pone en cero la próxima vez que cambien de etapa.
+
+## 2026-10-22 (2) — Control de Taller: «Herrajes» pasa a «Accesorios» (solo texto)
+
+- **frontend:** `ProduccionPage.tsx` — etiqueta de la columna `chk_accesorios` y su tooltip de «no aplica». Sin cambios de lógica ni de BD.
+- **Sin tocar, a propósito:** «Herrajes» sigue en la ficha ODP (`ODPTabProduccion.tsx`: «Herrajes / Acceso.»), en el aviso de Compras (`ComprasPage.tsx:1072`), en la pestaña Automáticos (`MovimientosAutomaticosTab.tsx:128`) y en Detalles Técnicos, donde «herrajes» son las piezas del plano y no este check.

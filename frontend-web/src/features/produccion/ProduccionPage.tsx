@@ -196,7 +196,7 @@ const COLUMNS = [
     { key: 'chk_medicion',  label: 'Medición',  Icon: Ruler },
     { key: 'chk_corte',     label: 'Aluminio',  Icon: Scissors },
     { key: 'chk_vidrio',    label: 'Vidrio',    Icon: Layers },
-    { key: 'chk_accesorios',label: 'Herrajes',  Icon: Package },
+    { key: 'chk_accesorios',label: 'Accesorios',Icon: Package },
     { key: 'chk_ensamble',  label: 'Ensamble',  Icon: Wrench },
     { key: 'chk_matizado',  label: 'Matizado',  Icon: Sparkles },
     { key: 'chk_pelicula',  label: 'Película',  Icon: Film },
@@ -232,7 +232,7 @@ const getMotivoNoAplica = (odp: ODP, key: string): string => {
         case 'chk_medicion':   return 'Medición no aplica: esta ODP no tiene una toma de medidas registrada.';
         case 'chk_corte':      return 'Aluminio no aplica: esta ODP no está marcada como que lleva aluminio.';
         case 'chk_vidrio':     return 'Vidrio no aplica: esta ODP todavía no tiene vidrios cargados.';
-        case 'chk_accesorios': return 'Herrajes no aplica: esta ODP no tiene un SAP asociado.';
+        case 'chk_accesorios': return 'Accesorios no aplica: esta ODP no tiene un SAP asociado.';
         case 'chk_ensamble':   return 'Ensamble no aplica: esta ODP no está marcada como que lleva aluminio.';
         case 'chk_matizado':   return 'Matizado no aplica: esta ODP no tiene marcada esa opción en su ficha.';
         case 'chk_pelicula':   return 'Película no aplica: esta ODP no tiene marcada esa opción en su ficha.';
