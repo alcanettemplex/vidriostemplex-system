@@ -1129,7 +1129,7 @@ const PedidosPVPage: React.FC = () => {
                     <TableHead>
                       <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontWeight: 600, fontSize: 13, color: 'text.primary', whiteSpace: 'nowrap', borderBottom: '2px solid', borderColor: 'divider' } }}>
                         <TableCell sx={{ width: 4, p: 0 }} />
-                        <TableCell sortDirection={sortField === 'numero_base' ? sortDir : false}>
+                        <TableCell sortDirection={sortField === 'numero_base' ? sortDir : false} sx={{ width: 110 }}>
                           <TableSortLabel active={sortField === 'numero_base'} direction={sortField === 'numero_base' ? sortDir : 'asc'} onClick={() => manejarOrden('numero_base')}>Pedido</TableSortLabel>
                         </TableCell>
                         <TableCell sortDirection={sortField === 'odp' ? sortDir : false}>
@@ -1192,8 +1192,13 @@ const PedidosPVPage: React.FC = () => {
                           <TableRow key={p.id} hover>
                             {/* Barra de color lateral (estado / retraso) */}
                             <TableCell sx={{ width: 4, p: 0, bgcolor: barColor }} />
-                            {/* Pedido */}
-                            <TableCell>
+                            {/* Pedido — ancho fijo: las etiquetas largas (reposición, tipo de
+                                problema) bajan de línea en vez de ensanchar toda la columna */}
+                            <TableCell sx={{
+                              width: 110, maxWidth: 130,
+                              '& .MuiChip-root': { height: 'auto', minHeight: 18, maxWidth: '100%' },
+                              '& .MuiChip-label': { whiteSpace: 'normal', lineHeight: 1.25, py: '1px' },
+                            }}>
                               <Typography fontWeight={700} fontSize={13}>{p.numero_pedido}</Typography>
                               {letrasDT(p).length > 0 && (() => {
                                 const letras = letrasDT(p);
