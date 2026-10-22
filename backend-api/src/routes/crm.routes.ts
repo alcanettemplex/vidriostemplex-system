@@ -44,7 +44,8 @@ router.get('/', requireRole(...ROLES_CRM_LECTURA), getLeads);
 router.post('/', requireRole('asistente_administrativo', 'admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), createLead);
 
 // Operaciones específicas de la tarjeta y seguimiento
-router.put('/:id/estado', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'), updateLeadStatus);
+// asistente_administrativo entra solo para cerrar como PERDIDO (el controller rechaza otro destino)
+router.put('/:id/estado', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion', 'asistente_administrativo'), updateLeadStatus);
 router.put('/:id/reclamar', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'), assignLeadToMe);
 
 // Asignación manual a un asesor específico

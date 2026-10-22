@@ -195,6 +195,9 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
   );
   const puedeSeguir       = !!lead.asesor_id && !['APROBADO', 'PERDIDO'].includes(lead.estado_crm) && rol !== 'marketing';
   const puedeMovarEstado  = esAdminOGerencia || (rol === 'asesor_comercial' && lead.asesor_id === userId);
+  // El asistente administrativo no mueve etapas: solo cierra como Perdido (2026-10-22).
+  // El backend aplica la misma restricción en updateLeadStatus.
+  const puedeMarcarPerdido = puedeMovarEstado || rol === 'asistente_administrativo';
 
   const estadoInfo = ESTADO_INFO[lead.estado_crm] || { label: lead.estado_crm, color: 'text-slate-800', bg: 'bg-slate-100' };
 
@@ -468,15 +471,17 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
           )}
 
           {/* Acciones de cierre (solo si no está ya cerrado) */}
-          {puedeMovarEstado && !['FRIO', 'PERDIDO', 'APROBADO'].includes(lead.estado_crm) && !motivoPerdidaInline && (
+          {puedeMarcarPerdido && !['FRIO', 'PERDIDO', 'APROBADO'].includes(lead.estado_crm) && !motivoPerdidaInline && (
             <div className="flex gap-2 pt-1">
-              <button
-                disabled={moviendoEstado}
-                onClick={() => handleMoverAEtapa('FRIO')}
-                className="flex-1 text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-50"
-              >
-                ❄️ Enfriar
-              </button>
+              {puedeMovarEstado && (
+                <button
+                  disabled={moviendoEstado}
+                  onClick={() => handleMoverAEtapa('FRIO')}
+                  className="flex-1 text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-50"
+                >
+                  ❄️ Enfriar
+                </button>
+              )}
               <button
                 disabled={moviendoEstado}
                 onClick={() => setMotivoPerdidaInline(true)}

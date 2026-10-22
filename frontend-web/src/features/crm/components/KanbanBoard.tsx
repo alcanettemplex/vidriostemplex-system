@@ -104,25 +104,19 @@ function formatearUltimoMovimiento(dias: number): string {
 // ─── Prioridad automática ──────────────────────────────────────────────────────
 type Prioridad = 'urgente' | 'normal';
 
-const FECHA_POR_ETAPA: Record<string, string> = {
-  NUEVO:          'createdAt',
-  ASIGNADO:       'fecha_asignado',
-  EN_CONTACTO:    'fecha_en_contacto',
-  COTIZANDO:      'fecha_cotizando',
-  SEGUIMIENTO:    'fecha_seguimiento',
-  VISITA_TECNICA: 'fecha_visita_tecnica',
-  FRIO:           'fecha_frio',
-  APROBADO:       'fecha_aprobado',
-  PERDIDO:        'fecha_perdido',
-};
+const ETAPAS_CERRADAS = ['PERDIDO', 'APROBADO', 'FRIO'];
+const HORAS_URGENTE = 24;
 
+// Urgente = más de 24 h sin actividad. Se mide desde la última actividad de la
+// bitácora (cambio de etapa, intento de seguimiento, asignación…), no desde la
+// entrada a la etapa: un lead que se atiende a diario no debe quedar en rojo
+// solo por no avanzar (decisión 2026-10-22).
 function calcularPrioridad(lead: any): Prioridad {
-  if (['PERDIDO', 'APROBADO', 'FRIO'].includes(lead.estado_crm)) return 'normal';
-  const campo = FECHA_POR_ETAPA[lead.estado_crm] || 'createdAt';
-  const fecha = lead[campo] ? new Date(lead[campo]) : (lead.createdAt ? new Date(lead.createdAt) : null);
-  if (!fecha) return 'normal';
-  const horas = (Date.now() - fecha.getTime()) / (1000 * 60 * 60);
-  return horas > 24 ? 'urgente' : 'normal';
+  if (ETAPAS_CERRADAS.includes(lead.estado_crm)) return 'normal';
+  const fuente = lead.ultima_actividad || lead.createdAt;
+  if (!fuente) return 'normal';
+  const horas = (Date.now() - new Date(fuente).getTime()) / (1000 * 60 * 60);
+  return horas > HORAS_URGENTE ? 'urgente' : 'normal';
 }
 
 function sortByPriority(leads: any[]): any[] {
@@ -146,6 +140,23 @@ const PrioridadBadge: React.FC<{ prioridad: Prioridad }> = ({ prioridad }) => {
     </span>
   );
   return null;
+};
+
+// ─── Intentos de seguimiento (al 3º el lead pasa solo a Frío) ─────────────────
+const IntentosBadge: React.FC<{ lead: any }> = ({ lead }) => {
+  if (lead.estado_crm === 'NUEVO' || ETAPAS_CERRADAS.includes(lead.estado_crm)) return null;
+  const intentos = lead.intentos_seguimiento || 0;
+  const color = intentos >= 2 ? 'bg-rose-100 text-rose-700 border-rose-200'
+    : intentos === 1 ? 'bg-amber-100 text-amber-700 border-amber-200'
+    : 'bg-slate-50 text-slate-700 border-slate-200';
+  return (
+    <span
+      className={`inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${color}`}
+      title="Intentos de seguimiento registrados. Al tercero el lead pasa automáticamente a Frío."
+    >
+      {intentos}/3 intentos
+    </span>
+  );
 };
 
 // ─── Colores de segmento ──────────────────────────────────────────────────────
@@ -222,7 +233,10 @@ const TablaFila: React.FC<{
         <span className="text-xs font-bold text-emerald-700">{monto}</span>
       </td>
       <td className="px-4 py-3">
-        <PrioridadBadge prioridad={prioridad} />
+        <div className="flex flex-wrap items-center gap-1">
+          <PrioridadBadge prioridad={prioridad} />
+          <IntentosBadge lead={lead} />
+        </div>
         {prioridad === 'normal' && <span className="text-[11px] text-slate-700">{fecha}</span>}
         <p className="text-[11px] text-slate-700 mt-0.5">🕐 Últ. mov: {formatearUltimoMovimiento(diasSinActividad(lead))}</p>
       </td>
@@ -618,7 +632,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setLeadSeleccionado(lead)}>
                       <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-2 gap-y-1">
                         <p className="text-sm font-bold text-slate-900 truncate min-w-0">{lead.nombre || 'Sin nombre'}</p>
-                        <PrioridadBadge prioridad={prioridad} />
+                        <span className="flex items-center gap-1 flex-shrink-0">
+                          <PrioridadBadge prioridad={prioridad} />
+                          <IntentosBadge lead={lead} />
+                        </span>
                       </div>
                       {/* ODP vinculada — solo etapa APROBADO */}
                       {lead.estado_crm === 'APROBADO' && (
@@ -702,10 +719,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                           {(() => {
                             const esAdminOGerencia = ['admin', 'gerencia', 'root'].includes(rol);
                             const esAsesorAsignado = rol === 'asesor_comercial' && lead.asesor_id === user?.id;
-                            if (!esAdminOGerencia && !esAsesorAsignado) return null;
+                            // El asistente administrativo solo puede cerrar como Perdido (2026-10-22)
+                            const soloPerdido = rol === 'asistente_administrativo';
+                            if (!esAdminOGerencia && !esAsesorAsignado && !soloPerdido) return null;
+                            if (soloPerdido && ETAPAS_CERRADAS.includes(lead.estado_crm)) return null;
 
                             const etapasDestino = PIPELINE_STAGES.filter(s =>
-                              s.id !== 'NUEVO' && s.id !== lead.estado_crm
+                              s.id !== 'NUEVO' && s.id !== lead.estado_crm && (!soloPerdido || s.id === 'PERDIDO')
                             );
 
                             const colorEtapa = (id: string) => {

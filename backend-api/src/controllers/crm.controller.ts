@@ -121,8 +121,18 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
     const { nuevo_estado, motivo_perdida } = req.body;
     const user = req.user!;
 
+    // El asistente administrativo solo puede cerrar un lead como PERDIDO (2026-10-22);
+    // mover etapas del embudo sigue siendo del asesor y de admin/gerencia.
+    if (user.rol?.toLowerCase() === 'asistente_administrativo' && nuevo_estado !== 'PERDIDO') {
+      return res.status(403).json({ error: 'Tu rol solo puede marcar leads como Perdido. Para moverlo a otra etapa, pídeselo al asesor asignado o a gerencia.' });
+    }
+
     const lead = await Lead.findByPk(id);
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
+
+    if (user.rol?.toLowerCase() === 'asistente_administrativo' && ['PERDIDO', 'APROBADO'].includes(lead.getDataValue('estado_crm'))) {
+      return res.status(409).json({ error: `Este lead ya está ${lead.getDataValue('estado_crm') === 'APROBADO' ? 'aprobado' : 'perdido'}; no se puede marcar como Perdido.` });
+    }
 
     // Regla de negocio: Si se va a perdido, requiere motivo.
     if (nuevo_estado === 'PERDIDO' && !motivo_perdida) {
@@ -169,6 +179,14 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
 
     if (MAP_FECHAS[nuevo_estado]) {
       updates[MAP_FECHAS[nuevo_estado]] = new Date();
+    }
+
+    // Al cambiar a una etapa activa el contador de intentos vuelve a cero (2026-10-22):
+    // si el cliente respondió y el lead avanzó, los intentos sin respuesta de la etapa
+    // anterior no deben acercarlo al pase automático a FRIO. Al cerrar (FRIO, PERDIDO,
+    // APROBADO) se conserva como constancia de cuántos intentos hubo.
+    if (nuevo_estado !== estadoAnterior && !['FRIO', 'PERDIDO', 'APROBADO'].includes(nuevo_estado)) {
+      updates.intentos_seguimiento = 0;
     }
     
     // Si se aprueba, el monto proyectado pasa a ser el monto real inicial
@@ -1038,6 +1056,9 @@ export const recuperarLead = async (req: Request, res: Response) => {
       asesor_id: null,
       fecha_asignado: null,
       respondio: 'Espera de información',
+      // Vuelve a la bolsa como lead nuevo: sin esto, uno recuperado de FRIO (3 intentos)
+      // regresaría a FRIO con el primer intento del nuevo asesor.
+      intentos_seguimiento: 0,
     });
 
     await LeadEvento.create({
