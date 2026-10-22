@@ -277,3 +277,16 @@ Campo opcional `Boquete.alivio = { d, fondo }`: un círculo de Ø `d` a cada lad
 - Fuera de alcance: arco rebajado (flecha menor que el radio) y arcos en dos cantos.
 
 **Plantillas nuevas** (sin hoja en el Excel, la galería las muestra como «Nueva»): «Puerta con boquetes de alivio» (Puertas) y «Semicírculo» (Formas y perforaciones). Con ellas el catálogo tiene **62** y sigue con 0 avisos con espesor 8.
+
+## Optiglass y limpieza de cotas (2026-10-22)
+
+- **Familia propia «Optiglass»** en la galería (antes dentro de Puertas). Las cuatro usan `kitOptiglass()` (`modelo/constructores.ts`): 2 perf. Ø23 a 85 de cada canto y 21 de arriba + ranura de 12 al borde, **agrupadas como un herraje** (se arrastran y se borran juntas).
+- **Plantilla nueva «Optiglass · manija Roma + cerradura Picoloro»** (`optiglass-roma-picoloro`, del plano del taller, 900 × 2140): kit + boquete Picoloro 150 × 35 de **esquinas rectas centrado a 1000 del piso** (`BQ('der', 925, 'fin', …)`: la cota del plano marca 925, el borde inferior del boquete) + `manijaRoma()`: 2 perf. Ø14 a 85 del canto, a 800 y 1200. Decisiones del usuario: centrado a 1000, rectas, y agregar plantilla nueva en vez de reemplazar.
+- «Optiglass 1» conserva la geometría de su hoja del Excel (cerradura R15 a 1000, una sola Ø14): solo se agrupó el kit. Las plantillas no tocan planos ya guardados (cada plano guarda su copia).
+- Catálogo: **63** plantillas, 0 avisos con espesor 8, también con el ancho + 120 mm.
+- **Cotas (`PlanoSVG.tsx`), para todas las plantillas:**
+  - La cota de posición de un boquete en un canto lateral que ya tiene cadena de cotas de perforaciones va **una línea más afuera** (`carrilPerf` + 1,2 f, con líneas auxiliares). Antes iban a 1,3 f y 1,4 f y se leían pegadas («800 1000»).
+  - **Ranura tipo «ojo»** (boquete que toca una perforación): se acota solo su ancho, sin etiqueta «BOQ» ni cota al borde de la ranura (el «79» tapaba el «85» de la perforación). Sigue contando como BOQ.
+  - La etiqueta «N PERF. Øx» esquiva la de los boquetes (abajo → arriba → más abajo).
+- Verificado dibujando con el `PlanoSVG` real fuera del navegador (sucrase + `renderToStaticMarkup` + Edge headless). Sin cambios en backend ni BD: el Excel usa la imagen guardada, así que **los planos ya guardados conservan el dibujo viejo hasta que se vuelvan a guardar**.
+- Pendiente visto, sin tocar: «Puerta flauta acero» amontona las cotas de sus 3 perforaciones Ø16 por esquina (30/35/35), separadas menos que el alto del texto.

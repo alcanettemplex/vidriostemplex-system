@@ -24,7 +24,7 @@ import {
   unit,
   type Pt,
 } from '../modelo/geometria';
-import type { Perforacion, Pieza } from '../modelo/tipos';
+import type { Boquete, Perforacion, Pieza } from '../modelo/tipos';
 
 const TINTA = '#1f2937';
 const COTA = '#374151';
@@ -171,6 +171,11 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     );
   };
 
+  /** Línea auxiliar punteada: del punto acotado a su línea de cota. */
+  const lineaAux = (a: Pt, b: Pt, k: string) => (
+    <line key={k} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#9ca3af" strokeWidth={0.5} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+  );
+
   // ── Chaflanes ──────────────────────────────────────────────────────────────
   for (const o of pieza.operaciones) {
     if (o.tipo !== 'chaflan') continue;
@@ -230,10 +235,14 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     }
   });
 
+  /**
+   * Distancia (por fuera del vidrio) de la línea más externa de cotas de perforaciones en cada canto
+   * vertical. La cota de posición de un boquete de ese canto va una línea más afuera: antes iban casi
+   * en la misma línea (1,3 f y 1,4 f) y se leían pegadas, p. ej. «800 1000».
+   */
+  const carrilPerf: Partial<Record<'izq' | 'der', number>> = {};
   if (conCotas) {
-    const ext = (a: Pt, b: Pt, k: string) => (
-      <line key={k} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#9ca3af" strokeWidth={0.5} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-    );
+    const ext = lineaAux;
     const cadena = (dists: number[]) => Array.from(new Set(dists.map((d) => Math.round(d * 10) / 10))).sort((a, b) => a - b);
     const gap = fc * 0.35;
     /** Dibuja una cadena de cotas encadenadas desde un borde: `punto(s)` da la posición a distancia s. */
@@ -262,6 +271,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     for (const [k, g] of Array.from(grupos)) {
       const solapa = g.ref === 'inf' && alcance(g.lado, 'sup') + alcance(g.lado, 'inf') > H;
       const off = f * (solapa ? 2.4 : 1.3);
+      carrilPerf[g.lado] = Math.max(carrilPerf[g.lado] ?? 0, off);
       const xLinea = g.lado === 'izq' ? caja.minX - off : caja.maxX + off;
       const esq = g.ref === 'sup' ? (g.lado === 'izq' ? v.si : v.sd) : g.lado === 'izq' ? v.ii : v.id;
       const sgn = g.ref === 'sup' ? 1 : -1;
@@ -304,10 +314,22 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     // Una etiqueta por diámetro, junto a la primera perforación de ese diámetro.
     const porDiametro = new Map<number, number[]>();
     perfs.forEach((o, i) => porDiametro.set(o.d, [...(porDiametro.get(o.d) ?? []), i]));
+    // La etiqueta esquiva la de los boquetes (misma posición que en su bloque): en una puerta con
+    // manija a los dos lados de la cerradura, «2 PERF. Ø14» caía encima de «BOQ 150×35».
+    const etiquetasBoquete = pieza.operaciones
+      .filter((o): o is Boquete => o.tipo === 'boquete')
+      .map((o) => {
+        const g = geometriaBoquete(o, bs[o.borde]);
+        return add(mul(add(g.B, g.C), 0.5), mul(bs[o.borde].n, f * 1.3));
+      });
+    const libre = (p: Pt) => etiquetasBoquete.every((q) => Math.abs(q.y - p.y) > f * 1.3 || Math.abs(q.x - p.x) > W * 0.45);
     for (const [d, idx] of Array.from(porDiametro)) {
       const c = centros[idx[0]];
       const dir = c.x <= centro.x ? 1 : -1;
-      const p = { x: c.x + dir * (rVisual(d) + f * 0.9), y: c.y + (c.y <= centro.y ? 1 : -1) * f * 3.4 };
+      const vert = c.y <= centro.y ? 1 : -1;
+      const x = c.x + dir * (rVisual(d) + f * 0.9);
+      const candidatos = [3.4, -1.6, 5].map((k) => ({ x, y: c.y + vert * f * k }));
+      const p = candidatos.find(libre) ?? candidatos[0];
       elementos.push(
         <Texto key={'lbl' + d} p={p} f={f * 0.85} anchor={dir > 0 ? 'start' : 'end'} bold>
           {`${idx.length > 1 ? idx.length + ' ' : ''}PERF. Ø${d} mm`}
@@ -350,6 +372,30 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     const etiqueta = conAlivio ? `BOQ ${o.largo}×${o.prof} · ALIVIOS Ø${fmt(o.alivio!.d)}` : `BOQ ${o.largo}×${o.prof}${o.radio ? ` R${o.radio}` : ''}`;
     pastilla(o.id, add(inward, mul(borde.n, -f * 1.6)));
     if (!conCotas) continue;
+    // Ranura tipo «ojo» (boquete que abre una perforación al canto, como el kit Optiglass): la
+    // perforación ya lleva sus cotas, así que se acota solo el ancho de la ranura, como en el plano del
+    // taller. La etiqueta «BOQ» y la cota al borde de la ranura (79) tapaban la de la perforación (85).
+    // Solo cambia el dibujo: la ranura sigue contando como BOQ.
+    const xs = [g.A, g.B, g.C, g.D].map((q) => q.x);
+    const ys = [g.A, g.B, g.C, g.D].map((q) => q.y);
+    const esOjo = !conAlivio && perfs.some((p, i) => {
+      const r = p.d / 2;
+      const c = centros[i];
+      return c.x >= Math.min(...xs) - r && c.x <= Math.max(...xs) + r && c.y >= Math.min(...ys) - r && c.y <= Math.max(...ys) + r;
+    });
+    if (esOjo) {
+      const off = mul(borde.n, -f * 2.4);
+      const a = add(g.A, off);
+      const b = add(g.D, off);
+      const dd = unit(sub(b, a));
+      const lado = -dd.y * -borde.n.x + dd.x * -borde.n.y > 0 ? 1 : -1;
+      elementos.push(
+        lineaAux(g.A, add(a, mul(borde.n, -f * 0.3)), o.id + 'ea'),
+        lineaAux(g.D, add(b, mul(borde.n, -f * 0.3)), o.id + 'eb'),
+        <Cota key={o.id + 'w'} a={a} b={b} texto={fmt(o.largo)} f={fc} lado={lado} color={col} />,
+      );
+      continue;
+    }
     if (conAlivio) {
       // Fondo de los alivios: del canto al punto más profundo, junto al alivio del lado A.
       const lateral = mul(borde.d, -(al.r + fc * 1.2));
@@ -365,11 +411,15 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       </Texto>,
     );
     if (o.pos > 0) {
-      const off = mul(borde.n, -f * 1.4);
+      // Si el canto ya tiene una cadena de cotas de perforaciones, esta va una línea más afuera.
+      const carril = o.borde === 'izq' || o.borde === 'der' ? carrilPerf[o.borde] : undefined;
+      const dist = carril ? carril + f * 1.2 : f * 1.4;
+      const off = mul(borde.n, -dist);
       const origen = origenBoquete(o, borde);
       const ini = add(origen, off);
       const desdeS = largo(sub(origen, borde.S)) < 1e-6;
       const fin = add(desdeS ? g.A : g.D, off);
+      if (carril) elementos.push(lineaAux(origen, add(ini, mul(borde.n, -f * 0.3)), o.id + 'eo'), lineaAux(desdeS ? g.A : g.D, add(fin, mul(borde.n, -f * 0.3)), o.id + 'ep'));
       const dd = unit(sub(fin, ini));
       const nn = { x: -dd.y, y: dd.x };
       const lado = nn.x * -borde.n.x + nn.y * -borde.n.y > 0 ? 1 : -1;

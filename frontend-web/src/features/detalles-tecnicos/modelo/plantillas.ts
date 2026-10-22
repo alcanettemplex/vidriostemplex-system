@@ -18,6 +18,8 @@ import {
   desplome,
   dsp,
   esq,
+  kitOptiglass,
+  manijaRoma,
   mue,
   muescaPiso,
   NOTA,
@@ -35,7 +37,7 @@ export { nuevoId };
 
 const despuntesCorredera = () => esq({ si: dsp(30), sd: dsp(30) });
 
-export const FAMILIAS = ['Corredizas', 'Glassvit', 'Batientes', 'Fijos', 'Tableros', 'Puertas', 'Formas y perforaciones'] as const;
+export const FAMILIAS = ['Corredizas', 'Glassvit', 'Batientes', 'Fijos', 'Tableros', 'Puertas', 'Optiglass', 'Formas y perforaciones'] as const;
 
 export const PLANTILLAS: Plantilla[] = [
   // ── Corredizas ─────────────────────────────────────────────────────────────
@@ -84,9 +86,6 @@ export const PLANTILLAS: Plantilla[] = [
   { id: 'pasa-voz', nombre: 'Pasa voz', hoja: 'PASA VOZ', familia: 'Tableros', descripcion: 'Roseta de 5 perf. Ø12 separadas 50 mm, centrada a lo ancho.', selloEnCanto: true, pieza: pieza(993, 872, [PF(12, 0, 'centro', 450, 'inf'), PF(12, -50, 'centro', 450, 'inf'), PF(12, 50, 'centro', 450, 'inf'), PF(12, 0, 'centro', 400, 'inf'), PF(12, 0, 'centro', 500, 'inf')]) },
 
   // ── Puertas ────────────────────────────────────────────────────────────────
-  { id: 'optiglass1', nombre: 'Optiglass 1', hoja: 'OPTIGLASS1', familia: 'Puertas', descripcion: '2 perf. Ø23 con ranura superior, boquete de cerradura y perf. Ø14.', pieza: pieza(900, 2100, [PF(23, 85, 'izq', 21, 'sup'), PF(23, 85, 'der', 21, 'sup'), BQ('sup', 79, 'inicio', 12, 21), BQ('sup', 79, 'fin', 12, 21), BQ('der', 1000, 'fin', 150, 35, 15), PF(14, 85, 'der', 800, 'inf')]) },
-  { id: 'optiglass2', nombre: 'Optiglass 2', hoja: 'OPTIGLASS2', familia: 'Puertas', descripcion: '2 perf. Ø23 con ranura superior y perf. Ø50 de manija.', pieza: pieza(900, 2100, [PF(23, 85, 'izq', 21, 'sup'), PF(23, 85, 'der', 21, 'sup'), BQ('sup', 79, 'inicio', 12, 21), BQ('sup', 79, 'fin', 12, 21), PF(50, 80, 'der', 1000, 'inf')]) },
-  { id: 'optiglass3', nombre: 'Optiglass 3', hoja: 'OPTIGLASS3', familia: 'Puertas', descripcion: '2 perf. Ø23 con ranura superior y perf. Ø50 centrada.', pieza: pieza(900, 2100, [PF(23, 85, 'izq', 21, 'sup'), PF(23, 85, 'der', 21, 'sup'), BQ('sup', 79, 'inicio', 12, 21), BQ('sup', 79, 'fin', 12, 21), PF(50, 0, 'centro', 1000, 'inf')]) },
   { id: 'pta-tiprompicolo', nombre: 'Puerta tipo Rompicolo', hoja: 'PTA TIPROMPICOLO', familia: 'Puertas', descripcion: 'Boquete de cerradura 150×35 a 1000 mm y perf. Ø14.', pieza: pieza(900, 2100, [BQ('der', 1000, 'fin', 150, 35, 15), PF(14, 85, 'der', 800, 'inf')]) },
   { id: 'pta-esq-perf-a', nombre: 'Puerta esquina + perf. A', hoja: 'PTA ESQ PERF-A', familia: 'Puertas', descripcion: 'Muesca superior 35×110 con perf. Ø16, cerradura y perf. Ø14.', pieza: pieza(900, 2100, [PF(16, 60, 'izq', 135, 'sup'), ...cierrePuerta(), PF(14, 90, 'der', 800, 'inf')], esq({ si: mue(35, 110) })) },
   { id: 'pta-esq-perf-b', nombre: 'Puerta esquina + perf. B', hoja: 'PTA ESQ PERF-B', familia: 'Puertas', descripcion: 'Muescas superior e inferior 35×110 con perf. Ø16, cerradura y perf. Ø14.', pieza: pieza(900, 2100, [PF(16, 60, 'izq', 135, 'sup'), PF(16, 60, 'izq', 135, 'inf'), ...cierrePuerta(), PF(14, 90, 'der', 800, 'inf')], esq({ si: mue(35, 110), ii: mue(35, 110) })) },
@@ -101,6 +100,14 @@ export const PLANTILLAS: Plantilla[] = [
   // Plantillas nuevas (2026-10-20), sin hoja en el Excel: del plano que mandó el taller.
   { id: 'pta-boquetes-alivio', nombre: 'Puerta con boquetes de alivio', hoja: '', familia: 'Puertas', descripcion: '2 boquetes 60×38 en el canto izquierdo con alivios Ø16 hasta 40 mm, centrados a 300 de arriba y de abajo, y 2 perf. Ø14 de manija a 400 mm.', pieza: pieza(600, 1760, [...agrupar('Boquetes de bisagra', [BQA('izq', 270, 'inicio', 60, 38, 16, 40), BQA('izq', 270, 'fin', 60, 38, 16, 40)]), PF(14, 70, 'der', 680, 'inf'), PF(14, 70, 'der', 1080, 'inf')]) },
   { id: 'glass-rect-fijo', nombre: 'Glass rectangular fijo', hoja: 'GLASS RECT. FIJO', familia: 'Puertas', descripcion: '2 perf. Ø14 superiores a 60×60 mm.', pieza: pieza(500, 2000, [PF(14, 60, 'izq', 60, 'sup'), PF(14, 60, 'der', 60, 'sup')]) },
+
+  // ── Optiglass ──────────────────────────────────────────────────────────────
+  // Familia propia desde el 2026-10-22: las cuatro comparten el kit (Ø23 + ranura de 12 a 85 y 21).
+  // La primera es la del plano del taller (sin hoja en el Excel); las otras tres, las hojas OPTIGLASS1-3.
+  { id: 'optiglass-roma-picoloro', nombre: 'Optiglass · manija Roma + cerradura Picoloro', hoja: '', familia: 'Optiglass', descripcion: 'Kit Optiglass, cerradura Picoloro 150×35 de esquinas rectas centrada a 1000 mm del piso y 2 perf. Ø14 de manija Roma a 85 del canto (800 y 1200 mm).', pieza: pieza(900, 2140, [...kitOptiglass(), BQ('der', 925, 'fin', 150, 35), ...manijaRoma()]) },
+  { id: 'optiglass1', nombre: 'Optiglass 1', hoja: 'OPTIGLASS1', familia: 'Optiglass', descripcion: 'Kit Optiglass, boquete de cerradura 150×35 R15 a 1000 mm y 1 perf. Ø14 a 800 mm.', pieza: pieza(900, 2100, [...kitOptiglass(), BQ('der', 1000, 'fin', 150, 35, 15), PF(14, 85, 'der', 800, 'inf')]) },
+  { id: 'optiglass2', nombre: 'Optiglass 2', hoja: 'OPTIGLASS2', familia: 'Optiglass', descripcion: 'Kit Optiglass y perf. Ø50 de manija a 80 del canto.', pieza: pieza(900, 2100, [...kitOptiglass(), PF(50, 80, 'der', 1000, 'inf')]) },
+  { id: 'optiglass3', nombre: 'Optiglass 3', hoja: 'OPTIGLASS3', familia: 'Optiglass', descripcion: 'Kit Optiglass y perf. Ø50 centrada.', pieza: pieza(900, 2100, [...kitOptiglass(), PF(50, 0, 'centro', 1000, 'inf')]) },
 
   // ── Formas y perforaciones ─────────────────────────────────────────────────
   { id: 'en-blanco', nombre: 'En blanco', hoja: 'EN BLANCO', familia: 'Formas y perforaciones', descripcion: 'Vidrio rectangular sin procesos: agrega lo que necesites.', pieza: pieza(1000, 1000) },

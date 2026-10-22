@@ -81,3 +81,8 @@ export const muescaPiso = (largo: number, prof: number) => [BQ('inf', 100, 'inic
 export const cuatroEsquinas = (d: number, x: number, y: number) =>
   agrupar('Perforaciones en esquinas', [PF(d, x, 'izq', y, 'sup'), PF(d, x, 'der', y, 'sup'), PF(d, x, 'izq', y, 'inf'), PF(d, x, 'der', y, 'inf')]);
 export const cierrePuerta = () => [BQ('der', 1000, 'fin', 75, 30, 15)];
+/** Kit Optiglass: 2 perf. Ø23 a 85 de cada canto y 21 de arriba, cada una abierta al borde con una ranura de 12. */
+export const kitOptiglass = () =>
+  agrupar('Kit Optiglass', [PF(23, 85, 'izq', 21, 'sup'), PF(23, 85, 'der', 21, 'sup'), BQ('sup', 79, 'inicio', 12, 21), BQ('sup', 79, 'fin', 12, 21)]);
+/** Manija tipo Roma: 2 perf. Ø`d` a `x` del canto derecho, a `y` del piso y `sep` más arriba. */
+export const manijaRoma = (x = 85, y = 800, sep = 400, d = 14) => agrupar('Manija Roma', [PF(d, x, 'der', y, 'inf'), PF(d, x, 'der', y + sep, 'inf')]);
