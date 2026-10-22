@@ -147,6 +147,15 @@ Lo que quedó (`POST /ruta-odp/:id/finalizar`):
 (croquis de ODP, foto de TM, evidencias sueltas): una imagen que no esté en `evidencias_instalacion`
 no es necesariamente huérfana.
 
+## Agenda — semáforo de plazo de entrega (2026-10-22)
+
+Cada ODP de la Agenda muestra **«Listo 18 oct · Entrega 20 oct»** y una pastilla de color medida **contra la fecha de entrega prometida al cliente** (decisión del usuario: opción B, no contra los días desde listo).
+- Regla única `plazoEntrega()` en `AgendaTab.tsx`, sobre `diasHasta(odp.fecha_entrega)` (días de Bogotá; `fecha_entrega` es día de calendario): **vencida** si ya pasó, **por vencer** si faltan 0 a 2 días (`DIAS_POR_VENCER`), **a tiempo** si faltan más; sin fecha → gris.
+- Bandeja «Sin agendar»: línea de fechas + pastilla debajo de cada ODP, y en el encabezado los contadores **Vencidas N** / **Por vencer N** (solo informan, no filtran; se cuentan antes de los chips, como los de Listo/Pago/Factura).
+- Días de la semana: la pastilla al lado del asesor; las fechas, en el tooltip.
+- Backend: `INCLUDE_ODP_AGENDA` (`agenda.controller.ts`) suma `fecha_listo_instalar` y `fecha_entrega`; la bandeja ya las traía de `odps-para-gestion` (sin `attributes`).
+- Datos al 2026-10-22: 29 ODP en LISTO_INSTALAR, 28 con fecha de listo (mediana 3 días esperando, máx. 145) y 13 con la entrega ya vencida.
+
 ## Tiempo real
 
 `emitirCambioRutas()` (`utils/notificaciones.ts`) emite `data_changed { modulo: 'rutas' }` en crear, editar, cancelar, unir, iniciar, finalizar, pausar, daño, iniciar/terminar ruta, llegada, pendientes de cierre y escrituras de agenda. Escuchan con `useDataChangedSocket('rutas', …)`: `JefeView` (y el historial si está abierto), `InstaladorGestionTab`, `InstaladorView`, `ConductorView`. Las dos últimas escuchaban `'compras'` hasta el 2026-10-05 (sin relación con rutas).

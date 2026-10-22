@@ -8,6 +8,7 @@ import {
 } from '../../../components/ui/icons';
 
 import API from '../../../services/config';
+import { diasHasta, fmtDia, fmtMomento } from '../../../utils/fechas';
 
 // ─── Asesor ───────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,54 @@ const Asesor: React.FC<{ odp: any; className?: string }> = ({ odp, className = '
     >
       <User className="w-3 h-3 flex-shrink-0" />
       <span className="truncate">{nombre ? nombreCorto(nombre) : 'Sin asesor'}</span>
+    </span>
+  );
+};
+
+// ─── Plazo de entrega ─────────────────────────────────────────────────────────
+
+// Semáforo contra la fecha de entrega prometida al cliente (decisión del usuario, 2026-10-22):
+// vencida si ya pasó, por vencer si faltan 0 a 2 días, a tiempo si faltan más. Se cuenta en
+// días de Bogotá (`diasHasta`): `fecha_entrega` es día de calendario, no se convierte de zona.
+type Plazo = 'vencido' | 'proximo' | 'a_tiempo' | 'sin_fecha';
+const DIAS_POR_VENCER = 2;
+
+const plazoEntrega = (odp: any): { plazo: Plazo; dias: number | null } => {
+  const dias = diasHasta(odp?.fecha_entrega);
+  if (dias === null) return { plazo: 'sin_fecha', dias };
+  if (dias < 0) return { plazo: 'vencido', dias };
+  return { plazo: dias <= DIAS_POR_VENCER ? 'proximo' : 'a_tiempo', dias };
+};
+
+const PLAZO_META: Record<Plazo, { pill: string; punto: string }> = {
+  vencido:   { pill: 'bg-rose-50 text-rose-700 border-rose-200',          punto: 'bg-rose-500' },
+  proximo:   { pill: 'bg-amber-50 text-amber-800 border-amber-200',       punto: 'bg-amber-500' },
+  a_tiempo:  { pill: 'bg-emerald-50 text-emerald-700 border-emerald-200', punto: 'bg-emerald-500' },
+  sin_fecha: { pill: 'bg-slate-50 text-slate-600 border-slate-200',       punto: 'bg-slate-400' },
+};
+
+const textoPlazo = ({ plazo, dias }: ReturnType<typeof plazoEntrega>): string => {
+  if (plazo === 'sin_fecha' || dias === null) return 'Sin fecha de entrega';
+  if (plazo === 'vencido') return `Vencida hace ${-dias} d`;
+  if (dias === 0) return 'Entrega hoy';
+  return plazo === 'proximo' ? `Faltan ${dias} d` : `A tiempo · ${dias} d`;
+};
+
+const DIA_CORTO: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
+/** «Listo 18 oct · Entrega 20 oct». `fecha_listo_instalar` es un momento (Bogotá); `fecha_entrega`, un día. */
+const fechasODP = (odp: any): string =>
+  `Listo ${fmtMomento(odp?.fecha_listo_instalar, DIA_CORTO, 'sin fecha')} · Entrega ${fmtDia(odp?.fecha_entrega, DIA_CORTO, 'sin fecha')}`;
+
+const PlazoPill: React.FC<{ odp: any; className?: string }> = ({ odp, className = '' }) => {
+  const p = plazoEntrega(odp);
+  const meta = PLAZO_META[p.plazo];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${meta.pill} ${className}`}
+      title={fechasODP(odp)}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${meta.punto}`} />
+      {textoPlazo(p)}
     </span>
   );
 };
@@ -205,6 +254,17 @@ const AgendaTab: React.FC<Props> = ({
     return c;
   }, [odpsConCondicion]);
 
+  // Vencidas / por vencer de la bandeja, con el mismo criterio que los chips: antes de filtros.
+  const conteoPlazo = useMemo(() => {
+    const c = { vencido: 0, proximo: 0 };
+    for (const { odp } of odpsConCondicion) {
+      if (odp.agenda) continue;
+      const { plazo } = plazoEntrega(odp);
+      if (plazo === 'vencido' || plazo === 'proximo') c[plazo]++;
+    }
+    return c;
+  }, [odpsConCondicion]);
+
   const odpsSinAgendar = useMemo(
     () => odpsConCondicion
       .filter(({ odp }) => !odp.agenda)
@@ -367,6 +427,7 @@ const AgendaTab: React.FC<Props> = ({
               </button>
               <span className="text-sm font-semibold text-slate-900 truncate">{odp?.cliente?.nombre_razon_social}</span>
               <Asesor odp={odp} className="text-xs px-1.5 py-0.5 rounded-md bg-slate-100 flex-shrink-0 max-w-[160px]" />
+              {odp && <PlazoPill odp={odp} className="flex-shrink-0" />}
               {cond && (
                 <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wide flex-shrink-0 ${COND_META[cond].badge}`} title={COND_META[cond].label}>
                   {COND_META[cond].corto}
@@ -478,6 +539,17 @@ const AgendaTab: React.FC<Props> = ({
                       </button>
                     );
                   })}
+                  {/* Plazo contra la fecha de entrega: solo informan, no filtran */}
+                  {conteoPlazo.vencido > 0 && (
+                    <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[11px] font-semibold ${PLAZO_META.vencido.pill}`} title="ODP sin agendar con la fecha de entrega ya vencida">
+                      <span className={`w-1.5 h-1.5 rounded-full ${PLAZO_META.vencido.punto}`} /> Vencidas {conteoPlazo.vencido}
+                    </span>
+                  )}
+                  {conteoPlazo.proximo > 0 && (
+                    <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[11px] font-semibold ${PLAZO_META.proximo.pill}`} title={`ODP sin agendar a ${DIAS_POR_VENCER} días o menos de su fecha de entrega`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${PLAZO_META.proximo.punto}`} /> Por vencer {conteoPlazo.proximo}
+                    </span>
+                  )}
                 </div>
               </div>
               <Droppable droppableId="bandeja" isDropDisabled={readOnly}>
@@ -517,6 +589,10 @@ const AgendaTab: React.FC<Props> = ({
                                 <span className="text-slate-800 truncate">{o.cliente?.nombre_razon_social}</span>
                                 <span className="text-slate-400 flex-shrink-0">·</span>
                                 <Asesor odp={o} className="flex-shrink-0 max-w-[180px]" />
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] mt-1 min-w-0">
+                                <span className="text-slate-700 truncate">{fechasODP(o)}</span>
+                                <PlazoPill odp={o} className="ml-auto flex-shrink-0" />
                               </div>
                             </div>
                           )}

@@ -50,6 +50,8 @@ const INCLUDE_ODP_AGENDA = [
     attributes: [
       'id', 'numero_odp', 'cliente_id', 'asesor_id', 'direccion_instalacion', 'estado_produccion',
       'instalacion', 'acarreo', 'es_garantia', 'estado_caja', 'autorizacion_especial_despacho',
+      // Semáforo de plazo en cada fila de la Agenda (2026-10-22): listo vs. entrega prometida.
+      'fecha_listo_instalar', 'fecha_entrega',
     ],
     include: [
       { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },

@@ -7102,3 +7102,26 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 
 - **frontend:** `ProduccionPage.tsx` — etiqueta de la columna `chk_accesorios` y su tooltip de «no aplica». Sin cambios de lógica ni de BD.
 - **Sin tocar, a propósito:** «Herrajes» sigue en la ficha ODP (`ODPTabProduccion.tsx`: «Herrajes / Acceso.»), en el aviso de Compras (`ComprasPage.tsx:1072`), en la pestaña Automáticos (`MovimientosAutomaticosTab.tsx:128`) y en Detalles Técnicos, donde «herrajes» son las piezas del plano y no este check.
+
+## 2026-10-22 (3) — Pedidos PV: columna Pedido más angosta
+
+- **frontend:** `PedidosPVPage.tsx` — la columna Pedido mide 110 px (máx. 130). Las etiquetas largas (reposición pendiente de verificar, tipo de problema) pasan a dos líneas en vez de ensanchar la columna para toda la página. Sin cambios de lógica ni de BD. `tsc` limpio; no se probó en el navegador.
+
+## 2026-10-22 (4) — Detalles Técnicos: Optiglass manija Roma + Picoloro y cotas sin montarse
+
+**Pedido del usuario:** incluir el plano del taller (Optiglass con manija Roma y cerradura Picoloro) y que el plano de una letra con varios vidrios se vea limpio, sin líneas montadas. Decisiones: cerradura centrada a 1000, esquinas rectas, plantilla nueva (no reemplazar Optiglass 1) y organizar Optiglass 1.
+
+- **frontend:** `modelo/constructores.ts` — `kitOptiglass()` y `manijaRoma()`. `modelo/plantillas.ts` — familia **Optiglass**; plantilla nueva `optiglass-roma-picoloro`; Optiglass 1/2/3 pasan a la familia y agrupan el kit (misma geometría del Excel). `components/PlanoSVG.tsx` — cota de posición del boquete en una segunda línea cuando el canto tiene cadena de perforaciones; ranura tipo «ojo» acotada solo con su ancho; etiqueta de perforaciones que esquiva la del boquete; helper `lineaAux` (reemplaza la `ext` duplicada).
+- **backend / BD:** sin cambios (el Zod ya acepta `grupo` en boquetes).
+- **Verificación:** `tsc` y ESLint limpios. Las 63 plantillas, con su medida y con ancho + 120, dan 0 observaciones con espesor 8. Planos dibujados con el `PlanoSVG` real fuera del navegador: nueva, misma letra con ANCHO, Optiglass 1 y Puerta flauta acero. No se probó dentro del editor.
+- **Varios vidrios con la misma letra:** ya funcionaba como pide el usuario (un plano, herrajes medidos desde los bordes, cota ANCHO/ALTO); el desorden eran las cotas montadas, que es lo que se corrigió.
+- **Ojo:** los planos ya guardados conservan la imagen vieja hasta que se vuelvan a guardar.
+
+## 2026-10-22 (5) — Agenda de Instalaciones: fecha de listo y semáforo de entrega
+
+**Pedido del usuario:** fecha de listo material bajo cada ODP de «Sin agendar», con un indicador de a tiempo / aproximándose / vencido, también en las filas de los días (al lado del asesor). Decisiones: medir **contra la fecha de entrega** (opción B), umbral de 2 días y contadores en el encabezado.
+
+- **frontend:** `AgendaTab.tsx` — `plazoEntrega()` (vencida < 0, por vencer 0–2, a tiempo > 2, sin fecha en gris) sobre `diasHasta` de `utils/fechas.ts`. `PlazoPill` en la bandeja (con la línea «Listo dd mmm · Entrega dd mmm») y en las filas de los días (fechas en el tooltip). Encabezado de la bandeja: «Vencidas N» y «Por vencer N».
+- **backend:** `agenda.controller.ts` — `INCLUDE_ODP_AGENDA` suma `fecha_listo_instalar` y `fecha_entrega`.
+- **BD:** sin cambios.
+- **Verificación:** `tsc` backend y frontend y ESLint limpios. Regla probada en los bordes con el `diasHasta` real (−3, −1, 0, 1, 2, 3, 10 días y null) y formato de las dos fechas (`fecha_listo_instalar` a las 22:30 UTC se muestra en el día de Bogotá). No se probó en el navegador.
