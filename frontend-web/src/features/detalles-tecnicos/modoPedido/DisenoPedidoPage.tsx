@@ -311,6 +311,7 @@ export default function DisenoPedidoPage({ pedidoId }: { pedidoId: number }) {
               letra={letraSel}
               filas={filasDe(itemsLetra, plano.pieza)}
               resaltarId={resaltarId}
+              disenadoPor={datos.planos.find((p) => p.letra === letraSel)?.disenado_por}
               edicion={editable ? {
                 seleccionId: seleccionValida,
                 onSeleccionar: setSeleccionOp,

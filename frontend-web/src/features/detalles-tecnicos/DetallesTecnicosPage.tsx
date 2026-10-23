@@ -71,6 +71,9 @@ export default function DetallesTecnicosPage() {
 function ModoLibre() {
   const st = usePedido();
   const { pedido } = st;
+  // «DISEÑADO POR» del modo libre: el usuario conectado (el login guarda `nombre`; se acepta también `nombre_completo`).
+  const usuario = useSelector((s: RootState) => s.auth.user);
+  const disenadoPor: string = usuario?.nombre_completo || usuario?.nombre || usuario?.username || '';
   const [galeria, setGaleria] = useState<'agregar' | 'cambiar' | null>(null);
   const [elegida, setElegida] = useState<{ plantilla: Plantilla; modo: 'agregar' | 'cambiar' } | null>(null);
   const [resaltarId, setResaltarId] = useState<string | null>(null);
@@ -93,7 +96,6 @@ function ModoLibre() {
     numero: pedido.numero,
     fecha: pedido.fecha,
     proveedor: pedido.proveedor,
-    odp: pedido.odp,
     obra: pedido.obra || pedido.cliente,
     asesor: pedido.asesor,
   };
@@ -140,7 +142,7 @@ function ModoLibre() {
     try {
       // ExcelJS pesa ~1 MB: se carga sólo cuando se exporta.
       const { exportarExcel } = await import('./exportar/excel');
-      await exportarExcel(pedido);
+      await exportarExcel(pedido, disenadoPor);
       setAviso({ texto: `Excel descargado: ${pedido.planos.length} plano(s) y la hoja RESUMEN.` });
     } catch (e) {
       console.error(e);
@@ -165,7 +167,7 @@ function ModoLibre() {
     import('react-dom/server').then(({ renderToStaticMarkup }) => {
       const html = renderToStaticMarkup(
         <>
-          {lista.map(({ p, i }) => <HojaDetalle key={p.id} encabezado={encabezado} plano={p} letra={letraPlano(i)} filas={filasDe(p)} />)}
+          {lista.map(({ p, i }) => <HojaDetalle key={p.id} encabezado={encabezado} plano={p} letra={letraPlano(i)} filas={filasDe(p)} disenadoPor={disenadoPor} />)}
         </>,
       );
       abrirVentanaImpresion({
@@ -293,6 +295,7 @@ function ModoLibre() {
               letra={letraPlano(idx)}
               filas={filasDe(plano)}
               resaltarId={resaltarId}
+              disenadoPor={disenadoPor}
               edicion={{
                 seleccionId: seleccionValida,
                 onSeleccionar: setSeleccionOp,

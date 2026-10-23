@@ -46,6 +46,8 @@ export interface PlanoDT {
   conteos: ConteosGuardados;
   imagen_url: string | null;
   actualizado_en: string;
+  /** Quien guardó el plano por última vez: «DISEÑADO POR» de la hoja (2026-10-23). */
+  disenado_por: string | null;
 }
 
 export interface PedidoDelGrupo {
@@ -133,12 +135,10 @@ export const esConflicto = (e: unknown) => axios.isAxiosError(e) && e.response?.
  *  asesor; la «obra» es la misma del formulario oficial y no lleva el nombre del cliente. */
 export function encabezadoDe(d: DisenoPedido, numeroPedido = d.encabezado.numero_pedido): EncabezadoHoja {
   const e = d.encabezado;
-  const proveedor = /templacol/i.test(e.proveedor) ? 'TEMPLACOL' : 'VITELSA';
   return {
     numero: numeroPedido,
     fecha: e.creado_en ? diaBogotaISO(e.creado_en) : '',
-    proveedor,
-    odp: e.numero_odp,
+    proveedor: /templacol/i.test(e.proveedor) ? 'TEMPLACOL' : 'VITELSA',
     obra: [e.numero_odp, e.asesor_iniciales].filter(Boolean).join(' — '),
     asesor: e.asesor_iniciales,
   };

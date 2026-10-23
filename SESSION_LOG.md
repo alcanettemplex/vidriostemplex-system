@@ -7134,3 +7134,21 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **backend / BD:** sin cambios.
 - **Verificación:** `tsc` limpio. 64 plantillas, 0 observaciones con espesor 8. Planos dibujados con el `PlanoSVG` real (Edge headless).
 - **Ojo:** los planos ya guardados con las muescas invertidas no cambian solos; se corrigen en el editor. Pendiente visto: cota «60» pegada al «110» en «Puerta esquina + perf. A/B».
+
+## 2026-10-23 (2) — Detalles Técnicos: números del plano siempre visibles
+
+**Pedido del usuario:** que la numeración del plano sea siempre visible y ordenada (el 35 de la muesca 150×35 se deformaba).
+
+- **frontend:** `components/PlanoSVG.tsx` — colocador de textos (cajas ocupadas + obstáculos: borde, líneas de cota y auxiliares, perforaciones). Cotas que no caben salen pasado el extremo, horizontales; las generales se ubican primero. Una sola cota por columna de perforaciones (manija Roma, flauta). Etiquetas de despunte/radio alineadas desde su canto.
+- **backend / BD:** sin cambios.
+- **Verificación:** `tsc` y ESLint limpios; las 64 plantillas dibujadas con el `PlanoSVG` real.
+- Commit junto con «DISEÑADO POR» (abajo).
+
+## 2026-10-23 (3) — Detalles Técnicos: «DISEÑADO POR» en la hoja del plano
+
+**Pedido del usuario:** en el Excel, celda A5 de las hojas de planos: «DISEÑADO POR» y el nombre de quien diseña. Decisiones: reemplaza «PROVEEDOR · ODP»; el nombre es el de quien guardó el plano por última vez; aplica también a «Imprimir pedido» y al Excel del modo libre.
+
+- **backend:** `utils/detalleTecnico.ts` — `disenadoresDe()`, A5 = `DISEÑADO POR`, `EncabezadoPlano` sin `proveedor`. `detalle_tecnico.controller.ts` — `disenado_por` en cada plano del GET. `pedido_pv.controller.ts` — ya no pasa `proveedor`.
+- **frontend:** `HojaDetalle` (prop `disenadoPor`), `HojasPedido`, `DisenoPedidoPage`, `DetallesTecnicosPage` (modo libre: usuario conectado), `exportar/excel.ts`, `modoPedido/api.ts` (`PlanoDT.disenado_por`).
+- **BD:** sin cambios (`actualizado_por` ya existía).
+- **Verificación:** `tsc` backend y frontend, ESLint frontend limpios (el ESLint del backend no arranca: su configuración pide migrar al formato nuevo, ya estaba así). Excel generado contra la BD real: `A5 = DISEÑADO POR: Luis Alcala`.

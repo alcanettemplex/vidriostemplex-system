@@ -12,7 +12,6 @@ export interface EncabezadoHoja {
   /** Día de calendario 'YYYY-MM-DD'. */
   fecha: string;
   proveedor: string;
-  odp: string;
   /** Modo pedido: «ODP — iniciales del asesor», igual que el formulario oficial. */
   obra: string;
   asesor: string;
@@ -36,6 +35,8 @@ interface Props {
   letra: string;
   filas: FilaVidrio[];
   resaltarId?: string | null;
+  /** «DISEÑADO POR» (2026-10-23): modo pedido, quien guardó el plano por última vez; modo libre, el usuario conectado. */
+  disenadoPor?: string | null;
   /** Si viene, el plano se puede seleccionar y arrastrar. */
   edicion?: {
     seleccionId: string | null;
@@ -54,7 +55,7 @@ export const ESTILOS_HOJA_IMPRESA = `
 `;
 
 /** Vista previa de la hoja impresa: mismo formato FOR-005 que el Excel. */
-export function HojaDetalle({ encabezado, plano, letra, filas, resaltarId, edicion }: Props) {
+export function HojaDetalle({ encabezado, plano, letra, filas, resaltarId, disenadoPor, edicion }: Props) {
   const c = conteosDe(plano.pieza);
   const observaciones = [plano.selloEnCanto ? 'SELLO EN EL CANTO' : '', plano.observaciones].filter(Boolean).join(' · ');
   const ml = (m: number) => (m ? `${m.toFixed(2)} ml` : '');
@@ -97,7 +98,7 @@ export function HojaDetalle({ encabezado, plano, letra, filas, resaltarId, edici
           </tr>
           <tr>
             <td style={celda}>
-              PROVEEDOR: <b>{encabezado.proveedor}</b> · ODP: <b>{encabezado.odp || '—'}</b>
+              DISEÑADO POR: <b>{disenadoPor || '—'}</b>
             </td>
             <td style={celda}>OBRA: {encabezado.obra || '—'}</td>
             <td style={{ ...celda, fontWeight: 700, fontSize: 14, textAlign: 'center' }}>PLANO {letra}</td>

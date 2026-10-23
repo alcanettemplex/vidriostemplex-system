@@ -133,7 +133,6 @@ const borde: Partial<ExcelJS.Borders> = {
 
 export interface EncabezadoPlano {
   numeroPedido: string;
-  proveedor: string;
   numeroOdp: string;
   asesorIniciales: string;
   fecha: Date | null;
@@ -163,6 +162,22 @@ async function descargarImagen(url: string): Promise<string | null> {
   }
 }
 
+/**
+ * Nombre de quien guardó por última vez cada plano (`actualizado_por`), por id de plano. Va en
+ * «DISEÑADO POR» de la hoja FOR-005 (decisión del usuario, 2026-10-23). Sin usuario: no aparece.
+ */
+export async function disenadoresDe(planos: PedidoPVPlano[]): Promise<Map<number, string>> {
+  const ids = Array.from(new Set(planos.map((p) => p.getDataValue('actualizado_por') as number | null).filter((id): id is number => !!id)));
+  const usuarios = ids.length ? await Usuario.findAll({ where: { id: { [Op.in]: ids } }, attributes: ['id', 'nombre_completo'] }) : [];
+  const nombre = new Map(usuarios.map((u) => [u.getDataValue('id') as number, u.getDataValue('nombre_completo') as string]));
+  const res = new Map<number, string>();
+  for (const p of planos) {
+    const n = nombre.get(p.getDataValue('actualizado_por'));
+    if (n) res.set(p.getDataValue('id'), n);
+  }
+  return res;
+}
+
 /** Exportada solo para la prueba del formato (scripts de verificación); el punto de entrada es `agregarPlanosAlExcel`. */
 export async function hojaPlano(
   wb: ExcelJS.Workbook,
@@ -170,6 +185,7 @@ export async function hojaPlano(
   plano: PedidoPVPlano,
   filas: { cantidad?: unknown; color?: unknown; espesor?: unknown; ancho_mm?: unknown; alto_mm?: unknown }[],
   logoId: number,
+  disenadoPor = '',
 ) {
   const letra = plano.getDataValue('letra') as string;
   const ws = wb.addWorksheet(`PLANO ${letra}`.slice(0, 31), {
@@ -210,7 +226,9 @@ export async function hojaPlano(
   caja('A4:C4', 'CLIENTE: VIDRIOS TEMPLEX S.A.S', { bold: true });
   caja('D4:H4', 'FECHA');
   caja('I4:J4', fechaCorta(enc.fecha), { center: true });
-  caja('A5:C5', `PROVEEDOR: ${enc.proveedor}   ODP: ${enc.numeroOdp || '—'}`);
+  // Quién diseñó el plano (2026-10-23). Antes decía «PROVEEDOR · ODP»: el ODP ya va en OBRA y el
+  // proveedor recibe su propio formulario.
+  caja('A5:C5', `DISEÑADO POR: ${disenadoPor || '—'}`);
   // Misma «obra» que el formulario oficial: ODP — iniciales del asesor. El nombre del
   // cliente final no viaja al proveedor.
   caja('D5:H5', `OBRA: ${[enc.numeroOdp, enc.asesorIniciales].filter(Boolean).join(' — ') || '—'}`);
@@ -325,9 +343,10 @@ export async function agregarPlanosAlExcel(
   if (planos.length === 0) return 0;
 
   const logoId = wb.addImage({ filename: LOGO_PATH, extension: 'png' });
+  const disenadores = await disenadoresDe(planos);
   for (const plano of planos) {
     const letra = plano.getDataValue('letra');
-    await hojaPlano(wb, enc, plano, items.filter((it) => normalizarLetra(it.dt) === letra), logoId);
+    await hojaPlano(wb, enc, plano, items.filter((it) => normalizarLetra(it.dt) === letra), logoId, disenadores.get(plano.getDataValue('id')));
   }
   return planos.length;
 }

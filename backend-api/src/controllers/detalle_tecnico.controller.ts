@@ -12,7 +12,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { sequelize, PedidoPV, PedidoPVPlano, PedidoPVDtDesbloqueo, ODP, ODPItem, Usuario } from '../models';
 import Cliente from '../models/cliente.model';
 import {
-  grupoDePedido, inicialesAsesor, letrasBloqueadas, normalizarLetra, puedeDesbloquearDT, puedeDisenarDT,
+  disenadoresDe, grupoDePedido, inicialesAsesor, letrasBloqueadas, normalizarLetra, puedeDesbloquearDT, puedeDisenarDT,
 } from '../utils/detalleTecnico';
 
 const CARPETA_CLOUDINARY = 'templex_detalles_tecnicos';
@@ -147,6 +147,7 @@ export const getDisenoPedido = async (req: Request, res: Response) => {
       ],
     });
     const planos = await PedidoPVPlano.findAll({ where: { pedido_pv_id: base.getDataValue('id') }, order: [['letra', 'ASC']] });
+    const disenadores = await disenadoresDe(planos);
     const user = usuarioDe(req);
     const asesor = (odp?.getDataValue('asesor') as Usuario | null)?.getDataValue('nombre_completo') as string | undefined;
 
@@ -185,7 +186,7 @@ export const getDisenoPedido = async (req: Request, res: Response) => {
         observaciones_pv: i.getDataValue('observaciones_pv'),
         bloqueado: itemBloqueado(i.getDataValue('pedido_pv_id'), estadoPorPedido, !!desbloqueo),
       })),
-      planos: planos.map((p) => p.toJSON()),
+      planos: planos.map((p) => ({ ...p.toJSON(), disenado_por: disenadores.get(p.getDataValue('id')) ?? null })),
       letras_bloqueadas: Array.from(bloqueadas),
       desbloqueo: desbloqueo
         ? {

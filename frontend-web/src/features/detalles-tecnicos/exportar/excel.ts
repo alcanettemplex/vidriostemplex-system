@@ -111,7 +111,7 @@ function hojaResumen(wb: ExcelJS.Workbook, pedido: Pedido) {
   ws.getCell(`A${12 + pedido.planos.length}`).font = { italic: true, size: 9, color: { argb: 'FF666666' } };
 }
 
-async function hojaPlano(wb: ExcelJS.Workbook, pedido: Pedido, plano: Plano, letra: string, logoId: number) {
+async function hojaPlano(wb: ExcelJS.Workbook, pedido: Pedido, plano: Plano, letra: string, logoId: number, disenadoPor: string) {
   const ws = wb.addWorksheet(`PLANO ${letra}`, {
     pageSetup: {
       paperSize: CARTA,
@@ -151,7 +151,8 @@ async function hojaPlano(wb: ExcelJS.Workbook, pedido: Pedido, plano: Plano, let
   caja('A4:C4', 'CLIENTE: VIDRIOS TEMPLEX S.A.S', { bold: true });
   caja('D4:H4', 'FECHA');
   caja('I4:J4', fechaLarga(pedido.fecha), { center: true });
-  caja('A5:C5', `PROVEEDOR: ${pedido.proveedor}   ODP: ${pedido.odp || '—'}`);
+  // Modo libre: diseña el usuario conectado (2026-10-23), igual que «DISEÑADO POR» del modo pedido.
+  caja('A5:C5', `DISEÑADO POR: ${disenadoPor || '—'}`);
   caja('D5:H5', `OBRA: ${pedido.obra || pedido.cliente || '—'}`);
   caja('I5:J5', `PLANO ${letra}`, { bold: true, size: 12, center: true });
 
@@ -211,7 +212,7 @@ async function hojaPlano(wb: ExcelJS.Workbook, pedido: Pedido, plano: Plano, let
   ws.pageSetup.printArea = `A1:J${f0 + 5}`;
 }
 
-export async function exportarExcel(pedido: Pedido) {
+export async function exportarExcel(pedido: Pedido, disenadoPor = '') {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Vidrios Templex — Editor de detalles técnicos';
   wb.created = new Date();
@@ -219,7 +220,7 @@ export async function exportarExcel(pedido: Pedido) {
 
   hojaResumen(wb, pedido);
   for (let i = 0; i < pedido.planos.length; i++) {
-    await hojaPlano(wb, pedido, pedido.planos[i], letraPlano(i), logoId);
+    await hojaPlano(wb, pedido, pedido.planos[i], letraPlano(i), logoId, disenadoPor);
   }
 
   const buffer = await wb.xlsx.writeBuffer();

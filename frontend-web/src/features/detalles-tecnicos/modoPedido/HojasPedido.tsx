@@ -30,7 +30,8 @@ export function HojasPedido({ diseno, pedidoId, planos, letra }: Props) {
         const plano = lista.find((p) => p.letra === l);
         const items = itemsDeLetra(diseno.items, l, pedidoId);
         if (!plano || items.length === 0) return null;
-        return <HojaDetalle key={l} encabezado={enc} plano={plano} letra={l} filas={filasDe(items, plano.pieza)} />;
+        const disenadoPor = diseno.planos.find((p) => p.letra === l)?.disenado_por;
+        return <HojaDetalle key={l} encabezado={enc} plano={plano} letra={l} filas={filasDe(items, plano.pieza)} disenadoPor={disenadoPor} />;
       })}
     </>
   );

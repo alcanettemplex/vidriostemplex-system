@@ -289,7 +289,7 @@ Campo opcional `Boquete.alivio = { d, fondo }`: un círculo de Ø `d` a cada lad
   - **Ranura tipo «ojo»** (boquete que toca una perforación): se acota solo su ancho, sin etiqueta «BOQ» ni cota al borde de la ranura (el «79» tapaba el «85» de la perforación). Sigue contando como BOQ.
   - La etiqueta «N PERF. Øx» esquiva la de los boquetes (abajo → arriba → más abajo).
 - Verificado dibujando con el `PlanoSVG` real fuera del navegador (sucrase + `renderToStaticMarkup` + Edge headless). Sin cambios en backend ni BD: el Excel usa la imagen guardada, así que **los planos ya guardados conservan el dibujo viejo hasta que se vuelvan a guardar**.
-- Pendiente visto, sin tocar: «Puerta flauta acero» amontona las cotas de sus 3 perforaciones Ø16 por esquina (30/35/35), separadas menos que el alto del texto.
+- ~~«Puerta flauta acero» amontona las cotas de sus 3 perforaciones Ø16 por esquina~~: resuelto el 2026-10-23 (una sola cota por columna).
 
 ## Muescas de puerta corregidas y manija Roma 40 (2026-10-23)
 
@@ -298,4 +298,20 @@ Campo opcional `Boquete.alivio = { d, fondo }`: un círculo de Ø `d` a cada lad
 - **«Manija Roma 40-60» o «60-40» = 40 cm entre perforaciones** (vocabulario del usuario), no dos variantes. Distancia al canto por defecto: **120** en esta plantilla (la de Optiglass sigue en 85).
 - La cerradura nueva conserva la convención de las puertas: la cota 1000 va desde el piso hasta el borde del boquete (a diferencia de la Picoloro de Optiglass, centrada a 1000).
 - Catálogo: **64** plantillas, 0 avisos con espesor 8. Los planos ya guardados con las muescas invertidas **no se corrigen solos** (cada plano guarda su copia): se corrigen en el editor intercambiando las dos medidas del recorte.
-- Visto, sin tocar: en «Puerta esquina + perf. A/B» la cota «60» de la perf. Ø16 queda pegada al «110» de la muesca.
+- ~~Cota «60» pegada al «110» en «Puerta esquina + perf. A/B»~~: resuelto por la regla de números visibles (abajo).
+
+## Números del plano siempre visibles (2026-10-23)
+
+Pedido del usuario: «que la numeración sea siempre visible y ordenada» (el 35 de una muesca 150×35 se deformaba encima de su propia línea). Cambio solo en `PlanoSVG.tsx`; aplica a editor, galería, imagen de Cloudinary e «Imprimir pedido».
+- **Espacio ocupado** (`crearColocador`): cada texto anota su caja; el borde del vidrio, las líneas de cota, las auxiliares y las perforaciones (con su cruz) son obstáculos. Un número prueba sus posiciones en orden y toma la primera libre. **Lo que se ubica primero manda**: las cotas generales (ancho/alto) se calculan antes que el resto aunque se dibujen después.
+- **Cotas** (`colocarCota`): si el número cabe entre las marcas (`largo ≥ cifras × 0,55 f`), va en su sitio del lado pedido o del otro lado; si no cabe o está tapado, **fuera de la línea, pasado el extremo que se aleja del vidrio y horizontal** (como los planos del taller), y luego corrido a cada lado. Las cotas ya no son componente: se ubican en el render del padre, en orden — un componente con estado compartido se ubicaría distinto con el doble render de StrictMode.
+- **Una sola cota por columna**: filas de perforaciones con las mismas distancias al mismo canto y a menos de 25 % del alto entre sí (manija Roma, las 3 perf. de la flauta) se acotan una vez, sobre la fila de arriba. La cadena vertical sigue ubicando cada una.
+- Etiquetas «N PERF. Øx», «BOQ…», «½ PERF.», chaflán, despunte y radio también anotan su caja; la de perforaciones y la de esquinas buscan sitio libre. La de despunte/radio va alineada desde su canto hacia adentro (centrada en la diagonal se salía del vidrio en las corredizas y tapaba «2 PERF. Ø6»).
+- Verificado dibujando las 64 plantillas con el `PlanoSVG` real. Los planos ya guardados conservan su imagen hasta que se vuelvan a guardar.
+
+## «DISEÑADO POR» en la hoja FOR-005 (2026-10-23)
+
+Decisiones del usuario: la celda **A5** de cada hoja «PLANO X» dice `DISEÑADO POR: <nombre>` **en lugar de** «PROVEEDOR · ODP» (el ODP ya va en OBRA y el proveedor recibe su propio formulario); el nombre es el de **quien guardó el plano por última vez** (`pedido_pv_plano.actualizado_por` → `usuarios.nombre_completo`); aplica también a «Imprimir pedido» y al Excel del modo libre.
+- Backend: `disenadoresDe(planos)` en `utils/detalleTecnico.ts` (una consulta para todos los planos). La usan `agregarPlanosAlExcel` (pasa el nombre a `hojaPlano`) y `GET /api/detalle-tecnico/pedido/:id` (cada plano trae `disenado_por`). `EncabezadoPlano` ya no lleva `proveedor`. Sin cambios de BD: `actualizado_por` existe desde el 2026-10-16.
+- Frontend: `HojaDetalle` recibe `disenadoPor`; `HojasPedido` y `DisenoPedidoPage` lo toman del plano guardado (un plano nuevo sin guardar muestra «—» hasta guardarlo). Modo libre: el usuario conectado (`auth.user.nombre`), en la hoja y en `exportarExcel(pedido, disenadoPor)`.
+- Un plano sin `actualizado_por` sale con «DISEÑADO POR: —».

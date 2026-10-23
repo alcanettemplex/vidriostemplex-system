@@ -51,29 +51,144 @@ interface CotaProps {
   t?: number;
 }
 
-/** Línea de cota con marcas oblicuas en los extremos y el valor. */
-function Cota({ a, b, texto, f, lado = 1, color = COTA, t = 0.5 }: CotaProps) {
+/** Rectángulo alineado a los ejes, en unidades del plano. */
+interface Caja {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+/** ¿El segmento a–b pasa por la caja? (Liang–Barsky) */
+function cruzaCaja(a: Pt, b: Pt, c: Caja): boolean {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const p = [-dx, dx, -dy, dy];
+  const q = [a.x - c.x1, c.x2 - a.x, a.y - c.y1, c.y2 - a.y];
+  let t0 = 0;
+  let t1 = 1;
+  for (let i = 0; i < 4; i++) {
+    if (Math.abs(p[i]) < 1e-9) {
+      if (q[i] < 0) return false;
+      continue;
+    }
+    const r = q[i] / p[i];
+    if (p[i] < 0) {
+      if (r > t1) return false;
+      if (r > t0) t0 = r;
+    } else {
+      if (r < t0) return false;
+      if (r < t1) t1 = r;
+    }
+  }
+  return true;
+}
+
+/**
+ * Espacio ocupado del plano (2026-10-23): cada texto que se dibuja anota su caja, y las líneas que un
+ * número no debe tapar (borde del vidrio, líneas de cota y auxiliares) se anotan como segmentos. Un
+ * texto nuevo prueba sus posiciones en orden y toma la primera libre. Lo que se anota primero
+ * manda: por eso las cotas generales se ubican antes que las de herrajes y estas antes que las muescas.
+ */
+function crearColocador() {
+  const cajas: Caja[] = [];
+  const lineas: [Pt, Pt][] = [];
+  return {
+    libre: (c: Caja) => cajas.every((o) => c.x2 <= o.x1 || c.x1 >= o.x2 || c.y2 <= o.y1 || c.y1 >= o.y2) && lineas.every(([a, b]) => !cruzaCaja(a, b, c)),
+    ocupar: (c: Caja) => void cajas.push(c),
+    linea: (a: Pt, b: Pt) => void lineas.push([a, b]),
+  };
+}
+type Colocador = ReturnType<typeof crearColocador>;
+
+/** Caja de un texto de ancho `w` y alto `h` centrado en `p` y girado `ang` grados. */
+function cajaTexto(p: Pt, w: number, h: number, ang = 0): Caja {
+  const r = (ang * Math.PI) / 180;
+  const ex = (Math.abs(Math.cos(r)) * w + Math.abs(Math.sin(r)) * h) / 2;
+  const ey = (Math.abs(Math.sin(r)) * w + Math.abs(Math.cos(r)) * h) / 2;
+  return { x1: p.x - ex, y1: p.y - ey, x2: p.x + ex, y2: p.y + ey };
+}
+
+/** Caja de un `<Texto>` según su `anchor`. */
+function cajaEtiqueta(p: Pt, texto: string, f: number, anchor: 'start' | 'middle' | 'end' = 'middle'): Caja {
+  const w = anchoTexto(texto, f);
+  const cx = anchor === 'start' ? p.x + w / 2 - f * 0.25 : anchor === 'end' ? p.x - w / 2 + f * 0.25 : p.x;
+  return cajaTexto({ x: cx, y: p.y }, w, f);
+}
+
+interface Colocacion {
+  tp: Pt;
+  ang: number;
+  /** Tramo que prolonga la línea de cota hasta el texto, si el texto quedó fuera de ella. */
+  prolongacion: [Pt, Pt] | null;
+  caja: Caja;
+}
+
+/**
+ * Dónde va el número de una cota. Si cabe entre las marcas: en su sitio (centro o `t`) del lado
+ * pedido, o del otro lado. Si no cabe —el 35 de una muesca 150×35 en una puerta de 2 m— o esos
+ * sitios están tapados: fuera de la línea, pasado un extremo (primero el que se aleja del vidrio) y
+ * **horizontal**, como en los planos del taller. Si nada está libre, el primer candidato.
+ */
+function colocarCota(col: Colocador, { a, b, texto, f, lado = 1, t = 0.5 }: CotaProps, centro: Pt): Colocacion | null {
   const L = largo(sub(b, a));
   if (L < 1e-6) return null;
   const d = unit(sub(b, a));
   const n = { x: -d.y, y: d.x };
+  let angLinea = (Math.atan2(d.y, d.x) * 180) / Math.PI;
+  if (angLinea > 90.1) angLinea -= 180;
+  if (angLinea <= -90.1) angLinea += 180;
+  const w = anchoTexto(texto, f);
+  const h = f;
+  // Cabe si la línea es al menos tan larga como las cifras (sin el margen que lleva `anchoTexto`).
+  const cabe = L >= texto.length * f * 0.55 + f * 0.1;
+  const candidatos: Colocacion[] = [];
+  const enLinea = (tt: number, ld: number) => {
+    const base = add(a, mul(d, L * tt));
+    const tp = add(base, mul(n, ld * f * 0.75));
+    const prolongacion: [Pt, Pt] | null = tt < 0 ? [base, a] : tt > 1 ? [b, base] : null;
+    candidatos.push({ tp, ang: angLinea, prolongacion, caja: cajaTexto(tp, w, h, angLinea) });
+  };
+  if (cabe || t < 0 || t > 1) {
+    enLinea(t, lado);
+    enLinea(t, -lado);
+  }
+  // Pasado un extremo, horizontal y sobre el eje de la línea; después, corrido a cada lado.
+  const extension = (Math.abs(d.x) * w + Math.abs(d.y) * h) / 2;
+  const dist = (p: Pt) => largo(sub(p, centro));
+  const extremos: [Pt, Pt][] = [
+    [b, d],
+    [a, mul(d, -1)],
+  ];
+  if (dist(a) > dist(b)) extremos.reverse();
+  for (const lat of [0, lado, -lado]) {
+    for (const [E, dir] of extremos) {
+      const tp = add(add(E, mul(dir, f * 0.45 + extension)), mul(n, lat * (Math.abs(d.x) * h + Math.abs(d.y) * w) * 0.6));
+      candidatos.push({ tp, ang: 0, prolongacion: lat === 0 ? [E, add(E, mul(dir, f * 0.35))] : null, caja: cajaTexto(tp, w, h) });
+    }
+  }
+  if (!cabe) enLinea(0.5, lado);
+  const elegido = candidatos.find((c) => col.libre(c.caja)) ?? candidatos[0];
+  col.ocupar(elegido.caja);
+  col.linea(a, b);
+  return elegido;
+}
+
+/** Línea de cota con marcas oblicuas en los extremos y el valor, ya colocado. */
+function DibujoCota({ a, b, texto, f, color = COTA, c }: Pick<CotaProps, 'a' | 'b' | 'texto' | 'f' | 'color'> & { c: Colocacion }) {
+  const d = unit(sub(b, a));
+  const n = { x: -d.y, y: d.x };
   const tick = mul(unit(add(d, n)), f * 0.35);
-  const base = add(a, mul(d, L * t));
-  const tp = add(base, mul(n, lado * f * 0.75));
-  let ang = (Math.atan2(d.y, d.x) * 180) / Math.PI;
-  if (ang > 90.1) ang -= 180;
-  if (ang <= -90.1) ang += 180;
-  const prolongacion = t < 0 ? [base, a] : t > 1 ? [b, base] : null;
   return (
     <g stroke={color} fill={color}>
       <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
-      {prolongacion && (
-        <line x1={prolongacion[0].x} y1={prolongacion[0].y} x2={prolongacion[1].x} y2={prolongacion[1].y} strokeWidth={0.5} vectorEffect="non-scaling-stroke" />
+      {c.prolongacion && (
+        <line x1={c.prolongacion[0].x} y1={c.prolongacion[0].y} x2={c.prolongacion[1].x} y2={c.prolongacion[1].y} strokeWidth={0.5} vectorEffect="non-scaling-stroke" />
       )}
       {[a, b].map((p, i) => (
         <line key={i} x1={p.x - tick.x} y1={p.y - tick.y} x2={p.x + tick.x} y2={p.y + tick.y} strokeWidth={1.1} vectorEffect="non-scaling-stroke" />
       ))}
-      <text x={tp.x} y={tp.y} fontSize={f} stroke="none" textAnchor="middle" dominantBaseline="central" fontFamily="Arial, sans-serif" transform={`rotate(${ang} ${tp.x} ${tp.y})`}>
+      <text x={c.tp.x} y={c.tp.y} fontSize={f} stroke="none" textAnchor="middle" dominantBaseline="central" fontFamily="Arial, sans-serif" transform={c.ang ? `rotate(${c.ang} ${c.tp.x} ${c.tp.y})` : undefined}>
         {texto}
       </text>
     </g>
@@ -142,7 +257,8 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
   const centro = { x: (caja.minX + caja.maxX) / 2, y: (caja.minY + caja.maxY) / 2 };
   const bs = bordesDe(v);
   const L = limitesDe(v);
-  const path = pathDe(contornoDe(pieza));
+  const contorno = contornoDe(pieza);
+  const path = pathDe(contorno);
   const numero = new Map(pieza.operaciones.map((o, i) => [o.id, i + 1]));
   const sel = new Set(seleccionIds);
   const destacado = (id: string) => sel.has(id) || resaltarId === id;
@@ -157,6 +273,20 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
 
   const elementos: ReactNode[] = [];
   const numeros: ReactNode[] = [];
+
+  // Espacio ocupado: ningún número tapa el borde del vidrio, una perforación (con su cruz) ni otro número.
+  const espacio = crearColocador();
+  contorno.forEach((p, i) => espacio.linea(p, contorno[(i + 1) % contorno.length]));
+  perfs.forEach((o, i) => {
+    const r = rVisual(o.d) * 1.6;
+    espacio.ocupar({ x1: centros[i].x - r, y1: centros[i].y - r, x2: centros[i].x + r, y2: centros[i].y + r });
+  });
+  const cota = (key: string, p: CotaProps) => {
+    const c = colocarCota(espacio, p, centro);
+    return c ? <DibujoCota key={key} a={p.a} b={p.b} texto={p.texto} f={p.f} color={p.color} c={c} /> : null;
+  };
+  /** Anota la caja de una etiqueta (`<Texto>`) que ya tiene su sitio. */
+  const ocuparTexto = (p: Pt, texto: string, f2: number, anchor: 'start' | 'middle' | 'end' = 'middle') => espacio.ocupar(cajaEtiqueta(p, texto, f2, anchor));
   /** Pastilla con el número del proceso (sólo en pantalla, no se imprime ni se exporta). */
   const pastilla = (id: string, p: Pt) => {
     if (!interaccion) return;
@@ -172,9 +302,57 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
   };
 
   /** Línea auxiliar punteada: del punto acotado a su línea de cota. */
-  const lineaAux = (a: Pt, b: Pt, k: string) => (
-    <line key={k} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#9ca3af" strokeWidth={0.5} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-  );
+  const lineaAux = (a: Pt, b: Pt, k: string) => {
+    espacio.linea(a, b);
+    return <line key={k} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#9ca3af" strokeWidth={0.5} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />;
+  };
+
+  // ── Cotas generales ────────────────────────────────────────────────────────
+  // Se ubican primero: mandan sobre el resto de los números del plano.
+  // Con vidrios de medidas distintas en la letra, la cota dice ANCHO / ALTO: el número sería el
+  // del primer vidrio y el proveedor lo leería como la medida de todos. La medida real de cada
+  // vidrio va en la tabla. La segunda cota de un desplome conserva su número (decisión del usuario).
+  // En el desplome lateral la medida del pedido es el ancho MAYOR (`medidaPedido`): en un «abre
+  // arriba» la palabra va en la cota de arriba y la de abajo conserva su número.
+  const anchoMayorArriba = pieza.contorno.tipo === 'desplome-lateral' && pieza.contorno.anchoSup > pieza.ancho;
+  const palabraAbajo = !!pieza.rotulos?.ancho && !anchoMayorArriba;
+  const palabraArriba = !!pieza.rotulos?.ancho && anchoMayorArriba;
+  const generales: ReactNode[] = [];
+  if (conCotas) {
+    const off = f * 3.6;
+    const ext = (a: Pt, b: Pt, k: string) => {
+      espacio.linea(a, b);
+      return <line key={k} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={COTA} strokeWidth={0.5} vectorEffect="non-scaling-stroke" />;
+    };
+    const yInf = caja.maxY + off;
+    generales.push(
+      ext({ x: v.ii.x, y: v.ii.y + f * 0.4 }, { x: v.ii.x, y: yInf + f * 0.5 }, 'e1'),
+      ext({ x: v.id.x, y: v.id.y + f * 0.4 }, { x: v.id.x, y: yInf + f * 0.5 }, 'e2'),
+      cota('ancho', { a: { x: v.ii.x, y: yInf }, b: { x: v.id.x, y: yInf }, texto: palabraAbajo ? 'ANCHO' : fmt(v.id.x - v.ii.x), f: f * 1.1, lado: 1, color: TINTA }),
+    );
+    const xIzq = caja.minX - off;
+    generales.push(
+      ext({ x: v.si.x - f * 0.4, y: v.si.y }, { x: xIzq - f * 0.5, y: v.si.y }, 'e3'),
+      ext({ x: v.ii.x - f * 0.4, y: v.ii.y }, { x: xIzq - f * 0.5, y: v.ii.y }, 'e4'),
+      cota('alto', { a: { x: xIzq, y: v.ii.y }, b: { x: xIzq, y: v.si.y }, texto: pieza.rotulos?.alto ? 'ALTO' : fmt(v.ii.y - v.si.y), f: f * 1.1, lado: -1, color: TINTA }),
+    );
+    if (pieza.contorno.tipo === 'desplome-lateral') {
+      const ySup = caja.minY - off;
+      generales.push(
+        ext({ x: v.si.x, y: v.si.y - f * 0.4 }, { x: v.si.x, y: ySup - f * 0.5 }, 'e5'),
+        ext({ x: v.sd.x, y: v.sd.y - f * 0.4 }, { x: v.sd.x, y: ySup - f * 0.5 }, 'e6'),
+        cota('anchoSup', { a: { x: v.si.x, y: ySup }, b: { x: v.sd.x, y: ySup }, texto: palabraArriba ? 'ANCHO' : fmt(v.sd.x - v.si.x), f: f * 1.1, lado: -1, color: TINTA }),
+      );
+    }
+    if (pieza.contorno.tipo === 'desplome-superior') {
+      const xDer = caja.maxX + off;
+      generales.push(
+        ext({ x: v.sd.x + f * 0.4, y: v.sd.y }, { x: xDer + f * 0.5, y: v.sd.y }, 'e7'),
+        ext({ x: v.id.x + f * 0.4, y: v.id.y }, { x: xDer + f * 0.5, y: v.id.y }, 'e8'),
+        cota('altoDer', { a: { x: xDer, y: v.sd.y }, b: { x: xDer, y: v.id.y }, texto: fmt(v.id.y - v.sd.y), f: f * 1.1, lado: -1, color: TINTA }),
+      );
+    }
+  }
 
   // ── Chaflanes ──────────────────────────────────────────────────────────────
   for (const o of pieza.operaciones) {
@@ -189,6 +367,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     const t = enArco ? add(cA, mul(b.d, rA - w)) : add(b.T, mul(b.n, w));
     const d = enArco ? `M${s.x} ${s.y} A${rA - w} ${rA - w} 0 0 1 ${t.x} ${t.y}` : `M${s.x} ${s.y} L${t.x} ${t.y}`;
     const pLbl = enArco ? add(cA, mul(b.n, -(rA - w - f * 1.1))) : add(mul(add(b.S, b.T), 0.5), mul(b.n, w + f * 1.1));
+    if (conCotas) ocuparTexto(pLbl, `CHAFLÁN ${o.ancho} mm`, f * 0.85);
     elementos.push(
       <g key={o.id} onPointerDown={alPresionar(o.id)} style={interaccion ? { cursor: 'pointer' } : undefined}>
         {interaccion && <path d={d} fill="none" stroke="transparent" strokeWidth={14} vectorEffect="non-scaling-stroke" />}
@@ -227,11 +406,11 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     const col = activo ? ACENTO : COTA;
     if (o.refX === 'centro' && o.x !== 0) {
       const xRef = (L.xIzq(c.y) + L.xDer(c.y)) / 2;
-      elementos.push(<Cota key={o.id + 'x'} a={{ x: Math.min(xRef, c.x), y: c.y }} b={{ x: Math.max(xRef, c.x), y: c.y }} texto={fmt(Math.abs(o.x))} f={fc} lado={-1} color={col} />);
+      elementos.push(cota(o.id + 'x', { a: { x: Math.min(xRef, c.x), y: c.y }, b: { x: Math.max(xRef, c.x), y: c.y }, texto: fmt(Math.abs(o.x)), f: fc, lado: -1, color: col }));
     }
     if (o.refY === 'centro' && o.y !== 0) {
       const yRef = (L.ySup(c.x) + L.yInf(c.x)) / 2;
-      elementos.push(<Cota key={o.id + 'y'} a={{ x: c.x, y: Math.min(yRef, c.y) }} b={{ x: c.x, y: Math.max(yRef, c.y) }} texto={fmt(Math.abs(o.y))} f={fc} lado={1} color={col} />);
+      elementos.push(cota(o.id + 'y', { a: { x: c.x, y: Math.min(yRef, c.y) }, b: { x: c.x, y: Math.max(yRef, c.y) }, texto: fmt(Math.abs(o.y)), f: fc, lado: 1, color: col }));
     }
   });
 
@@ -254,7 +433,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       const pos = repartir(tramos, gap);
       tramos.forEach((tr, j) => {
         const t = (pos[j] - tr.ini) / (tr.fin - tr.ini);
-        elementos.push(<Cota key={`${k}${j}`} a={punto(tr.ini)} b={punto(tr.fin)} texto={fmt(tr.fin - tr.ini)} f={fc} lado={lado} t={t} />);
+        elementos.push(cota(`${k}${j}`, { a: punto(tr.ini), b: punto(tr.fin), texto: fmt(tr.fin - tr.ini), f: fc, lado, t }));
       });
     };
 
@@ -298,16 +477,36 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       const k = `${o.refX}|${Math.round(centros[i].y)}`;
       filas.set(k, [...(filas.get(k) ?? []), i]);
     });
+    // Una sola cota por columna (2026-10-23): filas con las mismas distancias al mismo canto y cercanas
+    // entre sí (la manija Roma, las 3 perforaciones de la flauta) se acotan una vez, sobre la fila de
+    // arriba, como en el plano del taller. Antes cada fila repetía su «30» y quedaban apilados.
+    const columnas = new Map<string, string[]>();
     for (const [k, idx] of Array.from(filas)) {
-      const refX = perfs[idx[0]].refX;
-      const rMax = Math.max(...idx.map((i) => rVisual(perfs[i].d)));
-      const yLinea = centros[idx[0]].y - rMax - f * 0.9;
-      const xRef = refX === 'izq' ? L.xIzq(yLinea) : L.xDer(yLinea);
-      const sgn = refX === 'izq' ? 1 : -1;
-      dibujarCadena(`${k}h`, cadena(idx.map((i) => perfs[i].x)), (s) => ({ x: xRef + sgn * s, y: yLinea }), -sgn);
-      for (const i of idx) {
-        const c = centros[i];
-        elementos.push(ext({ x: c.x, y: c.y - rVisual(perfs[i].d) }, { x: c.x, y: yLinea - f * 0.3 }, `${k}e${i}`));
+      const kc = `${perfs[idx[0]].refX}|${cadena(idx.map((i) => perfs[i].x)).join(',')}`;
+      columnas.set(kc, [...(columnas.get(kc) ?? []), k]);
+    }
+    const yFila = (k: string) => centros[filas.get(k)![0]].y;
+    for (const ks of Array.from(columnas.values())) {
+      ks.sort((p, q) => yFila(p) - yFila(q));
+      const grupos: string[][] = [];
+      for (const k of ks) {
+        const g = grupos[grupos.length - 1];
+        if (g && yFila(k) - yFila(g[g.length - 1]) <= H * 0.25) g.push(k);
+        else grupos.push([k]);
+      }
+      for (const g of grupos) {
+        const k = g[0];
+        const idx = filas.get(k)!;
+        const refX = perfs[idx[0]].refX;
+        const rMax = Math.max(...idx.map((i) => rVisual(perfs[i].d)));
+        const yLinea = centros[idx[0]].y - rMax - f * 0.9;
+        const xRef = refX === 'izq' ? L.xIzq(yLinea) : L.xDer(yLinea);
+        const sgn = refX === 'izq' ? 1 : -1;
+        dibujarCadena(`${k}h`, cadena(idx.map((i) => perfs[i].x)), (s) => ({ x: xRef + sgn * s, y: yLinea }), -sgn);
+        for (const i of idx) {
+          const c = centros[i];
+          elementos.push(ext({ x: c.x, y: c.y - rVisual(perfs[i].d) }, { x: c.x, y: yLinea - f * 0.3 }, `${k}e${i}`));
+        }
       }
     }
 
@@ -322,17 +521,20 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
         const g = geometriaBoquete(o, bs[o.borde]);
         return add(mul(add(g.B, g.C), 0.5), mul(bs[o.borde].n, f * 1.3));
       });
-    const libre = (p: Pt) => etiquetasBoquete.every((q) => Math.abs(q.y - p.y) > f * 1.3 || Math.abs(q.x - p.x) > W * 0.45);
+    const lejosDeBoquetes = (p: Pt) => etiquetasBoquete.every((q) => Math.abs(q.y - p.y) > f * 1.3 || Math.abs(q.x - p.x) > W * 0.45);
     for (const [d, idx] of Array.from(porDiametro)) {
       const c = centros[idx[0]];
       const dir = c.x <= centro.x ? 1 : -1;
       const vert = c.y <= centro.y ? 1 : -1;
       const x = c.x + dir * (rVisual(d) + f * 0.9);
-      const candidatos = [3.4, -1.6, 5].map((k) => ({ x, y: c.y + vert * f * k }));
-      const p = candidatos.find(libre) ?? candidatos[0];
+      const texto = `${idx.length > 1 ? idx.length + ' ' : ''}PERF. Ø${d} mm`;
+      const anchor = dir > 0 ? 'start' : 'end';
+      const candidatos = [3.4, -1.6, 5, -3.2, 6.6].map((k) => ({ x, y: c.y + vert * f * k }));
+      const p = candidatos.find((q) => lejosDeBoquetes(q) && espacio.libre(cajaEtiqueta(q, texto, f * 0.85, anchor))) ?? candidatos[0];
+      ocuparTexto(p, texto, f * 0.85, anchor);
       elementos.push(
-        <Texto key={'lbl' + d} p={p} f={f * 0.85} anchor={dir > 0 ? 'start' : 'end'} bold>
-          {`${idx.length > 1 ? idx.length + ' ' : ''}PERF. Ø${d} mm`}
+        <Texto key={'lbl' + d} p={p} f={f * 0.85} anchor={anchor} bold>
+          {texto}
         </Texto>,
       );
     }
@@ -392,17 +594,18 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       elementos.push(
         lineaAux(g.A, add(a, mul(borde.n, -f * 0.3)), o.id + 'ea'),
         lineaAux(g.D, add(b, mul(borde.n, -f * 0.3)), o.id + 'eb'),
-        <Cota key={o.id + 'w'} a={a} b={b} texto={fmt(o.largo)} f={fc} lado={lado} color={col} />,
+        cota(o.id + 'w', { a, b, texto: fmt(o.largo), f: fc, lado, color: col }),
       );
       continue;
     }
+    ocuparTexto(pLbl, etiqueta, fc, anchor);
     if (conAlivio) {
       // Fondo de los alivios: del canto al punto más profundo, junto al alivio del lado A.
       const lateral = mul(borde.d, -(al.r + fc * 1.2));
       const a = add(g.A, lateral);
       const b = add(a, mul(borde.n, o.alivio!.fondo));
       elementos.push(
-        <Cota key={o.id + 'f'} a={a} b={b} texto={fmt(o.alivio!.fondo)} f={fc} lado={1} color={col} t={o.alivio!.fondo < anchoTexto(fmt(o.alivio!.fondo), fc) + fc ? 1.8 : 0.5} />,
+        cota(o.id + 'f', { a, b, texto: fmt(o.alivio!.fondo), f: fc, lado: 1, color: col, t: o.alivio!.fondo < anchoTexto(fmt(o.alivio!.fondo), fc) + fc ? 1.8 : 0.5 }),
       );
     }
     elementos.push(
@@ -426,7 +629,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       // Si la distancia es corta, el número se corre hacia el boquete para que no choque con la esquina.
       const w = anchoTexto(fmt(o.pos), fc);
       const t = o.pos < w + fc ? (w / 2 + fc * 0.4) / o.pos + 1 : 0.5;
-      elementos.push(<Cota key={o.id + 'p'} a={ini} b={fin} texto={fmt(o.pos)} f={fc} lado={lado} color={col} t={t} />);
+      elementos.push(cota(o.id + 'p', { a: ini, b: fin, texto: fmt(o.pos), f: fc, lado, color: col, t }));
     }
   }
 
@@ -485,6 +688,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     );
     const pLbl = add(g.C, mul(borde.n, r + f * 1.3));
     const anchor = Math.abs(borde.n.x) > 0.5 ? (borde.n.x < 0 ? 'end' : 'start') : 'middle';
+    ocuparTexto(pLbl, `½ PERF. Ø${fmt(o.d)} mm`, fc, anchor);
     elementos.push(
       <Texto key={o.id + 'l'} p={pLbl} f={fc} anchor={anchor} color={col} bold>
         {`½ PERF. Ø${fmt(o.d)} mm`}
@@ -500,7 +704,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       const lado = nn.x * -borde.n.x + nn.y * -borde.n.y > 0 ? 1 : -1;
       const w = anchoTexto(fmt(o.pos), fc);
       const t = o.pos < w + fc ? (w / 2 + fc * 0.4) / o.pos + 1 : 0.5;
-      elementos.push(<Cota key={o.id + 'p'} a={ini} b={fin} texto={fmt(o.pos)} f={fc} lado={lado} color={col} t={t} />);
+      elementos.push(cota(o.id + 'p', { a: ini, b: fin, texto: fmt(o.pos), f: fc, lado, color: col, t }));
     }
   }
 
@@ -526,17 +730,24 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
           return -d.y * (centro.x - mid.x) + d.x * (centro.y - mid.y) > 0 ? 1 : -1;
         };
         elementos.push(
-          <Cota key={e + 'm1'} a={p1} b={p2} texto={fmt(lOut)} f={fc} lado={lado(p1, p2)} />,
-          <Cota key={e + 'm2'} a={p2} b={p3} texto={fmt(lIn)} f={fc} lado={lado(p2, p3)} />,
+          cota(e + 'm1', { a: p1, b: p2, texto: fmt(lOut), f: fc, lado: lado(p1, p2) }),
+          cota(e + 'm2', { a: p2, b: p3, texto: fmt(lIn), f: fc, lado: lado(p2, p3) }),
         );
         continue;
       }
-      const hacia = unit(sub(centro, V));
       const tam = t.tipo === 'radio' ? t.r : Math.max(t.a, t.b);
-      const p = add(V, mul(hacia, tam * 1.2 + f * 2.2));
+      // Junto a la esquina, alineada desde su canto hacia adentro (centrada en la diagonal, en un vidrio
+      // angosto se salía por el canto); si choca —la etiqueta de perforaciones de las corredizas—, más abajo.
+      const texto = t.tipo === 'radio' ? `R ${t.r}` : `DESP. ${t.a}×${t.b}`;
+      const izq = V.x <= centro.x;
+      const anchor = izq ? 'start' : 'end';
+      const vert = V.y <= centro.y ? 1 : -1;
+      const candidatos = [1.6, 3, 4.4, 5.8].map((k) => ({ x: V.x + (izq ? 1 : -1) * (tam * 0.5 + f * 0.6), y: V.y + vert * (tam + f * k) }));
+      const p = candidatos.find((q) => espacio.libre(cajaEtiqueta(q, texto, fc, anchor))) ?? candidatos[0];
+      ocuparTexto(p, texto, fc, anchor);
       elementos.push(
-        <Texto key={e} p={p} f={fc} color={COTA}>
-          {t.tipo === 'radio' ? `R ${t.r}` : `DESP. ${t.a}×${t.b}`}
+        <Texto key={e} p={p} f={fc} anchor={anchor} color={COTA}>
+          {texto}
         </Texto>,
       );
     }
@@ -622,49 +833,6 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
         <Texto key="sello" p={{ x: centro.x, y: caja.minY + H * 0.62 }} f={f * 0.9} bold>
           SELLO EN EL CANTO
         </Texto>,
-      );
-    }
-  }
-
-  // ── Cotas generales ────────────────────────────────────────────────────────
-  // Con vidrios de medidas distintas en la letra, la cota dice ANCHO / ALTO: el número sería el
-  // del primer vidrio y el proveedor lo leería como la medida de todos. La medida real de cada
-  // vidrio va en la tabla. La segunda cota de un desplome conserva su número (decisión del usuario).
-  // En el desplome lateral la medida del pedido es el ancho MAYOR (`medidaPedido`): en un «abre
-  // arriba» la palabra va en la cota de arriba y la de abajo conserva su número.
-  const anchoMayorArriba = pieza.contorno.tipo === 'desplome-lateral' && pieza.contorno.anchoSup > pieza.ancho;
-  const palabraAbajo = !!pieza.rotulos?.ancho && !anchoMayorArriba;
-  const palabraArriba = !!pieza.rotulos?.ancho && anchoMayorArriba;
-  const generales: ReactNode[] = [];
-  if (conCotas) {
-    const off = f * 3.6;
-    const ext = (a: Pt, b: Pt, k: string) => <line key={k} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={COTA} strokeWidth={0.5} vectorEffect="non-scaling-stroke" />;
-    const yInf = caja.maxY + off;
-    generales.push(
-      ext({ x: v.ii.x, y: v.ii.y + f * 0.4 }, { x: v.ii.x, y: yInf + f * 0.5 }, 'e1'),
-      ext({ x: v.id.x, y: v.id.y + f * 0.4 }, { x: v.id.x, y: yInf + f * 0.5 }, 'e2'),
-      <Cota key="ancho" a={{ x: v.ii.x, y: yInf }} b={{ x: v.id.x, y: yInf }} texto={palabraAbajo ? 'ANCHO' : fmt(v.id.x - v.ii.x)} f={f * 1.1} lado={1} color={TINTA} />,
-    );
-    const xIzq = caja.minX - off;
-    generales.push(
-      ext({ x: v.si.x - f * 0.4, y: v.si.y }, { x: xIzq - f * 0.5, y: v.si.y }, 'e3'),
-      ext({ x: v.ii.x - f * 0.4, y: v.ii.y }, { x: xIzq - f * 0.5, y: v.ii.y }, 'e4'),
-      <Cota key="alto" a={{ x: xIzq, y: v.ii.y }} b={{ x: xIzq, y: v.si.y }} texto={pieza.rotulos?.alto ? 'ALTO' : fmt(v.ii.y - v.si.y)} f={f * 1.1} lado={-1} color={TINTA} />,
-    );
-    if (pieza.contorno.tipo === 'desplome-lateral') {
-      const ySup = caja.minY - off;
-      generales.push(
-        ext({ x: v.si.x, y: v.si.y - f * 0.4 }, { x: v.si.x, y: ySup - f * 0.5 }, 'e5'),
-        ext({ x: v.sd.x, y: v.sd.y - f * 0.4 }, { x: v.sd.x, y: ySup - f * 0.5 }, 'e6'),
-        <Cota key="anchoSup" a={{ x: v.si.x, y: ySup }} b={{ x: v.sd.x, y: ySup }} texto={palabraArriba ? 'ANCHO' : fmt(v.sd.x - v.si.x)} f={f * 1.1} lado={-1} color={TINTA} />,
-      );
-    }
-    if (pieza.contorno.tipo === 'desplome-superior') {
-      const xDer = caja.maxX + off;
-      generales.push(
-        ext({ x: v.sd.x + f * 0.4, y: v.sd.y }, { x: xDer + f * 0.5, y: v.sd.y }, 'e7'),
-        ext({ x: v.id.x + f * 0.4, y: v.id.y }, { x: xDer + f * 0.5, y: v.id.y }, 'e8'),
-        <Cota key="altoDer" a={{ x: xDer, y: v.sd.y }} b={{ x: xDer, y: v.id.y }} texto={fmt(v.id.y - v.sd.y)} f={f * 1.1} lado={-1} color={TINTA} />,
       );
     }
   }

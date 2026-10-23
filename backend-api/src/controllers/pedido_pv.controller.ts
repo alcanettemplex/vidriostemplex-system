@@ -1155,7 +1155,6 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
     // los planos tampoco: el formulario del proveedor sale siempre.
     await agregarPlanosAlExcel(wb, pedido, items, {
       numeroPedido,
-      proveedor: usaTemplacol ? 'TEMPLACOL' : 'VITELSA',
       numeroOdp,
       asesorIniciales: inicialesAsesor(asesorNombre) || (pedido.getDataValue('asesor_iniciales') ?? ''),
       fecha: creadoEn,
