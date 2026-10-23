@@ -130,3 +130,11 @@ desarrollo en hora de Bogotá — por eso estos errores no se veían en local.
 - **Pendiente de decisión (no es zona horaria):** `fecha_entrega` se mide en Dashboard/Informe como
   entrega al cliente y como inicio de mora, aunque se captura como "listo material"; hay 4 definiciones
   distintas de "atrasada". Ver `TECH_DEBT.md` 2026-10-05.
+
+## Formulario de la ODP: quitar el último vidrio (2026-10-23)
+
+- **Bug (ODP-24456):** al quitar el **último** vidrio de la lista en «Desglose técnico», «Crear Orden Definitiva» no hacía nada ni mostraba mensaje. Causa: las tarjetas de vidrio tenían animación de salida (`AnimatePresence` + `exit`); mientras la tarjeta quitada seguía montada, su `<select>` de color se volvía a registrar en react-hook-form y dejaba en `items` un vidrio fantasma `{ color }`. La validación lo rechazaba (espesor, ancho, alto, cantidad) y los errores de los vidrios no se pintaban en ningún lado. Quitar un vidrio del medio no lo provocaba (el índice viejo seguía existiendo).
+- **Corrección en `ODPForm.tsx`:** sin animación de salida en las tarjetas de vidrio (la entrada se conserva); `handleSubmit(onSubmit, onInvalid)` avisa qué revisar (si el error está en el paso 1 vuelve a él) y cada tarjeta con error muestra «Vidrio N: revisa …» con borde rojo. Nunca más un guardado que falla en silencio.
+- El servidor no tenía nada que ver: la regla de vidrios comprometidos (Pedido PV / Compras) solo bloquea esos vidrios y responde 409 con mensaje.
+- Verificado en el navegador (Playwright + Edge, escrituras interceptadas): antes, el estado del formulario quedaba con el vidrio fantasma y no se enviaba nada; después, se envía el PUT con los vidrios correctos y un vidrio incompleto muestra el aviso.
+- El vidrio #2193 de la ODP-24456 se quitó con `scripts/2026-10-23_quitar_vidrio_2193_odp24456.ts` (auditado a ROOT).

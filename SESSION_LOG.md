@@ -7162,3 +7162,23 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **BD:** sin cambios.
 - **Verificación:** `tsc` backend y frontend, ESLint frontend. Endpoints llamados contra el backend local con token root en memoria: créditos vencidos 4, cartera 5 ($157,6 M, regla del Dashboard), usuarios sin actividad 3, atascadas 44 (5 días), sin evidencias 41, conexiones 14/15 del pool, Cloudinary 1,38/25 créditos, limpiar por GET y por POST sin confirmar: 400, alertas y restaurar: 404, revertir con cambios posteriores: 409 (también una fila `saps`). El camino de revertir que escribe no se ejecutó contra producción.
 - **Docs:** `docs/modulos/root.md` nuevo, índice de CLAUDE.md, TECH_DEBT (bug de revertir resuelto; refactor, `usuario_nombre` y `alertas_umbral` anotados).
+
+## 2026-10-23 (5) — Reasignación de las ODP de octubre de Alejandro Ardila
+
+**Pedido del usuario:** pasar a Juan Diego Cataño las 16 ODP creadas por Alejandro desde el 01-oct, salvo ODP-24467, que va a Paola Gonzalez. Decisión: los 3 prospectos de esas ODP (PR-0264, PR-0268, PR-0282) también pasan a Juan Diego.
+
+- **script:** `backend-api/src/scripts/2026-10-23_reasignar_odps_alejandro_octubre.ts` (simulación por defecto, `--aplicar`, una transacción, guarda de asesor actual, auditoría atribuida a ROOT). Ejecutado: 19 cambios, 0 saltados.
+- **Verificación:** 15 ODP de Juan Diego ($122.042.888), ODP-24467 de Paola ($1.911.321), 3 prospectos con asesor 14, 19 filas UPDATE en `auditoria_log` atribuidas a ROOT; Alejandro queda con 0 ODP creadas en octubre.
+- **Efectos:** el Dashboard puede tardar hasta 30 min (caché); los Pedidos PV que se vuelvan a descargar mostrarán las iniciales del asesor nuevo en «OBRA».
+- Commit junto con la corrección del formulario de la ODP (abajo).
+
+## 2026-10-23 (6) — ODP-24456: no se podía quitar un vidrio (formulario)
+
+**Pedido del usuario:** quitar el vidrio #2193 (2 × 900 × 2183) de la ODP-24456; el botón «Crear Orden Definitiva» no hacía nada y no salía mensaje.
+
+- **Diagnóstico:** el vidrio estaba libre y el servidor aceptaba el cambio (ensayo de `updateODP` con rollback). Reproducido en el navegador: al quitar el último vidrio, la animación de salida dejaba un vidrio fantasma `{ color }` en el formulario y la validación fallaba en silencio.
+- **frontend:** `ODPForm.tsx` — sin animación de salida en las tarjetas de vidrio; `onInvalid` con aviso de qué revisar (y vuelta al paso 1 si el error está ahí); mensaje por tarjeta con borde rojo.
+- **dato:** `scripts/2026-10-23_quitar_vidrio_2193_odp24456.ts` (simulación + `--aplicar`, guardas de vidrio libre, auditado a ROOT). La ODP quedó con 4 vidrios.
+- **BD/backend:** sin cambios de esquema ni de código.
+- **Verificación:** `tsc` y ESLint; Playwright + Edge con escrituras interceptadas: quitar el último vidrio envía el PUT con los 4 vidrios; un vidrio incompleto muestra «Revisa vidrio 5 (el ancho, el alto)».
+- **Docs:** `docs/modulos/odp.md`.

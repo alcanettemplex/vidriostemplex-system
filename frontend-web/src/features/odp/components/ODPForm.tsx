@@ -16,6 +16,26 @@ import { numeroCotizacion } from '../../cotizador/format';
 
 const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Gris', 'Azul', 'Verde', 'Mate', 'Otro'];
 
+/** Campos de un vidrio que la validación puede rechazar, con el nombre que ve el usuario. */
+const CAMPOS_ITEM = [
+    { campo: 'espesor', etiqueta: 'el espesor' },
+    { campo: 'ancho_mm', etiqueta: 'el ancho' },
+    { campo: 'alto_mm', etiqueta: 'el alto' },
+    { campo: 'cantidad', etiqueta: 'la cantidad' },
+    { campo: 'perforaciones', etiqueta: 'las perforaciones' },
+    { campo: 'boquetes', etiqueta: 'los boquetes' },
+] as const;
+
+/** Campos del paso 1 (Acuerdo comercial) que la validación puede rechazar. */
+const CAMPOS_PASO_1: Record<string, string> = {
+    cliente_id: 'el cliente',
+    servicios_detalle: 'los servicios',
+    nombre_recibe: 'el contacto en obra',
+    telefono_recibe: 'el teléfono del contacto',
+    direccion_instalacion: 'la dirección',
+    valor_total: 'el valor total',
+};
+
 const itemSchema = z.object({
     tipo_vidrio: z.string().nullable().optional(),
     color: z.string().nullable().optional(),
@@ -371,6 +391,25 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
         setStep(1);
     };
 
+    // Validación fallida: antes no pasaba nada visible (los errores de los vidrios no se pintaban
+    // y los del paso 1 quedaban fuera de vista). Ahora se avisa qué revisar y, si el problema está
+    // en el paso 1, se vuelve a él.
+    const onInvalid = (errs: typeof errors) => {
+        const paso1 = Object.keys(CAMPOS_PASO_1).filter(k => (errs as Record<string, unknown>)[k]);
+        if (paso1.length > 0) {
+            setStep(1);
+            toast.error(`Revisa el paso 1 (Acuerdo comercial): ${paso1.map(k => CAMPOS_PASO_1[k]).join(', ')}.`);
+            return;
+        }
+        const conError = (errs.items ?? []) as Array<Record<string, unknown> | undefined>;
+        const vidrios = conError
+            .map((e, i) => (e ? `vidrio ${i + 1} (${CAMPOS_ITEM.filter(c => e[c.campo]).map(c => c.etiqueta).join(', ') || 'datos incompletos'})` : null))
+            .filter(Boolean);
+        toast.error(vidrios.length > 0
+            ? `Revisa ${vidrios.join('; ')} antes de guardar.`
+            : 'Hay datos por corregir en el formulario. Revisa los campos marcados en rojo.');
+    };
+
     const onSubmit = async (data: ODPFormValues) => {
         try {
             if (requiereClienteFuente && !clienteFuente) {
@@ -498,7 +537,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="p-6">
+                <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="p-6">
                     {/* STEP PROGRESS BAR */}
                     <div className="flex items-center gap-4 mb-8 max-w-lg mx-auto">
                         <div className="flex-1 text-center">
@@ -1066,17 +1105,22 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                 )}
 
                                 <div className="space-y-4">
-                                    <AnimatePresence>
+                                    {/* Sin AnimatePresence ni `exit` a propósito (2026-10-23): durante la animación de
+                                        salida la tarjeta quitada seguía montada y su <select> de color se volvía a
+                                        registrar. Al quitar el ÚLTIMO vidrio eso dejaba en el formulario un vidrio
+                                        fantasma `{ color }` que no pasaba la validación: el botón no hacía nada y no
+                                        salía ningún mensaje (caso ODP-24456). La entrada conserva su animación. */}
                                         {itemFields.map((field, index) => {
                                             // Vidrio "comprometido": ya está en un Pedido PV o en Compras → no editable ni eliminable.
                                             const comprometido = field.pedido_pv_id != null || field.estado_compra === 'en_odc' || field.estado_compra === 'en_existencia';
+                                            const errorItem = errors.items?.[index];
+                                            const faltan = errorItem ? CAMPOS_ITEM.filter(c => errorItem[c.campo]).map(c => c.etiqueta) : [];
                                             return (
                                             <motion.div
                                                 initial={{ opacity: 0, height: 0 }}
                                                 animate={{ opacity: 1, height: 'auto' }}
-                                                exit={{ opacity: 0, height: 0 }}
                                                 key={field.rhfKey}
-                                                className="relative bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-wrap lg:flex-nowrap gap-4 items-start"
+                                                className={`relative bg-slate-50 border rounded-xl p-4 flex flex-wrap lg:flex-nowrap gap-4 items-start ${faltan.length > 0 ? 'border-rose-300 pb-9' : 'border-slate-200'}`}
                                             >
                                                 <ColorField index={index} register={register} control={control} />
                                                 <div className="w-1/2 lg:w-1/12">
@@ -1182,6 +1226,14 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                         <Trash2 className="w-5 h-5" />
                                                     </button>
                                                 </div>
+                                                {faltan.length > 0 && (
+                                                    // Fuera del flujo de la fila (absoluto, abajo): dentro de la fila `lg:flex-nowrap`
+                                                    // le quitaba espacio a los campos y descuadraba la tarjeta.
+                                                    <p className="absolute left-4 bottom-2.5 text-xs font-semibold text-rose-700 flex items-center gap-1.5">
+
+                                                        <AlertCircle className="w-4 h-4" /> Vidrio {index + 1}: revisa {faltan.join(', ')}.
+                                                    </p>
+                                                )}
                                                 {/* Vidrio comprometido (en Pedido PV o Compras): overlay invisible que conserva
                                                     la estética original y avisa solo cuando el usuario intenta editar/eliminar. */}
                                                 {comprometido && (
@@ -1197,7 +1249,6 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             </motion.div>
                                             );
                                         })}
-                                    </AnimatePresence>
                                 </div>
 
                                 <div className="mt-8 flex justify-between pt-4 border-t border-slate-200">
