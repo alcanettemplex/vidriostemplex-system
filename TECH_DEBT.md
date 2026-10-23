@@ -4,6 +4,30 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-10-23 — Panel ROOT: refactor del frontend pendiente
+
+**Severidad:** Media · **Estimación:** 4-6 h
+
+`features/root/RootPage.tsx` tiene ~2.200 líneas en un solo archivo (12 pestañas), usa `fetch` en ~30 llamadas (la regla es Axios) y `any` por todas partes. Con `fetch` no pasan los interceptores: una sesión vencida deja pestañas en «Sin datos» sin el aviso común. Decisión del usuario (2026-10-23): dejarlo para otra pasada. Plan: un archivo por pestaña en `features/root/tabs/`, cliente Axios con manejo de errores, tipos de las respuestas de `/api/root`.
+
+---
+
+## 2026-10-23 — `auditoria_log.usuario_nombre` casi nunca se graba
+
+**Severidad:** Baja · **Estimación:** 30 min
+
+El middleware de contexto de `app.ts` toma `nombre_completo` del JWT, pero `auth.controller` firma el token solo con `id` y `rol`: 31 de 2.670 filas de una semana tenían nombre. El panel ROOT lo compensa al leer (`getAuditoria` completa el nombre por `usuario_id`). Corrección de fondo: agregar el nombre al payload del token (lo reciben las sesiones nuevas) o resolverlo en el middleware con caché.
+
+---
+
+## 2026-10-23 — Tabla `alertas_umbral` sin uso
+
+**Severidad:** Baja · **Estimación:** 15 min
+
+La pestaña Alertas del panel ROOT se retiró (decisión del usuario): sus 6 umbrales se editaban pero ningún código los leía. El modelo `AlertasUmbral` sigue registrado en `models/index.ts` y la tabla en la BD. Si no se va a usar, retirar el modelo y hacer `DROP TABLE` con script.
+
+---
+
 ## 2026-10-06 — `rutas_instalacion.fin_ruta` es TIMESTAMP SIN zona horaria
 
 **Severidad:** Media · **Estimación:** 30 min (ALTER TYPE + verificación)
@@ -1247,7 +1271,11 @@ El middleware de contexto de auditoría en `backend-api/src/app.ts:67-80` intent
 
 ---
 
-## 2026-07-10 — Revertir auditoría falla siempre para ~~`Cotizacion`~~, `SAP` y `RutaODP`
+## ~~2026-07-10 — Revertir auditoría falla siempre para `Cotizacion`, `SAP` y `RutaODP`~~ — RESUELTO 2026-10-23
+
+> Resuelto sin renombrar el historial: `TABLA_REAL` en `root.controller.ts` traduce `saps` a `sap` y `ruta_odps` a `ruta_odp`, y `PK_TABLA` usa `codigo` para `cotizador.producto`/`precio_override` (mismo síntoma, no estaba anotado). Ver `docs/modulos/root.md`.
+
+### Texto original
 
 **Actualización 2026-10-03:** `Cotizacion` salió del alcance: el modelo y sus entradas en `MODELOS_AUDITADOS` y `TABLAS_AUDITABLES` se retiraron con el COTModal. Quedan `SAP` y `RutaODP`.
 

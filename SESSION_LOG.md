@@ -7152,3 +7152,13 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **frontend:** `HojaDetalle` (prop `disenadoPor`), `HojasPedido`, `DisenoPedidoPage`, `DetallesTecnicosPage` (modo libre: usuario conectado), `exportar/excel.ts`, `modoPedido/api.ts` (`PlanoDT.disenado_por`).
 - **BD:** sin cambios (`actualizado_por` ya existía).
 - **Verificación:** `tsc` backend y frontend, ESLint frontend limpios (el ESLint del backend no arranca: su configuración pide migrar al formato nuevo, ya estaba así). Excel generado contra la BD real: `A5 = DISEÑADO POR: Luis Alcala`.
+
+## 2026-10-23 (4) — Panel ROOT: análisis forense y correcciones
+
+**Pedido del usuario:** revisar todas las cards del panel ROOT (datos y conexión) y aplicar las recomendaciones. Decisiones: restaurar backup se desactiva; se quitan «SAPs sin ODC» e «Inventario < 5» y «Sin evidencias» se acota a 30 días; se retira la pestaña Alertas; el refactor del frontend (Axios, partir el archivo) queda para después.
+
+- **backend:** `root.controller.ts` — revertir reescrito (transacción, 409 por cambios posteriores, fila `REVERT`, `TABLA_REAL`/`PK_TABLA`: cierra el bug de `sap`/`ruta_odp` y el no anotado de `cotizador.producto`); `limpiar_auditoria` solo por POST con `confirmar` (antes también por GET); restaurar y alertas retirados; usuarios sin actividad por `usuario_id` y solo activos; créditos vencidos por caja; cartera con `consultarCarteraVencida`; atascadas/EN_ESPERA con días de Configuración y sin ANULADAS; conexiones del pooler contra el pool de 15; créditos de Cloudinary; nombre de usuario completado en la auditoría. `root.routes.ts` sin restaurar ni alertas.
+- **frontend:** `RootPage.tsx` — confirmación en limpiar auditoría, 409 de revertir con segunda confirmación, backup con casilla de auditoría y restaurar retirado, cards nuevas/quitadas, títulos con los días reales, Resumen tolerante a fallas por fuente.
+- **BD:** sin cambios.
+- **Verificación:** `tsc` backend y frontend, ESLint frontend. Endpoints llamados contra el backend local con token root en memoria: créditos vencidos 4, cartera 5 ($157,6 M, regla del Dashboard), usuarios sin actividad 3, atascadas 44 (5 días), sin evidencias 41, conexiones 14/15 del pool, Cloudinary 1,38/25 créditos, limpiar por GET y por POST sin confirmar: 400, alertas y restaurar: 404, revertir con cambios posteriores: 409 (también una fila `saps`). El camino de revertir que escribe no se ejecutó contra producción.
+- **Docs:** `docs/modulos/root.md` nuevo, índice de CLAUDE.md, TECH_DEBT (bug de revertir resuelto; refactor, `usuario_nombre` y `alertas_umbral` anotados).

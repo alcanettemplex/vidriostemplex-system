@@ -6,10 +6,7 @@ import {
   getHealthServicios,
   getAuditoria,
   revertirAuditoria,
-  getAlertas,
-  updateAlerta,
   descargarBackup,
-  restaurarBackup,
   ejecutarMantenimiento,
   getDiagnosticoODP,
   getOperativoResumen,
@@ -42,15 +39,10 @@ router.get('/servicios/health', getHealthServicios);
 router.get('/auditoria', getAuditoria);
 router.post('/auditoria/:id/revertir', revertirAuditoria);
 
-// Alertas
-router.get('/alertas', getAlertas);
-router.put('/alertas/:id', updateAlerta);
-
-// Backup
+// Backup (solo descarga: restaurar desde el panel se retiró el 2026-10-23, ver root.controller)
 router.get('/backup/descargar', descargarBackup);
-router.post('/backup/restaurar', restaurarBackup);
 
-// Mantenimiento
+// Mantenimiento. Las tareas que borran datos solo corren por POST con `confirmar: true`.
 router.get('/mantenimiento/:tarea', ejecutarMantenimiento);
 router.post('/mantenimiento/:tarea', ejecutarMantenimiento);
 

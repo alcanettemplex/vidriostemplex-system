@@ -4,10 +4,11 @@ import https from 'https';
 import http from 'http';
 import sequelize from '../config/database';
 import AuditoriaLog from '../models/auditoria_log.model';
-import AlertasUmbral from '../models/alertas_umbral.model';
 import { Op } from 'sequelize';
-import jwt from 'jsonwebtoken';
+import { ConfiguracionGlobal } from '../models';
 import { hoyBogotaISO, HOY_BOGOTA_SQL } from '../utils/fechas';
+import { getContext } from '../utils/requestContext';
+import { consultarCarteraVencida } from '../utils/carteraVencida';
 import { cronPVStatus, getWSCount } from '../server';
 import { getRateLimitStats } from '../middlewares/rateLimiter';
 
@@ -22,8 +23,37 @@ const SUPABASE_FREE = {
   db_mb: 500,
   bandwidth_gb: 5,
   storage_gb: 1,
-  max_connections: 60,
 };
+/**
+ * Tope real de conexiones: el pool del pooler de Supabase (15), no `max_connections` de
+ * Postgres (60). Las conexiones que cuenta `pg_stat_activity` son las del pooler: con 15
+ * el pool ya está lleno aunque Postgres admita 60 (2026-10-23). Configurable si cambia el plan.
+ */
+const POOL_SUPABASE = Number(process.env.SUPABASE_POOL_SIZE) || 15;
+
+/** Días para considerar estancada una ODP: `configuracion_global.dias_alerta_odp_estancada` (la BD manda). */
+async function diasOdpEstancada(): Promise<number> {
+  const cfg = await ConfiguracionGlobal.findByPk(1, { attributes: ['dias_alerta_odp_estancada'] });
+  return Number(cfg?.getDataValue('dias_alerta_odp_estancada')) || 5;
+}
+
+/**
+ * Usuarios ACTIVOS sin ninguna operación propia en la auditoría en 90 días. Una sola regla para
+ * Seguridad y Mantenimiento (2026-10-23): antes se miraba a quién le habían editado la ficha de
+ * usuario (`tabla = 'usuarios'`), no quién usaba el sistema, y salían 16 en vez de 2.
+ */
+async function usuariosSinActividad90d() {
+  return sequelize.query<Record<string, unknown>>(`
+    SELECT u.id, u.nombre_completo, u.username, u.rol, u.creado_en,
+           (SELECT MAX(a.fecha) FROM auditoria_log a WHERE a.usuario_id = u.id) AS ultima_actividad
+    FROM usuarios u
+    WHERE u.activo = true
+      AND NOT EXISTS (
+        SELECT 1 FROM auditoria_log a
+        WHERE a.usuario_id = u.id AND a.fecha > NOW() - INTERVAL '90 days'
+      )
+    ORDER BY u.nombre_completo`, { type: QueryTypes.SELECT });
+}
 const CLOUDINARY_FREE = {
   storage_gb: 25,
   bandwidth_gb: 25,
@@ -96,9 +126,13 @@ export const getMetricasSupabase = async (_req: Request, res: Response) => {
 
     // Conexiones activas — resumen
     const [connections]: any[] = await sequelize.query(
+      // `pool` = las conexiones de la aplicación, que entran por el pooler (application_name
+      // 'Supavisor'). El resto son procesos internos de Supabase (PostgREST, pg_cron, exporter…):
+      // contarlas contra el pool daba más del 100 % (22 de 15 el 2026-10-23, 13 eran del pooler).
       `SELECT COUNT(*) AS total,
               COUNT(*) FILTER (WHERE state = 'active') AS active,
-              COUNT(*) FILTER (WHERE state = 'idle') AS idle
+              COUNT(*) FILTER (WHERE state = 'idle') AS idle,
+              COUNT(*) FILTER (WHERE application_name = 'Supavisor') AS pool
        FROM pg_stat_activity
        WHERE datname = current_database()`,
       { type: QueryTypes.SELECT }
@@ -139,8 +173,9 @@ export const getMetricasSupabase = async (_req: Request, res: Response) => {
         total: Number(connections.total),
         activas: Number(connections.active),
         inactivas: Number(connections.idle),
-        limite: SUPABASE_FREE.max_connections,
-        pct: Math.round((Number(connections.total) / SUPABASE_FREE.max_connections) * 100),
+        del_pool: Number(connections.pool),
+        limite: POOL_SUPABASE,
+        pct: Math.round((Number(connections.pool) / POOL_SUPABASE) * 100),
         detalle: conexionesDetalle,
       },
       tabla_count: Number(tableCount.total),
@@ -193,6 +228,15 @@ export const getMetricasCloudinary = async (_req: Request, res: Response) => {
         videos: data.video_count || 0,
         total_archivos: (data.resources || 0) + (data.video_count || 0),
       },
+      // El plan Free de Cloudinary se mide en créditos combinados (storage + ancho de banda +
+      // transformaciones), no en 25 GB por concepto: si la API los informa, ese es el tope real.
+      creditos: data.credits
+        ? {
+            usados: Math.round(Number(data.credits.usage || 0) * 100) / 100,
+            limite: Number(data.credits.limit || 0),
+            pct: Math.round(Number(data.credits.used_percent ?? (data.credits.limit ? (data.credits.usage / data.credits.limit) * 100 : 0))),
+          }
+        : null,
       plan: data.plan || 'Free',
       ultimo_reset: data.last_updated,
     });
@@ -281,11 +325,28 @@ export const getAuditoria = async (req: Request, res: Response) => {
       offset,
     });
 
+    // Solo una parte de las filas guarda `usuario_nombre` (31 de 2.670 en una semana, medido el
+    // 2026-10-23): se completa con el nombre actual del usuario para no mostrar un id suelto.
+    const sinNombre = Array.from(new Set(
+      rows.filter((r) => !r.getDataValue('usuario_nombre') && r.getDataValue('usuario_id')).map((r) => r.getDataValue('usuario_id') as number),
+    ));
+    const nombres = new Map<number, string>();
+    if (sinNombre.length) {
+      const us = await sequelize.query<{ id: number; nombre_completo: string }>(
+        `SELECT id, nombre_completo FROM usuarios WHERE id IN (:ids)`,
+        { type: QueryTypes.SELECT, replacements: { ids: sinNombre } },
+      );
+      for (const u of us) nombres.set(u.id, u.nombre_completo);
+    }
+
     res.json({
       total: count,
       page: pageNum,
       pages: Math.ceil(count / limitNum),
-      registros: rows,
+      registros: rows.map((r) => {
+        const j = r.toJSON() as Record<string, unknown>;
+        return { ...j, usuario_nombre: j.usuario_nombre || nombres.get(j.usuario_id as number) || null };
+      }),
     });
   } catch (error) {
     console.error('Error auditoría:', error);
@@ -323,90 +384,118 @@ const TABLAS_AUDITABLES = new Set([
   'cotizador.propuesta', 'cotizador.propuesta_cargo',
 ]);
 
-/** Convierte el nombre guardado en `auditoria_log.tabla` en un identificador SQL
- * válido. Un nombre calificado se parte por el punto y se entrecomilla segmento a
- * segmento; uno simple queda igual que antes. La entrada ya pasó por el
- * allow-list `TABLAS_AUDITABLES`. */
+/**
+ * Etiqueta de `auditoria_log.tabla` → tabla real, donde no coinciden. Los hooks de
+ * models/index.ts graban `saps` y `ruta_odps`, pero las tablas son `sap` y `ruta_odp`: el
+ * revertir armaba `UPDATE "saps"` y fallaba siempre con 500 (TECH_DEBT.md 2026-07-10, cerrado
+ * el 2026-10-23). Se conservan las etiquetas para no partir el historial.
+ */
+const TABLA_REAL: Record<string, string> = { saps: 'sap', ruta_odps: 'ruta_odp' };
+/** Clave primaria distinta de `id` (las mismas que declara `MODELOS_AUDITADOS`). */
+const PK_TABLA: Record<string, string> = { 'cotizador.producto': 'codigo', 'cotizador.precio_override': 'codigo' };
+
+/** Convierte el nombre guardado en `auditoria_log.tabla` en el identificador SQL de la tabla
+ * real. Un nombre calificado se parte por el punto y se entrecomilla segmento a segmento.
+ * La entrada ya pasó por el allow-list `TABLAS_AUDITABLES`. */
 function identificadorSql(tabla: string): string {
-  return tabla.split('.').map((parte) => `"${parte}"`).join('.');
+  return (TABLA_REAL[tabla] ?? tabla).split('.').map((parte) => `"${parte}"`).join('.');
 }
 
+/**
+ * Revierte una fila de la auditoría (reescrito el 2026-10-23):
+ * - En una transacción, y deja su propia fila `REVERT` con el estado previo, quién y desde
+ *   dónde. Antes escribía con SQL directo, sin pasar por los hooks: el revertir no quedaba
+ *   registrado en ninguna parte.
+ * - Si el registro cambió después de esa fila, responde 409 con cuántos cambios hay, salvo
+ *   `?forzar=true`. Antes pisaba en silencio los cambios posteriores.
+ */
 export const revertirAuditoria = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const entry = await AuditoriaLog.findByPk(id);
     if (!entry) return res.status(404).json({ error: 'Registro de auditoría no encontrado' });
 
-    const tabla = entry.getDataValue('tabla');
-
+    const tabla = entry.getDataValue('tabla') as string;
     if (!TABLAS_AUDITABLES.has(tabla)) {
-      return res.status(400).json({ error: 'Tabla no permitida para revertir' });
+      return res.status(400).json({ error: 'Esta tabla no se puede revertir desde el panel.' });
     }
-    const operacion = entry.getDataValue('operacion');
-    const registroId = entry.getDataValue('registro_id');
-    const datosAnteriores = entry.getDataValue('datos_anteriores');
+    const operacion = entry.getDataValue('operacion') as string;
+    const registroId = entry.getDataValue('registro_id') as string;
+    const datosAnteriores = entry.getDataValue('datos_anteriores') as Record<string, unknown> | null;
+    if (!['INSERT', 'UPDATE', 'DELETE'].includes(operacion)) {
+      return res.status(400).json({ error: `Una operación ${operacion} no se revierte.` });
+    }
+    if (operacion !== 'INSERT' && !datosAnteriores) {
+      return res.status(400).json({ error: 'No se puede revertir: la auditoría no guardó cómo estaba el registro antes.' });
+    }
+
+    const posteriores = await AuditoriaLog.count({
+      where: {
+        tabla,
+        registro_id: registroId,
+        id: { [Op.gt]: entry.getDataValue('id') },
+        operacion: { [Op.in]: ['INSERT', 'UPDATE', 'DELETE', 'REVERT'] },
+      },
+    });
+    if (posteriores > 0 && req.query.forzar !== 'true') {
+      return res.status(409).json({
+        error: `El registro tuvo ${posteriores} cambio(s) después de esta operación; revertirla los sobrescribe.`,
+        posteriores,
+      });
+    }
+
     const tablaSql = identificadorSql(tabla);
+    const pk = PK_TABLA[tabla] ?? 'id';
+    const [actual] = await sequelize.query<Record<string, unknown>>(`SELECT * FROM ${tablaSql} WHERE "${pk}" = :__pk`, {
+      replacements: { __pk: registroId },
+      type: QueryTypes.SELECT,
+    });
 
-    if (operacion === 'INSERT') {
-      // Revertir INSERT = DELETE del registro
-      await sequelize.query(`DELETE FROM ${tablaSql} WHERE id = :id`, {
-        replacements: { id: registroId },
-        type: QueryTypes.DELETE,
-      });
-    } else if (operacion === 'UPDATE' && datosAnteriores) {
-      // Revertir UPDATE = restaurar valores anteriores
-      const cols = Object.keys(datosAnteriores)
-        .filter((k) => k !== 'id')
-        .map((k) => `"${k}" = :${k}`)
-        .join(', ');
-      await sequelize.query(`UPDATE ${tablaSql} SET ${cols} WHERE id = :id`, {
-        replacements: { ...datosAnteriores, id: registroId },
-        type: QueryTypes.UPDATE,
-      });
-    } else if (operacion === 'DELETE' && datosAnteriores) {
-      // Revertir DELETE = re-INSERT
-      const cols = Object.keys(datosAnteriores).map((k) => `"${k}"`).join(', ');
-      const vals = Object.keys(datosAnteriores).map((k) => `:${k}`).join(', ');
-      await sequelize.query(`INSERT INTO ${tablaSql} (${cols}) VALUES (${vals})`, {
-        replacements: datosAnteriores,
-        type: QueryTypes.INSERT,
-      });
-    } else {
-      return res.status(400).json({ error: 'No se puede revertir este registro (sin datos anteriores)' });
-    }
+    await sequelize.transaction(async (t) => {
+      if (operacion === 'INSERT') {
+        await sequelize.query(`DELETE FROM ${tablaSql} WHERE "${pk}" = :__pk`, { replacements: { __pk: registroId }, transaction: t });
+      } else if (operacion === 'UPDATE') {
+        const cols = Object.keys(datosAnteriores!).filter((k) => k !== pk).map((k) => `"${k}" = :${k}`).join(', ');
+        await sequelize.query(`UPDATE ${tablaSql} SET ${cols} WHERE "${pk}" = :__pk`, {
+          replacements: { ...datosAnteriores, __pk: registroId },
+          transaction: t,
+        });
+      } else {
+        const claves = Object.keys(datosAnteriores!);
+        await sequelize.query(
+          `INSERT INTO ${tablaSql} (${claves.map((k) => `"${k}"`).join(', ')}) VALUES (${claves.map((k) => `:${k}`).join(', ')})`,
+          { replacements: datosAnteriores!, transaction: t },
+        );
+      }
+      const ctx = getContext();
+      await AuditoriaLog.create({
+        tabla,
+        operacion: 'REVERT',
+        registro_id: registroId,
+        datos_anteriores: actual ?? null,
+        datos_nuevos: { revierte_auditoria_id: Number(id), operacion_revertida: operacion, cambios_posteriores_sobrescritos: posteriores },
+        usuario_id: ctx.userId,
+        usuario_nombre: ctx.userName,
+        ip_address: ctx.ip,
+      }, { transaction: t });
+    });
 
-    res.json({ ok: true, mensaje: 'Operación revertida exitosamente' });
+    res.json({ ok: true, mensaje: 'Operación revertida. Quedó registrada en la auditoría.' });
   } catch (error) {
     console.error('Error revertir auditoría:', error);
-    res.status(500).json({ error: 'Error al revertir la operación' });
+    res.status(500).json({ error: 'No se pudo revertir: el registro cambió de forma incompatible con los datos guardados. No se modificó nada.' });
   }
 };
 
-// ─── ALERTAS / UMBRALES ──────────────────────────────────────────────────────
-export const getAlertas = async (_req: Request, res: Response) => {
-  const alertas = await AlertasUmbral.findAll({ order: [['clave', 'ASC']] });
-  res.json(alertas);
-};
-
-export const updateAlerta = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { valor, activo } = req.body;
-    const alerta = await AlertasUmbral.findByPk(id);
-    if (!alerta) return res.status(404).json({ error: 'Umbral no encontrado' });
-    await alerta.update({ valor, activo });
-    res.json(alerta);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al actualizar umbral' });
-  }
-};
+// La pestaña Alertas (umbrales de `alertas_umbral`) se retiró el 2026-10-23: se editaban
+// pero ningún código los leía. La tabla queda en la BD sin uso (TECH_DEBT.md 2026-10-23).
 
 // ─── BACKUP ──────────────────────────────────────────────────────────────────
 export const descargarBackup = async (req: Request, res: Response) => {
   try {
-    // `auditoria_log` es bitácora, no datos de negocio reconstruibles, y pesa 22,7 MB de
-    // los ~24 MB de la base: incluirla hacía que cada click descargara el 95% de la BD
-    // desde Supabase. Se excluye por defecto y se pide con ?incluir_auditoria=true.
+    // `auditoria_log` es bitácora, no datos de negocio reconstruibles, y es la tabla más pesada
+    // (59 MB de 95 MB el 2026-10-23; los datos de negocio suman ~9 MB): incluirla multiplica la
+    // descarga desde Supabase. Se excluye por defecto y se pide con ?incluir_auditoria=true.
     const incluirAuditoria = req.query.incluir_auditoria === 'true';
     const TABLAS_EXCLUIDAS_POR_DEFECTO = ['auditoria_log'];
 
@@ -478,40 +567,24 @@ export const descargarBackup = async (req: Request, res: Response) => {
   }
 };
 
-export const restaurarBackup = async (req: Request, res: Response) => {
-  try {
-    const { sql } = req.body as { sql: string };
-    if (!sql || typeof sql !== 'string') {
-      return res.status(400).json({ error: 'Se requiere el contenido SQL en el cuerpo' });
-    }
-
-    // Ejecutar en una transacción para poder hacer rollback si algo falla
-    const t = await sequelize.transaction();
-    try {
-      // Dividir por statements y ejecutar uno a uno
-      const statements = sql
-        .split(';')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0 && !s.startsWith('--') && !s.startsWith('SET') && s !== 'BEGIN' && s !== 'COMMIT');
-
-      for (const stmt of statements) {
-        await sequelize.query(stmt + ';', { transaction: t });
-      }
-      await t.commit();
-      res.json({ ok: true, mensaje: 'Backup restaurado exitosamente', statements: statements.length });
-    } catch (err: any) {
-      await t.rollback();
-      res.status(400).json({ error: `Error en el SQL: ${err.message}` });
-    }
-  } catch (error) {
-    console.error('Error restaurar backup:', error);
-    res.status(500).json({ error: 'Error interno al restaurar backup' });
-  }
-};
+// Restaurar desde el panel se retiró el 2026-10-23 (decisión del usuario): partía el SQL por «;»
+// (rompía cualquier texto con punto y coma), insertaba en orden alfabético y no por dependencias,
+// no reajustaba las secuencias (incidente del 2026-07-02), con ON CONFLICT DO NOTHING no cambiaba
+// nada sobre una BD con datos y el archivo supera el límite de 10 MB del body. Para restaurar:
+// respaldos de Supabase o pg_restore.
 
 // ─── MANTENIMIENTO ───────────────────────────────────────────────────────────
+/** Tareas que borran datos: solo por POST y con `confirmar: true` en el cuerpo (2026-10-23). */
+const TAREAS_DESTRUCTIVAS = new Set(['limpiar_auditoria']);
+
 export const ejecutarMantenimiento = async (req: Request, res: Response) => {
   const { tarea } = req.params;
+
+  // Antes la ruta GET también ejecutaba la limpieza: un enlace, una recarga o un prefetch
+  // podían borrar historial sin que nadie lo pidiera.
+  if (TAREAS_DESTRUCTIVAS.has(tarea) && (req.method !== 'POST' || req.body?.confirmar !== true)) {
+    return res.status(400).json({ error: 'Esta tarea borra datos: ejecútala desde el panel y confirma la acción.' });
+  }
 
   try {
     let resultado: any = {};
@@ -571,23 +644,14 @@ export const ejecutarMantenimiento = async (req: Request, res: Response) => {
       }
 
       case 'usuarios_inactivos': {
-        const rows: any[] = await sequelize.query(
-          `SELECT id, nombre_completo, username, rol, creado_en
-           FROM usuarios
-           WHERE id NOT IN (
-               SELECT DISTINCT (datos_nuevos->>'id')::int
-               FROM auditoria_log
-               WHERE tabla = 'usuarios' AND fecha > NOW() - INTERVAL '90 days'
-             )
-           ORDER BY nombre_completo`,
-          { type: QueryTypes.SELECT }
-        );
-        resultado = { descripcion: 'Usuarios sin actividad reciente (>90 días)', cantidad: rows.length, registros: rows };
+        const rows = await usuariosSinActividad90d();
+        resultado = { descripcion: 'Usuarios activos sin ninguna operación en los últimos 90 días', cantidad: rows.length, registros: rows };
         break;
       }
 
       case 'limpiar_auditoria': {
-        const { dias = 180 } = req.body;
+        // Nunca menos de 30 días, aunque el cuerpo pida otra cosa.
+        const dias = Math.max(30, Number(req.body?.dias) || 180);
         const result = await AuditoriaLog.destroy({
           where: { fecha: { [Op.lt]: new Date(Date.now() - Number(dias) * 24 * 60 * 60 * 1000) } },
         });
@@ -744,6 +808,7 @@ export const ejecutarMantenimiento = async (req: Request, res: Response) => {
 // ─── DIAGNÓSTICO ODP ─────────────────────────────────────────────────────────
 export const getDiagnosticoODP = async (_req: Request, res: Response) => {
   try {
+    const dias = await diasOdpEstancada();
     const [
       listoSinRequisitos,
       listoChkPendiente,
@@ -809,7 +874,8 @@ export const getDiagnosticoODP = async (_req: Request, res: Response) => {
         ORDER BY tm.fecha_visita ASC NULLS LAST LIMIT 100
       `, { type: QueryTypes.SELECT }),
 
-      // Q4 — EN_ESPERA > 30 días sin cambio (ADVERTENCIA)
+      // Q4 — EN_ESPERA sin cambio hace más de `dias_alerta_odp_estancada` días (ADVERTENCIA).
+      // El título decía «> 30 días» y la consulta usaba 7: ahora los dos salen de Configuración.
       sequelize.query<any>(`
         SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
                u.nombre_completo AS asesor, o.fecha_creacion,
@@ -825,9 +891,9 @@ export const getDiagnosticoODP = async (_req: Request, res: Response) => {
           AND COALESCE(
             (SELECT MAX(h.fecha) FROM historial_estados_odp h WHERE h.odp_id = o.id),
             o.fecha_creacion
-          ) < NOW() - INTERVAL '7 days'
+          ) < NOW() - make_interval(days => :dias)
         ORDER BY dias_sin_cambio DESC LIMIT 100
-      `, { type: QueryTypes.SELECT }),
+      `, { type: QueryTypes.SELECT, replacements: { dias } }),
 
       // Q5 — ODPs sin_items pendientes (INFO)
       sequelize.query<any>(`
@@ -852,6 +918,7 @@ export const getDiagnosticoODP = async (_req: Request, res: Response) => {
       visita_tm_realizada: visitaTmRealizada,
       en_espera_stale: enEsperaStale,
       sin_items_pendiente: sinItemsPendiente,
+      dias_estancada: dias,
       resumen: { criticos, advertencias, info, total: criticos + advertencias + info },
     });
   } catch (error: any) {
@@ -904,7 +971,8 @@ export const getOperativoResumen = async (_req: Request, res: Response) => {
         ORDER BY o.fecha_entrega ASC NULLS LAST LIMIT 50
       `, { type: QueryTypes.SELECT }),
 
-      // Q4 — Créditos vencidos
+      // Q4 — Créditos vencidos: un crédito vencido es un COBRO pendiente. Antes se filtraba por
+      // «no facturada» y las ODP facturadas sin pagar desaparecían (0 en vez de 4, 2026-10-23).
       sequelize.query<any>(`
         SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
                u.nombre_completo AS asesor,
@@ -915,7 +983,7 @@ export const getOperativoResumen = async (_req: Request, res: Response) => {
         JOIN usuarios u ON u.id = o.asesor_id
         WHERE o.fecha_vencimiento_credito IS NOT NULL
           AND o.fecha_vencimiento_credito < ${HOY_BOGOTA_SQL}
-          AND o.estado_facturacion = 'PENDIENTE'
+          AND o.estado_caja <> 'CANCELADO'
         ORDER BY dias_vencido DESC LIMIT 50
       `, { type: QueryTypes.SELECT }),
 
@@ -1008,17 +1076,8 @@ export const getSeguridadActividad = async (_req: Request, res: Response) => {
         ORDER BY al.fecha DESC LIMIT 100
       `, { type: QueryTypes.SELECT }),
 
-      // Q4 — Usuarios inactivos > 90 días (sin campo activo en la tabla)
-      sequelize.query<any>(`
-        SELECT id, nombre_completo, username, rol, creado_en
-        FROM usuarios
-        WHERE id NOT IN (
-            SELECT DISTINCT (datos_nuevos->>'id')::int
-            FROM auditoria_log
-            WHERE tabla = 'usuarios' AND fecha > NOW() - INTERVAL '90 days'
-          )
-        ORDER BY nombre_completo
-      `, { type: QueryTypes.SELECT }),
+      // Q4 — Usuarios activos sin actividad propia en 90 días (regla compartida con Mantenimiento)
+      usuariosSinActividad90d(),
     ]);
 
     res.json({
@@ -1079,24 +1138,28 @@ export const getDetalleUsuario = async (req: Request, res: Response) => {
 };
 
 // ─── MONITOREO INTEGRAL ───────────────────────────────────────────────────────
+// «SAPs sin ODC» e «Inventario < 5 piezas» salieron el 2026-10-23 (decisión del usuario): la
+// primera marcaba 428 de 439 SAP porque `ordenes_compra.sap_id` es un vínculo heredado que las ODC
+// nuevas ya no usan; la segunda, 247 de 276 códigos de un inventario de sobrantes donde casi cada
+// código tiene 1 a 3 piezas. Ninguna de las dos permitía decidir nada.
 export const getMonitoreo = async (_req: Request, res: Response) => {
   try {
+    const dias = await diasOdpEstancada();
     const [
       odpsAtascadas,
-      sapsSinOdc,
       pedidoPvEstados,
-      inventarioBajo,
       cotizacionesPendientes,
       odpsSinEvidencias,
       tablasGrandes,
       auditoriaStatsRows,
       actividad24h,
-      carteraVencida,
+      cartera,
       prospectosSinGestion,
       loginFallidos24h,
     ] = await Promise.all([
 
-      // 1. ODPs con > 7 días sin cambio de estado (estados activos)
+      // 1. ODPs activas sin cambio de estado hace más de `dias_alerta_odp_estancada` días
+      //    (Configuración). Las ANULADAS no cuentan: no hay nada que mover.
       sequelize.query<any>(`
         SELECT o.id, o.numero_odp, o.estado_produccion,
                c.nombre_razon_social AS cliente,
@@ -1112,30 +1175,16 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         FROM odp o
         JOIN clientes c ON c.id = o.cliente_id
         JOIN usuarios u ON u.id = o.asesor_id
-        WHERE o.estado_produccion NOT IN ('ENTREGADA','EN_ESPERA','PAUSADA')
+        WHERE o.estado_produccion NOT IN ('ENTREGADA','EN_ESPERA','PAUSADA','ANULADA')
           AND EXTRACT(DAY FROM NOW() - COALESCE(
             (SELECT MAX(h.fecha) FROM historial_estados_odp h WHERE h.odp_id = o.id),
             o.fecha_creacion
-          )) > 7
+          )) > :dias
         ORDER BY dias_sin_cambio DESC
         LIMIT 200
-      `, { type: QueryTypes.SELECT }),
+      `, { type: QueryTypes.SELECT, replacements: { dias } }),
 
-      // 2. SAPs sin ODC generada (> 3 días)
-      sequelize.query<any>(`
-        SELECT s.id, s.numero_sap, s.fecha_creacion,
-               o.numero_odp, c.nombre_razon_social AS cliente,
-               EXTRACT(DAY FROM NOW() - s.fecha_creacion)::int AS dias_sin_odc
-        FROM sap s
-        JOIN odp o ON o.id = s.odp_id
-        JOIN clientes c ON c.id = o.cliente_id
-        WHERE NOT EXISTS (SELECT 1 FROM ordenes_compra oc WHERE oc.sap_id = s.id)
-          AND s.fecha_creacion < NOW() - INTERVAL '3 days'
-        ORDER BY dias_sin_odc DESC
-        LIMIT 200
-      `, { type: QueryTypes.SELECT }),
-
-      // 3. PedidoPV activos agrupados por estado
+      // 2. PedidoPV activos agrupados por estado
       sequelize.query<any>(`
         SELECT estado, COUNT(*) AS total,
                EXTRACT(DAY FROM NOW() - MIN(creado_en))::int AS dias_mas_antiguo
@@ -1145,18 +1194,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         ORDER BY total DESC
       `, { type: QueryTypes.SELECT }),
 
-      // 4. Códigos de perfilería con pocas piezas en inventario (< 5)
-      sequelize.query<any>(`
-        SELECT codigo, COUNT(*) AS piezas
-        FROM inventario_perfileria
-        WHERE codigo IS NOT NULL
-        GROUP BY codigo
-        HAVING COUNT(*) < 5
-        ORDER BY piezas ASC
-        LIMIT 200
-      `, { type: QueryTypes.SELECT }),
-
-      // 5. Cotizaciones sin respuesta > 30 días — del Cotizador (2026-10-03).
+      // 3. Cotizaciones sin respuesta > 30 días — del Cotizador (2026-10-03).
       // Antes leía la tabla del COTModal viejo (public.cotizacion, 0 filas
       // siempre): la alerta nunca pudo dispararse. Misma forma de respuesta.
       sequelize.query<any>(`
@@ -1173,7 +1211,8 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
-      // 6. ODPs INSTALADA/ENTREGADA sin ninguna evidencia fotográfica
+      // 4. ODPs INSTALADA/ENTREGADA sin evidencia fotográfica que llegaron a ese estado en los
+      //    últimos 30 días (2026-10-23): sin el corte salían 192 de 593, casi todas históricas.
       sequelize.query<any>(`
         SELECT o.id, o.numero_odp, o.estado_produccion,
                c.nombre_razon_social AS cliente,
@@ -1184,11 +1223,15 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         JOIN usuarios u ON u.id = o.asesor_id
         WHERE o.estado_produccion IN ('INSTALADA','ENTREGADA')
           AND NOT EXISTS (SELECT 1 FROM evidencias_instalacion ei WHERE ei.odp_id = o.id)
+          AND COALESCE(
+            (SELECT MAX(h.fecha) FROM historial_estados_odp h WHERE h.odp_id = o.id),
+            o.fecha_creacion
+          ) >= NOW() - INTERVAL '30 days'
         ORDER BY o.fecha_listo_instalar ASC NULLS LAST
         LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
-      // 7. Top 10 tablas más grandes
+      // 5. Top 10 tablas más grandes
       sequelize.query<any>(`
         SELECT t.schemaname, t.tablename,
                COALESCE(c.reltuples::bigint, 0) AS filas_estimadas,
@@ -1203,7 +1246,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         LIMIT 10
       `, { type: QueryTypes.SELECT, replacements: { schemas: SCHEMAS_RESPALDADOS } }),
 
-      // 8. Estadísticas de crecimiento de auditoria_log
+      // 6. Estadísticas de crecimiento de auditoria_log
       sequelize.query<any>(`
         SELECT
           COUNT(*) AS total,
@@ -1217,7 +1260,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         FROM auditoria_log
       `, { type: QueryTypes.SELECT }),
 
-      // 9. Usuarios más activos en las últimas 24h
+      // 7. Usuarios más activos en las últimas 24h
       sequelize.query<any>(`
         SELECT al.usuario_id, u.nombre_completo, u.rol,
                COUNT(*) AS operaciones,
@@ -1231,25 +1274,11 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         LIMIT 100
       `, { type: QueryTypes.SELECT }),
 
-      // 10. Cartera vencida (ENTREGADA con caja PENDIENTE/ABONADO > 30 días)
-      sequelize.query<any>(`
-        SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
-               u.nombre_completo AS asesor,
-               o.valor_total, o.pendiente, o.estado_caja,
-               o.fecha_entrega,
-               (${HOY_BOGOTA_SQL} - o.fecha_entrega::date)::int AS dias_sin_cobrar
-        FROM odp o
-        JOIN clientes c ON c.id = o.cliente_id
-        JOIN usuarios u ON u.id = o.asesor_id
-        WHERE o.estado_produccion = 'ENTREGADA'
-          AND o.estado_caja IN ('PENDIENTE','ABONADO')
-          AND o.fecha_entrega IS NOT NULL
-          AND o.fecha_entrega::date < ${HOY_BOGOTA_SQL} - 30
-        ORDER BY dias_sin_cobrar DESC
-        LIMIT 200
-      `, { type: QueryTypes.SELECT }),
+      // 8. Cartera vencida: la regla ÚNICA del Dashboard (FE + `fecha_factura` + días de
+      //    Configuración). Antes el panel usaba la fecha de entrega y 30 días fijos.
+      consultarCarteraVencida(),
 
-      // 11. Prospectos en gestión sin actividad > 15 días
+      // 9. Prospectos en gestión sin actividad > 15 días
       sequelize.query<any>(`
         SELECT p.id, p.numero_prospecto, p.nombre_contacto, p.estado,
                u.nombre_completo AS asesor,
@@ -1264,7 +1293,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
-      // 12. Login fallidos en las últimas 24h
+      // 10. Login fallidos en las últimas 24h
       sequelize.query<any>(`
         SELECT
           COALESCE(ip_address, 'desconocida') AS ip,
@@ -1281,17 +1310,27 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
       `, { type: QueryTypes.SELECT }),
     ]);
 
+    // Misma forma de fila que antes para la card (numero_odp, cliente, pendiente, dias_sin_cobrar).
+    const carteraVencida = cartera.items.map((i) => ({
+      id: i.id,
+      numero_odp: i.numero_odp,
+      cliente: i.cliente_nombre,
+      factura_electronica: i.factura_electronica,
+      valor_total: i.valor_total,
+      pendiente: i.pendiente,
+      dias_sin_cobrar: i.dias_vencido,
+      riesgo: i.riesgo,
+    }));
+
     res.json({
-      odps_atascadas:          { count: odpsAtascadas.length,          registros: odpsAtascadas },
-      saps_sin_odc:            { count: sapsSinOdc.length,             registros: sapsSinOdc },
+      odps_atascadas:          { count: odpsAtascadas.length,          registros: odpsAtascadas, dias },
       pedido_pv_estados:       pedidoPvEstados,
-      inventario_bajo:         { count: inventarioBajo.length,         registros: inventarioBajo },
       cotizaciones_pendientes: { count: cotizacionesPendientes.length, registros: cotizacionesPendientes },
       odps_sin_evidencias:     { count: odpsSinEvidencias.length,      registros: odpsSinEvidencias },
       tablas_grandes:          tablasGrandes,
       auditoria_stats:         auditoriaStatsRows[0] ?? null,
       actividad_24h:           actividad24h,
-      cartera_vencida:         { count: carteraVencida.length,         registros: carteraVencida },
+      cartera_vencida:         { count: carteraVencida.length, registros: carteraVencida, umbral_dias: cartera.umbral_dias, total: cartera.total },
       prospectos_sin_gestion:  { count: prospectosSinGestion.length,   registros: prospectosSinGestion },
       login_fallidos_24h:      { count: loginFallidos24h.length,       registros: loginFallidos24h },
       cron_pv:                 cronPVStatus,

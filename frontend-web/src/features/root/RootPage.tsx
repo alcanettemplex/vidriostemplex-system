@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Shield, Database, Cloud, Activity, ClipboardList,
-  HardDrive, Wrench, Bell, BookOpen, RefreshCw,
+  HardDrive, Wrench, BookOpen, RefreshCw,
   CheckCircle, XCircle, AlertTriangle, Download,
   Upload, RotateCcw, Trash2, ChevronRight, Cpu,
-  Wifi, WifiOff, Clock, BarChart2, Lock, X, ExternalLink,
-  TrendingUp, Package, FileText
+  Wifi, WifiOff, Clock, BarChart2, Lock, X,
+  TrendingUp, FileText
 } from '../../components/ui/icons';
 import { invalidarCatalogo } from '../../services/listasCache';
 
@@ -61,7 +61,6 @@ const TABS = [
   { id: 'auditoria',     label: 'Auditoría',       icon: ClipboardList },
   { id: 'backup',        label: 'Backup',          icon: HardDrive },
   { id: 'mantenimiento', label: 'Mantenimiento',   icon: Wrench },
-  { id: 'alertas',       label: 'Alertas',         icon: Bell },
   { id: 'catalogo',      label: 'Catálogo',        icon: BookOpen },
 ];
 
@@ -133,7 +132,6 @@ const RootPage: React.FC = () => {
         {tab === 'auditoria'     && <TabAuditoria />}
         {tab === 'backup'        && <TabBackup />}
         {tab === 'mantenimiento' && <TabMantenimiento />}
-        {tab === 'alertas'       && <TabAlertas />}
         {tab === 'catalogo'      && <TabCatalogo />}
       </div>
     </div>
@@ -219,16 +217,18 @@ const TabMonitoreo: React.FC = () => {
             <p className="text-[11px] mt-1">Última: {fmt(data.cron_pv?.ultima_ejecucion)}</p>
             {data.cron_pv?.resultado === 'ok' && <p className="text-[11px]">{data.cron_pv?.alertas_enviadas} alerta(s) enviadas</p>}
             {data.cron_pv?.error_mensaje && <p className="text-[11px] font-semibold mt-1">{data.cron_pv.error_mensaje}</p>}
+            <p className="text-[11px] mt-1 opacity-80">Se reinicia con cada despliegue del servidor.</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold text-slate-900 mb-1 flex items-center gap-1.5"><Wifi className="w-3.5 h-3.5" /> Clientes WebSocket</p>
             <p className="text-3xl font-extrabold text-slate-900">{data.ws_activos ?? '—'}</p>
-            <p className="text-[11px] text-slate-700 mt-1">conexiones activas ahora</p>
+            <p className="text-[11px] text-slate-700 mt-1">conexiones activas ahora · se reinicia con cada despliegue</p>
           </div>
           <div className={`rounded-lg border p-4 ${data.rate_limit?.total_24h > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
             <p className="text-xs font-semibold text-slate-900 mb-1 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Rate limit hits (24h)</p>
             <p className={`text-3xl font-extrabold ${data.rate_limit?.total_24h > 0 ? 'text-amber-700' : 'text-slate-800'}`}>{data.rate_limit?.total_24h ?? 0}</p>
             <p className="text-[11px] text-slate-700 mt-1">login: {data.rate_limit?.auth_hits ?? 0} · IPs bloqueadas: {data.rate_limit?.top_ips?.length ?? 0}</p>
+            <p className="text-[11px] text-slate-700">Se reinicia con cada despliegue del servidor.</p>
           </div>
         </div>
       </div>
@@ -291,7 +291,7 @@ const TabMonitoreo: React.FC = () => {
           {/* ODPs atascadas */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-semibold text-slate-900">ODPs atascadas (&gt;7 días sin cambio)</p>
+              <p className="text-xs font-semibold text-slate-900">ODPs atascadas (&gt;{data.odps_atascadas?.dias ?? '—'} días sin cambio, según Configuración)</p>
               <MonBadge n={data.odps_atascadas?.count ?? 0} warn={1} crit={5} />
             </div>
             {data.odps_atascadas?.count === 0 ? <EmptyState msg="Ninguna ODP atascada" /> : (<>
@@ -305,26 +305,6 @@ const TabMonitoreo: React.FC = () => {
                 ))}
               </div>
               <ExpandBtn k="odps_atascadas" total={data.odps_atascadas?.count ?? 0} />
-            </>)}
-          </div>
-
-          {/* SAPs sin ODC */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-semibold text-slate-900">SAPs sin ODC generada</p>
-              <MonBadge n={data.saps_sin_odc?.count ?? 0} warn={1} crit={3} />
-            </div>
-            {data.saps_sin_odc?.count === 0 ? <EmptyState msg="Todos los SAPs tienen ODC" /> : (<>
-              <div className="space-y-1">
-                {vis(data.saps_sin_odc?.registros, 'saps_sin_odc').map((s: any) => (
-                  <div key={s.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
-                    <span className="font-semibold text-slate-900 w-24 shrink-0">{s.numero_sap}</span>
-                    <span className="text-slate-700 truncate flex-1 mx-1">{s.cliente}</span>
-                    <span className="text-amber-700 font-bold shrink-0">{s.dias_sin_odc}d</span>
-                  </div>
-                ))}
-              </div>
-              <ExpandBtn k="saps_sin_odc" total={data.saps_sin_odc?.count ?? 0} />
             </>)}
           </div>
 
@@ -347,7 +327,7 @@ const TabMonitoreo: React.FC = () => {
           {/* ODPs sin evidencias */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-semibold text-slate-900">ODPs sin evidencias fotográficas</p>
+              <p className="text-xs font-semibold text-slate-900">ODPs sin evidencias fotográficas (instaladas o entregadas en los últimos 30 días)</p>
               <MonBadge n={data.odps_sin_evidencias?.count ?? 0} warn={1} crit={5} />
             </div>
             {data.odps_sin_evidencias?.count === 0 ? <EmptyState msg="Todas las ODPs tienen evidencias" /> : (<>
@@ -418,7 +398,9 @@ const TabMonitoreo: React.FC = () => {
           {/* Cartera vencida */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-semibold text-slate-900">Cartera vencida ENTREGADA (&gt;30d)</p>
+              <p className="text-xs font-semibold text-slate-900" title="Misma regla que el Dashboard: crédito con FE, saldo pendiente y fecha de factura más antigua que los días de Configuración">
+                Cartera vencida (FE &gt;{data.cartera_vencida?.umbral_dias ?? '—'}d){data.cartera_vencida?.total ? ` · ${fmtCur(data.cartera_vencida.total)}` : ''}
+              </p>
               <MonBadge n={data.cartera_vencida?.count ?? 0} warn={1} crit={3} />
             </div>
             {data.cartera_vencida?.count === 0 ? <EmptyState msg="Sin cartera vencida" /> : (<>
@@ -437,22 +419,6 @@ const TabMonitoreo: React.FC = () => {
             </>)}
           </div>
         </div>
-      </div>
-
-      {/* ── INVENTARIO PERFILERÍA ─────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
-        <SectionHeader icon={<Package className="w-4 h-4" />} title="Inventario perfilería — códigos con pocas piezas (&lt;5)" />
-        {!data.inventario_bajo?.count ? <EmptyState msg="Todos los códigos tienen 5 o más piezas" /> : (<>
-          <div className="flex flex-wrap gap-2">
-            {vis(data.inventario_bajo?.registros, 'inventario', 16).map((inv: any) => (
-              <div key={inv.codigo} className={`rounded-lg border px-3 py-2 text-center ${Number(inv.piezas) === 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-                <p className={`text-base font-extrabold ${Number(inv.piezas) === 0 ? 'text-red-700' : 'text-amber-700'}`}>{inv.piezas}</p>
-                <p className="text-[11px] text-slate-900 font-semibold">{inv.codigo}</p>
-              </div>
-            ))}
-          </div>
-          <ExpandBtn k="inventario" total={data.inventario_bajo?.count ?? 0} n={16} />
-        </>)}
       </div>
 
       {/* ── SEGURIDAD ─────────────────────────────────────────── */}
@@ -514,10 +480,13 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Cada fuente falla por separado: antes un error de Cloudinary dejaba todas las cards en «—».
+    const leer = (ruta: string) =>
+      fetch(`${API}/api/root/${ruta}`, { headers: headers() }).then(r => (r.ok ? r.json() : null)).catch(() => null);
     Promise.all([
-      fetch(`${API}/api/root/metricas/supabase`, { headers: headers() }).then(r => r.json()),
-      fetch(`${API}/api/root/metricas/cloudinary`, { headers: headers() }).then(r => r.json()),
-      fetch(`${API}/api/root/servicios/health`, { headers: headers() }).then(r => r.json()),
+      leer('metricas/supabase'),
+      leer('metricas/cloudinary'),
+      leer('servicios/health'),
     ]).then(([sb, cd, sv]) => {
       setSbData(sb);
       setCdData(cd);
@@ -551,8 +520,17 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
         </div>
         <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-4 cursor-pointer hover:shadow-card-hover transition" onClick={() => setTab('cloudinary')}>
           <Cloud className="w-5 h-5 text-sky-500 mb-2" />
-          <p className="text-2xl font-extrabold text-slate-900">{cdData?.storage?.pct ?? '—'}%</p>
-          <p className="text-xs text-slate-700 font-semibold">Storage · {cdData?.storage?.usado_gb ?? '—'} GB</p>
+          {cdData?.creditos ? (
+            <>
+              <p className="text-2xl font-extrabold text-slate-900">{cdData.creditos.pct}%</p>
+              <p className="text-xs text-slate-700 font-semibold">Créditos Cloudinary · {cdData.creditos.usados} / {cdData.creditos.limite}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-2xl font-extrabold text-slate-900">{cdData?.storage?.usado_gb ?? '—'} GB</p>
+              <p className="text-xs text-slate-700 font-semibold">Storage Cloudinary</p>
+            </>
+          )}
         </div>
         <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-4 cursor-pointer hover:shadow-card-hover transition" onClick={() => setTab('servicios')}>
           <Activity className="w-5 h-5 text-emerald-500 mb-2" />
@@ -561,8 +539,8 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
         </div>
         <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-4 cursor-pointer hover:shadow-card-hover transition" onClick={() => setTab('supabase')}>
           <Cpu className="w-5 h-5 text-violet-500 mb-2" />
-          <p className="text-2xl font-extrabold text-slate-900">{sbData?.conexiones?.total ?? '—'}</p>
-          <p className="text-xs text-slate-700 font-semibold">Conexiones BD activas</p>
+          <p className="text-2xl font-extrabold text-slate-900">{sbData?.conexiones?.del_pool ?? '—'}</p>
+          <p className="text-xs text-slate-700 font-semibold">Conexiones BD · pool de {sbData?.conexiones?.limite ?? '—'}</p>
         </div>
       </div>
 
@@ -570,9 +548,8 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
       <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5 space-y-4">
         <h3 className="text-sm font-bold text-slate-900">Capacidad del sistema</h3>
         {sbData && <GaugeBar pct={sbData.db_pct} label="Base de datos (Supabase)" detail={`${sbData.db_mb} MB / ${sbData.limites?.db_mb} MB`} />}
-        {cdData && <GaugeBar pct={cdData.storage?.pct} label="Almacenamiento (Cloudinary)" detail={`${cdData.storage?.usado_gb} GB / ${cdData.storage?.limite_gb} GB`} />}
-        {cdData && <GaugeBar pct={cdData.bandwidth?.pct} label="Ancho de banda (Cloudinary)" detail={`${cdData.bandwidth?.usado_gb} GB / ${cdData.bandwidth?.limite_gb} GB`} />}
-        {sbData && <GaugeBar pct={sbData.conexiones?.pct} label="Conexiones BD" detail={`${sbData.conexiones?.total} / ${sbData.conexiones?.limite}`} />}
+        {cdData?.creditos && <GaugeBar pct={cdData.creditos.pct} label="Créditos del plan (Cloudinary)" detail={`${cdData.creditos.usados} de ${cdData.creditos.limite} créditos · storage ${cdData.storage?.usado_gb} GB · ancho de banda ${cdData.bandwidth?.usado_gb} GB`} />}
+        {sbData && <GaugeBar pct={sbData.conexiones?.pct} label="Conexiones BD (pool de Supabase)" detail={`${sbData.conexiones?.del_pool} / ${sbData.conexiones?.limite} de la aplicación · ${sbData.conexiones?.total} en total con los servicios de Supabase`} />}
       </div>
 
       {/* Alertas del Sistema (operativo) */}
@@ -613,48 +590,6 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
         )}
       </div>
 
-      {/* Egress Supabase — Referencia Manual */}
-      <div className="bg-white rounded-xl border border-amber-200 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <Upload className="w-4 h-4 text-amber-500" />
-            Egress Supabase
-            <span className="text-[11px] font-normal text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">referencia manual</span>
-          </h3>
-          <a
-            href="https://supabase.com/dashboard"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-indigo-700 hover:underline flex items-center gap-1 font-semibold"
-          >
-            Ver en Supabase <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-center">
-            <p className="text-xl font-extrabold text-red-700">7.45 GB</p>
-            <p className="text-[11px] text-slate-700 font-medium">Registrado 23/05</p>
-          </div>
-          <div className="bg-slate-50 rounded-lg p-3 text-center">
-            <p className="text-xl font-extrabold text-slate-900">5 GB</p>
-            <p className="text-[11px] text-slate-700 font-medium">Límite mensual</p>
-          </div>
-          <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-center">
-            <p className="text-xl font-extrabold text-emerald-700">~4.5 GB</p>
-            <p className="text-[11px] text-slate-700 font-medium">Proyectado Niv. 1+2</p>
-          </div>
-        </div>
-
-        <div className="bg-amber-50 border border-amber-100 rounded-lg px-4 py-3 space-y-1.5">
-          <p className="text-xs text-amber-800 font-semibold flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5" />
-            Ciclo: 06 May – 06 Jun 2026 &nbsp;·&nbsp; Período de gracia hasta 20 Jun 2026
-          </p>
-          <p className="text-[11px] text-slate-800">✅ Optimizaciones Nivel 1+2 aplicadas el 23/05/2026 — ~150 MB/día estimado</p>
-          <p className="text-[11px] text-slate-700">⚪ Nivel 3 pendiente: excluir ODPs ENTREGADA del GET /odp (~100 MB/día adicional)</p>
-        </div>
-      </div>
     </div>
   );
 };
@@ -678,8 +613,8 @@ const TabSupabase: React.FC = () => {
         {[
           { label: 'Tamaño BD', val: data.db_size, sub: `${data.db_pct}% del límite` },
           { label: 'Límite plan free', val: `${data.limites?.db_mb} MB`, sub: 'Plan Supabase Free' },
-          { label: 'Tablas', val: data.tabla_count, sub: 'En esquema public' },
-          { label: 'Conexiones activas', val: data.conexiones?.total, sub: `Límite: ${data.conexiones?.limite}` },
+          { label: 'Tablas', val: data.tabla_count, sub: 'Esquemas public y cotizador' },
+          { label: 'Conexiones de la aplicación', val: data.conexiones?.del_pool, sub: `Pool de ${data.conexiones?.limite} · ${data.conexiones?.total} en total con servicios de Supabase` },
         ].map(c => (
           <div key={c.label} className="bg-white rounded-2xl border border-slate-200 shadow-card p-4">
             <p className="text-2xl font-extrabold text-slate-900">{c.val}</p>
@@ -690,7 +625,7 @@ const TabSupabase: React.FC = () => {
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5 space-y-3">
         <GaugeBar pct={data.db_pct} label="Almacenamiento BD" detail={`${data.db_mb} MB / ${data.limites?.db_mb} MB`} />
-        <GaugeBar pct={data.conexiones?.pct} label="Conexiones" detail={`${data.conexiones?.total} activas / ${data.conexiones?.limite} máx`} />
+        <GaugeBar pct={data.conexiones?.pct} label="Conexiones (pool de Supabase)" detail={`${data.conexiones?.del_pool} de la aplicación / ${data.conexiones?.limite} del pool (el detalle de abajo incluye también los servicios internos de Supabase)`} />
       </div>
       {/* Detalle de conexiones */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -791,11 +726,14 @@ const TabCloudinary: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {/* El plan se mide en créditos combinados: storage, ancho de banda y transformaciones
+            se muestran como dato, sin porcentaje contra límites que el plan no tiene por separado. */}
         {[
-          { label: 'Storage usado', val: `${data.storage?.usado_gb} GB`, sub: `Límite: ${data.storage?.limite_gb} GB` },
-          { label: 'Bandwidth usado', val: `${data.bandwidth?.usado_gb} GB`, sub: `Límite: ${data.bandwidth?.limite_gb} GB` },
+          ...(data.creditos ? [{ label: 'Créditos usados', val: `${data.creditos.usados} / ${data.creditos.limite}`, sub: `${data.creditos.pct}% del plan` }] : []),
+          { label: 'Storage usado', val: `${data.storage?.usado_gb} GB`, sub: 'Consume créditos del plan' },
+          { label: 'Bandwidth usado', val: `${data.bandwidth?.usado_gb} GB`, sub: 'Consume créditos del plan' },
           { label: 'Imágenes', val: data.recursos?.imagenes, sub: `Total archivos: ${data.recursos?.total_archivos}` },
-          { label: 'Transformaciones', val: data.transformaciones?.usadas, sub: `Límite: ${data.transformaciones?.limite}` },
+          { label: 'Transformaciones', val: data.transformaciones?.usadas, sub: 'Consume créditos del plan' },
           { label: 'Plan', val: data.plan || 'Free', sub: 'Cloudinary' },
         ].map(c => (
           <div key={c.label} className="bg-white rounded-2xl border border-slate-200 shadow-card p-4">
@@ -805,11 +743,11 @@ const TabCloudinary: React.FC = () => {
           </div>
         ))}
       </div>
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5 space-y-3">
-        <GaugeBar pct={data.storage?.pct} label="Storage" detail={`${data.storage?.usado_gb} GB / ${data.storage?.limite_gb} GB`} />
-        <GaugeBar pct={data.bandwidth?.pct} label="Ancho de banda" detail={`${data.bandwidth?.usado_gb} GB / ${data.bandwidth?.limite_gb} GB`} />
-        <GaugeBar pct={data.transformaciones?.pct} label="Transformaciones" detail={`${data.transformaciones?.usadas} / ${data.transformaciones?.limite}`} />
-      </div>
+      {data.creditos && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5 space-y-3">
+          <GaugeBar pct={data.creditos.pct} label="Créditos del plan" detail={`${data.creditos.usados} de ${data.creditos.limite} créditos`} />
+        </div>
+      )}
     </div>
   );
 };
@@ -889,18 +827,34 @@ const TabAuditoria: React.FC = () => {
   const revertir = async (id: number) => {
     if (!window.confirm('¿Revertir esta operación? El dato volverá a su estado anterior.')) return;
     setReverting(id);
-    const res = await fetch(`${API}/api/root/auditoria/${id}/revertir`, { method: 'POST', headers: headers() });
-    const json = await res.json();
-    setReverting(null);
-    if (json.ok) { alert('Operación revertida exitosamente'); cargar(); }
-    else alert(json.error || 'Error al revertir');
+    try {
+      const pedir = (forzar: boolean) =>
+        fetch(`${API}/api/root/auditoria/${id}/revertir${forzar ? '?forzar=true' : ''}`, { method: 'POST', headers: headers() });
+      let res = await pedir(false);
+      let json = await res.json().catch(() => ({}));
+      // 409: el registro cambió después; revertir sobrescribe esos cambios y se pide confirmarlo aparte.
+      if (res.status === 409) {
+        if (!window.confirm(`${json.error}\n\n¿Revertir de todas formas?`)) return;
+        res = await pedir(true);
+        json = await res.json().catch(() => ({}));
+      }
+      if (json.ok) { alert(json.mensaje || 'Operación revertida.'); cargar(); }
+      else alert(json.error || 'No se pudo revertir la operación.');
+    } catch {
+      alert('No se pudo contactar al servidor para revertir. Revisa la conexión e intenta de nuevo.');
+    } finally {
+      setReverting(null);
+    }
   };
 
   const opColor = (op: string) => ({
     INSERT: 'bg-emerald-50 text-emerald-700',
     UPDATE: 'bg-amber-50 text-amber-700',
     DELETE: 'bg-red-50 text-red-700',
+    REVERT: 'bg-violet-50 text-violet-700',
   }[op] || 'bg-slate-100 text-slate-800');
+  /** Solo se revierten cambios de datos: un REVERT o un LOGIN_FAIL no tienen botón. */
+  const revertible = (op: string) => op === 'INSERT' || op === 'UPDATE' || op === 'DELETE';
 
   return (
     <div className="space-y-4">
@@ -921,6 +875,8 @@ const TabAuditoria: React.FC = () => {
           <option value="INSERT">INSERT</option>
           <option value="UPDATE">UPDATE</option>
           <option value="DELETE">DELETE</option>
+          <option value="REVERT">REVERT</option>
+          <option value="LOGIN_FAIL">LOGIN_FAIL</option>
         </select>
         <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-800">
           <RefreshCw className="w-3.5 h-3.5" /> Actualizar
@@ -957,14 +913,16 @@ const TabAuditoria: React.FC = () => {
                     <td className="px-4 py-2 text-slate-800">{r.usuario_nombre || r.usuario_id || '—'}</td>
                     <td className="px-4 py-2 text-slate-700">{r.ip_address || '—'}</td>
                     <td className="px-4 py-2 flex items-center gap-2">
-                      <button
-                        onClick={e => { e.stopPropagation(); revertir(r.id); }}
-                        disabled={reverting === r.id}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-800 disabled:opacity-40"
-                        title="Revertir"
-                      >
-                        <RotateCcw className="w-3 h-3" /> {reverting === r.id ? '...' : 'Revertir'}
-                      </button>
+                      {revertible(r.operacion) && (
+                        <button
+                          onClick={e => { e.stopPropagation(); revertir(r.id); }}
+                          disabled={reverting === r.id}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-rose-600 hover:text-rose-800 disabled:opacity-40"
+                          title="Revertir"
+                        >
+                          <RotateCcw className="w-3 h-3" /> {reverting === r.id ? '...' : 'Revertir'}
+                        </button>
+                      )}
                       <ChevronRight className={`w-3.5 h-3.5 text-slate-500 transition ${expandedId === r.id ? 'rotate-90' : ''}`} />
                     </td>
                   </tr>
@@ -1012,41 +970,25 @@ const TabAuditoria: React.FC = () => {
 // ─── Tab Backup ───────────────────────────────────────────────────────────────
 const TabBackup: React.FC = () => {
   const [downloading, setDownloading] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const [restoreMsg, setRestoreMsg] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
-  const fileRef = React.useRef<HTMLInputElement>(null);
+  const [conAuditoria, setConAuditoria] = useState(false);
+  const [errorDescarga, setErrorDescarga] = useState('');
 
   const descargar = async () => {
     setDownloading(true);
+    setErrorDescarga('');
     try {
-      const res = await fetch(`${API}/api/root/backup/descargar`, { headers: headers() });
+      const res = await fetch(`${API}/api/root/backup/descargar${conAuditoria ? '?incluir_auditoria=true' : ''}`, { headers: headers() });
+      if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `backup_templex_${hoyBogotaISO()}.sql`;
+      a.download = `backup_templex_${hoyBogotaISO()}${conAuditoria ? '_con_auditoria' : ''}.sql`;
       a.click();
       URL.revokeObjectURL(url);
+    } catch {
+      setErrorDescarga('No se pudo generar el backup. Revisa que la sesión siga activa e intenta de nuevo.');
     } finally { setDownloading(false); }
-  };
-
-  const restaurar = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!window.confirm('¿Restaurar el backup? Se ejecutarán todos los INSERT del archivo en una transacción. Si falla alguno, se hace rollback.')) return;
-    setRestoring(true);
-    setRestoreMsg(null);
-    try {
-      const sql = await file.text();
-      const res = await fetch(`${API}/api/root/backup/restaurar`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify({ sql }),
-      });
-      const json = await res.json();
-      if (json.ok) setRestoreMsg({ type: 'ok', text: `Restaurado: ${json.statements} statements ejecutados.` });
-      else setRestoreMsg({ type: 'error', text: json.error || 'Error al restaurar' });
-    } finally { setRestoring(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
   return (
@@ -1057,9 +999,17 @@ const TabBackup: React.FC = () => {
           <Download className="w-5 h-5 text-indigo-500 mt-0.5" />
           <div>
             <h3 className="font-bold text-slate-900">Descargar Backup</h3>
-            <p className="text-xs text-slate-700 mt-0.5">Genera un archivo <code className="bg-slate-100 px-1 rounded">.sql</code> con todos los datos de todas las tablas. Guárdalo en tu equipo local.</p>
+            <p className="text-xs text-slate-700 mt-0.5">
+              Genera un archivo <code className="bg-slate-100 px-1 rounded">.sql</code> con los datos de todas las tablas de negocio
+              (esquemas public y cotizador). <b>No incluye la bitácora de auditoría</b> salvo que marques la casilla. Guárdalo en tu equipo.
+            </p>
           </div>
         </div>
+        <label className="flex items-center gap-2 mb-4 cursor-pointer">
+          <input type="checkbox" checked={conAuditoria} onChange={e => setConAuditoria(e.target.checked)} className="w-4 h-4 accent-indigo-600" />
+          <span className="text-xs text-slate-800">Incluir la bitácora de auditoría (es la tabla más pesada: el archivo crece varias veces)</span>
+        </label>
+        {errorDescarga && <p className="text-xs text-red-700 font-semibold mb-3">{errorDescarga}</p>}
         <button
           onClick={descargar}
           disabled={downloading}
@@ -1069,30 +1019,19 @@ const TabBackup: React.FC = () => {
         </button>
       </div>
 
-      {/* Restaurar */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-6">
-        <div className="flex items-start gap-3 mb-4">
-          <Upload className="w-5 h-5 text-amber-500 mt-0.5" />
+      {/* Restaurar: retirado del panel el 2026-10-23 (no era confiable, ver root.controller) */}
+      <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
+        <div className="flex items-start gap-3">
+          <Upload className="w-5 h-5 text-slate-500 mt-0.5" />
           <div>
-            <h3 className="font-bold text-slate-900">Restaurar Backup</h3>
-            <p className="text-xs text-slate-700 mt-0.5">Sube un archivo <code className="bg-slate-100 px-1 rounded">.sql</code> previamente descargado. Se ejecuta en una transacción — si algo falla, se hace rollback automático.</p>
+            <h3 className="font-bold text-slate-900">Restaurar Backup — no disponible desde el panel</h3>
+            <p className="text-xs text-slate-700 mt-1">
+              La restauración desde aquí se retiró porque no era confiable: no respetaba el orden entre tablas, no
+              reajustaba los consecutivos y no podía cargar archivos grandes. Para restaurar, usa los respaldos de
+              Supabase (Database → Backups) o <code className="bg-white px-1 rounded border border-slate-200">pg_restore</code> con apoyo técnico.
+            </p>
           </div>
         </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".sql"
-          onChange={restaurar}
-          disabled={restoring}
-          className="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
-        />
-        {restoring && <p className="text-xs text-amber-700 mt-2 font-semibold animate-pulse">Restaurando... esto puede tardar un momento.</p>}
-        {restoreMsg && (
-          <p className={`text-xs mt-2 font-semibold ${restoreMsg.type === 'ok' ? 'text-emerald-700' : 'text-red-700'}`}>
-            {restoreMsg.type === 'ok' ? <CheckCircle className="w-3.5 h-3.5 inline mr-1" /> : <XCircle className="w-3.5 h-3.5 inline mr-1" />}
-            {restoreMsg.text}
-          </p>
-        )}
       </div>
     </div>
   );
@@ -1106,10 +1045,10 @@ const TAREAS = [
   { id: 'odps_inconsistentes', label: 'ODPs con estado inconsistente', desc: 'ODPs con combinaciones de estado inválidas', method: 'GET' },
   { id: 'pagos_huerfanos', label: 'Pagos huérfanos', desc: 'Pagos sin ODP asociada en el sistema', method: 'GET' },
   { id: 'integridad_referencial', label: 'Integridad referencial', desc: 'Verifica claves foráneas entre tablas principales', method: 'GET' },
-  { id: 'usuarios_inactivos', label: 'Usuarios inactivos', desc: 'Usuarios activos sin actividad en más de 90 días', method: 'GET' },
+  { id: 'usuarios_inactivos', label: 'Usuarios inactivos', desc: 'Usuarios activos sin ninguna operación propia en los últimos 90 días', method: 'GET' },
   { id: 'sesiones_activas', label: 'Conexiones a BD', desc: 'Conexiones activas actuales a PostgreSQL', method: 'GET' },
   { id: 'integridad_compras', label: 'Integridad Compras — Vidrios', desc: 'Detecta ODCItems sin odp_item_id, ODPItems desincronizados y huérfanos del módulo de compras', method: 'GET', warning: true },
-  { id: 'limpiar_auditoria', label: 'Limpiar log de auditoría', desc: 'Elimina registros de auditoría anteriores a 180 días', method: 'POST', destructive: true },
+  { id: 'limpiar_auditoria', label: 'Limpiar log de auditoría', desc: 'Elimina de forma permanente los registros de auditoría de más de 180 días. Pide confirmación.', method: 'POST', destructive: true },
 ];
 
 const TabMantenimiento: React.FC = () => {
@@ -1117,12 +1056,21 @@ const TabMantenimiento: React.FC = () => {
   const [running, setRunning] = useState<string | null>(null);
 
   const ejecutar = async (tarea: typeof TAREAS[0]) => {
+    // Una tarea destructiva exige confirmación aquí y `confirmar: true` en el servidor (2026-10-23):
+    // antes un clic borraba el historial sin preguntar.
+    if (tarea.destructive && !window.confirm(`${tarea.label}\n\n${tarea.desc}\n\nEsta acción no se puede deshacer. ¿Continuar?`)) return;
     setRunning(tarea.id);
     try {
       const url = `${API}/api/root/mantenimiento/${tarea.id}`;
-      const res = await fetch(url, { method: tarea.method, headers: headers() });
-      const json = await res.json();
+      const res = await fetch(url, {
+        method: tarea.method,
+        headers: headers(),
+        body: tarea.method === 'POST' ? JSON.stringify({ confirmar: true }) : undefined,
+      });
+      const json = await res.json().catch(() => ({ error: 'Respuesta inválida del servidor' }));
       setResultados(r => ({ ...r, [tarea.id]: json }));
+    } catch {
+      setResultados(r => ({ ...r, [tarea.id]: { error: 'No se pudo contactar al servidor. Intenta de nuevo.' } }));
     } finally { setRunning(null); }
   };
 
@@ -1369,74 +1317,8 @@ const TabMantenimiento: React.FC = () => {
   );
 };
 
-// ─── Tab Alertas ──────────────────────────────────────────────────────────────
-const TabAlertas: React.FC = () => {
-  const [alertas, setAlertas] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetch(`${API}/api/root/alertas`, { headers: headers() })
-      .then(r => r.json()).then(setAlertas).finally(() => setLoading(false));
-  }, []);
-
-  const guardar = async (alerta: any) => {
-    setSaving(alerta.id);
-    await fetch(`${API}/api/root/alertas/${alerta.id}`, {
-      method: 'PUT',
-      headers: headers(),
-      body: JSON.stringify({ valor: alerta.valor, activo: alerta.activo }),
-    });
-    setSaving(null);
-  };
-
-  const update = (id: number, changes: any) => {
-    setAlertas(a => a.map(x => x.id === id ? { ...x, ...changes } : x));
-  };
-
-  if (loading) return <div className="text-center py-16 text-slate-600 animate-pulse">Cargando umbrales...</div>;
-  if (alertas.length === 0) return <div className="text-slate-700 p-4">No hay umbrales configurados. Ejecuta el SQL de inicialización en Supabase.</div>;
-
-  return (
-    <div className="space-y-3 max-w-2xl">
-      {alertas.map(a => (
-        <div key={a.id} className="bg-white rounded-2xl border border-slate-200 shadow-card p-4 flex items-center gap-4">
-          <div className="flex-1">
-            <p className="text-sm font-bold text-slate-800">{a.nombre}</p>
-            <p className="text-xs text-slate-700">{a.descripcion}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={a.valor}
-                onChange={e => update(a.id, { valor: parseFloat(e.target.value) })}
-                className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm font-mono text-center focus:ring-2 focus:ring-indigo-400 outline-none"
-              />
-              <span className="text-xs text-slate-700 font-semibold">{a.unidad}</span>
-            </div>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={a.activo}
-                onChange={e => update(a.id, { activo: e.target.checked })}
-                className="w-4 h-4 accent-indigo-600"
-              />
-              <span className="text-xs text-slate-700">Activo</span>
-            </label>
-            <button
-              onClick={() => guardar(a)}
-              disabled={saving === a.id}
-              className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg disabled:opacity-40"
-            >
-              {saving === a.id ? '...' : 'Guardar'}
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
+// La pestaña Alertas (umbrales de `alertas_umbral`) se retiró el 2026-10-23: se editaban pero
+// ningún código los leía.
 
 // ─── Tab Catálogo (movido desde Configuración) ────────────────────────────────
 type CatItem = { id: number; categoria: string; nombre: string; descripcion: string; activo: boolean };
@@ -1714,7 +1596,7 @@ const TabDiagnostico: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlerta
       />
 
       <DiagSeccion
-        titulo="EN_ESPERA sin cambio > 30 días"
+        titulo={`EN_ESPERA sin cambio > ${data.dias_estancada ?? '—'} días (según Configuración)`}
         severidad="advertencia"
         registros={data.en_espera_stale || []}
         columnas={[
@@ -1826,7 +1708,7 @@ const TabOperativo: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlertas 
       />
 
       <DiagSeccion
-        titulo={`Créditos vencidos (${data.creditos_vencidos?.count ?? 0})`}
+        titulo={`Créditos vencidos sin pagar (${data.creditos_vencidos?.count ?? 0})`}
         severidad="critico"
         registros={data.creditos_vencidos?.registros || []}
         columnas={[
