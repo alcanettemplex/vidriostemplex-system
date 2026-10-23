@@ -7125,3 +7125,12 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **backend:** `agenda.controller.ts` — `INCLUDE_ODP_AGENDA` suma `fecha_listo_instalar` y `fecha_entrega`.
 - **BD:** sin cambios.
 - **Verificación:** `tsc` backend y frontend y ESLint limpios. Regla probada en los bordes con el `diasHasta` real (−3, −1, 0, 1, 2, 3, 10 días y null) y formato de las dos fechas (`fecha_listo_instalar` a las 22:30 UTC se muestra en el día de Bogotá). No se probó en el navegador.
+
+## 2026-10-23 — Detalles Técnicos: muescas de puerta corregidas y plantilla manija Roma 40
+
+**Pedido del usuario:** las muescas de esquina de las puertas salían invertidas (35 a lo ancho × 150 a lo alto; el taller las hace 150 × 35) y agregar un diseño con manija tipo Roma 40-60. Decisiones: corregir todas las plantillas aplicables; «Roma 40-60» = 40 cm entre perforaciones; el boquete «75/90» es otra cerradura; manija a 120 del canto por defecto.
+
+- **frontend:** `modelo/plantillas.ts` — muescas a `mue(150, 35)` en «Puerta esquina redonda» y «Puerta batiente Júpiter», `mue(110, 35)` en «Puerta esquina + perf. A/B», `mue(75, 25)` en «Batiente esquinero con botón». Plantilla nueva `pta-esqred-roma40`: muescas 150×35, cerradura 75×90 de fondo redondo (R 37,5) a 1000 y `manijaRoma(120)` (Ø14 a 800 y 1200).
+- **backend / BD:** sin cambios.
+- **Verificación:** `tsc` limpio. 64 plantillas, 0 observaciones con espesor 8. Planos dibujados con el `PlanoSVG` real (Edge headless).
+- **Ojo:** los planos ya guardados con las muescas invertidas no cambian solos; se corrigen en el editor. Pendiente visto: cota «60» pegada al «110» en «Puerta esquina + perf. A/B».

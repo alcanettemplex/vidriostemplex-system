@@ -290,3 +290,12 @@ Campo opcional `Boquete.alivio = { d, fondo }`: un círculo de Ø `d` a cada lad
   - La etiqueta «N PERF. Øx» esquiva la de los boquetes (abajo → arriba → más abajo).
 - Verificado dibujando con el `PlanoSVG` real fuera del navegador (sucrase + `renderToStaticMarkup` + Edge headless). Sin cambios en backend ni BD: el Excel usa la imagen guardada, así que **los planos ya guardados conservan el dibujo viejo hasta que se vuelvan a guardar**.
 - Pendiente visto, sin tocar: «Puerta flauta acero» amontona las cotas de sus 3 perforaciones Ø16 por esquina (30/35/35), separadas menos que el alto del texto.
+
+## Muescas de puerta corregidas y manija Roma 40 (2026-10-23)
+
+- **Muescas de esquina invertidas** (reporte del usuario con el plano del taller): `mue(a, b)` pone `a` sobre el borde superior/inferior y `b` sobre el canto lateral, y las plantillas de puerta las tenían al revés (35 a lo ancho × 150 a lo alto). Corregidas **todas las aplicables** (decisión del usuario): «Puerta esquina redonda» y «Puerta batiente Júpiter» 35×150 → **150×35**; «Puerta esquina + perf. A/B» 35×110 → **110×35**; «Batiente esquinero con botón» 25×75 → **75×25**. No se tocaron «Boquete de esquina 300×300» ni «Boquete de esquina inferior» (cortes genéricos, no muescas de herraje).
+- **Plantilla nueva «Puerta esquina redonda · manija Roma 40»** (`pta-esqred-roma40`, familia Puertas, sin hoja en el Excel): muescas 150×35 arriba y abajo del canto izquierdo, **cerradura 75×90 de fondo redondo** (`BQ('der', 1000, 'fin', 75, 90, 37.5)`: radio = largo/2 → semicírculo; es «otro tipo de cerradura», distinta del 75×30 R15) y `manijaRoma(120)`: 2 perf. Ø14 a 120 del canto, a 800 y 1200.
+- **«Manija Roma 40-60» o «60-40» = 40 cm entre perforaciones** (vocabulario del usuario), no dos variantes. Distancia al canto por defecto: **120** en esta plantilla (la de Optiglass sigue en 85).
+- La cerradura nueva conserva la convención de las puertas: la cota 1000 va desde el piso hasta el borde del boquete (a diferencia de la Picoloro de Optiglass, centrada a 1000).
+- Catálogo: **64** plantillas, 0 avisos con espesor 8. Los planos ya guardados con las muescas invertidas **no se corrigen solos** (cada plano guarda su copia): se corrigen en el editor intercambiando las dos medidas del recorte.
+- Visto, sin tocar: en «Puerta esquina + perf. A/B» la cota «60» de la perf. Ø16 queda pegada al «110» de la muesca.

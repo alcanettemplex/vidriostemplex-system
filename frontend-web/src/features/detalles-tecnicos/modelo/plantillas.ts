@@ -2,6 +2,8 @@
 // Las cotas de herrajes (30, 60, 200, 900…) salen de las celdas de cada hoja. El Excel no
 // registra ancho y alto (se escribían a mano), así que se usan medidas típicas editables.
 // Donde el Excel era ambiguo se tomó la lectura más razonable del dibujo: revisar con el taller.
+// Muescas de esquina de puerta: `mue(largo sobre el borde sup/inf, alto sobre el canto)` — 150×35,
+// no 35×150 (corregido con el plano del taller, 2026-10-23).
 
 import type { Pieza, Plantilla } from './tipos';
 import {
@@ -59,7 +61,7 @@ export const PLANTILLAS: Plantilla[] = [
   { id: 'bat-2530-boton', nombre: 'Batiente 25-30 con botón', hoja: 'BAT 25-30 BOTON', familia: 'Batientes', descripcion: '4 perf. Ø16 de bisagra (25 + 30 mm) y botón Ø8.', pieza: pieza(700, 1900, [...bisagras(25, 30), ...boton(50, 900)]) },
   { id: 'bat-2530-tver', nombre: 'Batiente 25-30 toallero vertical', hoja: 'BAT 25-30 TVER', familia: 'Batientes', descripcion: 'Bisagras 25-30 y toallero vertical Ø8.', pieza: pieza(700, 1900, [...bisagras(25, 30), ...toalleroVer(60, 900)]) },
   { id: 'bat-2530-thor', nombre: 'Batiente 25-30 toallero horizontal', hoja: 'BAT 25-30 THOR', familia: 'Batientes', descripcion: 'Bisagras 25-30 y toallero horizontal Ø8.', pieza: pieza(700, 1900, [...bisagras(25, 30), ...toalleroHor(50, 1000)]) },
-  { id: 'bat-esqbot', nombre: 'Batiente esquinero con botón', hoja: 'BAT ESQBOT', familia: 'Batientes', descripcion: 'Muescas de esquina 25×75 para bisagra esquinera y botón Ø8.', pieza: pieza(700, 1900, boton(50, 900), esq({ si: mue(25, 75), ii: mue(25, 75) })) },
+  { id: 'bat-esqbot', nombre: 'Batiente esquinero con botón', hoja: 'BAT ESQBOT', familia: 'Batientes', descripcion: 'Muescas de esquina 75×25 para bisagra esquinera y botón Ø8.', pieza: pieza(700, 1900, boton(50, 900), esq({ si: mue(75, 25), ii: mue(75, 25) })) },
   { id: 'bat2840-chaflan', nombre: 'Batiente 28-40 con chaflán', hoja: 'BAT28-40 CHAFLAN', familia: 'Batientes', descripcion: 'Batiente 28-40 con botón y chaflán en el canto superior.', pieza: pieza(700, 1900, [...bisagras(28, 40), ...boton(50, 1000), CH('sup', 10)]) },
 
   // ── Fijos ──────────────────────────────────────────────────────────────────
@@ -87,12 +89,13 @@ export const PLANTILLAS: Plantilla[] = [
 
   // ── Puertas ────────────────────────────────────────────────────────────────
   { id: 'pta-tiprompicolo', nombre: 'Puerta tipo Rompicolo', hoja: 'PTA TIPROMPICOLO', familia: 'Puertas', descripcion: 'Boquete de cerradura 150×35 a 1000 mm y perf. Ø14.', pieza: pieza(900, 2100, [BQ('der', 1000, 'fin', 150, 35, 15), PF(14, 85, 'der', 800, 'inf')]) },
-  { id: 'pta-esq-perf-a', nombre: 'Puerta esquina + perf. A', hoja: 'PTA ESQ PERF-A', familia: 'Puertas', descripcion: 'Muesca superior 35×110 con perf. Ø16, cerradura y perf. Ø14.', pieza: pieza(900, 2100, [PF(16, 60, 'izq', 135, 'sup'), ...cierrePuerta(), PF(14, 90, 'der', 800, 'inf')], esq({ si: mue(35, 110) })) },
-  { id: 'pta-esq-perf-b', nombre: 'Puerta esquina + perf. B', hoja: 'PTA ESQ PERF-B', familia: 'Puertas', descripcion: 'Muescas superior e inferior 35×110 con perf. Ø16, cerradura y perf. Ø14.', pieza: pieza(900, 2100, [PF(16, 60, 'izq', 135, 'sup'), PF(16, 60, 'izq', 135, 'inf'), ...cierrePuerta(), PF(14, 90, 'der', 800, 'inf')], esq({ si: mue(35, 110), ii: mue(35, 110) })) },
-  { id: 'pta-romesqured', nombre: 'Puerta esquina redonda', hoja: 'PTA ROMESQURED', familia: 'Puertas', descripcion: 'Muescas 35×150 superior e inferior, cerradura y perf. Ø14.', pieza: pieza(900, 2100, [...cierrePuerta(), PF(14, 90, 'der', 800, 'inf')], esq({ si: mue(35, 150), ii: mue(35, 150) })) },
+  { id: 'pta-esq-perf-a', nombre: 'Puerta esquina + perf. A', hoja: 'PTA ESQ PERF-A', familia: 'Puertas', descripcion: 'Muesca superior 110×35 con perf. Ø16, cerradura y perf. Ø14.', pieza: pieza(900, 2100, [PF(16, 60, 'izq', 135, 'sup'), ...cierrePuerta(), PF(14, 90, 'der', 800, 'inf')], esq({ si: mue(110, 35) })) },
+  { id: 'pta-esq-perf-b', nombre: 'Puerta esquina + perf. B', hoja: 'PTA ESQ PERF-B', familia: 'Puertas', descripcion: 'Muescas superior e inferior 110×35 con perf. Ø16, cerradura y perf. Ø14.', pieza: pieza(900, 2100, [PF(16, 60, 'izq', 135, 'sup'), PF(16, 60, 'izq', 135, 'inf'), ...cierrePuerta(), PF(14, 90, 'der', 800, 'inf')], esq({ si: mue(110, 35), ii: mue(110, 35) })) },
+  { id: 'pta-romesqured', nombre: 'Puerta esquina redonda', hoja: 'PTA ROMESQURED', familia: 'Puertas', descripcion: 'Muescas 150×35 superior e inferior, cerradura y perf. Ø14.', pieza: pieza(900, 2100, [...cierrePuerta(), PF(14, 90, 'der', 800, 'inf')], esq({ si: mue(150, 35), ii: mue(150, 35) })) },
+  { id: 'pta-esqred-roma40', nombre: 'Puerta esquina redonda · manija Roma 40', hoja: '', familia: 'Puertas', descripcion: 'Muescas 150×35 superior e inferior, cerradura 75×90 de fondo redondo a 1000 mm y 2 perf. Ø14 de manija Roma a 120 del canto (800 y 1200 mm).', pieza: pieza(900, 2100, [BQ('der', 1000, 'fin', 75, 90, 37.5), ...manijaRoma(120)], esq({ si: mue(150, 35), ii: mue(150, 35) })) },
   { id: 'pta-flautaacero', nombre: 'Puerta flauta acero', hoja: 'PTA FLAUTAACERO', familia: 'Puertas', descripcion: 'Grupos de perf. Ø16 para herraje de acero arriba y abajo, cerradura lateral.', pieza: pieza(900, 2100, [PF(16, 30, 'der', 70, 'sup'), PF(16, 30, 'der', 105, 'sup'), PF(16, 30, 'der', 140, 'sup'), PF(16, 30, 'der', 70, 'inf'), PF(16, 30, 'der', 105, 'inf'), PF(16, 30, 'der', 140, 'inf'), BQ('izq', 1000, 'fin', 75, 30, 15), PF(16, 150, 'izq', 800, 'inf')]) },
   { id: 'pta-corre-acero', nombre: 'Puerta corrediza acero', hoja: 'PTA CORRE ACERO', familia: 'Puertas', descripcion: 'Perf. Ø16 dobles para carros de acero y perf. de manija.', pieza: pieza(900, 2100, [PF(16, 70, 'izq', 70, 'sup'), PF(16, 140, 'izq', 70, 'sup'), PF(16, 70, 'der', 70, 'sup'), PF(16, 140, 'der', 70, 'sup'), PF(16, 35, 'der', 1000, 'inf'), PF(16, 35, 'der', 1150, 'inf')]) },
-  { id: 'pta-bat-jupiter', nombre: 'Puerta batiente Júpiter', hoja: 'PTA BAT JUPITER', familia: 'Puertas', descripcion: 'Muescas 35×150 para pivotes y boquete de cerradura.', pieza: pieza(900, 2100, cierrePuerta(), esq({ si: mue(35, 150), ii: mue(35, 150) })) },
+  { id: 'pta-bat-jupiter', nombre: 'Puerta batiente Júpiter', hoja: 'PTA BAT JUPITER', familia: 'Puertas', descripcion: 'Muescas 150×35 para pivotes y boquete de cerradura.', pieza: pieza(900, 2100, cierrePuerta(), esq({ si: mue(150, 35), ii: mue(150, 35) })) },
   { id: 'fijo-jupiter', nombre: 'Fijo Júpiter', hoja: 'FIJO JUPITER', familia: 'Puertas', descripcion: 'Boquete recibidor de cerradura a 1005 mm.', pieza: pieza(600, 2100, [BQ('der', 1005, 'fin', 75, 30, 15)]) },
   { id: 'recibidor-picoloro', nombre: 'Recibidor Picoloro', hoja: 'RECIBIDOR PICOLORO', familia: 'Puertas', descripcion: 'Boquete recto 75×35 para recibidor.', pieza: pieza(600, 2100, [BQ('der', 1000, 'fin', 75, 35)]) },
   { id: 'recibidor-redondo', nombre: 'Recibidor redondo', hoja: 'RECIBIDOR REDONDO', familia: 'Puertas', descripcion: 'Boquete redondeado 75×30 para recibidor.', pieza: pieza(600, 2100, [BQ('der', 1000, 'fin', 75, 30, 15)]) },
