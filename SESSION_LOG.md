@@ -7201,3 +7201,36 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 ## 2026-10-26 (3) — Leads de John Fredy Agudelo vinculados a sus ODP
 
 - **dato:** `scripts/2026-10-26_vincular_leads_jfagudelo.ts`, mismo criterio que el lead #3224: lead #3267 (Clínica Aurora) → ODP-24470, cliente 1756, $789.478 (tenía $789.476); lead #3200 (Edwin Acosta) → ODP-24469, cliente 1757, $3.517.623 (tenía $0). Guardas de estado, ODP libre y teléfono igual; una transacción. Ejecutado y verificado.
+
+## 2026-10-26 (4) — ODP-23868 anulada
+
+- **dato:** `scripts/2026-10-26_anular_odp23868.ts` — ENTREGADA → ANULADA con historial (motivo: el cliente no quiso continuar con el proceso; usuario ROOT), igual que `anularODP`. Valor $0, sin FE ni pagos. Pedido PV 6761 (VERIFICADO) y SAP #36 (borrador) quedan como estaban. Ejecutado y verificado.
+
+## 2026-10-26 (5) — ODP-24001 marcada como No Conformidad
+
+- **dato:** `scripts/2026-10-26_marcar_nc_odp24001.ts` — `es_no_conformidad` → true, `estado_caja` CREDITO_APROBADO → CANCELADO. Sin ODP padre (la original no está en el sistema; ODP-24069 del mismo cliente es posterior). No toca estado (ENTREGADA), factura (no lleva), forma de pago ni rutas. Patrón de `marcar_nc_odp23891_23857_2026-09-21.ts`. Ejecutado y verificado.
+- **Efecto:** sale de pendientes de factura en Contabilidad y del reporte de asesores; entra en Facturas vs Salidas → pestaña NC, a la espera de su «SA de NC» (número físico, lo registra compras/producción).
+- **Bug encontrado:** la fila de `auditoria_log` de ese cambio se perdió (hook fire-and-forget + cierre inmediato del script). No se repuso a mano (el control de permisos lo bloqueó, con razón). Anotado en TECH_DEBT.md.
+
+## 2026-10-26 (6) — Revisión de NC sin marcar: ODP-23850, 23856 y 23858
+
+- **Revisión (solo lectura):** ODP no marcadas como NC/garantía, no anuladas, cuya observación o descripción dice "no conformidad", "NC", "garantía", "reproceso", "sin costo", "no se cobra" o "cortesía" → 3 casos. Se descartaron 64 con "reposición" (producto vendido, con FE) y 2 OA. Una primera consulta perdió los escapes del regex (`\s` → `s`) y no veía "no conformidad" con espacio; se repitió con clases POSIX.
+- **dato:** `scripts/2026-10-26_marcar_nc_odp23850_23856_23858.ts` — `es_no_conformidad` → true en las tres (abril; caja ya CANCELADO, FACTURADA sin FE, con SA). Sin ODP padre: 23818, 23787 y 23801 no existen en el sistema. El script espera la fila de auditoría de cada ODP antes de cerrar: 3/3.
+- **Corrección a la explicación de ODP-24001:** estaba en la pestaña Estado Caja (`pestanaDeODP`), pero no en el contador `pendientes_factura`, que exige `estado_facturacion = 'PENDIENTE'` (ella lo tenía NULL).
+
+## 2026-10-26 (7) — ODP-24466: ancho de vidrios 952 → 828 con Pedido PV ya confirmado
+
+- **dato:** `scripts/2026-10-26_medidas_odp24466.ts` — vidrios #2191 (2 × 828 × 1892) y #2192 (1 × 828 × 1900); nota en `pedido_pv.observaciones` del 7196 (Vitelsa, CONFIRMADO_PROVEEDOR, que aceptó el cambio según el usuario: estado sin tocar, opción a); `fecha_impresion_op`/`impresa_por_id` → NULL para que la OP vuelva a "Por Imprimir" (se había impreso con 952). Auditoría 4/4.
+- **Por qué script:** `updateODP` ignora los vidrios comprometidos (con `pedido_pv_id`) y Pedidos PV no tiene edición de medidas. Si se repite, valdría la pena una acción "Corregir medidas" en Gestión PV con nota obligatoria.
+- **Sin cambio:** SAP-8091 (perfiles por vano 3000 × 2000), cotización 17025, valor, descripción.
+
+## 2026-10-26 (8) — ODP-24202 checks, «Corregir medidas» en Gestión PV y fecha del PV 7191
+
+- **dato:** `scripts/2026-10-26_checks_odp24202.ts` — medición, corte y ensamble marcados (el usuario confirma que están hechos; las 8 programaciones son normales, proyecto por etapas). Auditoría 1/1.
+- **feat «Corregir medidas»** (decisiones del usuario: `puede_gestionar_pv` + admin, historial en tabla propia, bloqueo desde LLEGADO, OP vuelve a «Por Imprimir», aviso a la asesora):
+  - **BD:** tabla nueva `pedido_pv_correccion` (modelo `PedidoPVCorreccion`, auditado, no revertible), creada con `scripts/2026-10-26_crear_tabla_pedido_pv_correccion.ts`.
+  - **backend:** `utils/pedidoPvCorreccion.ts`; `corregirMedidasPV` y `getCorreccionesPV` en `pedido_pv.controller.ts`; rutas; evento `PV_MEDIDAS_CORREGIDAS` en `getHistorialODP`.
+  - **frontend:** `CorregirMedidasDialog.tsx`, acción en el menú y historial en «Ver detalle» de `PedidosPVPage.tsx`, evento en `ODPTabHistorial.tsx`. De paso: «Tuvo problema» mostraba `âš ï¸ Sí` (mojibake), corregido.
+  - **Hallazgo:** producción no ejecuta `sequelize.sync()` (solo desarrollo). CLAUDE.md decía que crea tablas nuevas sin aclararlo; corregido. Sin el script, la pestaña Historial de toda ODP habría respondido 500 al desplegar.
+  - **Verificación:** `tsc` backend y frontend, ESLint de los 3 archivos; reglas, modelo y consultas con includes probados contra la BD dentro de una transacción con rollback (0 filas quedaron). El endpoint completo **no** se probó de punta a punta (levantar el backend local apunta a la BD de producción con los crons activos).
+- **dato:** `scripts/2026-10-26_fecha_pv7191_odp24457.ts` — PV 7191 (ODP-24457, Vitelsa) entrega prometida 2026-10-22 → 2026-11-03, `alerta_enviada` → false (el cron avisa una sola vez) y nota en observaciones. Auditoría 1/1.

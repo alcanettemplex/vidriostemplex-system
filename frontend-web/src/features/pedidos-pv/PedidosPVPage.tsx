@@ -14,10 +14,11 @@ import {
   Plus as Add, RefreshCw as Refresh, MoreVertical as MoreVert, Search, CheckCircle as CheckCircleOutline,
   Truck as LocalShipping, Hourglass as HourglassEmpty, XCircle as Cancel, TableGrid as TableChart,
   SlidersHorizontal as Tune, Printer as Print, Trash2 as DeleteOutline, AlertTriangle as WarningAmber,
-  PencilRuler,
+  PencilRuler, Ruler,
 } from '../../components/ui/icons';
 import PrintablePedidoVitelsa from './components/PrintablePedidoVitelsa';
 import PrintablePedidoTemplacol from './components/PrintablePedidoTemplacol';
+import CorregirMedidasDialog, { ESTADOS_CORREGIBLES, ResultadoCorreccion } from './components/CorregirMedidasDialog';
 import { abrirVentanaImpresion } from '../../utils/printWindow';
 import { useNavigate } from 'react-router-dom';
 import { HojasPedido } from '../detalles-tecnicos/modoPedido/HojasPedido';
@@ -62,7 +63,7 @@ interface PedidoPV {
   origen: string;
   creado_en: string;
   odp?: { id: number; numero_odp: string; estado_produccion: string; fecha_creacion?: string; proveedor_vidrio?: string | null; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } };
-  items_asignados?: { id: number; espesor: string | null; cantidad: number; ancho_mm: number; alto_mm: number; dt?: string | null }[];
+  items_asignados?: { id: number; espesor: string | null; color?: string | null; cantidad: number; ancho_mm: number; alto_mm: number; dt?: string | null }[];
   /** Letras DT con plano guardado en el grupo del pedido (detalles técnicos, 2026-10-16). */
   dt_planos?: string[];
   creador?: { id: number; nombre_completo: string };
@@ -251,9 +252,11 @@ const AccionesMenu: React.FC<{
   onDescargarExcel: () => void;
   /** Abre el editor de detalles técnicos. Null = sin permiso o el pedido no tiene letras DT. */
   onDisenar: (() => void) | null;
+  /** Corregir medidas (2026-10-26). Null = sin permiso, sin vidrios o pedido ya llegado. */
+  onCorregirMedidas: (() => void) | null;
   printLoading: boolean;
   excelLoading: boolean;
-}> = ({ pedido, puedeEnviar, puedeGestionar, onEnviar, onConfirmar, onLlegada, onVerificar, onProblema, onGestionarReposicion, onRegistrarReposicion, onDetalle, onImprimir, onDescargarExcel, onDisenar, printLoading, excelLoading }) => {
+}> = ({ pedido, puedeEnviar, puedeGestionar, onEnviar, onConfirmar, onLlegada, onVerificar, onProblema, onGestionarReposicion, onRegistrarReposicion, onDetalle, onImprimir, onDescargarExcel, onDisenar, onCorregirMedidas, printLoading, excelLoading }) => {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const open = Boolean(anchor);
 
@@ -280,6 +283,7 @@ const AccionesMenu: React.FC<{
   items.push({ label: 'Ver detalle', action: onDetalle });
   // Solo si algún ítem tiene letra DT (decisión 2026-10-16) y el usuario puede diseñar.
   if (onDisenar) items.push({ label: 'Diseñar', action: onDisenar, icon: <PencilRuler size={16} /> });
+  if (onCorregirMedidas) items.push({ label: 'Corregir medidas', action: onCorregirMedidas, icon: <Ruler size={16} /> });
   if (pedido.odp_id) {
     items.push({ label: printLoading ? 'Cargando...' : 'Imprimir pedido', action: onImprimir, icon: <Print size={16} /> });
     items.push({ label: excelLoading ? 'Generando...' : 'Descargar Excel', action: onDescargarExcel, icon: <TableChart size={16} /> });
@@ -436,6 +440,10 @@ const PedidosPVPage: React.FC = () => {
   const puedeEnviar = ['asesor_comercial', 'admin', 'gerencia'].includes(user?.rol);
   // Detalles técnicos (2026-10-16): diseñan admin (y root) y quien gestiona Pedidos PV.
   const puedeDisenar = !soloLectura && (['admin', 'root'].includes(user?.rol) || !!user?.puede_gestionar_pv);
+  // Corregir medidas (2026-10-26): mismo criterio que el backend (`puedeCorregirMedidas`).
+  const puedeCorregir = !soloLectura && (['admin', 'root'].includes(user?.rol) || !!user?.puede_gestionar_pv);
+  const [modalCorregir, setModalCorregir] = useState<PedidoPV | null>(null);
+  const [correccionesDetalle, setCorreccionesDetalle] = useState<any[] | null>(null);
   const navigate = useNavigate();
 
   // ─── Carga de datos ───────────────────────────────────────────────────────
@@ -517,6 +525,29 @@ const PedidosPVPage: React.FC = () => {
     marcarRecargaPropia();
     cargarDatos();
   };
+
+  const alCorregirMedidas = (r: ResultadoCorreccion) => {
+    setModalCorregir(null);
+    recargarTrasAccion(r.pedido);
+    const avisos = [
+      `${r.corregidos} ${r.corregidos === 1 ? 'vidrio corregido' : 'vidrios corregidos'} en el pedido ${r.pedido?.numero_pedido}.`,
+      r.op_volvio_a_imprimir ? 'La OP volvió a «Por Imprimir».' : '',
+      r.planos_desactualizados.length
+        ? `Abre «Diseñar» y guarda ${r.planos_desactualizados.length === 1 ? 'el plano' : 'los planos'} ${r.planos_desactualizados.join(', ')}: la hoja del proveedor sigue con la medida vieja.`
+        : '',
+    ];
+    setMensajeOk(avisos.filter(Boolean).join(' '));
+  };
+
+  // Historial de correcciones del pedido abierto en "Ver detalle".
+  useEffect(() => {
+    if (!modalDetalle) { setCorreccionesDetalle(null); return; }
+    let vigente = true;
+    axios.get(`${API}/api/pedidos-pv/${modalDetalle.id}/correcciones`, { headers })
+      .then(({ data }) => { if (vigente) setCorreccionesDetalle(data); })
+      .catch(() => { if (vigente) setCorreccionesDetalle([]); });
+    return () => { vigente = false; };
+  }, [modalDetalle, headers]);
 
   // Abre el modal "Vencidos sin Llegar" con el mismo subconjunto que compone el KPI:
   // origen SISTEMA, excluye Por Gestionar, y respeta los filtros activos de pantalla.
@@ -1346,6 +1377,7 @@ const PedidosPVPage: React.FC = () => {
                                 onImprimir={() => imprimirPedido(p)}
                                 onDescargarExcel={() => descargarExcelPedido(p)}
                                 onDisenar={puedeDisenar && p.odp_id && letrasDT(p).length ? () => navigate(`/detalles-tecnicos/${p.id}`) : null}
+                                onCorregirMedidas={puedeCorregir && p.odp_id && p.items_asignados?.length && ESTADOS_CORREGIBLES.includes(p.estado) ? () => setModalCorregir(p) : null}
                                 printLoading={printLoadingId === p.id}
                                 excelLoading={excelLoadingId === p.id}
                               />
@@ -2027,6 +2059,16 @@ const PedidosPVPage: React.FC = () => {
         )}
       </div>
 
+      {/* ─── Modal: Corregir medidas (2026-10-26) ───────────────────────────────── */}
+      {modalCorregir && (
+        <CorregirMedidasDialog
+          pedido={modalCorregir}
+          headers={headers}
+          onClose={() => setModalCorregir(null)}
+          onCorregido={alCorregirMedidas}
+        />
+      )}
+
       {/* ─── Modal: Detalle ────────────────────────────────────────────────────── */}
       <Dialog open={!!modalDetalle} onClose={() => setModalDetalle(null)} maxWidth="sm" fullWidth>
         <DialogTitle>Pedido PV {modalDetalle?.numero_pedido}</DialogTitle>
@@ -2049,7 +2091,7 @@ const PedidosPVPage: React.FC = () => {
                   ['Llegada real', fmtFecha(modalDetalle.fecha_llegada_real)],
                   ['Días diferencia', modalDetalle.dias_diferencia !== null ? (modalDetalle.dias_diferencia >= 0 ? `+${modalDetalle.dias_diferencia}d (a tiempo)` : `${modalDetalle.dias_diferencia}d (tarde)`) : '—'],
                   ['Factura PV', modalDetalle.factura_pv || '—'],
-                  ['Tuvo problema', modalDetalle.tuvo_problema ? 'âš ï¸ Sí' : 'No'],
+                  ['Tuvo problema', modalDetalle.tuvo_problema ? '⚠️ Sí' : 'No'],
                   ['Verificado por', modalDetalle.verificador?.nombre_completo || '—'],
                 ] as [string, React.ReactNode][]).map(([lbl, val]) => (
                   <Box key={lbl}>
@@ -2067,6 +2109,18 @@ const PedidosPVPage: React.FC = () => {
                   <Typography variant="body2" color={modalDetalle.tuvo_problema ? 'error' : 'inherit'}>
                     {modalDetalle.observacion_verificacion}
                   </Typography></Box>
+              )}
+              {!!correccionesDetalle?.length && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Correcciones de medidas</Typography>
+                  {correccionesDetalle.map((c: any) => (
+                    <Typography key={c.id} variant="body2">
+                      {fmtFecha(c.creado_en)} · {c.usuario?.nombre_completo ?? '—'} · {c.letra ? `${c.letra}: ` : ''}
+                      {c.cantidad} × {c.ancho_antes ?? '—'} × {c.alto_antes ?? '—'} → <b>{c.ancho_nuevo} × {c.alto_nuevo}</b>
+                      {c.nota ? ` — ${c.nota}` : ''}
+                    </Typography>
+                  ))}
+                </Box>
               )}
             </Stack>
           )}

@@ -157,7 +157,7 @@ La ruta del repo cambia según la máquina (`C:\dev\vidrios-templex-system` en u
 ## Base de Datos
 
 ### Migraciones de BD — Automatizadas
-- **Sequelize `sync({ alter: false })` NO agrega columnas a tablas existentes.** Solo crea tablas nuevas.
+- **Sequelize `sync({ alter: false })` NO agrega columnas a tablas existentes.** Solo crea tablas nuevas, y **solo en desarrollo**: en producción `server.ts` no llama a `sync` (`NODE_ENV === 'production'`), así que una tabla nueva necesita su script de creación corrido antes del deploy (ej. `scripts/2026-10-26_crear_tabla_pedido_pv_correccion.ts`). Si un endpoint ya desplegado la consulta y no existe, responde 500.
 - Al agregar campos a modelos existentes, crear script de migración ejecutable desde Node.js que corra `ALTER TABLE` en Supabase.
 - **ENUM + CHECK CONSTRAINT son independientes en PG.** Script debe incluir:
   1. `ALTER TYPE enum_nombre ADD VALUE 'nuevo_valor'`
@@ -211,7 +211,7 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 - **Rutas:** `RutaInstalacion → RutaODP (join) → ruta_instaladores (M:M)`. `forma_pago='credito'` = pago OK automático para instalación. Conductor opcional; sin oficial nadie trabaja la ruta desde la app. **Pausar saca la ODP de la ruta** (vuelve a su bandeja) y una parada pausada ya no mantiene viva la ruta (2026-10-05). Socket propio `emitirCambioRutas()`. Detalle en `docs/modulos/rutas-instalaciones.md`.
 - **Salidas Almacén:** `SA-XXXX` por ODP facturada. UNIQUE por ODP.
 - **Socket ODP:** usar `emitirODPPatch(id, accion)` (en `utils/notificaciones.ts`), nunca `emitirCambio('odp')`. `notificarCambioEstadoODP()` para cambios de estado.
-- **Auditoría:** `requestContext.ts` (AsyncLocalStorage). Hooks en `models/index.ts` (array `MODELOS_AUDITADOS`) cubriendo **49 modelos** (contados el 2026-10-16, incluye 5 del Cotizador y los 2 de Detalles Técnicos) — excluidos: `AuditoriaLog`, `AlertasUmbral`, `AgendaInstalacion` (planeación volátil), `DetalleSAPImagen`, y los 2 modelos legados fuera de `index.ts` (`Produccion`, `ProgramacionInstalacion`). `beforeUpdate`/`beforeDestroy` guardan snapshot previo; `afterCreate`/`afterUpdate`/`afterDestroy` graban `datos_anteriores` en `auditoria_log`. **Los hooks de instancia NO disparan en operaciones bulk** (`Model.destroy({ where })` / `Model.update({...}, { where })`) salvo `individualHooks: true` — ver `TECH_DEBT.md` 2026-07-02.
+- **Auditoría:** `requestContext.ts` (AsyncLocalStorage). Hooks en `models/index.ts` (array `MODELOS_AUDITADOS`) cubriendo **50 modelos** (contados el 2026-10-26, incluye 5 del Cotizador, los 2 de Detalles Técnicos y `PedidoPVCorreccion`) — excluidos: `AuditoriaLog`, `AlertasUmbral`, `AgendaInstalacion` (planeación volátil), `DetalleSAPImagen`, y los 2 modelos legados fuera de `index.ts` (`Produccion`, `ProgramacionInstalacion`). `beforeUpdate`/`beforeDestroy` guardan snapshot previo; `afterCreate`/`afterUpdate`/`afterDestroy` graban `datos_anteriores` en `auditoria_log`. **Los hooks de instancia NO disparan en operaciones bulk** (`Model.destroy({ where })` / `Model.update({...}, { where })`) salvo `individualHooks: true` — ver `TECH_DEBT.md` 2026-07-02.
 - **Revertir auditoría (panel ROOT):** usa un allow-list independiente, `TABLAS_AUDITABLES` en `root.controller.ts` (44 entradas al 2026-10-03) — no es 1:1 con `MODELOS_AUDITADOS`. `cotizacion_capturas` y `metas_usuario_mensual` se auditan pero no se pueden revertir desde ahí. Las etiquetas `saps`/`ruta_odps` que graban los hooks se traducen a las tablas reales (`TABLA_REAL` en `root.controller.ts`) desde el 2026-10-23: el bug de revertir `SAP`/`RutaODP` quedó cerrado. Revertir responde 409 si el registro cambió después y deja su propia fila `REVERT`; ver `docs/modulos/root.md`.
 
 ### API Endpoints (prefijo `/api`)
@@ -236,7 +236,7 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 | `/rutas` | rutas.controller (+ agenda.controller). `POST /:id/unir` une dos rutas (2026-10-05) |
 | `/dashboard` | dashboard.controller |
 | `/documentos` | sap.controller + toma_medidas.controller (sin controller propio). Las rutas `/documentos/cotizacion*` del COTModal se retiraron el 2026-10-03 |
-| `/pedidos-pv` | pedido_pv.controller |
+| `/pedidos-pv` | pedido_pv.controller. **Corregir medidas** (2026-10-26): `PATCH /:id/corregir-medidas` (ancho × alto de vidrios ya pedidos; `puede_gestionar_pv` o admin/root; solo PENDIENTE/ENVIADO/CONFIRMADO_PROVEEDOR, fuera de PENDIENTE exige `proveedor_acepto`; devuelve la OP a "Por Imprimir" y avisa a la asesora) y `GET /:id/correcciones`. Reglas en `utils/pedidoPvCorreccion.ts`; ver `docs/modulos/compras.md` |
 | `/detalle-tecnico` | detalle_tecnico.controller — planos DT de un Pedido PV (2026-10-16): `GET /pedido/:id`, `PUT`/`DELETE /pedido/:id/plano/:letra`, `PATCH /pedido/:id/letras`, `PATCH /pedido/:id/bloqueo` (solo admin). Escritura: admin/root o `puede_gestionar_pv`, verificado en el controller. Reglas en `utils/detalleTecnico.ts` (fuera del controller por el ciclo de imports). Ver `docs/modulos/detalles-tecnicos.md` |
 | `/facturas-salidas` | salidas_almacen.controller |
 | `/root` | root.controller (solo rol `root`) |
@@ -281,6 +281,7 @@ Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propi
 | `PedidoPV` | `pedido_pv` | Estados: `PENDIENTE→ENVIADO→CONFIRMADO_PROVEEDOR→LLEGADO→VERIFICADO\|PROBLEMA\|ENTREGADO` |
 | `PedidoPVPlano` | `pedido_pv_plano` | Plano DT (FOR-005) por `(pedido_pv_id, letra)` UNIQUE, del pedido **principal**. `pieza`/`conteos` JSONB, imagen en Cloudinary, `actualizado_en` = control de concurrencia. Auditado, **no revertible** (borra su imagen anterior). 2026-10-16 |
 | `PedidoPVDtDesbloqueo` | `pedido_pv_dt_desbloqueo` | Una fila = admin desbloqueó los planos de un pedido ya enviado. PK `pedido_pv_id`. Tabla propia para no agregar columnas a `pedido_pv`. Auditado, no revertible. 2026-10-16 |
+| `PedidoPVCorreccion` | `pedido_pv_correccion` | Bitácora de "Corregir medidas": una fila por vidrio corregido (antes/después, letra, estado del pedido, `proveedor_acepto`, nota, usuario). Las medidas viven en `odp_items`. Auditado, no revertible. Creada por script (producción no sincroniza). 2026-10-26 |
 | `SalidaAlmacen` | `salidas_almacen` | SA-XXXX, UNIQUE por ODP |
 | `AuditoriaLog` | `auditoria_log` | INSERT/UPDATE/DELETE de 34 modelos (excluida de auditarse a sí misma) |
 | `AlertasUmbral` | `alertas_umbral` | Umbrales panel ROOT. Sin auditoría |

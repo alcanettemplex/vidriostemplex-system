@@ -3,7 +3,7 @@ import { Op, literal } from 'sequelize';
 import { z } from 'zod';
 import path from 'path';
 import ExcelJS from 'exceljs';
-import { PedidoPV, ODP, ODPItem, Usuario, sequelize } from '../models';
+import { PedidoPV, PedidoPVPlano, PedidoPVCorreccion, ODP, ODPItem, Usuario, sequelize } from '../models';
 import Cliente from '../models/cliente.model';
 import { emitirNotificacion } from '../server';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
@@ -11,6 +11,7 @@ import { esTemplacol, bloquesPorProveedor, proveedorParaFormato, mismoProveedor 
 import { recalcularChecksODP } from '../utils/checksAutomaticos';
 import { hoyBogotaISO, diaBogotaISO } from '../utils/fechas';
 import { agregarPlanosAlExcel, inicialesAsesor, letrasConPlanoPorPedido, normalizarLetra } from '../utils/detalleTecnico';
+import { esEstadoCorregible, exigeAceptacionProveedor, puedeCorregirMedidas } from '../utils/pedidoPvCorreccion';
 
 // ─── Esquema de validación ────────────────────────────────────────────────────
 
@@ -888,6 +889,175 @@ export const eliminarPedidoPV = async (req: Request, res: Response) => {
     await t.rollback();
     console.error('Error eliminarPedidoPV:', error);
     res.status(500).json({ error: 'Error al eliminar el pedido PV' });
+  }
+};
+
+// ─── Corregir medidas (2026-10-26) ───────────────────────────────────────────
+//
+// Camino oficial para cambiar ancho × alto de vidrios que ya van en un pedido: `updateODP`
+// los protege a propósito (no se editan desde la ODP) y antes solo se podía por script.
+// Las medidas viven en `odp_items`, así que el Excel y el impreso del pedido salen
+// corregidos solos; `pedido_pv_correccion` guarda la bitácora. Reglas en
+// `utils/pedidoPvCorreccion.ts`.
+
+const corregirMedidasSchema = z.object({
+  cambios: z.array(z.object({
+    odp_item_id: z.number().int().positive(),
+    ancho_mm: z.number().int().positive().max(10000),
+    alto_mm: z.number().int().positive().max(10000),
+  }).strict()).min(1).max(60),
+  nota: z.string().trim().max(500).optional().nullable(),
+  proveedor_acepto: z.boolean().optional(),
+}).strict();
+
+const ATRIBUTOS_CORRECCION = ['id', 'odp_item_id', 'letra', 'cantidad', 'ancho_antes', 'alto_antes',
+  'ancho_nuevo', 'alto_nuevo', 'estado_pedido', 'proveedor_acepto', 'nota', 'creado_en'];
+
+// PATCH /api/pedidos-pv/:id/corregir-medidas — puede_gestionar_pv o admin/root
+export const corregirMedidasPV = async (req: Request, res: Response) => {
+  const user = req.user!;
+  const usuario = await Usuario.findByPk(user.id, { attributes: ['puede_gestionar_pv'] });
+  if (!puedeCorregirMedidas(user.rol, !!usuario?.getDataValue('puede_gestionar_pv'))) {
+    return res.status(403).json({ error: 'No tienes permiso para corregir medidas de pedidos PV.' });
+  }
+
+  const parsed = corregirMedidasSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Revisa las medidas: deben ser números enteros en milímetros, mayores que cero.' });
+  }
+  const { cambios, nota, proveedor_acepto } = parsed.data;
+
+  const t = await sequelize.transaction();
+  try {
+    // Bloqueo de la fila: dos correcciones simultáneas no pisan el mismo "antes".
+    const pedido = await PedidoPV.findByPk(req.params.id, { transaction: t, lock: t.LOCK.UPDATE });
+    if (!pedido) { await t.rollback(); return res.status(404).json({ error: 'Pedido PV no encontrado.' }); }
+
+    const estado = pedido.getDataValue('estado') as string;
+    if (!esEstadoCorregible(estado)) {
+      await t.rollback();
+      return res.status(409).json({
+        error: `El pedido ya está en ${estado}: el vidrio ya llegó o se fabricó. Usa "Marcar problema" para gestionar la reposición.`,
+      });
+    }
+    if (exigeAceptacionProveedor(estado) && !proveedor_acepto) {
+      await t.rollback();
+      return res.status(400).json({ error: 'El pedido ya se envió al proveedor: confirma que el proveedor aceptó el cambio antes de corregir.' });
+    }
+
+    const ids = cambios.map(c => c.odp_item_id);
+    if (new Set(ids).size !== ids.length) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Un mismo vidrio aparece dos veces en la corrección.' });
+    }
+    const items = await ODPItem.findAll({ where: { id: ids }, transaction: t });
+    const porId = new Map(items.map(it => [it.getDataValue('id') as number, it]));
+    const ajenos = ids.filter(id => porId.get(id)?.getDataValue('pedido_pv_id') !== pedido.getDataValue('id'));
+    if (ajenos.length) {
+      await t.rollback();
+      return res.status(409).json({ error: 'Alguno de los vidrios ya no pertenece a este pedido. Recarga la página e intenta de nuevo.' });
+    }
+
+    const notaLimpia = nota?.trim() || null;
+    const corregidos: { letra: string | null }[] = [];
+    for (const c of cambios) {
+      const it = porId.get(c.odp_item_id)!;
+      const anchoAntes = it.getDataValue('ancho_mm') as number | null;
+      const altoAntes = it.getDataValue('alto_mm') as number | null;
+      if (anchoAntes === c.ancho_mm && altoAntes === c.alto_mm) continue;
+      await it.update({ ancho_mm: c.ancho_mm, alto_mm: c.alto_mm }, { transaction: t });
+      await PedidoPVCorreccion.create({
+        pedido_pv_id: pedido.getDataValue('id'),
+        odp_id: it.getDataValue('odp_id'),
+        odp_item_id: c.odp_item_id,
+        letra: normalizarLetra(it.getDataValue('dt')),
+        cantidad: it.getDataValue('cantidad') ?? 1,
+        ancho_antes: anchoAntes,
+        alto_antes: altoAntes,
+        ancho_nuevo: c.ancho_mm,
+        alto_nuevo: c.alto_mm,
+        estado_pedido: estado,
+        proveedor_acepto: !!proveedor_acepto,
+        nota: notaLimpia,
+        usuario_id: user.id,
+      }, { transaction: t });
+      corregidos.push({ letra: normalizarLetra(it.getDataValue('dt')) });
+    }
+    if (!corregidos.length) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Ninguna medida cambió: no hay nada que corregir.' });
+    }
+
+    // La OP impresa lleva las medidas viejas: vuelve a "Por Imprimir" (decisión del usuario).
+    const odpId = pedido.getDataValue('odp_id') as number | null;
+    const odp = odpId
+      ? await ODP.findByPk(odpId, { attributes: ['id', 'numero_odp', 'asesor_id', 'fecha_impresion_op'], transaction: t })
+      : null;
+    const opVolvioAImprimir = !!odp?.getDataValue('fecha_impresion_op');
+    if (odp && opVolvioAImprimir) await odp.update({ fecha_impresion_op: null, impresa_por_id: null }, { transaction: t });
+
+    // Planos DT guardados con la medida vieja: cuelgan del pedido principal del grupo.
+    const letras = [...new Set(corregidos.map(c => c.letra).filter((l): l is string => !!l))];
+    let planosDesactualizados: string[] = [];
+    if (letras.length) {
+      const principal = await PedidoPV.findOne({
+        where: { numero_base: pedido.getDataValue('numero_base'), sufijo: null },
+        attributes: ['id'], transaction: t,
+      });
+      if (principal) {
+        const planos = await PedidoPVPlano.findAll({
+          where: { pedido_pv_id: principal.getDataValue('id'), letra: letras },
+          attributes: ['letra'], transaction: t,
+        });
+        planosDesactualizados = planos.map(p => p.getDataValue('letra') as string).sort();
+      }
+    }
+
+    await t.commit();
+
+    const numeroPedido = pedido.getDataValue('numero_pedido');
+    if (odp) {
+      emitirNotificacion(
+        { userId: odp.getDataValue('asesor_id') },
+        {
+          titulo: `📐 Medidas corregidas — Pedido PV ${numeroPedido}`,
+          mensaje: `Se corrigieron ${corregidos.length} ${corregidos.length === 1 ? 'vidrio' : 'vidrios'} de la ${odp.getDataValue('numero_odp')}.${notaLimpia ? ` Nota: ${notaLimpia}` : ''}`,
+          odp_id: odp.getDataValue('id'),
+          numero_odp: odp.getDataValue('numero_odp'),
+          tipo: 'PV_MEDIDAS_CORREGIDAS',
+        }
+      );
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odp.getDataValue('id'), 'update')).catch(() => {});
+    }
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
+
+    const pedidoActualizado = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    res.json({
+      pedido: pedidoActualizado,
+      corregidos: corregidos.length,
+      op_volvio_a_imprimir: opVolvioAImprimir,
+      planos_desactualizados: planosDesactualizados,
+    });
+  } catch (error) {
+    try { await t.rollback(); } catch { /* ya cerrada */ }
+    console.error('Error corregirMedidasPV:', error);
+    res.status(500).json({ error: 'No se pudieron corregir las medidas. Intenta de nuevo; si persiste, avisa a sistemas.' });
+  }
+};
+
+// GET /api/pedidos-pv/:id/correcciones — bitácora de correcciones de medidas del pedido
+export const getCorreccionesPV = async (req: Request, res: Response) => {
+  try {
+    const correcciones = await PedidoPVCorreccion.findAll({
+      where: { pedido_pv_id: req.params.id },
+      attributes: ATRIBUTOS_CORRECCION,
+      include: [{ model: Usuario, as: 'usuario', attributes: ['id', 'nombre_completo'] }],
+      order: [['creado_en', 'DESC'], ['id', 'ASC']],
+    });
+    res.json(correcciones);
+  } catch (error) {
+    console.error('Error getCorreccionesPV:', error);
+    res.status(500).json({ error: 'No se pudo cargar el historial de correcciones del pedido.' });
   }
 };
 

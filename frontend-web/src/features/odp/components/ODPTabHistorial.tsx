@@ -25,6 +25,7 @@ const TIPO_VISUAL: Record<string, { icon: (cls: string) => React.ReactNode; dot:
   PV_LLEGADO:         { icon: (c) => <Truck className={c} />,        dot: 'bg-emerald-500', peso: 'medio' },
   PV_VERIFICADO:      { icon: (c) => <CheckCircle2 className={c} />, dot: 'bg-emerald-600', peso: 'bajo'  },
   PV_PROBLEMA:        { icon: (c) => <AlertTriangle className={c} />,dot: 'bg-orange-500',  peso: 'alto'  },
+  PV_MEDIDAS_CORREGIDAS: { icon: (c) => <Ruler className={c} />,     dot: 'bg-sky-600',     peso: 'medio' },
   PAGO_REGISTRADO:    { icon: (c) => <CreditCard className={c} />,   dot: 'bg-teal-500',    peso: 'alto'  },
   SA_GENERADA:        { icon: (c) => <Archive className={c} />,      dot: 'bg-teal-600',    peso: 'medio' },
   RUTA_PROGRAMADA:    { icon: (c) => <Calendar className={c} />,     dot: 'bg-orange-500',  peso: 'medio' },
@@ -163,6 +164,15 @@ function renderHistDetalle(ev: any, onOpenLightbox?: (src: string) => void): Rea
     </div>
   );
 
+  if (tipo === 'PV_MEDIDAS_CORREGIDAS') return (
+    <div className="space-y-1 text-xs text-slate-800">
+      {(meta.vidrios || []).map((v: any, i: number) => (
+        <p key={i}>{v.letra ? <strong>{v.letra}: </strong> : null}{v.cantidad} × {v.antes} → <strong>{v.nuevo}</strong></p>
+      ))}
+      {meta.nota && <p className="italic text-slate-700">"{meta.nota}"</p>}
+    </div>
+  );
+
   return null;
 }
 
@@ -270,7 +280,7 @@ const TabHistorial: React.FC<{ odp: any; onOpenLightbox?: (src: string) => void 
     }, {})
   ).reverse();
 
-  const EXPANDIBLES = new Set(['ESTADO_CAMBIADO', 'NC_REPORTADA', 'NOTA_PRODUCCION', 'DANO_REPORTADO', 'RUTA_PROGRAMADA', 'PAGO_REGISTRADO', 'PV_PROBLEMA']);
+  const EXPANDIBLES = new Set(['ESTADO_CAMBIADO', 'NC_REPORTADA', 'NOTA_PRODUCCION', 'DANO_REPORTADO', 'RUTA_PROGRAMADA', 'PAGO_REGISTRADO', 'PV_PROBLEMA', 'PV_MEDIDAS_CORREGIDAS']);
   const puedeExpandir = (ev: any, key: string) => {
     if (!EXPANDIBLES.has(ev.tipo)) return false;
     if (ev.tipo === 'ESTADO_CAMBIADO' && !ev.meta.estado_anterior && !ev.meta.observacion) return false;

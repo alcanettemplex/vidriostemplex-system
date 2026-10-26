@@ -21,6 +21,8 @@ import {
   asignarItems,
   generarExcelPedidoPV,
   eliminarPedidoPV,
+  corregirMedidasPV,
+  getCorreccionesPV,
 } from '../controllers/pedido_pv.controller';
 
 const router = Router();
@@ -57,6 +59,11 @@ router.patch('/:id/registrar-reposicion', requireRole('produccion', 'compras', '
 
 // Asignación de ítems — quien tiene puede_gestionar_pv (verificado en controller)
 router.patch('/:id/asignar-items', asignarItems);
+
+// Corregir medidas de vidrios ya pedidos (2026-10-26) — puede_gestionar_pv o admin/root,
+// verificado en el controller. Solo PENDIENTE / ENVIADO / CONFIRMADO_PROVEEDOR.
+router.patch('/:id/corregir-medidas', corregirMedidasPV);
+router.get('/:id/correcciones', getCorreccionesPV);
 
 // Generación de Excel desde plantilla vitelsa.xlsx
 router.get('/:id/excel', generarExcelPedidoPV);

@@ -28,6 +28,7 @@ import InventarioPerfileria from './inventario_perfileria.model';
 import PedidoPV from './pedido_pv.model';
 import PedidoPVPlano from './pedido_pv_plano.model';
 import PedidoPVDtDesbloqueo from './pedido_pv_dt_desbloqueo.model';
+import PedidoPVCorreccion from './pedido_pv_correccion.model';
 import SalidaAlmacen from './salida_almacen.model';
 import CotizacionCaptura from './cotizacion_captura.model';
 import DetalleSAPImagen from './detalle_sap_imagen.model';
@@ -276,6 +277,11 @@ PedidoPV.hasOne(PedidoPVDtDesbloqueo, { foreignKey: 'pedido_pv_id', as: 'dt_desb
 PedidoPVDtDesbloqueo.belongsTo(PedidoPV, { foreignKey: 'pedido_pv_id', as: 'pedido' });
 PedidoPVDtDesbloqueo.belongsTo(Usuario, { foreignKey: 'desbloqueado_por', as: 'desbloqueador' });
 
+// Corrección de medidas de vidrios ya pedidos (2026-10-26): bitácora por vidrio.
+PedidoPV.hasMany(PedidoPVCorreccion, { foreignKey: 'pedido_pv_id', as: 'correcciones' });
+PedidoPVCorreccion.belongsTo(PedidoPV, { foreignKey: 'pedido_pv_id', as: 'pedido' });
+PedidoPVCorreccion.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
+
 // ─── Bloque H: Capturas de Cotización ───────────────────────────────────────
 ODP.hasMany(CotizacionCaptura, { foreignKey: 'odp_id', as: 'cotizacion_capturas' });
 CotizacionCaptura.belongsTo(ODP, { foreignKey: 'odp_id' });
@@ -426,6 +432,9 @@ const MODELOS_AUDITADOS = [
   // `pedido_pv_id` y el revertir arma su WHERE con `id`.
   { model: PedidoPVPlano, tabla: 'pedido_pv_plano', pk: 'id' },
   { model: PedidoPVDtDesbloqueo, tabla: 'pedido_pv_dt_desbloqueo', pk: 'pedido_pv_id' },
+  // Bitácora de corrección de medidas: auditada, no revertible (revertir la fila no
+  // devolvería la medida del vidrio, que vive en odp_items).
+  { model: PedidoPVCorreccion, tabla: 'pedido_pv_correccion', pk: 'id' },
   { model: SalidaAlmacen, tabla: 'salidas_almacen', pk: 'id' },
   { model: CotizacionCaptura, tabla: 'cotizacion_capturas', pk: 'id' },
   { model: Lead, tabla: 'leads', pk: 'id' },
@@ -554,6 +563,7 @@ export {
   PedidoPV,
   PedidoPVPlano,
   PedidoPVDtDesbloqueo,
+  PedidoPVCorreccion,
   SalidaAlmacen,
   CotizacionCaptura,
   DetalleSAPImagen,

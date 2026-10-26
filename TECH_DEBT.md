@@ -1747,3 +1747,10 @@ Ver `docs/modulos/cotizador.md` → "Anexo de diseños".
    desde arriba lo pone siempre a la izquierda. Si el usuario lo pide, un campo como "Abre hacia".
 3. **Cabinas batientes en L sin lado Y** — baja: el formulario de batientes no tiene campo para el
    costado; la vista desde arriba lo rotula "Costado" sin medida.
+
+## 2026-10-26 — Auditoría que se pierde en scripts one-off
+
+- **Severidad:** media (trazabilidad). **Estimación:** 30 min.
+- `registrarAuditoria` (`models/index.ts`) hace `AuditoriaLog.create(...)` sin `await` (fire-and-forget). En el servidor no pasa nada, porque el proceso sigue vivo; en un script que llama `sequelize.close()` o `process.exit()` justo después del cambio, la fila de auditoría se pierde.
+- **Caso real:** `2026-10-26_marcar_nc_odp24001.ts` (ODP-24001 → NC, `estado_caja` CREDITO_APROBADO → CANCELADO) quedó aplicado **sin fila en `auditoria_log`**. Reponerla a mano se descartó: escribir auditoría a mano no es aceptable.
+- **Propuesta:** que `registrarAuditoria` guarde la promesa en un Set de pendientes y exporte `esperarAuditoriaPendiente()`, que los scripts llamen antes de `sequelize.close()`. Mientras tanto, en los scripts: hacer el cambio dentro de `sequelize.transaction` y verificar la fila de auditoría después de ejecutar.

@@ -20,6 +20,7 @@ import {
   Vehiculo,
   Prospecto,
   PedidoPV,
+  PedidoPVCorreccion,
   SalidaAlmacen,
   FacturaAdicionalODP,
 } from '../models';
@@ -2196,7 +2197,7 @@ export const getHistorialODP = async (req: Request, res: Response) => {
       | 'SAP_CREADA'
       | 'COT_CREADA'
       | 'ODC_CREADA' | 'ODC_RECIBIDA'
-      | 'PV_CREADO' | 'PV_LLEGADO' | 'PV_VERIFICADO' | 'PV_PROBLEMA'
+      | 'PV_CREADO' | 'PV_LLEGADO' | 'PV_VERIFICADO' | 'PV_PROBLEMA' | 'PV_MEDIDAS_CORREGIDAS'
       | 'PAGO_REGISTRADO'
       | 'SA_GENERADA'
       | 'RUTA_PROGRAMADA' | 'INSTALACION_INICIO' | 'INSTALACION_FIN' | 'DANO_REPORTADO'
@@ -2388,6 +2389,38 @@ export const getHistorialODP = async (req: Request, res: Response) => {
         subtitulo: `${g.numero_odp} · ${g.descripcion_pedido || ''}`,
         meta: { numero_odp: g.numero_odp, numero_garantia: g.numero_garantia,
                 estado_produccion: g.estado_produccion, asesor: g.asesor } });
+    }
+
+    // Correcciones de medidas en Pedidos PV (2026-10-26): un evento por corrección (mismo
+    // momento y usuario), con el detalle de cada vidrio en `meta`.
+    const correcciones = await PedidoPVCorreccion.findAll({
+      where: { odp_id: odpId },
+      attributes: ['id', 'creado_en', 'usuario_id', 'letra', 'cantidad', 'ancho_antes', 'alto_antes', 'ancho_nuevo', 'alto_nuevo', 'nota', 'estado_pedido'],
+      include: [
+        { model: UsuarioModel, as: 'usuario', attributes: ['id', 'nombre_completo'] },
+        { model: PedidoPV, as: 'pedido', attributes: ['numero_pedido'] },
+      ],
+      order: [['creado_en', 'ASC'], ['id', 'ASC']],
+    });
+    const gruposCorreccion = new Map<string, any[]>();
+    for (const c of correcciones.map((x: any) => x.toJSON())) {
+      const clave = `${new Date(c.creado_en).getTime()}-${c.usuario_id}`;
+      gruposCorreccion.set(clave, [...(gruposCorreccion.get(clave) || []), c]);
+    }
+    for (const grupo of gruposCorreccion.values()) {
+      const primero = grupo[0];
+      push({ tipo: 'PV_MEDIDAS_CORREGIDAS', categoria: 'produccion', fecha: primero.creado_en,
+        titulo: `Medidas corregidas · PedidoPV ${primero.pedido?.numero_pedido ?? ''}`.trim(),
+        subtitulo: primero.usuario?.nombre_completo,
+        meta: {
+          nota: primero.nota,
+          estado_pedido: primero.estado_pedido,
+          vidrios: grupo.map((c: any) => ({
+            letra: c.letra, cantidad: c.cantidad,
+            antes: `${c.ancho_antes ?? '—'} × ${c.alto_antes ?? '—'}`,
+            nuevo: `${c.ancho_nuevo} × ${c.alto_nuevo}`,
+          })),
+        } });
     }
 
     // Notas de producción

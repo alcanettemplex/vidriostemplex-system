@@ -1609,3 +1609,18 @@ Con dos modalidades, la próxima factura de `F463M` con unidad genérica va a "P
 siempre es un cambio de modalidad (metro ↔ tira ↔ unidad), no un aumento real. Vale revisar la lista de
 `precio_anomalo = true` cada vez que se carguen facturas.
 
+
+## Pedidos PV — Corregir medidas (2026-10-26)
+
+**Por qué existe.** Cambiar el ancho × alto de un vidrio que ya va en un Pedido PV se repetía mucho y solo se podía por script: `updateODP` ignora a propósito los vidrios comprometidos (`pedido_pv_id` o `estado_compra` en ODC) y Pedidos PV no tenía edición de medidas. Caso que lo detonó: ODP-24466 / PV 7196, 952 → 828 mm (`scripts/2026-10-26_medidas_odp24466.ts`).
+
+**Cómo funciona.** Acción «Corregir medidas» en el menú de cada pedido de Gestión PV (`CorregirMedidasDialog.tsx`) → `PATCH /api/pedidos-pv/:id/corregir-medidas` (`corregirMedidasPV`):
+- **Quién:** `puede_gestionar_pv` o admin/root (`puedeCorregirMedidas`). Marketing no ve la acción (`useSoloLectura`) y el backend la corta por método.
+- **Cuándo:** PENDIENTE, ENVIADO o CONFIRMADO_PROVEEDOR (`ESTADOS_CORREGIBLES`). Desde LLEGADO el vidrio ya está fabricado —el templado no se recorta— y el camino es «Marcar problema» + reposición (409 con ese mensaje).
+- **Aceptación:** fuera de PENDIENTE el formulario ya salió al proveedor; exige `proveedor_acepto: true` (casilla en la ventana).
+- **Qué cambia, en una transacción:** `odp_items.ancho_mm/alto_mm` de los vidrios del pedido (solo los que cambian; un vidrio ajeno al pedido → 409), una fila de `pedido_pv_correccion` por vidrio, y si la OP estaba impresa `fecha_impresion_op`/`impresa_por_id` → NULL (vuelve a «Por Imprimir»). Bloqueo `FOR UPDATE` del pedido contra dos correcciones simultáneas.
+- **Después del commit:** aviso por socket a la asesora de la ODP (`PV_MEDIDAS_CORREGIDAS`), `emitirODPPatch` y `emitirCambio('pedidos_pv')`.
+- **Planos DT:** si la letra corregida tiene plano guardado (cuelga del pedido principal), la respuesta trae `planos_desactualizados` y la pantalla pide abrir «Diseñar» y guardar: la hoja PLANO del Excel sale de lo guardado.
+- **Qué NO cambia:** cantidad (podría exigir re-particionar en extensiones -1, -2), estado del pedido, SAP, cotización, valor. El Excel y el impreso del pedido leen `odp_items`: salen corregidos solos.
+- **Rastro:** «Ver detalle» del pedido lista las correcciones (`GET /:id/correcciones`); la pestaña Historial de la ficha ODP muestra el evento `PV_MEDIDAS_CORREGIDAS` agrupado por momento y usuario.
+- **Despliegue:** la tabla se creó con `scripts/2026-10-26_crear_tabla_pedido_pv_correccion.ts` (producción no ejecuta `sync`).
