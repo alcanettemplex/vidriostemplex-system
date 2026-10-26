@@ -2139,6 +2139,13 @@ export const getODPsAtascadas = async (_req: Request, res: Response) => {
               u.nombre_completo AS asesor,
               p.ruta_odp_id, p.estado_parada, p.ruta_id, p.estado_ruta,
               p.fecha_programada, p.motivo_pausa, p.descripcion_dano,
+              -- Instalador que el cierre con fotos propone por defecto (el jefe puede cambiarlo)
+              (SELECT rin.instalador_id
+                 FROM ruta_instaladores rin
+                 JOIN usuarios ui ON ui.id = rin.instalador_id
+                WHERE rin.ruta_id = p.ruta_id AND ui.rol = 'instalador' AND ui.activo
+                ORDER BY ui.nombre_completo
+                LIMIT 1) AS instalador_sugerido_id,
               (${HOY_BOGOTA_SQL} - p.fecha_programada) AS dias_vencida,
               CASE
                 WHEN o.estado_produccion = 'INSTALANDO'                 THEN 'INICIADA_SIN_FINALIZAR'
@@ -2280,34 +2287,61 @@ export const reprogramarAtascada = async (req: Request, res: Response) => {
   }
 };
 
+/** Antes de multer: no subir fotos a Cloudinary si la ODP ya no está pendiente de cierre. */
+export const prevalidarCierreAtascada = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const odp = await ODP.findByPk(req.params.odpId, { attributes: ['id', 'estado_produccion'] });
+    if (!odp) return res.status(404).json({ error: 'No se encontró la ODP. Actualiza la lista.' });
+    const estado = String(odp.get('estado_produccion'));
+    if (!ESTADOS_RESCATABLES.includes(estado)) {
+      return res.status(400).json({ error: `Esta ODP ya no está pendiente de cierre (ahora está en ${estado}). Actualiza la lista.` });
+    }
+    next();
+  } catch (e: any) {
+    console.error('prevalidarCierreAtascada:', e.message);
+    res.status(500).json({ error: 'No se pudo verificar la ODP. Intenta de nuevo en un momento.' });
+  }
+};
+
 // JEFE: cerrar administrativamente una instalación sin registrar (sí se instaló, pero el
-// instalador nunca la finalizó en la app). Replica el cierre de finalizarInstalacion sin
-// exigir evidencia fotográfica, a cambio de un motivo obligatorio que queda en el historial.
+// instalador nunca la finalizó en la app). Replica el cierre de finalizarInstalacion.
+// Las fotos son opcionales (2026-10-26): con fotos se registran como evidencia a nombre del
+// instalador elegido y el motivo es opcional; sin fotos, el motivo obligatorio es la única
+// trazabilidad del cierre.
 export const entregarAtascada = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
+  const fotos = (Array.isArray(req.files) ? req.files : []) as Express.Multer.File[];
+  const rechazar = async (status: number, error: string) => {
+    await t.rollback(); descartarFotosSubidas(fotos);
+    return res.status(status).json({ error });
+  };
   try {
     const { odpId } = req.params;
     const user = req.user!;
-    const motivo: string = (req.body?.motivo ?? '').trim();
+    const motivo: string = String(req.body?.motivo ?? '').trim();
 
-    // El motivo es la única trazabilidad de un cierre sin foto ni firma: sin él no se cierra.
-    if (motivo.length < 5) {
-      await t.rollback();
-      return res.status(400).json({
-        error: 'Indica el motivo del cierre (mínimo 5 caracteres). Queda registrado en el historial de la ODP.',
-      });
+    if (fotos.length === 0 && motivo.length < 5) {
+      return rechazar(400, 'Sin fotos, indica el motivo del cierre (mínimo 5 caracteres). Queda registrado en el historial de la ODP.');
+    }
+
+    let instalador: any = null;
+    if (fotos.length > 0) {
+      const instaladorId = Number(req.body?.instalador_id);
+      instalador = Number.isInteger(instaladorId) && instaladorId > 0
+        ? await Usuario.findByPk(instaladorId, { attributes: ['id', 'nombre_completo', 'rol', 'activo'], transaction: t })
+        : null;
+      if (!instalador || instalador.rol !== 'instalador' || !instalador.activo) {
+        return rechazar(400, 'Elige el instalador que hizo la instalación: las fotos quedan registradas a su nombre.');
+      }
     }
 
     const odp = await ODP.findByPk(odpId, { transaction: t }) as any;
-    if (!odp) { await t.rollback(); return res.status(404).json({ error: 'ODP no encontrada' }); }
+    if (!odp) return rechazar(404, 'ODP no encontrada');
 
     const estadoAnterior = odp.getDataValue('estado_produccion');
     // Revalidado dentro de la transacción: evita que dos jefes la cierren a la vez.
     if (!ESTADOS_RESCATABLES.includes(estadoAnterior)) {
-      await t.rollback();
-      return res.status(400).json({
-        error: `Esta ODP ya no está pendiente de cierre (ahora está en ${estadoAnterior}). Actualiza la lista.`,
-      });
+      return rechazar(400, `Esta ODP ya no está pendiente de cierre (ahora está en ${estadoAnterior}). Actualiza la lista.`);
     }
 
     const ahora = new Date();
@@ -2317,6 +2351,18 @@ export const entregarAtascada = async (req: Request, res: Response) => {
       await cerrarRutaSiSinPendientes(parada.ruta_id, ahora, t);
     }
 
+    for (const file of fotos) {
+      await EvidenciaInstalacion.create({
+        odp_id: odp.id,
+        instalador_id: instalador.id,
+        tipo_evidencia: 'foto',
+        archivo_url: file.path,
+      }, { transaction: t });
+    }
+
+    const evidencia = fotos.length > 0
+      ? `con ${fotos.length} ${fotos.length === 1 ? 'foto' : 'fotos'} (instalador: ${instalador.nombre_completo})`
+      : 'sin evidencia fotográfica';
     await odp.update({ estado_produccion: 'ENTREGADA' }, { transaction: t });
     await HistorialEstadoODP.create({
       odp_id: odp.id,
@@ -2324,7 +2370,7 @@ export const entregarAtascada = async (req: Request, res: Response) => {
       estado_nuevo: 'ENTREGADA',
       usuario_id: user.id,
       fecha: ahora,
-      observacion: `Cierre administrativo desde "Pendientes de cierre"${parada ? ` (ruta #${parada.ruta_id})` : ' (sin ruta asociada)'}: ${motivo}`,
+      observacion: `Cierre administrativo desde "Pendientes de cierre"${parada ? ` (ruta #${parada.ruta_id})` : ' (sin ruta asociada)'} ${evidencia}${motivo ? `: ${motivo}` : ''}`,
     }, { transaction: t });
 
     // Si era ODP de reproceso → reactivar el padre pausado (igual que finalizarInstalacion)
@@ -2358,8 +2404,9 @@ export const entregarAtascada = async (req: Request, res: Response) => {
 
     res.json({ ok: true });
   } catch (e: any) {
-    await t.rollback();
+    // Si el commit ya ocurrió, las fotos están referenciadas: no se borran.
+    if (!(t as any).finished) { await t.rollback(); descartarFotosSubidas(fotos); }
     console.error('entregarAtascada:', e.message);
-    res.status(500).json({ error: 'Error al marcar entregada' });
+    if (!res.headersSent) res.status(500).json({ error: 'No se pudo marcar la ODP como entregada. Intenta de nuevo; si persiste, avisa a sistemas.' });
   }
 };

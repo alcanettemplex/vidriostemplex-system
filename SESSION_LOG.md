@@ -7182,3 +7182,14 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **BD/backend:** sin cambios de esquema ni de código.
 - **Verificación:** `tsc` y ESLint; Playwright + Edge con escrituras interceptadas: quitar el último vidrio envía el PUT con los 4 vidrios; un vidrio incompleto muestra «Revisa vidrio 5 (el ancho, el alto)».
 - **Docs:** `docs/modulos/odp.md`.
+
+## 2026-10-26 — Fotos de la ODP-24437 y cierre de "Pendientes de cierre" con fotos opcionales
+
+**Pedido del usuario:** adjuntar 10 fotos (llegadas por WhatsApp) a la instalación de la ODP-24437, cerrada sin evidencia desde "Pendientes de cierre"; luego, que ese cierre pida fotos pero permita cerrar sin ellas.
+
+- **dato:** `scripts/2026-10-26_evidencias_odp24437.ts` — 10 fotos a Cloudinary (`templex_instalaciones`) + 10 filas en `evidencias_instalacion` a nombre de Jorge Giraldo (id 48, decisión del usuario; la ruta #589 tenía a Diego Madrid), fecha 23-oct. No toca estado, parada ni historial. Ejecutado y verificado (10 filas, 10 en `auditoria_log`).
+- **backend:** `rutas.controller.ts` — `prevalidarCierreAtascada` (antes de multer), `entregarAtascada` con fotos opcionales: con fotos exige `instalador_id` (instalador activo) y motivo opcional; sin fotos, motivo ≥ 5. Limpieza de Cloudinary ante rechazo o error. `getODPsAtascadas` devuelve `instalador_sugerido_id`. `rutas.routes.ts`: `prevalidarCierreAtascada, subirFotosEntrega` en la ruta.
+- **frontend:** `CerrarAtascadaModal.tsx` (fotos con miniaturas, selector de instalador con el de la ruta preseleccionado, botón «Confirmar entrega con N fotos» / «Cerrar sin fotos»); `JefeView.tsx` envía `FormData` con fotos comprimidas (`comprimirImagen`).
+- **BD:** sin cambios de esquema.
+- **Verificación:** `tsc` backend y frontend; SQL de `getODPsAtascadas` ejecutado en lectura (0 pendientes hoy) y subconsulta del sugerido probada en rutas 587-589. El cierre con fotos **no** se probó de punta a punta (no había ODP pendiente de cierre).
+- **Docs:** `docs/modulos/rutas-instalaciones.md`.

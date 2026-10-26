@@ -11,7 +11,8 @@ import {
 } from '../../../components/ui/icons';
 import ProgramarRutaModal from './ProgramarRutaModal';
 import InstaladorGestionTab from './InstaladorGestionTab';
-import CerrarAtascadaModal from './CerrarAtascadaModal';
+import CerrarAtascadaModal, { CierreAtascada } from './CerrarAtascadaModal';
+import { comprimirImagen } from '../../../utils/comprimirImagen';
 import AgendaTab from './AgendaTab';
 import RutaCard from './RutaCard';
 import ProgramadosTab, { SubTabProg } from './ProgramadosTab';
@@ -91,7 +92,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [preseleccionRuta, setPreseleccionRuta] = useState<{ odps: any[]; fecha: string } | null>(null);
   const [pauseModal, setPauseModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
   const [pauseMotivo, setPauseMotivo] = useState('');
-  const [cierreModal, setCierreModal] = useState<{ odpId: number; numeroOdp: string; cliente?: string | null } | null>(null);
+  const [cierreModal, setCierreModal] = useState<{ odpId: number; numeroOdp: string; cliente?: string | null; instaladorSugeridoId?: number | null } | null>(null);
   const [cerrando, setCerrando] = useState(false);
   const [finalizarModal, setFinalizarModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
   const [fotosFinalizar, setFotosFinalizar] = useState<File[]>([]);
@@ -296,12 +297,18 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
       cargar();
     } catch (e: any) { toast.error(e.response?.data?.error || 'Error al reprogramar'); }
   };
-  const handleConfirmarCierre = async (motivo: string) => {
+  const handleConfirmarCierre = async ({ motivo, fotos, instaladorId }: CierreAtascada) => {
     if (!cierreModal) return;
     setCerrando(true);
     try {
-      await axios.post(`${API}/api/rutas/atascadas/${cierreModal.odpId}/entregar`, { motivo }, { headers });
-      toast.success(`${cierreModal.numeroOdp} marcada como entregada`);
+      // Mismo formato que la entrega del instalador: fotos comprimidas en multipart `fotos`.
+      const fd = new FormData();
+      const comprimidas = await Promise.all(fotos.map(f => comprimirImagen(f)));
+      for (const f of comprimidas) fd.append('fotos', f);
+      fd.append('motivo', motivo);
+      if (instaladorId != null) fd.append('instalador_id', String(instaladorId));
+      await axios.post(`${API}/api/rutas/atascadas/${cierreModal.odpId}/entregar`, fd, { headers, timeout: 90_000 });
+      toast.success(`${cierreModal.numeroOdp} marcada como entregada${fotos.length ? ` con ${fotos.length} ${fotos.length === 1 ? 'foto' : 'fotos'}` : ''}`);
       setCierreModal(null);
       cargar();
     } catch (e: any) {
@@ -616,7 +623,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                             <RefreshCw className="w-3.5 h-3.5" /> Reprogramar
                           </button>
                           <button
-                            onClick={() => setCierreModal({ odpId: a.odp_id, numeroOdp: a.numero_odp, cliente: a.cliente })}
+                            onClick={() => setCierreModal({ odpId: a.odp_id, numeroOdp: a.numero_odp, cliente: a.cliente, instaladorSugeridoId: a.instalador_sugerido_id })}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
                           >
                             <PackageCheck className="w-3.5 h-3.5" /> Marcar entregada
@@ -831,11 +838,12 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         />
       )}
 
-      {/* Cierre administrativo de una instalación sin registrar (motivo obligatorio) */}
+      {/* Cierre administrativo de una instalación sin registrar (fotos opcionales; sin fotos, motivo obligatorio) */}
       {cierreModal && (
         <CerrarAtascadaModal
           numeroOdp={cierreModal.numeroOdp}
           cliente={cierreModal.cliente}
+          instaladorSugeridoId={cierreModal.instaladorSugeridoId}
           guardando={cerrando}
           onCancelar={() => setCierreModal(null)}
           onConfirmar={handleConfirmarCierre}

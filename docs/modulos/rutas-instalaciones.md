@@ -93,6 +93,25 @@ Decisiones del usuario tras el caso de las rutas #516/#517/#518:
    hizo · ruta cancelada / Con daño. El encabezado de una ruta cerrada dice "2 hechas · 1 sin
    hacer". `INCLUDE_RUTA_LISTA` trae `estado_produccion` de la ODP para eso.
 
+## Cierre desde "Pendientes de cierre" con fotos opcionales (2026-10-26)
+
+Caso: ODP-24437 se cerró por "Marcar entregada" y quedó ENTREGADA sin ninguna evidencia; las
+10 fotos llegaron después por WhatsApp y se cargaron con
+`scripts/2026-10-26_evidencias_odp24437.ts` (a nombre de Jorge Giraldo, que no era el
+instalador de la ruta #589).
+
+- `POST /api/rutas/atascadas/:odpId/entregar` acepta multipart `fotos` (máx. 10, mismo
+  `subirFotosEntrega` de la app del instalador). `prevalidarCierreAtascada` corre **antes** de
+  multer para no subir fotos a Cloudinary si la ODP ya no está en `ESTADOS_RESCATABLES`.
+- **Con fotos:** `instalador_id` obligatorio (usuario activo con rol `instalador`); se crea una
+  fila de `evidencias_instalacion` por foto en la misma transacción. Motivo opcional.
+  **Sin fotos:** motivo obligatorio (≥ 5 caracteres), como antes. Decisión del usuario.
+- El historial dice `… con N fotos (instalador: X)` o `… sin evidencia fotográfica: <motivo>`.
+- Cualquier rechazo o error antes del commit borra de Cloudinary las fotos ya subidas.
+- `getODPsAtascadas` devuelve `instalador_sugerido_id` (primer instalador activo de la ruta,
+  por nombre); el modal lo preselecciona y lista todos los instaladores de `GET /rutas/personal`.
+- La fecha de la evidencia es la de la subida, no la de la instalación (igual que la app).
+
 ## Paradas de rutas canceladas (2026-10-07)
 
 Caso: ODP-24363 ENTREGADA mostraba "Pendiente" en el tab Instalación de su ficha. Su única
