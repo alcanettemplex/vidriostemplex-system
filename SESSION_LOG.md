@@ -7193,3 +7193,11 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **BD:** sin cambios de esquema.
 - **Verificación:** `tsc` backend y frontend; SQL de `getODPsAtascadas` ejecutado en lectura (0 pendientes hoy) y subconsulta del sugerido probada en rutas 587-589. El cierre con fotos **no** se probó de punta a punta (no había ODP pendiente de cierre).
 - **Docs:** `docs/modulos/rutas-instalaciones.md`.
+
+## 2026-10-26 (2) — Lead #3224 (Diego Valencia) vinculado a la ODP-24473
+
+- **dato:** `scripts/2026-10-26_vincular_lead3224_odp24473.ts` — `odp_id` 739, `cliente_id` 1759 (Omaira Alvarez de Valencia, cliente de la ODP) y montos del lead igualados al `valor_total` de la ODP ($2.740.719; el lead tenía $2.740.419). Evento SEGUIMIENTO como el botón «Vincular ODP». Mismo teléfono y asesor (Juan Diego Cataño). Ejecutado y verificado; auditado como script.
+
+## 2026-10-26 (3) — Leads de John Fredy Agudelo vinculados a sus ODP
+
+- **dato:** `scripts/2026-10-26_vincular_leads_jfagudelo.ts`, mismo criterio que el lead #3224: lead #3267 (Clínica Aurora) → ODP-24470, cliente 1756, $789.478 (tenía $789.476); lead #3200 (Edwin Acosta) → ODP-24469, cliente 1757, $3.517.623 (tenía $0). Guardas de estado, ODP libre y teléfono igual; una transacción. Ejecutado y verificado.
