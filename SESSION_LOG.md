@@ -7240,3 +7240,10 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **frontend:** `modelo/plantillas.ts` — «Puerta esquina + perf. A · manija Roma 150», «A · sin manija», «B · manija Roma 150», «B · sin manija» (cerradura 75×90 redonda, perf. Ø16 a 135/25, Roma a 150 del canto). Detalle en `docs/modulos/detalles-tecnicos.md`.
 - **Verificación:** `tsc` del frontend; `validarPlano` y `centroPerforacion` corridos sobre las 4 (sin errores; aviso de borde en la Ø16, 17 mm).
 - **Pendiente:** confirmar con el taller la posición de la Ø16 (y si las plantillas A/B viejas, a 60/135, están mal). Sin plantilla de vidrio circular (diámetro) en «Formas y perforaciones»: el contorno no soporta círculo completo.
+
+## 2026-10-27 (2) — Detalles Técnicos: vidrio circular
+
+- **Decisiones del usuario:** el círculo cuenta como un diámetro (2 radios); m² = D × D; cota «Ø» y además ANCHO y ALTO; chaflán bloqueado; se pueden agregar variantes.
+- **frontend:** contorno `circulo` en `tipos.ts`/`constructores.ts`/`geometria.ts` (contorno, esquinas, conteos), reglas en `validaciones.ts`, opción «Círculo» + campo «Diámetro» en `EditorPlano.tsx`, cota Ø y líneas de referencia en `PlanoSVG.tsx`, plantillas «Círculo» y «Círculo con perforación central».
+- **backend:** Zod del contorno acepta `circulo` (`detalle_tecnico.controller.ts`). Sin cambios de BD.
+- **Verificación:** `tsc` frontend y backend, ESLint de los archivos tocados; `validarPlano`/`conteosDe`/`medidasCaja` y render real de `PlanoSVG` (Edge headless) sobre las plantillas nuevas: 2 radios, m² D×D, error con ancho ≠ alto, con chaflán y con perforación fuera del círculo. No se probó guardar en un pedido real contra el backend.

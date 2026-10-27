@@ -49,6 +49,8 @@ const contorno = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('desplome-superior'), lado: z.enum(['izq', 'der']), altoLado: num }).strict(),
   // Remate en arco de medio punto (2026-10-20): el canto `lado` completo es un semicírculo.
   z.object({ tipo: z.literal('arco'), lado: z.enum(['sup', 'der', 'inf', 'izq']) }).strict(),
+  // Círculo completo (2026-10-27): el diámetro es `ancho` (= `alto`).
+  z.object({ tipo: z.literal('circulo') }).strict(),
 ]);
 const piezaSchema = z.object({
   ancho: num.positive(),

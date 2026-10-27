@@ -45,6 +45,7 @@ export const esq = (p: Partial<Record<EsquinaId, TratamientoEsquina>> = {}): Rec
 export const RECT: Contorno = { tipo: 'rectangular' };
 export const desplome = (lado: 'izq' | 'der', anchoSup: number): Contorno => ({ tipo: 'desplome-lateral', lado, anchoSup });
 export const arco = (lado: BordeId): Contorno => ({ tipo: 'arco', lado });
+export const CIRCULO: Contorno = { tipo: 'circulo' };
 
 export const pieza = (ancho: number, alto: number, operaciones: Operacion[] = [], esquinas = esq(), contorno: Contorno = RECT): Pieza => ({
   ancho,

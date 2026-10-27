@@ -16,6 +16,7 @@ import {
   bisagras,
   boton,
   cierrePuerta,
+  CIRCULO,
   cuatroEsquinas,
   desplome,
   dsp,
@@ -129,6 +130,9 @@ export const PLANTILLAS: Plantilla[] = [
   { id: 'boquete', nombre: 'Boquete de esquina 300×300', hoja: 'BOQUETE', familia: 'Formas y perforaciones', descripcion: 'Corte en L de 300×300 mm en la esquina superior izquierda.', pieza: pieza(1000, 800, [], esq({ si: mue(300, 300) })) },
   { id: 'boquete-esq', nombre: 'Boquete de esquina inferior', hoja: 'BOQUETE ESQ.', familia: 'Formas y perforaciones', descripcion: 'Corte rectangular pequeño en la esquina inferior izquierda.', pieza: pieza(500, 1900, [], esq({ ii: mue(60, 100) })) },
   { id: 'semicirculo', nombre: 'Semicírculo', hoja: '', familia: 'Formas y perforaciones', descripcion: 'Medio círculo: el lado derecho completo en arco. El ancho es la mitad del alto.', pieza: pieza(935, 1870, [NOTA('BORDE PULIDO MATE', 45, 50)], esq(), arco('der')) },
+  // Círculos (2026-10-27): el diámetro es el ancho y el alto; en el pedido cuenta 2 radios.
+  { id: 'circulo', nombre: 'Círculo', hoja: '', familia: 'Formas y perforaciones', descripcion: 'Vidrio circular. Se pide por el diámetro: ancho y alto iguales.', selloEnCanto: true, pieza: pieza(800, 800, [], esq(), CIRCULO) },
+  { id: 'circulo-perf-centro', nombre: 'Círculo con perforación central', hoja: '', familia: 'Formas y perforaciones', descripcion: 'Vidrio circular con 1 perf. Ø50 en el centro (p. ej. mesa con parasol).', selloEnCanto: true, pieza: pieza(800, 800, [PF(50, 0, 'centro', 0, 'centro')], esq(), CIRCULO) },
   { id: 'deschor', nombre: 'Descuadre horizontal', hoja: 'DESCHOR', familia: 'Formas y perforaciones', descripcion: 'Canto superior inclinado (lado derecho más bajo).', pieza: pieza(1200, 700, [], esq(), { tipo: 'desplome-superior', lado: 'der', altoLado: 520 }) },
 ];
 

@@ -61,8 +61,12 @@ export function radioArco(p: Pieza): number {
   return (esHorizontal(b) ? p.ancho : p.alto) / 2;
 }
 
-/** Tratamientos de esquina que valen: las dos esquinas del canto curvo las reemplaza el arco. */
+export const esCirculo = (p: Pieza) => p.contorno.tipo === 'circulo';
+
+/** Tratamientos de esquina que valen: las dos esquinas del canto curvo las reemplaza el arco, y en
+ *  un círculo no hay esquinas. */
 export function esquinasDe(p: Pieza): Record<EsquinaId, TratamientoEsquina> {
+  if (esCirculo(p)) return { si: { tipo: 'recta' }, sd: { tipo: 'recta' }, id: { tipo: 'recta' }, ii: { tipo: 'recta' } };
   const b = bordeCurvo(p);
   if (!b) return p.esquinas;
   const [e1, e2] = EXTREMOS[b];
@@ -243,6 +247,17 @@ function puntosBoquetes(bid: BordeId, borde: Borde, p: Pieza): Vert[] {
 
 /** Contorno completo del vidrio (esquinas tratadas + boquetes + medias perforaciones), en sentido horario. */
 export function contornoDe(p: Pieza): Vert[] {
+  // Círculo: de arriba a abajo y de vuelta por dos semicírculos (horario). Los vértices base
+  // siguen siendo el cuadrado que lo envuelve: de ahí salen ANCHO, ALTO, m² y las perforaciones.
+  if (esCirculo(p)) {
+    const c = { x: p.ancho / 2, y: p.alto / 2 };
+    const r = p.ancho / 2;
+    return [
+      { x: c.x, y: c.y - r },
+      { x: c.x, y: c.y + r, circ: { c, r, horario: true } },
+      { x: c.x, y: c.y - r, circ: { c, r, horario: true } },
+    ];
+  }
   const v = verticesBase(p);
   const bs = bordesDe(v);
   const esquinas = esquinasDe(p);
@@ -369,7 +384,8 @@ export function conteosDe(p: Pieza): Conteos {
     boq: p.operaciones.filter((o) => o.tipo === 'boquete').length + esq.filter((e) => e.tipo === 'muesca').length,
     dsp: esq.filter((e) => e.tipo === 'despunte').length,
     // El arco cuenta como un radio (decisión del usuario, 2026-10-20).
-    radios: esq.filter((e) => e.tipo === 'radio').length + (curvo ? 1 : 0),
+    // El círculo, como un diámetro: 2 radios (decisión del usuario, 2026-10-27).
+    radios: esCirculo(p) ? 2 : esq.filter((e) => e.tipo === 'radio').length + (curvo ? 1 : 0),
     chaflanMl: p.operaciones.reduce((s, o) => (o.tipo === 'chaflan' ? s + largoCanto(o.borde) / 1000 : s), 0),
     m2: (caja.ancho * caja.alto) / 1e6,
   };

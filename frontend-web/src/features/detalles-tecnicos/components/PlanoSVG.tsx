@@ -8,6 +8,7 @@ import {
   centroPerforacion,
   contornoDe,
   encuadre,
+  esCirculo,
   esHorizontal,
   esquinasDe,
   geometriaAlivios,
@@ -19,6 +20,7 @@ import {
   ORDEN_ESQUINAS,
   origenBoquete,
   pathDe,
+  puntosSobreArco,
   radioArco,
   sub,
   unit,
@@ -270,13 +272,17 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
   const rVisual = (d: number) => Math.max(d / 2, conCotas ? f * 0.28 : m * 0.01);
   const fc = f * 0.8;
   const curvo = bordeCurvo(pieza);
+  const circulo = esCirculo(pieza);
 
   const elementos: ReactNode[] = [];
   const numeros: ReactNode[] = [];
 
   // Espacio ocupado: ningún número tapa el borde del vidrio, una perforación (con su cruz) ni otro número.
   const espacio = crearColocador();
-  contorno.forEach((p, i) => espacio.linea(p, contorno[(i + 1) % contorno.length]));
+  // El círculo se anota por puntos sobre la circunferencia: sus vértices son los extremos de un
+  // diámetro y la recta entre ellos cruzaría el vidrio por el medio.
+  const bordeAnotado = circulo ? contorno.flatMap((p, i) => (p.circ && i > 0 ? puntosSobreArco(contorno[i - 1], p.circ, p) : [p])) : contorno;
+  bordeAnotado.forEach((p, i) => espacio.linea(p, bordeAnotado[(i + 1) % bordeAnotado.length]));
   perfs.forEach((o, i) => {
     const r = rVisual(o.d) * 1.6;
     espacio.ocupar({ x1: centros[i].x - r, y1: centros[i].y - r, x2: centros[i].x + r, y2: centros[i].y + r });
@@ -326,14 +332,15 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     };
     const yInf = caja.maxY + off;
     generales.push(
-      ext({ x: v.ii.x, y: v.ii.y + f * 0.4 }, { x: v.ii.x, y: yInf + f * 0.5 }, 'e1'),
-      ext({ x: v.id.x, y: v.id.y + f * 0.4 }, { x: v.id.x, y: yInf + f * 0.5 }, 'e2'),
+      // En el círculo las líneas de referencia salen de los puntos donde el cuadrado lo toca.
+      ext(circulo ? { x: v.ii.x, y: centro.y } : { x: v.ii.x, y: v.ii.y + f * 0.4 }, { x: v.ii.x, y: yInf + f * 0.5 }, 'e1'),
+      ext(circulo ? { x: v.id.x, y: centro.y } : { x: v.id.x, y: v.id.y + f * 0.4 }, { x: v.id.x, y: yInf + f * 0.5 }, 'e2'),
       cota('ancho', { a: { x: v.ii.x, y: yInf }, b: { x: v.id.x, y: yInf }, texto: palabraAbajo ? 'ANCHO' : fmt(v.id.x - v.ii.x), f: f * 1.1, lado: 1, color: TINTA }),
     );
     const xIzq = caja.minX - off;
     generales.push(
-      ext({ x: v.si.x - f * 0.4, y: v.si.y }, { x: xIzq - f * 0.5, y: v.si.y }, 'e3'),
-      ext({ x: v.ii.x - f * 0.4, y: v.ii.y }, { x: xIzq - f * 0.5, y: v.ii.y }, 'e4'),
+      ext(circulo ? { x: centro.x, y: v.si.y } : { x: v.si.x - f * 0.4, y: v.si.y }, { x: xIzq - f * 0.5, y: v.si.y }, 'e3'),
+      ext(circulo ? { x: centro.x, y: v.ii.y } : { x: v.ii.x - f * 0.4, y: v.ii.y }, { x: xIzq - f * 0.5, y: v.ii.y }, 'e4'),
       cota('alto', { a: { x: xIzq, y: v.ii.y }, b: { x: xIzq, y: v.si.y }, texto: pieza.rotulos?.alto ? 'ALTO' : fmt(v.ii.y - v.si.y), f: f * 1.1, lado: -1, color: TINTA }),
     );
     if (pieza.contorno.tipo === 'desplome-lateral') {
@@ -768,6 +775,29 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
         <circle cx={cA.x} cy={cA.y} r={f * 0.15} fill={COTA} />
         <Texto p={add(cA, add(mul(u, rA * 0.62), mul({ x: -u.y, y: u.x }, -fc * 0.8)))} f={fc} color={COTA} bold>
           {`R ${fmt(rA)}`}
+        </Texto>
+      </g>,
+    );
+  }
+
+  // ── Diámetro del círculo ───────────────────────────────────────────────────
+  // Línea de diámetro a 45° (no choca con una perforación central ni con las cotas ANCHO / ALTO).
+  if (conCotas && circulo) {
+    const r = W / 2;
+    const u = unit({ x: 1, y: -1 });
+    const a = add(centro, mul(u, -r));
+    const b = add(centro, mul(u, r));
+    const texto = `Ø ${pieza.rotulos?.ancho ? 'ANCHO' : fmt(W)}`;
+    // Del tamaño de las cotas ANCHO / ALTO: es la medida principal del vidrio.
+    const fd = f * 1.1;
+    const pTxt = add(centro, add(mul(u, r * 0.5), mul({ x: -u.y, y: u.x }, -fd * 0.9)));
+    ocuparTexto(pTxt, texto, fd);
+    elementos.push(
+      <g key="diametro" pointerEvents="none">
+        <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={COTA} strokeWidth={0.6} vectorEffect="non-scaling-stroke" />
+        <circle cx={centro.x} cy={centro.y} r={f * 0.15} fill={COTA} />
+        <Texto p={pTxt} f={fd} color={TINTA} bold>
+          {texto}
         </Texto>
       </g>,
     );

@@ -195,7 +195,10 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
     if (tipo === 'desplome-lateral') setPieza({ contorno: { tipo, lado: 'der', anchoSup: Math.round(p.ancho * 0.95) } });
     if (tipo === 'desplome-superior') setPieza({ contorno: { tipo, lado: 'der', altoLado: Math.round(p.alto * 0.85) } });
     if (tipo === 'arco') ponerArco('der');
+    // En modo pedido las medidas son del ítem: si no son iguales, el aviso pide corregirlo en la ODP.
+    if (tipo === 'circulo') setPieza({ contorno: { tipo }, ...(modoPedido ? {} : { alto: p.ancho }) });
   };
+  const circulo = p.contorno.tipo === 'circulo';
   /** El arco reemplaza las dos esquinas de su canto: quedan rectas (y deshabilitadas abajo). */
   const ponerArco = (lado: BordeId) => {
     const [e1, e2] = EXTREMOS[lado];
@@ -548,8 +551,19 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               { v: 'desplome-lateral', t: 'Con un lado inclinado (desplome)' },
               { v: 'desplome-superior', t: 'Con el borde de arriba inclinado (descuadre)' },
               { v: 'arco', t: 'Con un lado en arco (semicírculo)' },
+              { v: 'circulo', t: 'Círculo' },
             ]}
           />
+          {circulo && (
+            <Mm
+              label="Diámetro"
+              width={130}
+              value={p.ancho}
+              onChange={(n) => setPieza({ ancho: n, alto: n }, 'diametro')}
+              disabled={modoPedido}
+              ayuda={modoPedido ? 'Del pedido' : undefined}
+            />
+          )}
           {modoPedido && desplome && (
             <Frase>
               <Typography>Más ancho</Typography>
@@ -563,7 +577,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               />
             </Frase>
           )}
-          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          {!circulo && <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
             <Mm
               label={desplome ? 'Ancho abajo' : 'Ancho'}
               width={130}
@@ -593,7 +607,12 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
             {p.contorno.tipo === 'desplome-superior' && (
               <Mm label={`Alto (lado ${p.contorno.lado === 'der' ? 'derecho' : 'izquierdo'})`} width={170} value={p.contorno.altoLado} onChange={(n) => setPieza({ contorno: { ...(p.contorno as Extract<Contorno, { tipo: 'desplome-superior' }>), altoLado: n } }, 'altoLado')} />
             )}
-          </Stack>
+          </Stack>}
+          {circulo && (
+            <Typography variant="caption" color="text.secondary">
+              El ancho y el alto del pedido son el diámetro. En la orden cuenta como 2 radios; no lleva esquinas, boquetes ni chaflán.
+            </Typography>
+          )}
           {p.contorno.tipo === 'desplome-lateral' && (
             // Se pregunta como lo dice el taller (el lado a escuadra); se guarda el lado inclinado,
             // que es el opuesto: el formato de `pieza` no cambia.
@@ -627,7 +646,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
         </Stack>
       </Seccion>
 
-      <Seccion titulo="Esquinas" resumen={plural(ESQUINAS.filter((e) => p.esquinas[e.id].tipo !== 'recta').length, 'con corte', 'con corte')}>
+      {!circulo && <Seccion titulo="Esquinas" resumen={plural(ESQUINAS.filter((e) => p.esquinas[e.id].tipo !== 'recta').length, 'con corte', 'con corte')}>
         <Stack spacing={1.5}>
           {ESQUINAS.map(({ id, nombre, bordeH, bordeV }) => {
             const t = p.esquinas[id];
@@ -677,7 +696,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
             );
           })}
         </Stack>
-      </Seccion>
+      </Seccion>}
 
       <Seccion titulo="Perforaciones y cortes" resumen={plural(p.operaciones.length, 'elemento', 'elementos')} abierta={procesosAbierto} onCambiar={setProcesosAbierto}>
         <Stack spacing={1}>
@@ -698,6 +717,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               Perforación
             </Button>
             <Button
+              disabled={circulo}
               size="small"
               variant="outlined"
               startIcon={<AddIcon size={18} />}
@@ -706,6 +726,7 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               Media perforación
             </Button>
             <Button
+              disabled={circulo}
               size="small"
               variant="outlined"
               startIcon={<AddIcon size={18} />}
@@ -713,7 +734,8 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
             >
               Boquete
             </Button>
-            <Button size="small" variant="outlined" startIcon={<AddIcon size={18} />} onClick={() => agregarOps((pz) => ({ ...pz, operaciones: [...pz.operaciones, { id: nuevoId(), tipo: 'chaflan', borde: 'sup', ancho: 10 }] }))}>
+            <Button
+              disabled={circulo} size="small" variant="outlined" startIcon={<AddIcon size={18} />} onClick={() => agregarOps((pz) => ({ ...pz, operaciones: [...pz.operaciones, { id: nuevoId(), tipo: 'chaflan', borde: 'sup', ancho: 10 }] }))}>
               Chaflán
             </Button>
             <Button size="small" variant="outlined" startIcon={<AddIcon size={18} />} onClick={() => agregarOps((pz) => ({ ...pz, operaciones: [...pz.operaciones, { id: nuevoId(), tipo: 'nota', texto: 'NOTA', x: 50, y: 40 }] }))}>

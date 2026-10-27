@@ -6,6 +6,7 @@ import {
   BORDE_SALIDA,
   centroPerforacion,
   contornoDe,
+  esCirculo,
   espesorNumerico,
   esHorizontal,
   esquinasDe,
@@ -159,6 +160,17 @@ export function validarPlano(plano: Plano): Observacion[] {
   }
   if (p.contorno.tipo === 'desplome-superior' && !(p.contorno.altoLado > 0)) {
     obs.push({ nivel: 'error', texto: 'Falta el alto del lado más bajo.' });
+  }
+  if (esCirculo(p)) {
+    if (Math.abs(p.ancho - p.alto) > 0.01) {
+      obs.push({ nivel: 'error', texto: `Un círculo mide lo mismo de ancho y de alto (el diámetro): hoy mide ${p.ancho} × ${p.alto} mm.` });
+    }
+    for (const o of p.operaciones) {
+      if (o.tipo === 'boquete' || o.tipo === 'media-perforacion' || o.tipo === 'chaflan') {
+        const que = o.tipo === 'boquete' ? 'un boquete' : o.tipo === 'chaflan' ? 'un chaflán' : 'una media perforación';
+        obs.push({ nivel: 'error', texto: `En un vidrio circular no se puede hacer ${que}. Quítalo o cambia la forma del vidrio.`, opId: o.id });
+      }
+    }
   }
   const curvo = bordeCurvo(p);
   if (curvo) {

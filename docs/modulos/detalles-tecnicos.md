@@ -324,3 +324,13 @@ Decisiones del usuario: la celda **A5** de cada hoja «PLANO X» dice `DISEÑADO
   - **Roma 150:** `manijaRoma(150)` (Ø14 a 150 del canto, 800 y 1200). **Sin manija:** se quitan solo las 2 Ø14; la cerradura se queda.
 - **Perf. Ø16 a 135 del canto y 25 del borde** (lectura del plano del taller; queda por fuera de la muesca de 110). El validador da **aviso** de borde (17 mm < 20 mm recomendado con espesor 10) — es aviso, no bloquea. **Pendiente de confirmar con el taller**, igual que si las plantillas viejas «Puerta esquina + perf. A/B» (Ø16 a 60 del canto y 135 de arriba) están bien: no se tocaron.
 - Catálogo: **68** plantillas.
+
+## Vidrio circular (2026-10-27)
+
+- **Contorno nuevo `{ tipo: 'circulo' }`** (frontend `tipos.ts` + Zod del backend en `detalle_tecnico.controller.ts`). El diámetro es `ancho`, que debe ser igual a `alto`. Los vértices base siguen siendo el **cuadrado que lo envuelve**: de ahí salen ANCHO/ALTO del pedido, el m² (**D × D**, decisión del usuario) y las referencias de las perforaciones. `contornoDe` lo traza con dos semicírculos (`circ`), así `pathDe` y el polígono de validación lo leen sin código propio.
+- **Conteo: 2 radios** («un círculo como un diámetro», decisión del usuario). Las esquinas no aplican (`esquinasDe` las devuelve rectas).
+- **Bloqueado:** boquete, media perforación y **chaflán** (error en `validarPlano`; los botones se deshabilitan en el editor). Error también si ancho ≠ alto — en modo pedido las medidas vienen del ítem, así que se corrige en la ODP.
+- **Editor:** opción «Círculo» en «Forma del vidrio», un solo campo «Diámetro» y sin sección Esquinas.
+- **Plano:** cotas ANCHO y ALTO (sus líneas de referencia salen de los puntos de tangencia) **y** «Ø D» sobre un diámetro a 45°, que no choca con una perforación central. Con `rotulos.ancho` dice «Ø ANCHO». El colocador de textos anota la circunferencia por puntos (sus dos vértices son los extremos de un diámetro y la recta entre ellos cruzaría el vidrio).
+- **Plantillas:** «Círculo» (Ø800) y «Círculo con perforación central» (Ø800 + perf. Ø50 al centro) en Formas y perforaciones. Catálogo: **70**.
+- **Despliegue:** el backend debe salir antes o junto con el frontend; si no, guardar un círculo en modo pedido responde 400 (Zod `.strict()`).

@@ -28,7 +28,12 @@ export type Contorno =
    * de ese canto. Si el lado recto mide exactamente ese radio, el vidrio es un semicírculo. El radio
    * sale de las medidas, así que el arco se ajusta solo al cambiar el vidrio (2026-10-20).
    */
-  | { tipo: 'arco'; lado: BordeId };
+  | { tipo: 'arco'; lado: BordeId }
+  /**
+   * Círculo completo (2026-10-27): el diámetro es `ancho`, que debe ser igual a `alto`. Las esquinas
+   * no aplican y en el pedido cuenta como un diámetro = 2 radios (decisión del usuario).
+   */
+  | { tipo: 'circulo' };
 
 /** Procesos que forman un mismo herraje (p. ej. las 4 perforaciones de un par de bisagras): se mueven juntos. */
 export interface Grupo {
