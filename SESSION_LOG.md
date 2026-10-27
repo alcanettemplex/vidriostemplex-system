@@ -7234,3 +7234,9 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
   - **Hallazgo:** producción no ejecuta `sequelize.sync()` (solo desarrollo). CLAUDE.md decía que crea tablas nuevas sin aclararlo; corregido. Sin el script, la pestaña Historial de toda ODP habría respondido 500 al desplegar.
   - **Verificación:** `tsc` backend y frontend, ESLint de los 3 archivos; reglas, modelo y consultas con includes probados contra la BD dentro de una transacción con rollback (0 filas quedaron). El endpoint completo **no** se probó de punta a punta (levantar el backend local apunta a la BD de producción con los crons activos).
 - **dato:** `scripts/2026-10-26_fecha_pv7191_odp24457.ts` — PV 7191 (ODP-24457, Vitelsa) entrega prometida 2026-10-22 → 2026-11-03, `alerta_enviada` → false (el cron avisa una sola vez) y nota en observaciones. Auditoría 1/1.
+
+## 2026-10-27 — Detalles Técnicos: 4 plantillas de puerta esquina + perf. A/B
+
+- **frontend:** `modelo/plantillas.ts` — «Puerta esquina + perf. A · manija Roma 150», «A · sin manija», «B · manija Roma 150», «B · sin manija» (cerradura 75×90 redonda, perf. Ø16 a 135/25, Roma a 150 del canto). Detalle en `docs/modulos/detalles-tecnicos.md`.
+- **Verificación:** `tsc` del frontend; `validarPlano` y `centroPerforacion` corridos sobre las 4 (sin errores; aviso de borde en la Ø16, 17 mm).
+- **Pendiente:** confirmar con el taller la posición de la Ø16 (y si las plantillas A/B viejas, a 60/135, están mal). Sin plantilla de vidrio circular (diámetro) en «Formas y perforaciones»: el contorno no soporta círculo completo.

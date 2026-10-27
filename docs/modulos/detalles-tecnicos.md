@@ -315,3 +315,12 @@ Decisiones del usuario: la celda **A5** de cada hoja «PLANO X» dice `DISEÑADO
 - Backend: `disenadoresDe(planos)` en `utils/detalleTecnico.ts` (una consulta para todos los planos). La usan `agregarPlanosAlExcel` (pasa el nombre a `hojaPlano`) y `GET /api/detalle-tecnico/pedido/:id` (cada plano trae `disenado_por`). `EncabezadoPlano` ya no lleva `proveedor`. Sin cambios de BD: `actualizado_por` existe desde el 2026-10-16.
 - Frontend: `HojaDetalle` recibe `disenadoPor`; `HojasPedido` y `DisenoPedidoPage` lo toman del plano guardado (un plano nuevo sin guardar muestra «—» hasta guardarlo). Modo libre: el usuario conectado (`auth.user.nombre`), en la hoja y en `exportarExcel(pedido, disenadoPor)`.
 - Un plano sin `actualizado_por` sale con «DISEÑADO POR: —».
+
+## Puertas esquina + perf. A/B con cerradura redonda (2026-10-27)
+
+- **4 plantillas nuevas** en Puertas, del plano del taller (sin hoja en el Excel): `pta-esq-perf-a-roma150`, `pta-esq-perf-a-sin-manija`, `pta-esq-perf-b-roma150`, `pta-esq-perf-b-sin-manija`. Todas con **cerradura 75×90 de fondo redondo** a 1000 (la misma de `pta-esqred-roma40`).
+  - **A:** muesca superior 110×35 + perf. Ø16, muesca inferior **150×35 sin perforación**.
+  - **B:** muescas superior e inferior 110×35, cada una con su perf. Ø16.
+  - **Roma 150:** `manijaRoma(150)` (Ø14 a 150 del canto, 800 y 1200). **Sin manija:** se quitan solo las 2 Ø14; la cerradura se queda.
+- **Perf. Ø16 a 135 del canto y 25 del borde** (lectura del plano del taller; queda por fuera de la muesca de 110). El validador da **aviso** de borde (17 mm < 20 mm recomendado con espesor 10) — es aviso, no bloquea. **Pendiente de confirmar con el taller**, igual que si las plantillas viejas «Puerta esquina + perf. A/B» (Ø16 a 60 del canto y 135 de arriba) están bien: no se tocaron.
+- Catálogo: **68** plantillas.
