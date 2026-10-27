@@ -7247,3 +7247,17 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **frontend:** contorno `circulo` en `tipos.ts`/`constructores.ts`/`geometria.ts` (contorno, esquinas, conteos), reglas en `validaciones.ts`, opción «Círculo» + campo «Diámetro» en `EditorPlano.tsx`, cota Ø y líneas de referencia en `PlanoSVG.tsx`, plantillas «Círculo» y «Círculo con perforación central».
 - **backend:** Zod del contorno acepta `circulo` (`detalle_tecnico.controller.ts`). Sin cambios de BD.
 - **Verificación:** `tsc` frontend y backend, ESLint de los archivos tocados; `validarPlano`/`conteosDe`/`medidasCaja` y render real de `PlanoSVG` (Edge headless) sobre las plantillas nuevas: 2 radios, m² D×D, error con ancho ≠ alto, con chaflán y con perforación fuera del círculo. No se probó guardar en un pedido real contra el backend.
+
+## 2026-10-27 (3) — Detalles Técnicos: plano con estilo «calco del taller»
+
+- **Decisión del usuario:** el estilo del plano se basa en la propuesta 6 (calco del plano del taller). Las rondas de propuestas se mostraron como artefactos.
+- **frontend:** `PlanoSVG.tsx`:
+  - vidrio en blanco y tinta negra;
+  - remates rectos y líneas auxiliares en negro;
+  - ANCHO / ALTO / Ø en negrita a 1,3 f;
+  - azul solo al seleccionar (chaflán incluido);
+  - perforaciones con radio mínimo de 0,4 f, limitado por la separación entre vecinas.
+
+  Detalle en `docs/modulos/detalles-tecnicos.md`.
+- **Verificación:** `tsc` del frontend. Render de las 70 plantillas con `renderToStaticMarkup`: 0 errores, ningún color azul en el SVG. Revisión visual (Edge headless) de las puertas, flauta, Optiglass, fijos, tablero y círculo.
+- **Pendiente:** agrandar muescas y boquetes (descartado por ahora: el arrastre y las cotas usan la geometría real). Los planos guardados se actualizan al volver a guardarlos.

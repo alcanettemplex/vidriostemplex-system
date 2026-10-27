@@ -334,3 +334,14 @@ Decisiones del usuario: la celda **A5** de cada hoja «PLANO X» dice `DISEÑADO
 - **Plano:** cotas ANCHO y ALTO (sus líneas de referencia salen de los puntos de tangencia) **y** «Ø D» sobre un diámetro a 45°, que no choca con una perforación central. Con `rotulos.ancho` dice «Ø ANCHO». El colocador de textos anota la circunferencia por puntos (sus dos vértices son los extremos de un diámetro y la recta entre ellos cruzaría el vidrio).
 - **Plantillas:** «Círculo» (Ø800) y «Círculo con perforación central» (Ø800 + perf. Ø50 al centro) en Formas y perforaciones. Catálogo: **70**.
 - **Despliegue:** el backend debe salir antes o junto con el frontend; si no, guardar un círculo en modo pedido responde 400 (Zod `.strict()`).
+
+## Estilo «calco del taller» (2026-10-27)
+
+Decisión del usuario, tras varias rondas de propuestas: el plano se dibuja como el del taller (propuesta 6). Solo cambia el dibujo de `PlanoSVG.tsx`. Geometría, conteos y validación no se tocaron.
+- **Vidrio en blanco** (`VIDRIO = '#fff'`, antes celeste) y **todo en tinta negra** (`TINTA`/`COTA = '#111'`). Las líneas auxiliares también van en negro (punteado 2 2); antes iban en gris.
+- **Remates rectos**: las marcas de las cotas son perpendiculares a la línea; antes eran oblicuas.
+- **ANCHO, ALTO, la segunda cota de un desplome y el Ø del círculo** van en negrita y a `K_GENERAL = 1.3 f`; antes, 1,1 f sin negrita.
+- **El azul (`ACENTO`) queda solo para seleccionar en el editor**, chaflán incluido (antes el chaflán iba siempre en azul). La imagen exportada (`exportar/imagen.ts`) se genera sin selección, así que no lo lleva.
+- **Perforaciones chicas dibujadas más grandes**: radio mínimo de 0,4 f; antes, 0,28 f. Para que dos vecinas no se toquen, el radio no pasa de 0,42 × la separación mínima entre centros (las 3 Ø16 de la flauta, a 35 mm). Nunca baja de 0,28 f. La medida escrita sigue siendo la real.
+- **No se aplicó** el agrandado de muescas y boquetes que traía la propuesta. El arrastre del editor y las cotas trabajan sobre la geometría real, y deformar el contorno los desalinearía. Queda como mejora posible.
+- **Los planos ya guardados conservan su imagen anterior** (Cloudinary/Excel) hasta que se vuelvan a guardar. Las hojas que se dibujan en pantalla o se imprimen desde el pedido salen con el estilo nuevo.

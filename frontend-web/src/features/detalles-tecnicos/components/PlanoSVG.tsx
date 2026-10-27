@@ -28,15 +28,20 @@ import {
 } from '../modelo/geometria';
 import type { Boquete, Perforacion, Pieza } from '../modelo/tipos';
 
-const TINTA = '#1f2937';
-const COTA = '#374151';
-const VIDRIO = '#e3f1fa';
+// Estilo «calco del taller» (propuesta 6, 2026-10-27): vidrio en blanco, todo en tinta negra, remates
+// rectos y ANCHO / ALTO en negrita y más grandes, como el plano que dibuja el taller a mano. El azul
+// (ACENTO) queda solo para la selección del editor: la imagen que se exporta no lo lleva.
+const TINTA = '#111';
+const COTA = '#111';
+const VIDRIO = '#fff';
 const ACENTO = '#1565c0';
 const SUAVE = '#6b7280';
 
 const fmt = (n: number) => String(Math.round(n * 10) / 10);
 /** Ancho aproximado que ocupa un texto de cota (Arial), en las mismas unidades que `f`. */
 const anchoTexto = (texto: string, f: number) => texto.length * f * 0.6 + f * 0.5;
+/** Tamaño de las cotas generales (ANCHO, ALTO, Ø del círculo): las que más se leen del plano. */
+const K_GENERAL = 1.3;
 
 interface CotaProps {
   a: Pt;
@@ -51,6 +56,8 @@ interface CotaProps {
    * desplazado y la línea se prolonga hasta él, como se hace con las cotas muy cortas en un plano.
    */
   t?: number;
+  /** Número en negrita (cotas generales). */
+  bold?: boolean;
 }
 
 /** Rectángulo alineado a los ejes, en unidades del plano. */
@@ -132,7 +139,7 @@ interface Colocacion {
  * sitios están tapados: fuera de la línea, pasado un extremo (primero el que se aleja del vidrio) y
  * **horizontal**, como en los planos del taller. Si nada está libre, el primer candidato.
  */
-function colocarCota(col: Colocador, { a, b, texto, f, lado = 1, t = 0.5 }: CotaProps, centro: Pt): Colocacion | null {
+function colocarCota(col: Colocador, { a, b, texto, f, lado = 1, t = 0.5, bold }: CotaProps, centro: Pt): Colocacion | null {
   const L = largo(sub(b, a));
   if (L < 1e-6) return null;
   const d = unit(sub(b, a));
@@ -140,7 +147,7 @@ function colocarCota(col: Colocador, { a, b, texto, f, lado = 1, t = 0.5 }: Cota
   let angLinea = (Math.atan2(d.y, d.x) * 180) / Math.PI;
   if (angLinea > 90.1) angLinea -= 180;
   if (angLinea <= -90.1) angLinea += 180;
-  const w = anchoTexto(texto, f);
+  const w = anchoTexto(texto, f) * (bold ? 1.1 : 1);
   const h = f;
   // Cabe si la línea es al menos tan larga como las cifras (sin el margen que lleva `anchoTexto`).
   const cabe = L >= texto.length * f * 0.55 + f * 0.1;
@@ -176,11 +183,11 @@ function colocarCota(col: Colocador, { a, b, texto, f, lado = 1, t = 0.5 }: Cota
   return elegido;
 }
 
-/** Línea de cota con marcas oblicuas en los extremos y el valor, ya colocado. */
-function DibujoCota({ a, b, texto, f, color = COTA, c }: Pick<CotaProps, 'a' | 'b' | 'texto' | 'f' | 'color'> & { c: Colocacion }) {
+/** Línea de cota con remates rectos (perpendiculares) en los extremos y el valor, ya colocado. */
+function DibujoCota({ a, b, texto, f, color = COTA, bold, c }: Pick<CotaProps, 'a' | 'b' | 'texto' | 'f' | 'color' | 'bold'> & { c: Colocacion }) {
   const d = unit(sub(b, a));
   const n = { x: -d.y, y: d.x };
-  const tick = mul(unit(add(d, n)), f * 0.35);
+  const tick = mul(n, f * 0.4);
   return (
     <g stroke={color} fill={color}>
       <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
@@ -190,7 +197,7 @@ function DibujoCota({ a, b, texto, f, color = COTA, c }: Pick<CotaProps, 'a' | '
       {[a, b].map((p, i) => (
         <line key={i} x1={p.x - tick.x} y1={p.y - tick.y} x2={p.x + tick.x} y2={p.y + tick.y} strokeWidth={1.1} vectorEffect="non-scaling-stroke" />
       ))}
-      <text x={c.tp.x} y={c.tp.y} fontSize={f} stroke="none" textAnchor="middle" dominantBaseline="central" fontFamily="Arial, sans-serif" transform={c.ang ? `rotate(${c.ang} ${c.tp.x} ${c.tp.y})` : undefined}>
+      <text x={c.tp.x} y={c.tp.y} fontSize={f} fontWeight={bold ? 700 : 400} stroke="none" textAnchor="middle" dominantBaseline="central" fontFamily="Arial, sans-serif" transform={c.ang ? `rotate(${c.ang} ${c.tp.x} ${c.tp.y})` : undefined}>
         {texto}
       </text>
     </g>
@@ -269,7 +276,13 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
 
   const perfs = pieza.operaciones.filter((o): o is Perforacion => o.tipo === 'perforacion');
   const centros = perfs.map((o) => centroPerforacion(pieza, o, v));
-  const rVisual = (d: number) => Math.max(d / 2, conCotas ? f * 0.28 : m * 0.01);
+  // Las perforaciones chicas se dibujan más grandes que a escala, como en el plano del taller: una Ø14
+  // en una puerta de 2 m quedaba como un punto. La medida escrita sigue siendo la real. El agrandado
+  // se frena antes de que dos vecinas se toquen (las 3 perforaciones de la flauta, a 35 mm).
+  let sepMin = Infinity;
+  centros.forEach((a, i) => centros.slice(i + 1).forEach((b) => (sepMin = Math.min(sepMin, largo(sub(a, b))))));
+  const rMinimo = conCotas ? Math.max(f * 0.28, Math.min(f * 0.4, sepMin * 0.42)) : m * 0.01;
+  const rVisual = (d: number) => Math.max(d / 2, rMinimo);
   const fc = f * 0.8;
   const curvo = bordeCurvo(pieza);
   const circulo = esCirculo(pieza);
@@ -289,7 +302,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
   });
   const cota = (key: string, p: CotaProps) => {
     const c = colocarCota(espacio, p, centro);
-    return c ? <DibujoCota key={key} a={p.a} b={p.b} texto={p.texto} f={p.f} color={p.color} c={c} /> : null;
+    return c ? <DibujoCota key={key} a={p.a} b={p.b} texto={p.texto} f={p.f} color={p.color} bold={p.bold} c={c} /> : null;
   };
   /** Anota la caja de una etiqueta (`<Texto>`) que ya tiene su sitio. */
   const ocuparTexto = (p: Pt, texto: string, f2: number, anchor: 'start' | 'middle' | 'end' = 'middle') => espacio.ocupar(cajaEtiqueta(p, texto, f2, anchor));
@@ -310,7 +323,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
   /** Línea auxiliar punteada: del punto acotado a su línea de cota. */
   const lineaAux = (a: Pt, b: Pt, k: string) => {
     espacio.linea(a, b);
-    return <line key={k} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#9ca3af" strokeWidth={0.5} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />;
+    return <line key={k} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={COTA} strokeWidth={0.5} strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />;
   };
 
   // ── Cotas generales ────────────────────────────────────────────────────────
@@ -335,20 +348,20 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       // En el círculo las líneas de referencia salen de los puntos donde el cuadrado lo toca.
       ext(circulo ? { x: v.ii.x, y: centro.y } : { x: v.ii.x, y: v.ii.y + f * 0.4 }, { x: v.ii.x, y: yInf + f * 0.5 }, 'e1'),
       ext(circulo ? { x: v.id.x, y: centro.y } : { x: v.id.x, y: v.id.y + f * 0.4 }, { x: v.id.x, y: yInf + f * 0.5 }, 'e2'),
-      cota('ancho', { a: { x: v.ii.x, y: yInf }, b: { x: v.id.x, y: yInf }, texto: palabraAbajo ? 'ANCHO' : fmt(v.id.x - v.ii.x), f: f * 1.1, lado: 1, color: TINTA }),
+      cota('ancho', { a: { x: v.ii.x, y: yInf }, b: { x: v.id.x, y: yInf }, texto: palabraAbajo ? 'ANCHO' : fmt(v.id.x - v.ii.x), f: f * K_GENERAL, lado: 1, color: TINTA, bold: true }),
     );
     const xIzq = caja.minX - off;
     generales.push(
       ext(circulo ? { x: centro.x, y: v.si.y } : { x: v.si.x - f * 0.4, y: v.si.y }, { x: xIzq - f * 0.5, y: v.si.y }, 'e3'),
       ext(circulo ? { x: centro.x, y: v.ii.y } : { x: v.ii.x - f * 0.4, y: v.ii.y }, { x: xIzq - f * 0.5, y: v.ii.y }, 'e4'),
-      cota('alto', { a: { x: xIzq, y: v.ii.y }, b: { x: xIzq, y: v.si.y }, texto: pieza.rotulos?.alto ? 'ALTO' : fmt(v.ii.y - v.si.y), f: f * 1.1, lado: -1, color: TINTA }),
+      cota('alto', { a: { x: xIzq, y: v.ii.y }, b: { x: xIzq, y: v.si.y }, texto: pieza.rotulos?.alto ? 'ALTO' : fmt(v.ii.y - v.si.y), f: f * K_GENERAL, lado: -1, color: TINTA, bold: true }),
     );
     if (pieza.contorno.tipo === 'desplome-lateral') {
       const ySup = caja.minY - off;
       generales.push(
         ext({ x: v.si.x, y: v.si.y - f * 0.4 }, { x: v.si.x, y: ySup - f * 0.5 }, 'e5'),
         ext({ x: v.sd.x, y: v.sd.y - f * 0.4 }, { x: v.sd.x, y: ySup - f * 0.5 }, 'e6'),
-        cota('anchoSup', { a: { x: v.si.x, y: ySup }, b: { x: v.sd.x, y: ySup }, texto: palabraArriba ? 'ANCHO' : fmt(v.sd.x - v.si.x), f: f * 1.1, lado: -1, color: TINTA }),
+        cota('anchoSup', { a: { x: v.si.x, y: ySup }, b: { x: v.sd.x, y: ySup }, texto: palabraArriba ? 'ANCHO' : fmt(v.sd.x - v.si.x), f: f * K_GENERAL, lado: -1, color: TINTA, bold: true }),
       );
     }
     if (pieza.contorno.tipo === 'desplome-superior') {
@@ -356,7 +369,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       generales.push(
         ext({ x: v.sd.x + f * 0.4, y: v.sd.y }, { x: xDer + f * 0.5, y: v.sd.y }, 'e7'),
         ext({ x: v.id.x + f * 0.4, y: v.id.y }, { x: xDer + f * 0.5, y: v.id.y }, 'e8'),
-        cota('altoDer', { a: { x: xDer, y: v.sd.y }, b: { x: xDer, y: v.id.y }, texto: fmt(v.id.y - v.sd.y), f: f * 1.1, lado: -1, color: TINTA }),
+        cota('altoDer', { a: { x: xDer, y: v.sd.y }, b: { x: xDer, y: v.id.y }, texto: fmt(v.id.y - v.sd.y), f: f * K_GENERAL, lado: -1, color: TINTA, bold: true }),
       );
     }
   }
@@ -378,9 +391,9 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     elementos.push(
       <g key={o.id} onPointerDown={alPresionar(o.id)} style={interaccion ? { cursor: 'pointer' } : undefined}>
         {interaccion && <path d={d} fill="none" stroke="transparent" strokeWidth={14} vectorEffect="non-scaling-stroke" />}
-        <path d={d} fill="none" stroke={ACENTO} strokeDasharray="6 4" strokeWidth={destacado(o.id) ? 2.6 : 1.2} vectorEffect="non-scaling-stroke" />
+        <path d={d} fill="none" stroke={destacado(o.id) ? ACENTO : TINTA} strokeDasharray="6 4" strokeWidth={destacado(o.id) ? 2.6 : 1.2} vectorEffect="non-scaling-stroke" />
         {conCotas && (
-          <Texto p={pLbl} f={f * 0.85} color={ACENTO}>
+          <Texto p={pLbl} f={f * 0.85} color={destacado(o.id) ? ACENTO : TINTA}>
             {`CHAFLÁN ${o.ancho} mm`}
           </Texto>
         )}
@@ -789,7 +802,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     const b = add(centro, mul(u, r));
     const texto = `Ø ${pieza.rotulos?.ancho ? 'ANCHO' : fmt(W)}`;
     // Del tamaño de las cotas ANCHO / ALTO: es la medida principal del vidrio.
-    const fd = f * 1.1;
+    const fd = f * K_GENERAL;
     const pTxt = add(centro, add(mul(u, r * 0.5), mul({ x: -u.y, y: u.x }, -fd * 0.9)));
     ocuparTexto(pTxt, texto, fd);
     elementos.push(
