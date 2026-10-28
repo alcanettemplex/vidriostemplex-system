@@ -1327,25 +1327,13 @@ export const crearODPDesdeLead = async (req: Request, res: Response) => {
   res.status(r.status).json(r.body);
 };
 
-/** Ajustes opcionales del Cotizador (2026-09-27) sobre la ODP que crea
- * `crearODPParaLead`. Sin ellos el flujo es idéntico al del CRM. */
-export interface AjustesODPDesdeLead {
-  asesor_id?: number;
-  valor_total?: number;
-  descripcion_pedido?: string;
-  forma_pago?: string;
-  /** "Crear ODP" del Cotizador (2026-10-06): la propuesta dice si lleva flete o
-   * instalación. Sin ellos la ODP no aparece en Instalaciones. */
-  acarreo?: boolean;
-  instalacion?: boolean;
-}
-
-/** Cuerpo de `crearODPDesdeLead`, reutilizable ("Crear ODP" del Cotizador). */
+/** Cuerpo de `crearODPDesdeLead`. El "Crear ODP" del Cotizador ya no pasa por
+ * aquí (2026-10-28): usa el formulario completo y `crearODPRegistro`, y deja el
+ * lead vinculado en `cotizador/lib/vinculos.ts`. */
 export async function crearODPParaLead(
   id: string | number,
   body: any,
   user: UsuarioFlujoCRM,
-  ajustes: AjustesODPDesdeLead = {},
 ): Promise<ResultadoFlujoCRM> {
   try {
     const { cliente_id, nombre, telefono } = body;
@@ -1394,21 +1382,21 @@ export async function crearODPParaLead(
       return ODP.create({
         numero_odp,
         cliente_id: clienteIdFinal,
-        asesor_id: ajustes.asesor_id || lead.getDataValue('asesor_id') || user.id,
+        asesor_id: lead.getDataValue('asesor_id') || user.id,
         estado_produccion: 'EN_ESPERA',
         estado_facturacion: 'PENDIENTE',
         estado_caja: 'PENDIENTE',
         // Instante real, como el resto de creaciones. Guardar solo el día UTC dejaba la
         // ODP a medianoche UTC: un día antes en pantalla, o mañana si se convertía de noche.
         fecha_creacion: new Date(),
-        descripcion_pedido: ajustes.descripcion_pedido || lead.getDataValue('descripcion_contexto') || lead.getDataValue('producto_interes') || `Lead CRM #${id}`,
+        descripcion_pedido: lead.getDataValue('descripcion_contexto') || lead.getDataValue('producto_interes') || `Lead CRM #${id}`,
         tipo_servicio: lead.getDataValue('producto_interes') || null,
-        valor_total: ajustes.valor_total ?? parseFloat(lead.getDataValue('monto_real_venta') || lead.getDataValue('monto_proyectado_cotizacion') || '0'),
+        valor_total: parseFloat(lead.getDataValue('monto_real_venta') || lead.getDataValue('monto_proyectado_cotizacion') || '0'),
         // En minúsculas como el resto de ODP (ODPForm, filtros): 'CONTADO' dejaba
         // esas ODP fuera del filtro "Contado" y el selector vacío al editarlas (2026-09-27).
-        forma_pago: ajustes.forma_pago || 'contado',
-        acarreo: ajustes.acarreo ?? false,
-        instalacion: ajustes.instalacion ?? false,
+        forma_pago: 'contado',
+        acarreo: false,
+        instalacion: false,
       } as any);
     });
 

@@ -58,22 +58,37 @@ export interface PlanCrearODP {
     explicacion: string;
     cotizacion: { id: number; numero: number; total: number; etiqueta: string | null };
     asesor: { id: number | null; nombre: string };
-    cliente: { id: number; nombre: string } | null;
+    /** Cliente ya resuelto por el vínculo (null = el formulario lo elige o lo crea). */
+    cliente: { id: number; nombre: string; fuente: string | null } | null;
     requiereCliente: boolean;
-    permiteClienteNuevo: boolean;
     odpExistente: { id: number; numero: string } | null;
     prospecto: { id: number; numero: string } | null;
     lead: { id: number; nombre: string; estado: string } | null;
 }
 
-export type FormaPagoODP = 'contado' | 'credito' | '50_50';
+/** Lo que el formulario de ODP llena solo al abrirse desde la cotización (2026-10-28). */
+export interface PrecargaODP {
+    servicios: Array<{ cantidad: number; tipo_servicio: string; descripcion: string }>;
+    acarreo: boolean;
+    instalacion: boolean;
+    valor: number;
+    /** "Cotización N.° X (Opción B) del Cotizador": encabeza la descripción de la ODP. */
+    cabecera: string;
+    contacto: { nombre: string; telefono: string | null; direccion: string | null };
+}
 
-/** Mismas opciones y rótulos que el formulario de ODP (`ODPForm`). */
-export const FORMAS_PAGO_ODP: { valor: FormaPagoODP; rotulo: string }[] = [
-    { valor: 'contado', rotulo: 'Pago anticipado' },
-    { valor: 'credito', rotulo: 'Crédito' },
-    { valor: '50_50', rotulo: '50% anticipo / 50% entrega' },
-];
+/** Respuesta de la vista previa: el plan y, si se puede crear, la precarga. */
+export interface PreviaCrearODP extends PlanCrearODP {
+    precarga: PrecargaODP | null;
+}
+
+/** De qué cotización parte un formulario de ODP (o el de aprobar prospecto). */
+export interface OrigenCotizacion {
+    cotizacionId: number;
+    numero: number;
+    plan: PlanCrearODP;
+    precarga: PrecargaODP;
+}
 
 export const FUENTES_LEAD = [
     'Presencial', 'WhatsApp', 'Llamada', 'Web', 'Facebook', 'Instagram', 'Show Room', 'Referidos', 'Visita Asesor', 'Cliente',

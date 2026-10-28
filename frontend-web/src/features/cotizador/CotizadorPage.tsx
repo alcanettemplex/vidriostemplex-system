@@ -32,7 +32,7 @@ import { usePermisosCotizador } from './permisos';
 import ModalClonarPropuesta from './components/modals/ModalClonarPropuesta';
 import ModalCambiosSinGuardar, { DecisionCambios } from './components/modals/ModalCambiosSinGuardar';
 import ModalMotivoPerdida, { CierrePerdida } from './components/modals/ModalMotivoPerdida';
-import ModalCrearODP from './components/modals/ModalCrearODP';
+import CrearODPDesdeCotizacion from './components/modals/CrearODPDesdeCotizacion';
 import BarraVinculo from './components/BarraVinculo';
 import { AsesorCotizador, FichaVinculo, leadSePuedePerder, leerVinculoDeUrl } from './vinculo';
 import { numeroCotizacion } from './format';
@@ -798,8 +798,8 @@ const CotizadorPage: React.FC = () => {
         setGuardarYa(true);
     }, []);
 
-    /** "Crear ODP" (Resumen): termina de guardar y abre el modal, que primero
-     * previsualiza qué flujo del ERP se va a usar. */
+    /** "Crear ODP" (Resumen): termina de guardar y abre el formulario completo de
+     * la ODP (2026-10-28), que primero previsualiza qué flujo del ERP se va a usar. */
     const abrirCrearOdp = useCallback(async () => {
         if (!(await asegurarGuardado('crear la ODP'))) return;
         setCreandoOdp(true);
@@ -807,8 +807,8 @@ const CotizadorPage: React.FC = () => {
 
     const trasCrearOdp = useCallback(({ odpId, numeroOdp }: { odpId: number; numeroOdp: string }) => {
         setCreandoOdp(false);
+        // El aviso de "creada y vinculada" ya lo da el formulario.
         setOdpVinculada({ id: odpId, numero: numeroOdp });
-        toast.success(`${numeroOdp} creada y vinculada a esta cotización. Complétala en el módulo ODP.`, { autoClose: 9000 });
     }, []);
 
     /** El lead o el prospecto ya tenían ODP: se vincula la cotización a ella. */
@@ -1658,10 +1658,8 @@ const CotizadorPage: React.FC = () => {
             )}
 
             {creandoOdp && edicion && (
-                <ModalCrearODP
+                <CrearODPDesdeCotizacion
                     cotizacionId={edicion.id}
-                    clienteNombre={cabecera.cliente.nombre ?? ''}
-                    clienteTelefono={cabecera.cliente.telefono ?? ''}
                     onCerrar={() => setCreandoOdp(false)}
                     onCreada={trasCrearOdp}
                     onVincularExistente={vincularOdpExistente}

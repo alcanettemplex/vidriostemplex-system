@@ -138,3 +138,14 @@ desarrollo en hora de Bogotá — por eso estos errores no se veían en local.
 - El servidor no tenía nada que ver: la regla de vidrios comprometidos (Pedido PV / Compras) solo bloquea esos vidrios y responde 409 con mensaje.
 - Verificado en el navegador (Playwright + Edge, escrituras interceptadas): antes, el estado del formulario quedaba con el vidrio fantasma y no se enviaba nada; después, se envía el PUT con los vidrios correctos y un vidrio incompleto muestra el aviso.
 - El vidrio #2193 de la ODP-24456 se quitó con `scripts/2026-10-23_quitar_vidrio_2193_odp24456.ts` (auditado a ROOT).
+
+## Formulario de ODP: «+ Crear cliente» y creación desde el Cotizador (2026-10-28)
+- `ODPForm` crea el cliente que no está registrado (`CrearClienteRapido`, pie del buscador y enlace
+  «¿No está registrado? Crear cliente»). Vale también al crear desde el módulo ODP.
+- Prop `desdeCotizacion` (y la elección en «¿Parte de una cotización aprobada?»): el formulario se llena
+  con la cotización y **guarda por `POST /api/cotizador/cotizaciones/:id/crear-odp`**, no por
+  `POST /api/odp`. Ese endpoint crea la ODP con `crearODPRegistro` (mismo esquema y Pedido PV automático),
+  la vincula a la cotización y, si viene de un lead, deja el lead con su ODP. Desde una cotización la
+  forma de pago es obligatoria.
+- `onSuccess` recibe la ODP creada (`{ id, numero }`); en edición no trae nada.
+- Detalle en `docs/modulos/cotizador.md` § «Crear ODP con el formulario completo».

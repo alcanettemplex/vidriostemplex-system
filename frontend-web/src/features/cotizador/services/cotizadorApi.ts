@@ -10,7 +10,7 @@ import {
     RespuestaPropuesta, SegmentoCliente, LineaManoObra, OpcionInstalacion,
 } from '../types';
 import type {
-    AsesorCotizador, ContextoLead, FichaVinculo, FormaPagoODP, FuenteLead, PlanCrearODP, ResultadosVinculo, TipoVinculo,
+    AsesorCotizador, ContextoLead, FichaVinculo, FuenteLead, PreviaCrearODP, ResultadosVinculo, TipoVinculo,
 } from '../vinculo';
 
 const BASE = `${API}/api/cotizador`;
@@ -301,23 +301,6 @@ export const apiBuscarVinculos = (q: string, tipos?: TipoVinculo[]) =>
         params: { q, ...(tipos && tipos.length ? { tipos: tipos.join(',') } : {}) },
     });
 
-/**
- * Alta de cliente desde "Crear ODP" (2026-09-27): el mismo POST /api/clientes
- * del módulo Clientes (mismas validaciones y el 409 si el documento, el
- * teléfono o el correo ya existen). No es del Cotizador: por eso va fuera de BASE.
- */
-export interface ClienteNuevoEntrada {
-    nombre_razon_social: string;
-    tipo_documento: string;
-    numero_documento: string;
-    telefono?: string;
-    email?: string;
-    direccion?: string;
-    fuente: string;
-}
-export const apiCrearCliente = (datos: ClienteNuevoEntrada) =>
-    axios.post<{ id: number; nombre_razon_social: string; telefono?: string | null; direccion?: string | null }>(`${API}/api/clientes`, datos);
-
 /** GET /vinculos/:tipo/:id — ficha de un vínculo (para pintarlo o precargar). */
 export const apiObtenerVinculo = (tipo: TipoVinculo, id: number) =>
     axios.get<FichaVinculo>(`${BASE}/vinculos/${tipo}/${id}`);
@@ -339,12 +322,14 @@ export const apiCotizacionesDe = (tipo: TipoVinculo, id: number) => {
     return axios.get<CotizacionLigera[]>(`${BASE}/cotizaciones`, { params: { [clave]: id } });
 };
 
-/** GET /cotizaciones/:id/crear-odp — qué haría "Crear ODP" (no escribe nada). */
+/** GET /cotizaciones/:id/crear-odp — qué haría "Crear ODP" y con qué se llena el formulario (no escribe nada). */
 export const apiPreviaCrearOdp = (cotizacionId: number) =>
-    axios.get<PlanCrearODP>(`${BASE}/cotizaciones/${cotizacionId}/crear-odp`);
+    axios.get<PreviaCrearODP>(`${BASE}/cotizaciones/${cotizacionId}/crear-odp`);
 
-/** POST /cotizaciones/:id/crear-odp — crea la ODP por el flujo que corresponda y la vincula. */
-export const apiCrearOdpDesdeCotizacion = (
-    cotizacionId: number,
-    datos: { formaPago: FormaPagoODP; clienteId?: number; nombre?: string; telefono?: string }
-) => axios.post<{ odpId: number; numeroOdp: string; camino: string }>(`${BASE}/cotizaciones/${cotizacionId}/crear-odp`, datos);
+/**
+ * POST /cotizaciones/:id/crear-odp — crea la ODP con el formulario completo
+ * (`odp` = el cuerpo del `POST /api/odp` o del aprobar prospecto) por el flujo
+ * que corresponda y la vincula a la cotización en la misma operación.
+ */
+export const apiCrearOdpDesdeCotizacion = (cotizacionId: number, odp: Record<string, unknown>) =>
+    axios.post<{ odpId: number; numeroOdp: string; camino: string }>(`${BASE}/cotizaciones/${cotizacionId}/crear-odp`, { odp });

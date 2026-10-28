@@ -687,18 +687,20 @@ export const previaCrearOdp = async (req: Request, res: Response) => {
   const id = idValido(req.params.id);
   if (id === null) return res.status(400).json({ error: 'El identificador de cotización no es válido.' });
   try {
-    res.json(await vinculos.planCrearODP(id, req.user!));
+    // Con la precarga del formulario de ODP (2026-10-28), solo si se puede crear.
+    const plan = await vinculos.planCrearODP(id, req.user!);
+    res.json({ ...plan, precarga: plan.puede ? await vinculos.precargaCrearODP(id, plan) : null });
   } catch (e) {
     fallo(res, 'previaCrearOdp', e, 'No se pudo preparar la ODP.');
   }
 };
 
+// `odp` es el cuerpo del formulario completo (2026-10-28): el mismo del
+// `POST /api/odp` o del aprobar prospecto. Lo valida el flujo de destino con su
+// propio esquema; aquí solo se exige que sea un objeto.
 const crearOdpSchema = z
   .object({
-    clienteId: z.number().int().positive().optional(),
-    nombre: z.string().trim().max(100).optional(),
-    telefono: z.string().trim().max(20).optional(),
-    formaPago: z.enum(vinculos.FORMAS_PAGO, { message: 'Elige la forma de pago de la ODP.' }),
+    odp: z.record(z.string(), z.unknown(), { message: 'Faltan los datos del formulario de la ODP.' }),
   })
   .strict();
 

@@ -7261,3 +7261,25 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
   Detalle en `docs/modulos/detalles-tecnicos.md`.
 - **Verificación:** `tsc` del frontend. Render de las 70 plantillas con `renderToStaticMarkup`: 0 errores, ningún color azul en el SVG. Revisión visual (Edge headless) de las puertas, flauta, Optiglass, fijos, tablero y círculo.
 - **Pendiente:** agrandar muescas y boquetes (descartado por ahora: el arrastre y las cotas usan la geometría real). Los planos guardados se actualizan al volver a guardarlos.
+
+## 2026-10-28 — Cotizador: «Crear ODP» abre el formulario completo
+
+- **Decisiones del usuario:** el botón «Crear ODP» de una cotización aprobada abre el formulario completo, ya lleno, para los tres caminos (prospecto → «Aprobar prospecto»; lead y cliente → «Nueva Orden de Producción»); «+ Crear cliente» en todo el formulario de ODP; precarga completa (productos, acarreo, instalación); se retira el modal rápido; antes del formulario, el mismo selector ODP/OA del módulo ODP.
+- **backend:**
+  - `cotizador/lib/vinculos.ts`: `precargaCrearODP` (viaja en la vista previa); `crearODPDesdeCotizacion` recibe `{ odp }` con el formulario completo; el camino lead usa `crearODPRegistro` y deja `lead.odp_id` dentro del candado.
+  - Tipo de servicio en la lista del formulario (`Suministro e Instalación` / `Venta`). Antes iba el nombre del producto y el selector quedaba vacío.
+  - La instalación de la opción manda sobre la del producto, como en el PDF.
+  - `plan.cliente` lleva `fuente`.
+  - Se retiró `permiteClienteNuevo`.
+  - `cotizador_cotizaciones.controller.ts`: la vista previa devuelve `precarga` y el esquema del POST pasa a `{ odp }`.
+  - `crm.controller.ts`: `crearODPParaLead` sin el parámetro `ajustes`. El CRM no cambia.
+- **frontend:**
+  - Nuevo `CrearODPDesdeCotizacion.tsx`, que reemplaza a `ModalCrearODP.tsx` (eliminado).
+  - Nuevo `features/clientes/components/CrearClienteRapido.tsx`.
+  - `ODPForm` gana la prop `desdeCotizacion`, «+ Crear cliente», cliente fijo cuando lo define la cotización, forma de pago obligatoria desde cotización, y `onSuccess` con la ODP creada.
+  - `AprobarProspectoModal` gana la prop `desdeCotizacion`.
+  - `PartirDeCotizacion` usa la vista previa, llena todo, guarda por `POST /crear-odp` (se va el `PUT {odpId}` suelto) y acepta cotizaciones de lead.
+- **BD:** sin cambios, no hay script.
+- **Verificación:** `tsc` de backend y frontend y ESLint de los 8 archivos, todo limpio. Precarga calculada en solo lectura sobre COT 17038 y 17025: correcta. No había cotizaciones aprobadas sin ODP.
+- **Pendiente:** prueba manual de creación en los tres caminos (cliente, lead, prospecto), coordinada con el usuario, porque la base es la de producción.
+- **Deuda anotada:** `AprobarProspectoModal` tiene su propio alta de cliente (ver `TECH_DEBT.md`).

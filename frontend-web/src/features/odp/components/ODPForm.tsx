@@ -4,15 +4,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { Plus, Minus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase, Calendar, Check, Lock } from '../../../components/ui/icons';
+import { Plus, Minus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase, Calendar, Check, Lock, UserPlus } from '../../../components/ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
 import API from '../../../services/config';
 import { hoyBogotaISO } from '../../../utils/fechas';
-import PartirDeCotizacion, { DatosDeCotizacion } from '../../cotizador/components/PartirDeCotizacion';
-import { apiActualizarCotizacion } from '../../cotizador/services/cotizadorApi';
+import PartirDeCotizacion from '../../cotizador/components/PartirDeCotizacion';
+import { apiCrearOdpDesdeCotizacion } from '../../cotizador/services/cotizadorApi';
 import { numeroCotizacion } from '../../cotizador/format';
+import { OrigenCotizacion } from '../../cotizador/vinculo';
+import CrearClienteRapido, { FUENTES_CLIENTE } from '../../clientes/components/CrearClienteRapido';
 
 const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Gris', 'Azul', 'Verde', 'Mate', 'Otro'];
 
@@ -133,8 +135,12 @@ type ODPFormValues = {
 
 interface ODPFormProps {
     onClose: () => void;
-    onSuccess: () => void;
+    /** Recibe la ODP creada (en edición no trae nada). */
+    onSuccess: (odp?: { id: number; numero: string }) => void;
     odpToEdit?: any;
+    /** "Crear ODP" del Cotizador (2026-10-28): el formulario abre lleno con la
+     * cotización y guarda por el Cotizador, que crea la ODP y la vincula. */
+    desdeCotizacion?: OrigenCotizacion;
     asesorId?: number | null; // si se proporciona, sobreescribe el asesor del usuario logueado
     tipoOdp?: 'ODP' | 'OA';  // tipo de orden seleccionado antes de abrir el form
 }
@@ -164,8 +170,6 @@ const ColorField: React.FC<{ index: number; register: any; control: any }> = ({ 
     );
 };
 
-const FUENTES_CLIENTE = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Show Room', 'Referidos', 'Visita Asesor', 'Cliente'];
-
 // ─── Paso 1, rediseño visual (2026-09-27) ────────────────────────────────────
 // Solo presentación: los campos, validaciones y el payload no cambian.
 // Todos los controles miden 40 px (h-10) y comparten borde; `min-w-0` evita que
@@ -188,7 +192,7 @@ const conMiles = (n: unknown) => {
     return Number.isFinite(v) && v > 0 ? Math.round(v).toLocaleString('es-CO') : '';
 };
 
-const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesorId, tipoOdp }) => {
+const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesorId, tipoOdp, desdeCotizacion }) => {
     const authUser = useSelector((state: any) => state.auth.user);
     const userRole = (authUser?.rol || authUser?.role)?.toLowerCase() || '';
     const esEdicion = !!odpToEdit;
@@ -206,8 +210,13 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const [clienteBusqueda, setClienteBusqueda] = useState('');
     const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
     const [clienteSeleccionadoObj, setClienteSeleccionadoObj] = useState<{ id: number; nombre_razon_social: string; numero_documento?: string; fuente?: string | null } | null>(null);
-    /** Cotización aprobada de la que parte esta ODP (2026-09-27): al crearla se vincula. */
-    const [deCotizacion, setDeCotizacion] = useState<DatosDeCotizacion | null>(null);
+    /** Cotización aprobada de la que parte esta ODP: con ella se guarda por el
+     * Cotizador, que la crea y la vincula en una sola operación (2026-10-28). */
+    const [origen, setOrigen] = useState<OrigenCotizacion | null>(desdeCotizacion ?? null);
+    /** "+ Crear cliente": el cliente no está registrado (2026-10-28). */
+    const [creandoCliente, setCreandoCliente] = useState(false);
+    // El cliente lo fija la cotización cuando su vínculo ya lo tiene (el backend lo exige igual).
+    const clienteFijo = esEdicion || Boolean(origen?.plan.cliente);
     const [prospectosBanner, setProspectosBanner] = useState<{ id: number; numero_prospecto: string; descripcion: string }[]>([]);
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [calendarMes, setCalendarMes] = useState(() => {
@@ -301,10 +310,38 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const ivaValor = Number(valorTotalRaw) - subtotal;
     const fmtCOP = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 
-    const { fields: servicioFields, append: appendServicio, remove: removeServicio } = useFieldArray({
+    const { fields: servicioFields, append: appendServicio, remove: removeServicio, replace: reemplazarServicios } = useFieldArray({
         control,
         name: 'servicios_detalle'
     });
+
+    /** Llena el formulario con la cotización elegida (o la del "Crear ODP" del
+     * Cotizador). Lo que el usuario ya escribió en contacto y dirección se respeta;
+     * quitar la cotización no borra nada de lo llenado. */
+    const aplicarOrigen = (o: OrigenCotizacion | null) => {
+        setOrigen(o);
+        if (!o) return;
+        const { plan, precarga } = o;
+        if (plan.cliente) {
+            setValue('cliente_id', plan.cliente.id);
+            setClienteSeleccionadoObj({ id: plan.cliente.id, nombre_razon_social: plan.cliente.nombre, fuente: plan.cliente.fuente });
+            setCreandoCliente(false);
+        }
+        if (precarga.servicios.length > 0) reemplazarServicios(precarga.servicios);
+        setValue('valor_total', precarga.valor);
+        setValue('acarreo', precarga.acarreo);
+        setValue('instalacion', precarga.instalacion);
+        const actual = getValues();
+        if (!actual.nombre_recibe && precarga.contacto.nombre) setValue('nombre_recibe', precarga.contacto.nombre);
+        if (!actual.telefono_recibe && precarga.contacto.telefono) setValue('telefono_recibe', precarga.contacto.telefono);
+        if (!actual.direccion_instalacion && precarga.contacto.direccion) setValue('direccion_instalacion', precarga.contacto.direccion);
+    };
+
+    // Abierto desde el Cotizador: se llena una sola vez al montar.
+    useEffect(() => {
+        if (desdeCotizacion) aplicarOrigen(desdeCotizacion);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const clienteSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -416,6 +453,13 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                 toast.error('Selecciona la fuente del cliente.');
                 return;
             }
+            // Desde una cotización la forma de pago es obligatoria: después de creada
+            // solo gerencia o un administrador pueden cambiarla (el backend también lo exige).
+            if (origen && !data.forma_pago) {
+                setStep(1);
+                toast.error('Elige la forma de pago (paso 1): después de creada la ODP solo gerencia o un administrador pueden cambiarla.');
+                return;
+            }
             const token = sessionStorage.getItem('token');
             const { requiere_visita_tecnica, es_no_conformidad, ...rest } = data;
             const sinItems = itemFields.length === 0;
@@ -440,8 +484,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                             : 'EN_ESPERA'
                 } : {}),
                 // Si se asignó a otro asesor desde el modal previo, incluir en el payload.
-                // Si parte de una cotización, manda su asesor (2026-09-27).
-                ...((deCotizacion?.asesorUsuarioId ?? asesorId) ? { asesor_id: deCotizacion?.asesorUsuarioId ?? asesorId } : {}),
+                // Si parte de una cotización, manda su asesor (2026-09-27; el backend lo fija igual).
+                ...((origen?.plan.asesor.id ?? asesorId) ? { asesor_id: origen?.plan.asesor.id ?? asesorId } : {}),
                 // Tipo de orden (ODP normal o OA sin IVA)
                 ...(!odpToEdit && tipoOdp ? { tipo_odp: tipoOdp } : {}),
                 // Pago adelantado sin requerimientos de vidrio
@@ -455,22 +499,22 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 toast.success('ODP Actualizada Exitosamente');
+                onSuccess();
+            } else if (origen) {
+                // Por el Cotizador (2026-10-28): crea la ODP por el flujo de su vínculo
+                // (cliente o lead) y la vincula en la misma operación, con el candado
+                // contra la ODP doble. Antes se vinculaba en una segunda llamada que,
+                // si fallaba, dejaba la ODP creada y la cotización suelta.
+                const { data: creada } = await apiCrearOdpDesdeCotizacion(origen.cotizacionId, payload);
+                toast.success(`${creada.numeroOdp} creada y vinculada a la cotización ${numeroCotizacion(origen.numero)}.`);
+                onSuccess({ id: creada.odpId, numero: creada.numeroOdp });
             } else {
                 const { data: creada } = await axios.post(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp`, payload, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 toast.success('ODP Creada Exitosamente');
-                // Vincular la cotización de la que partió (no bloquea: la ODP ya existe).
-                if (deCotizacion && creada?.id) {
-                    try {
-                        await apiActualizarCotizacion(deCotizacion.cotizacionId, { odpId: Number(creada.id) });
-                    } catch (e: any) {
-                        toast.warn(`La ODP se creó, pero no se pudo vincular la cotización ${numeroCotizacion(deCotizacion.numero)}: `
-                            + (e?.response?.data?.error || 'vincúlala desde la ficha de la ODP.'));
-                    }
-                }
+                onSuccess(creada?.id ? { id: Number(creada.id), numero: String(creada.numero_odp ?? '') } : undefined);
             }
-            onSuccess();
         } catch (error: any) {
             toast.error(error.response?.data?.error || `Error al ${odpToEdit ? 'actualizar' : 'crear'} ODP`);
         }
@@ -566,26 +610,42 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                 exit={{ opacity: 0, x: -20 }}
                                 className="space-y-6"
                             >
-                                {!odpToEdit && (
-                                    <PartirDeCotizacion
-                                        onAplicar={(d) => {
-                                            setDeCotizacion(d);
-                                            if (!d) return;
-                                            setValue('cliente_id', d.clienteId);
-                                            setClienteSeleccionadoObj({ id: d.clienteId, nombre_razon_social: d.clienteNombre });
-                                            setValue('valor_total', d.valor);
-                                        }}
-                                    />
+                                {!odpToEdit && !desdeCotizacion && <PartirDeCotizacion onAplicar={aplicarOrigen} />}
+                                {desdeCotizacion && (
+                                    <div className="rounded-xl border border-templex-100 bg-templex-50 px-4 py-3 text-sm text-slate-900 space-y-0.5">
+                                        <p className="font-semibold">
+                                            Desde la cotización {numeroCotizacion(desdeCotizacion.numero)}
+                                            {desdeCotizacion.plan.cotizacion.etiqueta ? ` · Opción ${desdeCotizacion.plan.cotizacion.etiqueta}` : ''}
+                                        </p>
+                                        <p className="text-[13px] text-slate-800">
+                                            {desdeCotizacion.plan.explicacion} Se llenaron cliente, asesor, valor, productos, acarreo e instalación: revísalos y completa el resto.
+                                        </p>
+                                    </div>
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {/* Cliente */}
                                     <div>
                                         <label className={ROTULO}>Cliente <span className="text-rose-600">*</span></label>
                                         <input type="hidden" {...register('cliente_id')} />
-                                        {odpToEdit ? (
+                                        {clienteFijo ? (
                                             <div className={`${CONTROL} border-slate-300 bg-slate-100 flex items-center`}>
                                                 <span className="truncate">{clienteSeleccionadoODP?.nombre_razon_social || 'Cliente'}</span>
                                             </div>
+                                        ) : creandoCliente ? (
+                                            <CrearClienteRapido
+                                                inicial={origen ? {
+                                                    nombre: origen.precarga.contacto.nombre,
+                                                    telefono: origen.precarga.contacto.telefono,
+                                                    direccion: origen.precarga.contacto.direccion,
+                                                } : { nombre: clienteBusqueda.trim() }}
+                                                onCancelar={() => setCreandoCliente(false)}
+                                                onCreado={(c) => {
+                                                    setValue('cliente_id', c.id, { shouldValidate: true });
+                                                    setClienteSeleccionadoObj(c);
+                                                    setClienteBusqueda('');
+                                                    setCreandoCliente(false);
+                                                }}
+                                            />
                                         ) : (
                                             <div className="relative">
                                                 <input
@@ -615,10 +675,29 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                                     {clienteBusqueda.trim().length >= 2 ? 'Sin resultados' : 'Escribe al menos 2 caracteres'}
                                                                 </p>
                                                             )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setDropdownClienteAbierto(false); setCreandoCliente(true); }}
+                                                                className="sticky bottom-0 w-full flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-blue-700 bg-white border-t border-slate-200 hover:bg-blue-50"
+                                                            >
+                                                                <UserPlus className="w-4 h-4" /> Crear cliente{clienteBusqueda.trim().length >= 2 ? ` «${clienteBusqueda.trim()}»` : ''}
+                                                            </button>
                                                         </div>
                                                     </>
                                                 )}
+                                                {!clienteSeleccionadoObj && !dropdownClienteAbierto && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCreandoCliente(true)}
+                                                        className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:underline"
+                                                    >
+                                                        <UserPlus className="w-3.5 h-3.5" /> ¿No está registrado? Crear cliente
+                                                    </button>
+                                                )}
                                             </div>
+                                        )}
+                                        {origen?.plan.cliente && !odpToEdit && (
+                                            <p className="text-xs text-slate-700 mt-1">El cliente lo define la cotización {numeroCotizacion(origen.numero)}.</p>
                                         )}
                                         {odpToEdit && (
                                             <p className="text-xs text-slate-700 mt-1">El cliente no se puede cambiar al editar una ODP.</p>
@@ -776,7 +855,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
                                     {/* Forma de Pago */}
                                     <div>
-                                        <label className={ROTULO}>Forma de pago</label>
+                                        <label className={ROTULO}>Forma de pago {origen && <span className="text-rose-600">*</span>}</label>
                                         <select
                                             {...register('forma_pago')}
                                             disabled={!puedeEditarFormaPago}

@@ -3,21 +3,23 @@ import { Calculator, ExternalLink, Search, X } from '../../../components/ui/icon
 
 import { fmtCOP, numeroCotizacion } from '../format';
 import { usePermisosCotizador } from '../permisos';
-import { apiListarCotizaciones, apiObtenerVinculo } from '../services/cotizadorApi';
+import { apiListarCotizaciones, apiPreviaCrearOdp } from '../services/cotizadorApi';
 import { CotizacionLigera } from '../types';
-import { enlaceCotizador, ROTULO_TIPO } from '../vinculo';
+import { enlaceCotizador, OrigenCotizacion } from '../vinculo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "Partir de una cotización aprobada" en el formulario de ODP nueva (2026-09-27).
 //
 // Lista las cotizaciones APROBADAS sin ODP que este usuario puede vincular (las
-// suyas, o todas si es control total). Al elegir una llena cliente, asesor y
-// valor; el formulario, al crear la ODP, la vincula (`PUT {odpId}`).
+// suyas, o todas si es control total). Al elegir una se pide la vista previa del
+// "Crear ODP" (2026-10-28) —la misma del botón del Cotizador— y el formulario
+// se llena con cliente, asesor, valor, productos, acarreo e instalación. Al
+// guardar, el formulario crea la ODP por el Cotizador, que la vincula en la
+// misma operación y con el candado contra la ODP doble.
 //
-// Una cotización de un LEAD o un PROSPECTO no se llena aquí: su ODP debe salir
-// del "Crear ODP" del Cotizador, que la crea por el flujo del CRM / de
-// Prospectos y deja el lead y el prospecto sincronizados. Aquí se avisa y se
-// ofrece el enlace.
+// Una cotización de un LEAD ya se llena aquí (2026-10-28): el backend deja el
+// lead con su ODP. La de un PROSPECTO no: su ODP sale de aprobarlo (pasa sus
+// tomas de medidas), así que se avisa y se ofrece el enlace al Cotizador.
 //
 // Se muestra SIEMPRE a quien puede crear cotizaciones (2026-09-27): oculto
 // cuando no había ninguna disponible, el usuario no sabía que la opción existía.
@@ -27,17 +29,8 @@ import { enlaceCotizador, ROTULO_TIPO } from '../vinculo';
 // número, cliente u asesor. Si no se elige ninguna, la ODP se llena a mano.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface DatosDeCotizacion {
-    cotizacionId: number;
-    numero: number;
-    clienteId: number;
-    clienteNombre: string;
-    valor: number;
-    asesorUsuarioId: number | null;
-}
-
 interface Props {
-    onAplicar: (d: DatosDeCotizacion | null) => void;
+    onAplicar: (origen: OrigenCotizacion | null) => void;
 }
 
 const PartirDeCotizacion: React.FC<Props> = ({ onAplicar }) => {
@@ -48,6 +41,7 @@ const PartirDeCotizacion: React.FC<Props> = ({ onAplicar }) => {
     const [cargando, setCargando] = useState(true);
     const [texto, setTexto] = useState('');
     const [abierto, setAbierto] = useState(false);
+    const [revisando, setRevisando] = useState(false);
 
     useEffect(() => {
         apiListarCotizaciones({ estado: 'APROBADA' })
@@ -88,24 +82,25 @@ const PartirDeCotizacion: React.FC<Props> = ({ onAplicar }) => {
         setElegidaId(id);
         setAviso(null);
         const c = disponibles.find(x => x.id === id);
-        if (!c) { onAplicar(null); return; }
-        const tipo = c.vinculo?.tipo;
-        if (tipo === 'lead' || tipo === 'prospecto') {
-            setAviso(`Es de un ${ROTULO_TIPO[tipo].toLowerCase()}: crea su ODP desde el Cotizador (Resumen → Crear ODP) para que el CRM quede al día.`);
-            onAplicar(null);
-            return;
+        onAplicar(null);
+        if (!c) return;
+        setRevisando(true);
+        try {
+            const { data } = await apiPreviaCrearOdp(c.id);
+            if (!data.puede || !data.precarga) {
+                setAviso(data.motivo || 'Esta cotización no puede generar una ODP todavía.');
+                return;
+            }
+            if (data.camino === 'prospecto') {
+                setAviso(`Es del prospecto ${data.prospecto?.numero ?? ''}: crea su ODP desde el Cotizador (Resumen → Crear ODP) para aprobarlo y pasarle sus tomas de medidas.`);
+                return;
+            }
+            onAplicar({ cotizacionId: c.id, numero: c.numero, plan: data, precarga: data.precarga });
+        } catch (e: any) {
+            setAviso(e?.response?.data?.error || 'No se pudo leer la cotización. Revisa tu conexión e inténtalo de nuevo.');
+        } finally {
+            setRevisando(false);
         }
-        if (!c.clienteId) { setAviso('Esta cotización no tiene cliente: vincúlala a uno en el Cotizador.'); onAplicar(null); return; }
-        let clienteNombre = c.cliente?.nombre ?? '';
-        try { clienteNombre = (await apiObtenerVinculo('cliente', c.clienteId)).data.nombre || clienteNombre; } catch { /* se usa el de la cotización */ }
-        onAplicar({
-            cotizacionId: c.id,
-            numero: c.numero,
-            clienteId: c.clienteId,
-            clienteNombre,
-            valor: Number(c.totales?.total) || 0,
-            asesorUsuarioId: c.asesorUsuarioId ?? null,
-        });
     };
 
     const q = texto.trim().toLowerCase();
@@ -166,9 +161,10 @@ const PartirDeCotizacion: React.FC<Props> = ({ onAplicar }) => {
                     )}
                 </div>
             )}
-            {elegida && !aviso && (
+            {elegida && revisando && <p className="text-xs text-slate-800">Leyendo la cotización…</p>}
+            {elegida && !aviso && !revisando && (
                 <p className="text-xs text-slate-800">
-                    Se llenaron cliente, asesor y valor. Al crear la ODP queda vinculada a la cotización {numeroCotizacion(elegida.numero)}.
+                    Se llenaron cliente, asesor, valor, productos, acarreo e instalación. Al crear la ODP queda vinculada a la cotización {numeroCotizacion(elegida.numero)}.
                 </p>
             )}
             {aviso && elegida && (

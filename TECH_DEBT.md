@@ -1754,3 +1754,10 @@ Ver `docs/modulos/cotizador.md` → "Anexo de diseños".
 - `registrarAuditoria` (`models/index.ts`) hace `AuditoriaLog.create(...)` sin `await` (fire-and-forget). En el servidor no pasa nada, porque el proceso sigue vivo; en un script que llama `sequelize.close()` o `process.exit()` justo después del cambio, la fila de auditoría se pierde.
 - **Caso real:** `2026-10-26_marcar_nc_odp24001.ts` (ODP-24001 → NC, `estado_caja` CREDITO_APROBADO → CANCELADO) quedó aplicado **sin fila en `auditoria_log`**. Reponerla a mano se descartó: escribir auditoría a mano no es aceptable.
 - **Propuesta:** que `registrarAuditoria` guarde la promesa en un Set de pendientes y exporte `esperarAuditoriaPendiente()`, que los scripts llamen antes de `sequelize.close()`. Mientras tanto, en los scripts: hacer el cambio dentro de `sequelize.transaction` y verificar la fila de auditoría después de ejecutar.
+
+## 2026-10-28 — Dos altas de cliente en los formularios de ODP
+
+- **Severidad:** baja (duplicación). **Estimación:** 45 min.
+- `ODPForm` usa `features/clientes/components/CrearClienteRapido.tsx` (POST `/api/clientes` antes de crear la ODP). `AprobarProspectoModal` tiene su propio bloque «Cliente existente / Cliente nuevo» y manda `nuevo_cliente` para que `aprobarProspectoRegistro` lo cree dentro de su transacción.
+- Son dos UIs y dos caminos para lo mismo. No se unificaron el 2026-10-28 para no tocar el flujo de Prospectos más allá de la precarga desde el Cotizador.
+- **Propuesta:** usar `CrearClienteRapido` también en el prospecto, o hacer que `CrearClienteRapido` acepte un modo «diferido» que devuelva los datos en lugar de hacer el POST, para conservar la creación dentro de la transacción del aprobar.

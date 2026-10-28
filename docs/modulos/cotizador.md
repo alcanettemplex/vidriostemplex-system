@@ -1793,7 +1793,9 @@ Parte de la integración del Cotizador al ERP (permisos y migración: fase A del
   - La respuesta trae `avisosCRM: string[]` y la pantalla los muestra.
   - **El prospecto NO se aprueba al aprobar la cotización**: en el código aprobar un prospecto ES crear su
     ODP (`aprobarProspecto`); se aprueba con "Crear ODP".
-- **Crear ODP** (Resumen, solo con la cotización APROBADA guardada): `GET /cotizaciones/:id/crear-odp`
+- **Crear ODP** (Resumen, solo con la cotización APROBADA guardada) — ⚠️ **desde el 2026-10-28 abre el
+  formulario completo, ver "Crear ODP con el formulario completo" al final; esta viñeta es el diseño
+  original:** `GET /cotizaciones/:id/crear-odp`
   previsualiza (no escribe) y `POST` ejecuta **el flujo existente**:
   prospecto (o lead con prospecto en gestión) → `aprobarProspectoRegistro`; lead → `crearODPParaLead`;
   cliente → `crearODPRegistro` (el `POST /api/odp`). Valor = total con IVA de la opción elegida, asesor de
@@ -1824,7 +1826,8 @@ Parte de la integración del Cotizador al ERP (permisos y migración: fase A del
 - **Entradas:** detalle del lead (CRM, `CotizacionesDeRegistro`), botón "Cotizar" en tarjetas de la columna
   Cotizando, modal del prospecto (`CotizacionesDeRegistro`), y en el formulario de ODP nueva "¿Parte de una
   cotización aprobada?" (`PartirDeCotizacion`: llena cliente, asesor y valor y al crear hace `PUT {odpId}`;
-  las de lead/prospecto se mandan al Cotizador para no desincronizar el CRM).
+  las de lead/prospecto se mandan al Cotizador para no desincronizar el CRM). *(Cambió el 2026-10-28: ahora
+  llena todo, guarda por el `POST /crear-odp` y acepta las de lead.)*
 - **Pruebas** (scratchpad de la sesión): `vinculos-api.js` (33 ✔), `sync-crm-rollback.ts` (10 ✔, en
   transacción deshecha y sin auditoría), `regresion-flujos.js` (6 ramas sin escritura de los handlers
   refactorizados), `e2e-vinculo.js` (Playwright, 19 ✔). Crear ODP / lead rápido reales quedan para la
@@ -1869,7 +1872,8 @@ agentes (B vínculo/CRM/Crear ODP, C ficha ODP/SAP/impresión, D Dashboard), cad
 - **ODP nueva → "¿Parte de una cotización aprobada?"** se muestra siempre; sin disponibles explica por qué
   y lleva al Cotizador (antes se ocultaba y el usuario no sabía que existía). `ODPForm`: etiquetas en
   negro, bordes de campo `slate-400`, obligatorios con asterisco rojo (solo visual).
-- **Crear ODP → "+ Crear cliente"** en los tres caminos: mini formulario (nombre, tipo y número de
+- **Crear ODP → "+ Crear cliente"** *(desde el 2026-10-28 vive en `features/clientes/components/CrearClienteRapido.tsx`,
+  dentro del formulario de ODP)* en los tres caminos: mini formulario (nombre, tipo y número de
   documento, teléfono, correo, dirección, fuente) contra `POST /api/clientes`; el 409 de duplicado se
   explica. Reemplaza el "Es un cliente nuevo" (solo nombre + teléfono) del camino lead.
 - **Referencia del PDF:** `COT-87` y, con varias opciones, la letra (`COT-87 B`). Encabeza el PDF junto a
@@ -2247,3 +2251,51 @@ Decisión del usuario: una ventana de sistema **744, 8025 o 7038** (incluidas su
   pantalla y la Hoja de Trabajo muestran la frase guardada en el ítem: los ítems anteriores la conservan
   hasta que se editen o recalculen.
 - Pruebas: `detalleComercial.test.ts` (11).
+
+## Crear ODP con el formulario completo (2026-10-28, decisión del usuario)
+
+El botón **«Crear ODP»** (Resumen, cotización APROBADA) ya no abre el modal rápido (`ModalCrearODP`,
+eliminado), que creaba una ODP básica y dejaba fecha, dirección y vidrios para después. Ahora abre **el
+mismo formulario del ERP ya lleno**, y el cliente se puede crear ahí si no está registrado.
+
+- **Flujo** (`components/modals/CrearODPDesdeCotizacion.tsx`): vista previa (`GET /crear-odp`, no escribe)
+  → selector **ODP / OA** (el mismo `SeleccionarTipoODPModal` del módulo ODP) → formulario:
+  - **prospecto** (o lead con prospecto en gestión) → `AprobarProspectoModal` (pasa las tomas de medidas;
+    se trae el prospecto completo con `GET /api/prospectos/:id`);
+  - **lead o cliente** → `ODPForm`.
+  Si no se puede (ya vinculada, lead sin Aprobar, rol), se muestra el motivo; si el lead o el prospecto ya
+  tienen ODP, se conserva **«Vincular a ODP-XXXX»**.
+- **Precarga** (`precargaCrearODP` en `vinculos.ts`, viaja en la vista previa como `precarga`): un servicio
+  por ítem de la opción elegida, Acarreo (línea FLETE), Instalación, valor con IVA, y el contacto escrito
+  en la cotización (nombre/teléfono/dirección) para el contacto en obra y el alta del cliente. El usuario
+  puede cambiar todo menos el cliente cuando el vínculo ya lo define (campo fijo en el formulario).
+- **Tipo de servicio:** se manda `Suministro e Instalación` (ítem con instalación) o `Venta` (sin), que
+  son valores de la lista fija del formulario. Antes se mandaba el nombre del producto («Ventana
+  corrediza»), que no está en esa lista: en el formulario el selector quedaba vacío y no dejaba avanzar.
+- **Instalación por opción:** la casilla de la propuesta (`propuesta.con_instalacion`, 2026-10-11) ahora
+  manda sobre la de cada producto (`sellarInstalacion`), igual que en el PDF y los cargos. Antes
+  `detalleParaODP` solo leía la del producto.
+- **Guardado:** los dos formularios mandan su cuerpo completo a `POST /crear-odp` como `{ odp: {...} }`
+  (Zod `.strict()` afuera; el contenido lo valida el flujo de destino). Bajo el candado `FOR UPDATE`:
+  - prospecto → `aprobarProspectoRegistro(form)`; la cabecera «Cotización N.° X (Opción B) del Cotizador»
+    va al principio de `observaciones`;
+  - cliente → `crearODPRegistro(form)`; la cabecera va al principio de `descripcion_pedido`;
+  - **lead → `crearODPRegistro(form)` + `lead.odp_id` dentro de la transacción + socket `crm` al confirmar**
+    (antes `crearODPParaLead`, cuya ODP mínima no admite vidrios ni fechas). La nota del lead sigue después
+    del commit. `crearODPParaLead` perdió el parámetro `ajustes` (era solo del Cotizador); el CRM no cambió.
+  - El backend fija el asesor de la cotización y exige `forma_pago` en `contado|credito|50_50`.
+  - `permiteClienteNuevo` salió del plan: cualquier camino crea el cliente desde el formulario.
+- **«+ Crear cliente»** (`features/clientes/components/CrearClienteRapido.tsx`, sacado del modal retirado):
+  en `ODPForm` siempre, también al crear desde el módulo ODP (pie del buscador y enlace «¿No está
+  registrado?»). `POST /api/clientes`; el 409 de duplicado se explica. `AprobarProspectoModal` conserva su
+  propio alta de cliente (deuda anotada en `TECH_DEBT.md`).
+- **«¿Parte de una cotización aprobada?»** (`PartirDeCotizacion`, módulo ODP): pide la misma vista previa
+  y llena lo mismo; guarda por `POST /crear-odp`. Con eso desaparece la segunda llamada (`PUT {odpId}`) que,
+  si fallaba, dejaba la ODP creada y la cotización sin vincular. **Las cotizaciones de un lead ya se pueden
+  llenar ahí**; las de un prospecto siguen mandando al Cotizador.
+- `plan.cliente` lleva `fuente`, para que el formulario no pida «¿Cómo nos contactó?» a un cliente que ya
+  la tiene (pasaba al elegir una cotización en el módulo ODP).
+- **Verificación:** `tsc` backend y frontend, ESLint de los 8 archivos. Precarga calculada en solo lectura
+  sobre COT 17038 y 17025 (ya convertidas): servicios «Venta» con la frase comercial, Acarreo, valor y
+  contacto correctos. No había cotizaciones aprobadas sin ODP ese día. **La creación real (los tres
+  caminos) queda para la prueba manual con el usuario: la base local es producción.**

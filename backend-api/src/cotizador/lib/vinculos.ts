@@ -12,10 +12,13 @@
 //      cotización (lead a COTIZANDO / APROBADO / PERDIDO + su bitácora). Corre
 //      DENTRO de la transacción del store: la cotización y el lead cambian juntos.
 //   4. "Crear ODP" desde una cotización aprobada. Tampoco crea la ODP a mano:
-//      elige el flujo que ya existe según el vínculo y lo reutiliza —
+//      la pantalla abre el formulario COMPLETO del ERP ya lleno con la
+//      cotización (2026-10-28) y aquí se elige el flujo que ya existe según el
+//      vínculo —
 //        prospecto (o lead nacido de un prospecto en gestión) → `aprobarProspectoRegistro`
 //          (aprobar un prospecto ES crear su ODP: TMs, leads, capturas, Pedido PV);
-//        lead → `crearODPParaLead` (el "Crear ODP" del CRM);
+//        lead → `crearODPRegistro` + el lead queda con su `odp_id` (antes era la
+//          ODP mínima de `crearODPParaLead`, que no admite vidrios ni fechas);
 //        cliente → `crearODPRegistro` (el `POST /api/odp` del formulario).
 //      Así el lead y el prospecto quedan sincronizados igual que hoy.
 //
@@ -32,11 +35,11 @@ import {
   CotizadorCotizacion,
   CotizadorPropuesta,
 } from '../../models';
-import { crearLeadRegistro, crearODPParaLead } from '../../controllers/crm.controller';
+import { crearLeadRegistro } from '../../controllers/crm.controller';
 import { aprobarProspectoRegistro } from '../../controllers/prospecto.controller';
 import { crearODPRegistro } from '../../controllers/odp.controller';
 import { getModulo } from '../modules/registry';
-import { conInstalacion } from './cargos';
+import { conInstalacion, sellarInstalacion } from './cargos';
 import { descripcionComercial } from './detalleComercial';
 import { ROLES_CONTROL_TOTAL, ROLES_EDITAN_PROPIAS } from './permisos';
 
@@ -515,11 +518,11 @@ export interface PlanCrearODP {
   explicacion: string;
   cotizacion: { id: number; numero: number; total: number; etiqueta: string | null };
   asesor: { id: number | null; nombre: string };
-  /** Cliente ya resuelto por el vínculo (null = hay que elegirlo). */
-  cliente: { id: number; nombre: string } | null;
+  /** Cliente ya resuelto por el vínculo (null = hay que elegirlo). `fuente` va
+   * para que el formulario no la pida si el cliente ya la tiene registrada. */
+  cliente: { id: number; nombre: string; fuente: string | null } | null;
+  /** El formulario debe elegir o crear el cliente («+ Crear cliente»). */
   requiereCliente: boolean;
-  /** Solo camino lead: se puede crear el cliente con nombre + teléfono (flujo del CRM). */
-  permiteClienteNuevo: boolean;
   /** El lead o el prospecto ya tienen ODP: se ofrece vincular la cotización a ella. */
   odpExistente: { id: number; numero: string } | null;
   prospecto: { id: number; numero: string } | null;
@@ -534,8 +537,14 @@ async function odpCorta(id: number | null | undefined) {
 
 async function clienteCorto(id: number | null | undefined) {
   if (!id) return null;
-  const c = await Cliente.findByPk(id, { attributes: ['id', 'nombre_razon_social'] });
-  return c ? { id: Number(c.getDataValue('id')), nombre: String(c.getDataValue('nombre_razon_social')) } : null;
+  const c = await Cliente.findByPk(id, { attributes: ['id', 'nombre_razon_social', 'fuente'] });
+  return c
+    ? {
+        id: Number(c.getDataValue('id')),
+        nombre: String(c.getDataValue('nombre_razon_social')),
+        fuente: (c.getDataValue('fuente') as string | null) || null,
+      }
+    : null;
 }
 
 /** Qué haría "Crear ODP" con esta cotización, sin escribir nada (previsualización). */
@@ -562,7 +571,6 @@ export async function planCrearODP(cotizacionId: number, user: NonNullable<Expre
     asesor: { id: cot.asesor_usuario_id ?? null, nombre: cot.asesor || '' },
     cliente: null,
     requiereCliente: false,
-    permiteClienteNuevo: false,
     odpExistente: null,
     prospecto: null,
     lead: null,
@@ -603,9 +611,8 @@ export async function planCrearODP(cotizacionId: number, user: NonNullable<Expre
       plan.camino = 'lead';
       plan.cliente = await clienteCorto(l.cliente_id);
       plan.requiereCliente = !plan.cliente;
-      plan.permiteClienteNuevo = true;
       plan.explicacion =
-        'Se crea la ODP desde el lead, igual que "Crear ODP" del CRM: queda vinculada al lead y a esta cotización.';
+        'Se crea la ODP para el cliente del lead: queda vinculada al lead (como "Crear ODP" del CRM) y a esta cotización.';
     }
   }
 
@@ -667,24 +674,50 @@ function fraseActual(f: Fila): string | null {
   }
 }
 
-async function detalleParaODP(cotizacionId: number, numero: number, etiqueta: string | null) {
+/** Primera línea de la descripción / observación de la ODP: de qué cotización salió. */
+function cabeceraCotizacion(numero: number, etiqueta: string | null): string {
+  return `Cotización N.° ${numero}${etiqueta ? ` (Opción ${etiqueta})` : ''} del Cotizador`;
+}
+
+/** El texto con la cabecera de la cotización al principio, sin repetirla si ya está. */
+function conCabecera(cabecera: string, texto: unknown): string {
+  const t = typeof texto === 'string' ? texto.trim() : '';
+  return t.startsWith(cabecera) ? t : [cabecera, t].filter(Boolean).join('\n');
+}
+
+// Tipos de servicio del formulario de ODP (la lista fija de `ODPForm.tsx`). Antes
+// se mandaba el nombre del producto ("Ventana corrediza"), que no está en esa
+// lista: en el formulario el selector quedaba vacío y no dejaba avanzar.
+const SERVICIO_CON_INSTALACION = 'Suministro e Instalación';
+const SERVICIO_SIN_INSTALACION = 'Venta';
+
+async function detalleParaODP(cotizacionId: number) {
   const filas = (await sequelize.query(
     `SELECT i.modulo_id, i.descripcion_item, i.cantidad_piezas,
-            i.input->>'conInstalacion' AS con_instalacion,
             i.input,
             i.resultado->'diseno' AS diseno,
-            i.resultado->>'descripcionComercial' AS descripcion_comercial
+            i.resultado->>'descripcionComercial' AS descripcion_comercial,
+            p.con_instalacion AS opcion_con_instalacion
        FROM cotizador.cotizacion_item i
        JOIN cotizador.propuesta p ON p.id = i.propuesta_id
       WHERE p.cotizacion_id = :id AND p.elegida = true
       ORDER BY i.orden`,
     { replacements: { id: cotizacionId }, type: QueryTypes.SELECT }
   )) as Fila[];
-  const servicios = filas.map((f) => {
+  // Instalación como cargo de la obra (2026-10-11): si la opción tiene su casilla,
+  // manda sobre la de cada producto — lo mismo que hacen el PDF y los cargos.
+  // Antes aquí solo se leía la del producto y una opción "sin instalación" con
+  // productos marcados creaba la ODP con instalación (y al revés).
+  const opcion = filas[0]?.opcion_con_instalacion;
+  const sellados = sellarInstalacion(
+    filas.map((f) => ({ input: (f.input ?? {}) as Record<string, unknown> })),
+    opcion === null || opcion === undefined ? null : { activa: Boolean(opcion) }
+  );
+  const servicios = filas.map((f, i) => {
     const modulo = getModulo(String(f.modulo_id)) as { meta?: { nombre?: string } } | null;
     return {
       cantidad: Number(f.cantidad_piezas) || 1,
-      tipo_servicio: modulo?.meta?.nombre ?? String(f.modulo_id),
+      tipo_servicio: conInstalacion(sellados[i]) ? SERVICIO_CON_INSTALACION : SERVICIO_SIN_INSTALACION,
       // La frase se vuelve a armar (2026-10-11): la guardada puede ser anterior a
       // una regla de nombre (p. ej. "puerta vidriera"), igual que la del PDF.
       descripcion: String(
@@ -692,8 +725,6 @@ async function detalleParaODP(cotizacionId: number, numero: number, etiqueta: st
       ),
     };
   });
-  const cabecera = `Cotización N.° ${numero}${etiqueta ? ` (Opción ${etiqueta})` : ''} del Cotizador`;
-  const descripcion = [cabecera, ...servicios.map((s) => `${s.cantidad}x ${s.descripcion}`)].join('\n');
 
   const fletes = (await sequelize.query(
     `SELECT 1
@@ -703,11 +734,44 @@ async function detalleParaODP(cotizacionId: number, numero: number, etiqueta: st
       LIMIT 1`,
     { replacements: { id: cotizacionId }, type: QueryTypes.SELECT }
   )) as Fila[];
-  const servicioObra = {
+  return {
+    servicios,
     acarreo: fletes.length > 0,
-    instalacion: filas.some((f) => conInstalacion({ input: { conInstalacion: f.con_instalacion } })),
+    instalacion: sellados.some((it) => conInstalacion(it)),
   };
-  return { servicios, descripcion, cabecera, servicioObra };
+}
+
+/** Lo que el formulario de ODP llena solo al abrirse desde la cotización (2026-10-28). */
+export interface PrecargaODP {
+  servicios: Array<{ cantidad: number; tipo_servicio: string; descripcion: string }>;
+  acarreo: boolean;
+  instalacion: boolean;
+  valor: number;
+  /** Primera línea de la descripción de la ODP; el formulario la muestra en Observaciones. */
+  cabecera: string;
+  /** Lo escrito en la cotización: precarga el alta del cliente y el contacto en obra. */
+  contacto: { nombre: string; telefono: string | null; direccion: string | null };
+}
+
+/** Precarga del formulario. Solo se arma si el plan dice que se puede crear la ODP. */
+export async function precargaCrearODP(cotizacionId: number, plan: PlanCrearODP): Promise<PrecargaODP> {
+  const [detalle, cot] = await Promise.all([
+    detalleParaODP(cotizacionId),
+    CotizadorCotizacion.findByPk(cotizacionId, {
+      attributes: ['cliente_nombre', 'cliente_telefono', 'cliente_direccion'],
+      raw: true,
+    }) as Promise<Fila | null>,
+  ]);
+  return {
+    ...detalle,
+    valor: plan.cotizacion.total,
+    cabecera: cabeceraCotizacion(plan.cotizacion.numero, plan.cotizacion.etiqueta),
+    contacto: {
+      nombre: texto(cot?.cliente_nombre).trim() || plan.lead?.nombre || '',
+      telefono: texto(cot?.cliente_telefono).trim() || null,
+      direccion: texto(cot?.cliente_direccion).trim() || null,
+    },
+  };
 }
 
 export const FORMAS_PAGO = ['contado', 'credito', '50_50'] as const;
@@ -727,7 +791,7 @@ export const FORMAS_PAGO = ['contado', 'credito', '50_50'] as const;
  */
 export async function crearODPDesdeCotizacion(
   cotizacionId: number,
-  datos: { clienteId?: number; nombre?: string; telefono?: string; formaPago: (typeof FORMAS_PAGO)[number] },
+  datos: { odp: Record<string, unknown> },
   user: NonNullable<Express.Request['user']>
 ): Promise<{ odpId: number; numeroOdp: string; camino: CaminoODP }> {
   const t = await sequelize.transaction();
@@ -760,15 +824,13 @@ export async function crearODPDesdeCotizacion(
     } catch (e) {
       console.error('crearODPDesdeCotizacion (bitácora del lead):', e instanceof Error ? e.message : e);
     }
-    // El "Crear ODP" del CRM no avisa al módulo ODP; desde aquí sí.
-    import('../../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(respuesta.odpId, 'create')).catch(() => {});
   }
   return respuesta;
 }
 
 async function crearODPBajoCandado(
   cotizacionId: number,
-  datos: { clienteId?: number; nombre?: string; telefono?: string; formaPago: (typeof FORMAS_PAGO)[number] },
+  datos: { odp: Record<string, unknown> },
   user: NonNullable<Express.Request['user']>,
   t: Transaction
 ): Promise<{ odpId: number; numeroOdp: string; camino: CaminoODP; leadId: number | null; numeroCot: number }> {
@@ -777,66 +839,38 @@ async function crearODPBajoCandado(
   const plan = await planCrearODP(cotizacionId, user);
   if (!plan.puede || !plan.camino) throw new ErrorVinculo(409, plan.motivo ?? 'No se puede crear la ODP.');
 
-  const clienteId = plan.cliente?.id ?? datos.clienteId ?? null;
-  if (plan.requiereCliente && !clienteId && !(plan.permiteClienteNuevo && datos.telefono?.trim())) {
-    throw new ErrorVinculo(
-      400,
-      plan.permiteClienteNuevo
-        ? 'Elige el cliente de la ODP o escribe nombre y teléfono para crearlo.'
-        : 'Elige el cliente de la ODP.'
-    );
+  // El formulario manda lo mismo que al `POST /api/odp` (o al aprobar un
+  // prospecto); lo valida el flujo de destino. Aquí solo se fija lo que dice la
+  // cotización y no se deja al formulario: el asesor y el cliente del vínculo.
+  const form: Fila = { ...datos.odp };
+  // Después de creada, solo gerencia o un administrador cambian la forma de pago.
+  if (!(FORMAS_PAGO as readonly string[]).includes(String(form.forma_pago ?? ''))) {
+    throw new ErrorVinculo(400, 'Elige la forma de pago de la ODP: después de creada solo gerencia o un administrador pueden cambiarla.');
   }
-  if (clienteId && !plan.cliente && !(await clienteCorto(clienteId))) {
-    throw new ErrorVinculo(404, 'El cliente elegido ya no existe. Búscalo de nuevo.');
-  }
-
-  const { servicios, descripcion, cabecera, servicioObra } = await detalleParaODP(cotizacionId, plan.cotizacion.numero, plan.cotizacion.etiqueta);
-  const valor = plan.cotizacion.total;
-  const asesorId = plan.asesor.id ?? undefined;
+  if (plan.asesor.id) form.asesor_id = plan.asesor.id;
+  const cabecera = cabeceraCotizacion(plan.cotizacion.numero, plan.cotizacion.etiqueta);
 
   let r: { status: number; body: any };
   let leerId: (b: any) => number;
   let leerNumero: (b: any) => string | null;
   if (plan.camino === 'prospecto') {
-    r = await aprobarProspectoRegistro(
-      plan.prospecto!.id,
-      {
-        servicios_detalle: servicios,
-        valor_total: valor,
-        forma_pago: datos.formaPago,
-        observaciones: cabecera,
-        ...servicioObra,
-        ...(plan.cliente ? {} : { cliente_id: clienteId }),
-        ...(asesorId ? { asesor_id: asesorId } : {}),
-      },
-      user
-    );
+    // El prospecto resuelve su cliente (el suyo, `cliente_id` o `nuevo_cliente`).
+    form.observaciones = conCabecera(cabecera, form.observaciones);
+    r = await aprobarProspectoRegistro(plan.prospecto!.id, form, user);
     leerId = (b) => Number(b?.odp?.id ?? b?.odp?.getDataValue?.('id'));
     leerNumero = (b) => b?.odp?.numero_odp ?? b?.odp?.getDataValue?.('numero_odp') ?? null;
-  } else if (plan.camino === 'lead') {
-    r = await crearODPParaLead(
-      plan.lead!.id,
-      clienteId ? { cliente_id: clienteId } : { nombre: datos.nombre?.trim() || plan.lead!.nombre, telefono: datos.telefono?.trim() },
-      user,
-      { asesor_id: asesorId, valor_total: valor, descripcion_pedido: descripcion, forma_pago: datos.formaPago, ...servicioObra }
-    );
-    leerId = (b) => Number(b?.odp_id);
-    leerNumero = (b) => b?.numero_odp ?? null;
   } else {
-    r = await crearODPRegistro(
-      {
-        cliente_id: clienteId,
-        ...(asesorId ? { asesor_id: asesorId } : {}),
-        valor_total: valor,
-        forma_pago: datos.formaPago,
-        servicios_detalle: servicios,
-        cantidad_total: servicios.reduce((a, s) => a + s.cantidad, 0) || 1,
-        tipo_servicio: servicios[0]?.tipo_servicio,
-        descripcion_pedido: descripcion,
-        ...servicioObra,
-      },
-      user.id
-    );
+    if (plan.cliente) {
+      form.cliente_id = plan.cliente.id;
+    } else {
+      const elegido = Number(form.cliente_id);
+      if (!Number.isInteger(elegido) || elegido <= 0) {
+        throw new ErrorVinculo(400, 'Elige el cliente de la ODP, o créalo con «+ Crear cliente» si todavía no está registrado.');
+      }
+      if (!(await clienteCorto(elegido))) throw new ErrorVinculo(404, 'El cliente elegido ya no existe. Búscalo de nuevo.');
+    }
+    form.descripcion_pedido = conCabecera(cabecera, form.descripcion_pedido);
+    r = await crearODPRegistro(form, user.id);
     leerId = (b) => Number(b?.id ?? b?.getDataValue?.('id'));
     leerNumero = (b) => b?.numero_odp ?? b?.getDataValue?.('numero_odp') ?? null;
   }
@@ -848,6 +882,17 @@ async function crearODPBajoCandado(
   const odpId = leerId(r.body);
   let numeroOdp = leerNumero(r.body);
   if (!numeroOdp) numeroOdp = (await odpCorta(odpId))?.numero ?? `#${odpId}`;
+
+  // Camino lead (2026-10-28): lo que hacía `crearODPParaLead` después de crear
+  // su ODP mínima — el lead queda con su ODP (el plan ya comprobó que está
+  // APROBADO y sin ODP). Por instancia, para la auditoría.
+  if (plan.camino === 'lead') {
+    const lead = await Lead.findByPk(plan.lead!.id, { transaction: t });
+    if (lead) {
+      await lead.update({ odp_id: odpId }, { transaction: t });
+      emitirCrmAlConfirmar(t);
+    }
+  }
 
   // La ODP ya existe: vincularla a la cotización. Por instancia (no update
   // masivo) para que el hook de auditoría lo registre. Sin subir `version`: la

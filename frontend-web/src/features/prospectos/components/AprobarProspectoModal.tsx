@@ -12,6 +12,9 @@ import { motion } from 'framer-motion';
 import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
 
 import API from '../../../services/config';
+import { apiCrearOdpDesdeCotizacion } from '../../cotizador/services/cotizadorApi';
+import { numeroCotizacion } from '../../cotizador/format';
+import { OrigenCotizacion } from '../../cotizador/vinculo';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -46,14 +49,19 @@ const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presenc
 interface Props {
   prospecto: any;
   onClose: () => void;
-  onAprobado: () => void;
+  /** Recibe la ODP creada cuando viene del Cotizador. */
+  onAprobado: (odp?: { id: number; numero: string }) => void;
   asesorId?: number | null;
   tipoOdp?: 'ODP' | 'OA';
+  /** "Crear ODP" del Cotizador (2026-10-28): abre lleno con la cotización y se
+   * aprueba por el Cotizador, que crea la ODP y la vincula en una sola operación. */
+  desdeCotizacion?: OrigenCotizacion;
 }
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 
-const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado, asesorId, tipoOdp }) => {
+const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado, asesorId, tipoOdp, desdeCotizacion }) => {
+  const precarga = desdeCotizacion?.precarga;
   const navigate = useNavigate();
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -93,14 +101,16 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
     resolver: zodResolver(odpSchema) as any,
     defaultValues: {
       fecha_entrega: '',
-      servicios_detalle: [{ cantidad: 1, tipo_servicio: 'Suministro e Instalación', descripcion: prospecto.descripcion || '' }],
+      servicios_detalle: precarga?.servicios.length
+        ? precarga.servicios
+        : [{ cantidad: 1, tipo_servicio: 'Suministro e Instalación', descripcion: prospecto.descripcion || '' }],
       forma_pago: '',
       observaciones: '',
-      valor_total: 0,
+      valor_total: precarga?.valor ?? 0,
       matizado: false,
       pelicula: false,
-      acarreo: false,
-      instalacion: false,
+      acarreo: precarga?.acarreo ?? false,
+      instalacion: precarga?.instalacion ?? false,
       huacal: false,
       carton: false,
       proveedor_vidrio: '',
@@ -176,6 +186,10 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
     if (necesitaFuenteExistente && !fuenteExistente) {
       toast.error('Selecciona la fuente del cliente'); return;
     }
+    // Desde una cotización la forma de pago es obligatoria (el backend también lo exige).
+    if (desdeCotizacion && !data.forma_pago) {
+      toast.error('Elige la forma de pago: después de creada la ODP solo gerencia o un administrador pueden cambiarla.'); return;
+    }
 
     try {
       const payload: any = {
@@ -201,6 +215,14 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
       if (asesorId) payload.asesor_id = asesorId;
       if (tipoOdp) payload.tipo_odp = tipoOdp;
 
+      if (desdeCotizacion) {
+        // Mismo aprobar, por el Cotizador: queda vinculada a la cotización en la
+        // misma operación. Sin navegar: el usuario sigue en el Cotizador.
+        const { data: creada } = await apiCrearOdpDesdeCotizacion(desdeCotizacion.cotizacionId, payload);
+        toast.success(`Prospecto aprobado — ${creada.numeroOdp} creada y vinculada a la cotización ${numeroCotizacion(desdeCotizacion.numero)}.`);
+        onAprobado({ id: creada.odpId, numero: creada.numeroOdp });
+        return;
+      }
       const res = await axios.post(`${API}/api/prospectos/${prospecto.id}/aprobar`, payload, { headers });
       toast.success('Prospecto aprobado — ODP creada');
       onAprobado();
@@ -232,7 +254,10 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
               <CheckCircle2 className="w-5 h-5 text-green-600" />
               Aprobar Prospecto — Generar ODP
             </h2>
-            <p className="text-xs text-slate-700 mt-0.5">{prospecto.numero_prospecto} · {contacto}</p>
+            <p className="text-xs text-slate-700 mt-0.5">
+              {prospecto.numero_prospecto} · {contacto}
+              {desdeCotizacion && ` · Desde la cotización ${numeroCotizacion(desdeCotizacion.numero)}${desdeCotizacion.plan.cotizacion.etiqueta ? ` (Opción ${desdeCotizacion.plan.cotizacion.etiqueta})` : ''}: se llenaron productos, valor, acarreo e instalación`}
+            </p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition">
             <X className="w-5 h-5" />
