@@ -1,11 +1,14 @@
 import { Request, Response } from 'express';
-import { TomaMedidas, ODP, Usuario, Cliente, Prospecto } from '../models';
+import { Op, Transaction } from 'sequelize';
+import { sequelize, TomaMedidas, ODP, Usuario, Cliente, Prospecto } from '../models';
+import { aplicarCambioODPPorTM } from '../utils/tomaMedidas';
 
-const generarNumeroTM = async (): Promise<string> => {
+const generarNumeroTM = async (transaction?: Transaction): Promise<string> => {
   const last = await TomaMedidas.findOne({
-    where: { numero_tm: { [require('sequelize').Op.like]: 'TM-%' } },
+    where: { numero_tm: { [Op.like]: 'TM-%' } },
     order: [['numero_tm', 'DESC']],
     attributes: ['numero_tm'],
+    transaction,
   });
   let next = 1;
   if (last) {
@@ -29,31 +32,45 @@ export const getTMsByODP = async (req: Request, res: Response) => {
   }
 };
 
+// Crear una TM (desde un prospecto o desde la ficha de una ODP).
+// Desde una ODP (2026-10-28): la TM y el cambio de estado van en la MISMA
+// transacción. Antes el frontend hacía un `PUT /api/odp` aparte que forzaba
+// VISITA_TECNICA en cualquier estado (devolvía una ODP ya cortada o programada)
+// y, si fallaba, dejaba la TM creada con un "Error al solicitar" que invitaba a
+// repetirla. Ahora solo EN_ESPERA → VISITA_TECNICA (misma regla que relacionar
+// una TM existente); en otro estado la ODP no se mueve.
 export const createTM = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
   try {
     const {
       odp_id, prospecto_id,
       fecha_visita, direccion, nombre_contacto, telefono_contacto,
       contacto_obra, telefono_obra, observaciones, medidas_json,
     } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
     // Requiere al menos odp_id o prospecto_id
     if (!odp_id && !prospecto_id) {
+      await t.rollback();
       return res.status(400).json({ error: 'Se requiere odp_id o prospecto_id' });
     }
 
+    let odp: any = null;
     if (odp_id) {
-      const odp = await ODP.findByPk(odp_id);
-      if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+      odp = await ODP.findByPk(odp_id, { transaction: t });
+      if (!odp) { await t.rollback(); return res.status(404).json({ error: 'ODP no encontrada' }); }
+      if (odp.getDataValue('estado_produccion') === 'ANULADA') {
+        await t.rollback();
+        return res.status(409).json({ error: `La ${odp.getDataValue('numero_odp')} está anulada: no se le puede solicitar toma de medidas.` });
+      }
     }
 
     if (prospecto_id) {
-      const prospecto = await Prospecto.findByPk(prospecto_id);
-      if (!prospecto) return res.status(404).json({ error: 'Prospecto no encontrado' });
+      const prospecto = await Prospecto.findByPk(prospecto_id, { transaction: t });
+      if (!prospecto) { await t.rollback(); return res.status(404).json({ error: 'Prospecto no encontrado' }); }
     }
 
-    const numero_tm = await generarNumeroTM();
+    const numero_tm = await generarNumeroTM(t);
     const estado = fecha_visita ? 'programada' : 'solicitada';
 
     const tm = await TomaMedidas.create({
@@ -70,16 +87,32 @@ export const createTM = async (req: Request, res: Response) => {
       telefono_obra,
       observaciones,
       medidas_json: medidas_json || [],
-    });
+    }, { transaction: t });
+
+    let estadoODP: string | null = null;
+    if (odp) {
+      if (odp.getDataValue('estado_produccion') === 'EN_ESPERA') {
+        await aplicarCambioODPPorTM(odp, { estado_produccion: 'VISITA_TECNICA' }, {
+          usuarioId: userId,
+          observacion: `Toma de medidas ${numero_tm} solicitada.`,
+          transaction: t,
+        });
+      }
+      estadoODP = odp.getDataValue('estado_produccion');
+    }
+    await t.commit();
 
     const tmWithUser = await TomaMedidas.findByPk(tm.getDataValue('id'), {
       include: [{ model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] }],
     });
 
     import('../server').then(({ emitirCambio }) => emitirCambio('toma_medidas')).catch(() => {});
-    res.status(201).json(tmWithUser);
+    // `estado_odp` le dice a la ficha en qué quedó la ODP (null si la TM es de un prospecto).
+    res.status(201).json({ ...(tmWithUser?.toJSON() ?? {}), estado_odp: estadoODP });
   } catch (error: any) {
-    res.status(500).json({ error: 'Error al crear TM', detail: error.message });
+    await t.rollback().catch(() => {});
+    console.error('Error al crear TM:', error?.message);
+    res.status(500).json({ error: 'No se pudo crear la toma de medidas. No se guardó nada; inténtalo de nuevo.' });
   }
 };
 
@@ -270,12 +303,17 @@ export const getTMsSinODP = async (_req: Request, res: Response) => {
   try {
     const tms = await TomaMedidas.findAll({
       where: { odp_id: null },
+      // Solo lo que muestra el modal (2026-10-28): con todas las columnas (fotos en
+      // `medidas_json`, croquis…) la lista pesaba ~148 KB por apertura.
+      attributes: ['id', 'numero_tm', 'estado', 'direccion', 'fecha_creacion', 'prospecto_id'],
       include: [
         { model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] },
         {
           model: Prospecto, as: 'prospecto', required: false,
-          attributes: ['id', 'numero_prospecto', 'nombre_contacto', 'descripcion'],
-          include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
+          // `estado` y el `id` del cliente (2026-10-28): la ficha agrupa las del cliente
+          // de la ODP y avisa si el prospecto sigue en gestión.
+          attributes: ['id', 'numero_prospecto', 'nombre_contacto', 'descripcion', 'estado', 'cliente_id'],
+          include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
         },
       ],
       order: [['fecha_creacion', 'DESC']],
@@ -290,38 +328,48 @@ export const getTMsSinODP = async (_req: Request, res: Response) => {
 // Reglas de estado:
 //   - TM realizada  → ODP sube a MEDICION (+ chk_medicion=true)
 //   - TM no realizada → ODP sube a VISITA_TECNICA (si estaba EN_ESPERA)
+//   - ODP anulada → se rechaza (2026-10-28).
+// En una transacción, con historial y patch de socket (`aplicarCambioODPPorTM`).
 export const vincularTMaODP = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
   try {
     const { id } = req.params;
     const { odp_id } = req.body;
 
-    if (!odp_id) return res.status(400).json({ error: 'Se requiere odp_id' });
+    if (!odp_id) { await t.rollback(); return res.status(400).json({ error: 'Se requiere odp_id' }); }
 
-    const tm = await TomaMedidas.findByPk(id);
-    if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
+    // FOR UPDATE: dos personas relacionando la misma TM a la vez no la ponen en dos ODP.
+    const tm = await TomaMedidas.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE });
+    if (!tm) { await t.rollback(); return res.status(404).json({ error: 'TM no encontrada' }); }
     if (tm.getDataValue('odp_id')) {
-      return res.status(400).json({ error: 'Esta TM ya está vinculada a una ODP' });
+      await t.rollback();
+      return res.status(409).json({ error: `${tm.getDataValue('numero_tm')} ya está vinculada a otra ODP. Cierra y vuelve a abrir la lista.` });
     }
 
-    const odp = await ODP.findByPk(odp_id);
-    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+    const odp = await ODP.findByPk(odp_id, { transaction: t });
+    if (!odp) { await t.rollback(); return res.status(404).json({ error: 'ODP no encontrada' }); }
+    if (odp.getDataValue('estado_produccion') === 'ANULADA') {
+      await t.rollback();
+      return res.status(409).json({ error: `La ${odp.getDataValue('numero_odp')} está anulada: no se le puede vincular una toma de medidas.` });
+    }
 
-    await tm.update({ odp_id });
+    await tm.update({ odp_id }, { transaction: t });
 
+    const numeroTM = tm.getDataValue('numero_tm');
     const estadoTM = tm.getDataValue('estado');
     const estadoODP = odp.getDataValue('estado_produccion');
 
     if (estadoTM === 'realizada') {
-      const updates: any = { chk_medicion: true };
-      if (['EN_ESPERA', 'VISITA_TECNICA'].includes(estadoODP)) {
-        updates.estado_produccion = 'MEDICION';
-      }
-      await odp.update(updates);
-    } else {
-      if (estadoODP === 'EN_ESPERA') {
-        await odp.update({ estado_produccion: 'VISITA_TECNICA' });
-      }
+      await aplicarCambioODPPorTM(odp, {
+        chk_medicion: true,
+        ...(['EN_ESPERA', 'VISITA_TECNICA'].includes(estadoODP) ? { estado_produccion: 'MEDICION' } : {}),
+      }, { usuarioId: req.user!.id, observacion: `Toma de medidas ${numeroTM} (realizada) relacionada.`, transaction: t });
+    } else if (estadoODP === 'EN_ESPERA') {
+      await aplicarCambioODPPorTM(odp, { estado_produccion: 'VISITA_TECNICA' }, {
+        usuarioId: req.user!.id, observacion: `Toma de medidas ${numeroTM} relacionada.`, transaction: t,
+      });
     }
+    await t.commit();
 
     const tmActualizada = await TomaMedidas.findByPk(id, {
       include: [{ model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] }],
@@ -330,7 +378,9 @@ export const vincularTMaODP = async (req: Request, res: Response) => {
     import('../server').then(({ emitirCambio }) => emitirCambio('toma_medidas')).catch(() => {});
     res.json(tmActualizada);
   } catch (error: any) {
-    res.status(500).json({ error: 'Error al vincular TM', detail: error.message });
+    await t.rollback().catch(() => {});
+    console.error('Error al vincular TM:', error?.message);
+    res.status(500).json({ error: 'No se pudo vincular la toma de medidas. No se modificó nada; inténtalo de nuevo.' });
   }
 };
 
@@ -358,16 +408,16 @@ export const uploadFotoTM = async (req: Request, res: Response) => {
     });
 
     // Si la TM tiene ODP vinculada: siempre activar chk_medicion;
-    // avanzar a MEDICION solo si la ODP estaba en VISITA_TECNICA
+    // avanzar a MEDICION solo si la ODP estaba en VISITA_TECNICA.
+    // Con historial y patch de socket desde el 2026-10-28.
     const odp_id = tm.getDataValue('odp_id');
     if (odp_id) {
       const odp = await ODP.findByPk(odp_id);
       if (odp) {
-        const updates: any = { chk_medicion: true };
-        if (odp.getDataValue('estado_produccion') === 'VISITA_TECNICA') {
-          updates.estado_produccion = 'MEDICION';
-        }
-        await odp.update(updates);
+        await aplicarCambioODPPorTM(odp, {
+          chk_medicion: true,
+          ...(odp.getDataValue('estado_produccion') === 'VISITA_TECNICA' ? { estado_produccion: 'MEDICION' } : {}),
+        }, { usuarioId: req.user!.id, observacion: `Foto de la toma de medidas ${tm.getDataValue('numero_tm')} registrada.` });
       }
     }
 

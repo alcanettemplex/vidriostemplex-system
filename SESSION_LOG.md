@@ -7283,3 +7283,32 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
 - **Verificación:** `tsc` de backend y frontend y ESLint de los 8 archivos, todo limpio. Precarga calculada en solo lectura sobre COT 17038 y 17025: correcta. No había cotizaciones aprobadas sin ODP.
 - **Pendiente:** prueba manual de creación en los tres caminos (cliente, lead, prospecto), coordinada con el usuario, porque la base es la de producción.
 - **Deuda anotada:** `AprobarProspectoModal` tiene su propio alta de cliente (ver `TECH_DEBT.md`).
+
+## 2026-10-28 (2) — Ficha ODP: buscador en «Relacionar TM» y corrección de «Solicitar TM»
+
+- **Decisiones del usuario:**
+  - al solicitar, la ODP pasa a Visita técnica solo desde En espera;
+  - la solicitud se hace en un modal con los datos editables;
+  - al relacionar, buscador, grupo del mismo cliente arriba y aviso de prospecto en gestión;
+  - se permite «Solicitar otra TM».
+- **Bugs encontrados en «Solicitar TM»:**
+  - forzaba Visita técnica en cualquier estado, lo que devolvía hacia atrás ODP ya avanzadas;
+  - eran dos llamadas sueltas, con TM duplicada si se reintentaba;
+  - no dejaba historial ni socket;
+  - mandaba los datos sin mostrarlos.
+- **backend:**
+  - `toma_medidas.controller.ts`:
+    - `createTM` en transacción, con la regla de estado nueva, 409 si la ODP está anulada y `estado_odp` en la respuesta;
+    - `vincularTMaODP` en transacción, con `FOR UPDATE` sobre la TM y 409 si está anulada o ya vinculada;
+    - `uploadFotoTM` con historial;
+    - `getTMsSinODP` con columnas recortadas (148 → 59 KB) más `prospecto.estado` y `cliente_id`.
+  - Nuevo `utils/tomaMedidas.ts` (`aplicarCambioODPPorTM`).
+- **frontend:**
+  - Nuevos `SolicitarTMODPModal.tsx` y `RelacionarTMModal.tsx`.
+  - `ODPTabProduccion.tsx` usa los dos modales y deja de usar `window.confirm` y el `PUT /api/odp` suelto.
+- **BD:** sin cambios.
+- **Verificación:**
+  - `tsc` de backend y frontend, ESLint del frontend limpio;
+  - `getTMsSinODP` ejecutado en solo lectura: 125 TM, 47 con cliente para agrupar, 112 de prospectos en gestión;
+  - el panel de Tomas de Medida no cambia, porque solo lista ODP ya en Visita técnica.
+- **Pendiente:** prueba manual de solicitar y vincular (base de producción). Deuda anotada: `chk_medicion` fuera del motor. ESLint del backend ya figuraba (TECH_DEBT 2026-10-02).

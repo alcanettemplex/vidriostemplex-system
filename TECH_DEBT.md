@@ -1761,3 +1761,9 @@ Ver `docs/modulos/cotizador.md` → "Anexo de diseños".
 - `ODPForm` usa `features/clientes/components/CrearClienteRapido.tsx` (POST `/api/clientes` antes de crear la ODP). `AprobarProspectoModal` tiene su propio bloque «Cliente existente / Cliente nuevo» y manda `nuevo_cliente` para que `aprobarProspectoRegistro` lo cree dentro de su transacción.
 - Son dos UIs y dos caminos para lo mismo. No se unificaron el 2026-10-28 para no tocar el flujo de Prospectos más allá de la precarga desde el Cotizador.
 - **Propuesta:** usar `CrearClienteRapido` también en el prospecto, o hacer que `CrearClienteRapido` acepte un modo «diferido» que devuelva los datos en lugar de hacer el POST, para conservar la creación dentro de la transacción del aprobar.
+
+## 2026-10-28 — `chk_medicion` fuera del motor de checks
+
+- **Severidad:** baja/media (consistencia). **Estimación:** 1-2 h con pruebas.
+- `recalcularChecksODP` (`utils/checksAutomaticos.ts`) maneja herrajes y vidrio, pero no la medición. `chk_medicion` lo marcan `vincularTMaODP` y `uploadFotoTM` a través de `aplicarCambioODPPorTM` (`utils/tomaMedidas.ts`), que deja historial y socket pero **no evalúa el paso automático a LISTO_INSTALAR**. Si la medición fuera lo último que faltaba, la ODP no avanzaría sola.
+- **Propuesta:** opción `medicion?: boolean` en `recalcularChecksODP` (como `vidrio`), con avance a MEDICION desde EN_ESPERA o VISITA_TECNICA, y que `aplicarCambioODPPorTM` la use para el check. El motor tiene ~19 puntos de llamada: va con su propia ronda de pruebas.

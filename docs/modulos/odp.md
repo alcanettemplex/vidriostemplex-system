@@ -149,3 +149,26 @@ desarrollo en hora de Bogotá — por eso estos errores no se veían en local.
   forma de pago es obligatoria.
 - `onSuccess` recibe la ODP creada (`{ id, numero }`); en edición no trae nada.
 - Detalle en `docs/modulos/cotizador.md` § «Crear ODP con el formulario completo».
+
+## Tomas de medida desde la ficha ODP (2026-10-28)
+Pestaña Producción → «Tomas de Medida». Dos botones (roles: asesor_comercial, jefe_produccion, admin, gerencia):
+- **«Solicitar TM» / «Solicitar otra TM»** (`SolicitarTMODPModal.tsx`): modal con dirección (obligatoria),
+  contacto en obra, teléfono y observaciones, ya llenos con la ODP. Se puede pedir otra aunque la ODP ya
+  tenga TM (decisión del usuario), con aviso de las existentes. `POST /api/documentos/tm` crea la TM y,
+  **solo si la ODP está En espera**, la pasa a Visita técnica, en la misma transacción. Antes:
+  - el frontend hacía un `PUT /api/odp` aparte que forzaba `VISITA_TECNICA` en cualquier estado (devolvía
+    una ODP cortada o programada);
+  - si ese PUT fallaba, la TM quedaba creada con «Error al solicitar» y un reintento creaba otra.
+  Una ODP anulada responde 409.
+- **«Relacionar TM existente»** (`RelacionarTMModal.tsx`): buscador sin tildes (número de TM, prospecto,
+  cliente o contacto, dirección, asesor), grupo «Del cliente de esta ODP» arriba (por
+  `prospecto.cliente_id`) y confirmación dentro del modal. La confirmación avisa si el prospecto sigue en
+  gestión (no cambia y su ODP futura nacería sin la TM) o si la TM es de otro cliente. `GET /tm/sin-odp`
+  devuelve solo las columnas que muestra el modal (59 KB en lugar de 148 KB con 125 TM) más
+  `prospecto.estado` y `cliente_id`. `PATCH /tm/:id/vincular-odp`: transacción con `FOR UPDATE` sobre la
+  TM (409 si ya está en otra ODP), 409 si la ODP está anulada, y las mismas reglas de estado (realizada →
+  `chk_medicion` + Medición desde En espera o Visita técnica; si no, En espera → Visita técnica).
+- **`utils/tomaMedidas.ts` → `aplicarCambioODPPorTM`** es el único punto que mueve la ODP por una TM
+  (`createTM`, `vincularTMaODP`, `uploadFotoTM`): escribe solo lo que cambia, deja fila en
+  `historial_estados_odp` (antes ninguno de los tres la dejaba) y emite `emitirODPPatch` después del commit.
+  No es el motor de checks: `recalcularChecksODP` no maneja `chk_medicion` (ver `TECH_DEBT.md` 2026-10-28).
