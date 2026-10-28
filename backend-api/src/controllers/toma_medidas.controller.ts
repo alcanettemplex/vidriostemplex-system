@@ -1,22 +1,7 @@
 import { Request, Response } from 'express';
-import { Op, Transaction } from 'sequelize';
+import { Op } from 'sequelize';
 import { sequelize, TomaMedidas, ODP, Usuario, Cliente, Prospecto } from '../models';
-import { aplicarCambioODPPorTM } from '../utils/tomaMedidas';
-
-const generarNumeroTM = async (transaction?: Transaction): Promise<string> => {
-  const last = await TomaMedidas.findOne({
-    where: { numero_tm: { [Op.like]: 'TM-%' } },
-    order: [['numero_tm', 'DESC']],
-    attributes: ['numero_tm'],
-    transaction,
-  });
-  let next = 1;
-  if (last) {
-    const parts = last.getDataValue('numero_tm').split('-');
-    next = parseInt(parts[parts.length - 1]) + 1;
-  }
-  return `TM-${String(next).padStart(4, '0')}`;
-};
+import { aplicarCambioODPPorTM, generarNumeroTM } from '../utils/tomaMedidas';
 
 export const getTMsByODP = async (req: Request, res: Response) => {
   try {
@@ -144,7 +129,8 @@ export const getTMPanel = async (_req: Request, res: Response) => {
       {
         model: ODP, as: 'odp', required: false,
         attributes: ['id', 'numero_odp', 'fecha_entrega', 'fecha_creacion', 'direccion_instalacion',
-          'tipo_servicio', 'descripcion_pedido', 'observaciones', 'nombre_recibe', 'telefono_recibe'],
+          'tipo_servicio', 'descripcion_pedido', 'observaciones', 'nombre_recibe', 'telefono_recibe',
+          'estado_produccion'],
         include: [
           { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
           { model: Usuario, as: 'asesor', attributes: ['nombre_completo'] },
@@ -192,7 +178,7 @@ export const getTMPanel = async (_req: Request, res: Response) => {
 
     // REALIZADAS: TMs en estado 'realizada' o 'convertida'
     const realizadas = await TomaMedidas.findAll({
-      where: { estado: { [require('sequelize').Op.in]: ['realizada', 'convertida'] } },
+      where: { estado: { [Op.in]: ['realizada', 'convertida'] } },
       include: includeBase,
       order: [['fecha_creacion', 'DESC']],
     });
@@ -238,21 +224,50 @@ export const updateTM = async (req: Request, res: Response) => {
   }
 };
 
+// Eliminar una TM (solo solicitada o programada).
+// Si era la única TM de una ODP en Visita técnica, la ODP vuelve a En espera
+// (decisión del usuario, 2026-10-28): antes se quedaba en Visita técnica sin TM y
+// reaparecía en Solicitadas como tarjeta de "ODP sin TM".
 export const deleteTM = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const tm = await TomaMedidas.findByPk(id);
-    if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
+    const tm = await TomaMedidas.findByPk(id, { transaction: t, lock: t.LOCK.UPDATE });
+    if (!tm) { await t.rollback(); return res.status(404).json({ error: 'TM no encontrada' }); }
 
     const estado = tm.getDataValue('estado');
     if (!['solicitada', 'programada'].includes(estado)) {
+      await t.rollback();
       return res.status(400).json({ error: 'Solo se pueden eliminar TMs en estado solicitada o programada' });
     }
 
-    await tm.destroy();
-    res.json({ message: 'TM eliminada correctamente' });
+    const numeroTM = tm.getDataValue('numero_tm') as string;
+    const odpId = tm.getDataValue('odp_id') as number | null;
+    await tm.destroy({ transaction: t });
+
+    let odpVolvio: string | null = null;
+    if (odpId) {
+      const odp = await ODP.findByPk(odpId, { transaction: t, lock: t.LOCK.UPDATE });
+      const quedan = await TomaMedidas.count({ where: { odp_id: odpId }, transaction: t });
+      if (odp && quedan === 0 && odp.getDataValue('estado_produccion') === 'VISITA_TECNICA') {
+        await aplicarCambioODPPorTM(odp, { estado_produccion: 'EN_ESPERA' }, {
+          usuarioId: req.user!.id,
+          observacion: `Toma de medidas ${numeroTM} eliminada: la ODP vuelve a En espera.`,
+          transaction: t,
+        });
+        odpVolvio = odp.getDataValue('numero_odp');
+      }
+    }
+    await t.commit();
+
+    import('../server').then(({ emitirCambio }) => emitirCambio('toma_medidas')).catch(() => {});
+    res.json({
+      message: odpVolvio ? `TM eliminada. ${odpVolvio} volvió a En espera.` : 'TM eliminada correctamente',
+      odp_en_espera: odpVolvio,
+    });
   } catch {
-    res.status(500).json({ error: 'Error al eliminar TM' });
+    await t.rollback().catch(() => {});
+    res.status(500).json({ error: 'No se pudo eliminar la toma de medidas. No se borró nada; inténtalo de nuevo.' });
   }
 };
 

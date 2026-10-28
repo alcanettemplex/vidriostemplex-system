@@ -160,6 +160,22 @@ Pestaña Producción → «Tomas de Medida». Dos botones (roles: asesor_comerci
     una ODP cortada o programada);
   - si ese PUT fallaba, la TM quedaba creada con «Error al solicitar» y un reintento creaba otra.
   Una ODP anulada responde 409.
+  **El listado de ODP usa el mismo modal** (menú de la fila → «Solicitar Visita Técnica»,
+  `ODPListPage.tsx`, desde el 2026-10-28 (3)): antes hacía `PUT /api/odp {estado_produccion:'VISITA_TECNICA'}`
+  sin crear TM ni historial, y aceptaba casi cualquier estado. Así nació la ODP-24479 (27-oct), que el panel de
+  Tomas de Medida mostraba en «Solicitadas» como tarjeta de ODP sin TM, con «Abrir TM» (`odpsSinTM` de
+  `getTMPanel`). Esa tarjeta se conserva como red de seguridad para ODP en Visita técnica sin TM.
+- **Regla «toda ODP en Visita técnica tiene su TM real»** (2026-10-28 (4), `asegurarTMDeODP` en
+  `utils/tomaMedidas.ts`, que también genera el TM-XXXX):
+  - **al crear** (`crearODPRegistro`) con «Requiere visita técnica» —formulario ODP o «Crear ODP» del
+    Cotizador— la TM «solicitada» nace en la misma transacción. Lleva dirección de instalación y quien
+    recibe, y queda a nombre del asesor. Una colisión de número la reintenta `withUniqueRetry` con la ODP;
+  - **al pasar a mano** a Visita técnica (`updateODP`) sin ninguna TM, se crea igual;
+  - **al eliminar** (`deleteTM`, en transacción) la única TM de una ODP en Visita técnica, la ODP vuelve a
+    **En espera** con fila en el historial (decisión del usuario). El panel lo avisa en la confirmación;
+  - la aprobación de prospecto no usa la regla: ahí la ODP solo nace en Visita técnica si ya trae TM.
+  - Puesta al día: `scripts/2026-10-28_crear_tm_odps_visita_sin_tm.ts` (sin `--aplicar` solo lista; al
+    2026-10-28 solo la ODP-24479).
 - **«Relacionar TM existente»** (`RelacionarTMModal.tsx`): buscador sin tildes (número de TM, prospecto,
   cliente o contacto, dirección, asesor), grupo «Del cliente de esta ODP» arriba (por
   `prospecto.cliente_id`) y confirmación dentro del modal. La confirmación avisa si el prospecto sigue en

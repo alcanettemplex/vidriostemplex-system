@@ -21,6 +21,7 @@ import AsignarAsesorODPModal from './components/AsignarAsesorODPModal';
 import SeleccionarTipoODPModal from './components/SeleccionarTipoODPModal';
 import SAPModal from './components/SAPModal';
 import TMModal from './components/TMModal';
+import SolicitarTMODPModal from './components/SolicitarTMODPModal';
 import ExploradorODPPanel from './components/ExploradorODPPanel';
 import { enlaceCotizador } from '../cotizador/vinculo';
 
@@ -202,6 +203,7 @@ const ODPListPage: React.FC = () => {
     const [motivoAnulacion, setMotivoAnulacion] = useState('');
     const [sapOdp, setSapOdp] = useState<ODP | null>(null);
     const [tmOdp, setTmOdp] = useState<ODP | null>(null);
+    const [solicitarTmOdp, setSolicitarTmOdp] = useState<ODP | null>(null);
     const [printOdp, setPrintOdp] = useState<ODP | null>(null);
 
     // Filtros
@@ -226,6 +228,7 @@ const ODPListPage: React.FC = () => {
     //     del listado BORRARÍA esos campos al guardar (mismo bug que hubo con
     //     descripcion_contexto en el CRM, resuelto así en LeadDetalleModal).
     //   · TMModal  — usa direccion_instalacion, tipo_servicio, datos de quien recibe y tomas_medidas.
+    //   · SolicitarTMODPModal — precarga dirección y contacto, y avisa de las TM que ya tiene.
     // SAPModal solo usa id/numero_odp/cliente, pero pasa por el mismo camino para que no
     // haya dos formas de abrir un modal desde la tabla.
     const [cargandoDetalle, setCargandoDetalle] = useState<number | null>(null);
@@ -345,24 +348,12 @@ const ODPListPage: React.FC = () => {
 
     useODPSocketPatch({ setOdps: setOdpsWrapper, setGarantias });
 
-    const handleSolicitarVisita = async (odp: ODP) => {
-        const esRemedicion = odp.estado_produccion !== 'EN_ESPERA';
-        const msg = esRemedicion
-            ? `¿Solicitar visita técnica adicional para ${odp.numero_odp}? El estado volverá a Visita Técnica.`
-            : `¿Solicitar visita técnica para ${odp.numero_odp}?`;
-        if (!window.confirm(msg)) return;
-        try {
-            const tkn = sessionStorage.getItem('token');
-            await axios.put(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp/${odp.id}`,
-                { estado_produccion: 'VISITA_TECNICA' },
-                { headers: { Authorization: `Bearer ${tkn}` } }
-            );
-            toast.success(`${odp.numero_odp} — Visita técnica solicitada`);
-            fetchListado();
-        } catch {
-            toast.error('Error al solicitar visita técnica');
-        }
-    };
+    // "Solicitar Visita Técnica" abre el mismo modal que la ficha (2026-10-28). Antes
+    // hacía un PUT que solo cambiaba el estado: no creaba la TM (el panel de Tomas de
+    // Medida la mostraba como "ODP sin TM"), no dejaba historial y devolvía a Visita
+    // técnica ODPs ya avanzadas. Ahora `createTM` crea la TM y mueve la ODP solo
+    // desde En espera.
+    const handleSolicitarVisita = (odp: ODP) => abrirConDetalle(odp.id, setSolicitarTmOdp);
 
     const handleAprobarSinItems = async (odp: ODP) => {
         if (!window.confirm(`¿Liberar ${odp.numero_odp} para producción? La ODP pasará a estado En Espera.`)) return;
@@ -1042,6 +1033,13 @@ const ODPListPage: React.FC = () => {
 
             {sapOdp && <SAPModal odp={sapOdp} onClose={() => setSapOdp(null)} />}
             {tmOdp && <TMModal odp={tmOdp} onClose={() => setTmOdp(null)} />}
+            {solicitarTmOdp && (
+                <SolicitarTMODPModal
+                    odp={solicitarTmOdp}
+                    onClose={() => setSolicitarTmOdp(null)}
+                    onCreada={() => { setSolicitarTmOdp(null); fetchListado(); }}
+                />
+            )}
             {printOdp && <ODPFichaModal odpId={printOdp.id} initialTab="imprimir" onClose={() => setPrintOdp(null)} />}
 
             {/* Modal anulación */}

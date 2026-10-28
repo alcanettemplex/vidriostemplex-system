@@ -12,8 +12,72 @@
 //
 // No es el motor de checks (`checksAutomaticos.ts`): ese motor no maneja
 // `chk_medicion` hoy. Ver TECH_DEBT.md 2026-10-28.
-import { Transaction } from 'sequelize';
-import { HistorialEstadoODP } from '../models';
+//
+// También genera el número TM-XXXX y crea la TM de una ODP que entra a Visita
+// técnica sin ninguna (2026-10-28 (4)): regla "toda ODP en Visita técnica tiene
+// su TM real", para que el panel de Tomas de Medida la muestre con Programar /
+// Editar / Eliminar en vez de la tarjeta de "ODP sin TM".
+import { Op, Transaction } from 'sequelize';
+import { HistorialEstadoODP, TomaMedidas } from '../models';
+
+/** Siguiente TM-XXXX. La colisión la resuelve el UNIQUE de `numero_tm` + `withUniqueRetry`. */
+export async function generarNumeroTM(transaction?: Transaction): Promise<string> {
+  const last = await TomaMedidas.findOne({
+    where: { numero_tm: { [Op.like]: 'TM-%' } },
+    order: [['numero_tm', 'DESC']],
+    attributes: ['numero_tm'],
+    transaction,
+  });
+  let next = 1;
+  if (last) {
+    const parts = (last.getDataValue('numero_tm') as string).split('-');
+    next = parseInt(parts[parts.length - 1]) + 1;
+  }
+  return `TM-${String(next).padStart(4, '0')}`;
+}
+
+/**
+ * Si la ODP no tiene ninguna TM, le crea una "solicitada" con su dirección y
+ * quien recibe. No toca el estado de la ODP (quien llama ya la dejó en Visita
+ * técnica). Devuelve el número creado o null si ya tenía TM. `emitir: false`
+ * para scripts: el aviso por socket importa `server`, que arranca el servidor.
+ */
+export async function asegurarTMDeODP(
+  odp: any,
+  opts: { usuarioId: number; transaction?: Transaction; emitir?: boolean }
+): Promise<string | null> {
+  const { usuarioId, transaction, emitir = true } = opts;
+  const odpId = Number(odp.getDataValue('id'));
+  const existentes = await TomaMedidas.count({ where: { odp_id: odpId }, transaction });
+  if (existentes > 0) return null;
+
+  const numero_tm = await generarNumeroTM(transaction);
+  await TomaMedidas.create({
+    numero_tm,
+    odp_id: odpId,
+    prospecto_id: null,
+    realizado_por: usuarioId,
+    estado: 'solicitada',
+    fecha_visita: null,
+    direccion: odp.getDataValue('direccion_instalacion') || null,
+    nombre_contacto: odp.getDataValue('nombre_recibe') || null,
+    telefono_contacto: odp.getDataValue('telefono_recibe') || null,
+    contacto_obra: odp.getDataValue('nombre_recibe') || null,
+    telefono_obra: odp.getDataValue('telefono_recibe') || null,
+    observaciones: null,
+    medidas_json: [],
+  }, { transaction });
+
+  if (emitir) {
+    if (transaction) transaction.afterCommit(emitirCambioTM);
+    else emitirCambioTM();
+  }
+  return numero_tm;
+}
+
+function emitirCambioTM() {
+  import('../server').then(({ emitirCambio }) => emitirCambio('toma_medidas')).catch(() => {});
+}
 
 export interface CambioODPPorTM {
   estado_produccion?: string;

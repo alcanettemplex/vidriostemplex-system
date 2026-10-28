@@ -30,6 +30,7 @@ import ProgramacionInstalacion from '../models/programacion_instalacion.model';
 import { invalidarCacheDashboard } from '../utils/cacheMemoria';
 import { z } from 'zod';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
+import { asegurarTMDeODP } from '../utils/tomaMedidas';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
 import { propagarProveedorAPedidosPV, normalizarProveedor, mismoProveedor } from '../utils/pedidoPvCapacidad';
 import { evaluarListoInstalar, evaluarRetroceso } from '../utils/checksAutomaticos';
@@ -802,6 +803,14 @@ export async function crearODPRegistro(body: unknown, userId: number | undefined
         const createdOdp = await ODP.create(odpData as any, { transaction: t });
         const createdId = createdOdp.getDataValue('id');
 
+        // "Requiere visita técnica": la ODP nace con su TM "solicitada" (2026-10-28).
+        // Antes nacía en Visita técnica sin TM y el panel de Tomas de Medida la
+        // mostraba como tarjeta de ODP, sin Programar / Editar / Eliminar. Una colisión
+        // del número TM la reintenta `withUniqueRetry` junto con la ODP.
+        if (estadoInicial === 'VISITA_TECNICA') {
+          await asegurarTMDeODP(createdOdp, { usuarioId: Number(data.asesor_id || userId), transaction: t });
+        }
+
         if (data.items && data.items.length > 0) {
           const itemsData = data.items.map(item => ({ ...item, odp_id: createdId }));
           await ODPItem.bulkCreate(itemsData as any, { transaction: t });
@@ -1052,6 +1061,12 @@ export const updateODP = async (req: Request, res: Response) => {
 
     // Actualizar campos de la ODP (incluyendo los booleanos, JSONs, y observaciones nuevas)
     await odp.update(data as any, { transaction });
+
+    // Toda ODP en Visita técnica tiene su TM real (2026-10-28): si se la pasa a mano
+    // a ese estado y no tiene ninguna, se crea la TM "solicitada" en esta transacción.
+    if (data.estado_produccion === 'VISITA_TECNICA') {
+      await asegurarTMDeODP(odp, { usuarioId: req.user!.id, transaction });
+    }
 
     const cambioValorTotal =
       data.valor_total !== undefined && (Number(data.valor_total) || 0) !== valorTotalAnterior;

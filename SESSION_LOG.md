@@ -7312,3 +7312,36 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
   - `getTMsSinODP` ejecutado en solo lectura: 125 TM, 47 con cliente para agrupar, 112 de prospectos en gestión;
   - el panel de Tomas de Medida no cambia, porque solo lista ODP ya en Visita técnica.
 - **Pendiente:** prueba manual de solicitar y vincular (base de producción). Deuda anotada: `chk_medicion` fuera del motor. ESLint del backend ya figuraba (TECH_DEBT 2026-10-02).
+
+## 2026-10-28 (3) — Listado ODP: «Solicitar Visita Técnica» crea la TM
+
+- **Origen:** en Tomas de Medida → Solicitadas, la tarjeta de SANTIAGO GARCIA VANEGAS (ODP-24479) se veía distinta. No era una TM: era una ODP en Visita técnica sin TM (`odpsSinTM` de `getTMPanel`). La había puesto así la opción «Solicitar Visita Técnica» del menú de la fila en el listado de ODP, que solo hacía `PUT /api/odp {estado_produccion:'VISITA_TECNICA'}`. Esa opción no creaba TM ni historial y aceptaba casi cualquier estado. Auditoría: la ODP se creó desde el Cotizador a las 11:45:24 a. m. (Bogotá) y pasó a Visita técnica 46 s después, sin INSERT en `toma_medidas`.
+- **frontend:** `ODPListPage.tsx` → `handleSolicitarVisita` trae el detalle completo (`abrirConDetalle`) y abre `SolicitarTMODPModal`. Es la misma regla que la ficha: crea la TM y mueve la ODP solo desde En espera. Se retiraron el `window.confirm` y el `PUT` suelto.
+- **backend / BD:** sin cambios. La tarjeta «ODP sin TM» del panel se conserva como red de seguridad; para la ODP-24479 el jefe usa «Abrir TM».
+- **Verificación:** `tsc` del frontend y ESLint del archivo limpios; no queda en el frontend ningún `PUT` que fuerce `VISITA_TECNICA` a mano.
+- **Pendiente:** prueba manual desde el listado (base de producción).
+
+## 2026-10-28 (4) — Toda ODP en Visita técnica tiene su TM real
+
+- **Pedido:** que la ODP-24479 y todas las del mismo flujo tengan Programar / Editar / Eliminar en Tomas de Medida → Solicitadas.
+- **Hallazgo — 4 caminos dejaban una ODP en Visita técnica sin TM:**
+  - la casilla «Requiere visita técnica» al crear (formulario y Cotizador), que era la fuente principal;
+  - la opción del listado, ya corregida en (3);
+  - eliminar la única TM;
+  - el cambio de estado a mano.
+- **Decisiones del usuario:**
+  - la TM se crea siempre, en vez de poner botones en la tarjeta de ODP;
+  - eliminar la única TM devuelve la ODP a En espera.
+- **backend:**
+  - `utils/tomaMedidas.ts`: `generarNumeroTM` sale del controlador y se crea `asegurarTMDeODP`.
+  - `crearODPRegistro` y `updateODP` crean la TM al entrar a Visita técnica sin ninguna.
+  - `deleteTM` va en transacción y devuelve la ODP a En espera, con historial y socket.
+  - `getTMPanel` agrega `odp.estado_produccion`.
+- **frontend:**
+  - `TomaMedidasPage.tsx`: la confirmación de Eliminar avisa que la ODP volverá a En espera, y el aviso de éxito toma el mensaje del backend.
+  - `ODPForm.tsx`: nuevo texto de la casilla.
+- **Script:** `2026-10-28_crear_tm_odps_visita_sin_tm.ts`.
+  - En modo solo lectura lista 1 ODP sin TM, la ODP-24479.
+  - **Falta correrlo con `--aplicar`**, con la orden del usuario.
+- **BD:** sin cambios de estructura.
+- **Verificación:** `tsc` de backend y frontend y ESLint del frontend, limpios. No se probaron escrituras: la base es la de producción.

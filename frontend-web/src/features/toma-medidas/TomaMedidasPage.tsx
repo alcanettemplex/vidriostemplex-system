@@ -40,6 +40,7 @@ interface TMItem {
 interface ODPInfo {
   id: number;
   numero_odp: string;
+  estado_produccion?: string;
   fecha_entrega: string | null;
   fecha_creacion: string | null;
   direccion_instalacion: string | null;
@@ -744,13 +745,22 @@ const TomaMedidasPage: React.FC = () => {
     }
   };
 
+  // Si es la única TM de una ODP en Visita técnica, el backend devuelve la ODP a
+  // En espera (2026-10-28); aquí solo se avisa antes. El panel no trae las TM
+  // archivadas, así que la última palabra la tiene `deleteTM`.
   const handleEliminarTM = async (tm: TMItem) => {
-    if (!window.confirm(`¿Eliminar "${tm.numero_tm}"? Esta acción no se puede deshacer.`)) return;
+    const odpId = tm.odp?.id;
+    const esUnicaDeODPEnVisita = !!odpId && tm.odp?.estado_produccion === 'VISITA_TECNICA'
+      && ![...data.solicitadas, ...data.programadas, ...data.realizadas].some(o => o.id !== tm.id && o.odp?.id === odpId);
+    const aviso = esUnicaDeODPEnVisita ? `
+
+${tm.odp!.numero_odp} volverá a En espera.` : '';
+    if (!window.confirm(`¿Eliminar "${tm.numero_tm}"? Esta acción no se puede deshacer.${aviso}`)) return;
     try {
-      await axios.delete(`${API}/api/documentos/tm/${tm.id}`, {
+      const { data: r } = await axios.delete(`${API}/api/documentos/tm/${tm.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      toast.success('TM eliminada correctamente');
+      toast.success(r?.message || 'TM eliminada correctamente');
       fetchPanel();
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Error al eliminar la TM');

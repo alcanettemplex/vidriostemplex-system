@@ -1108,7 +1108,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                         />
                                         <label htmlFor="requiere_visita_tecnica" className="cursor-pointer">
                                             <p className="text-sm font-bold text-orange-800">Requiere visita técnica</p>
-                                            <p className="text-xs text-orange-700 mt-0.5">El cliente no tiene medidas. El jefe de producción debe realizar una visita antes de iniciar la orden.</p>
+                                            <p className="text-xs text-orange-700 mt-0.5">El cliente no tiene medidas. Se creará la toma de medidas solicitada para que el jefe de producción programe la visita antes de iniciar la orden.</p>
                                         </label>
                                     </div>
                                 )}
