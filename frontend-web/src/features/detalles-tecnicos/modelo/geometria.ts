@@ -154,6 +154,19 @@ function puntosEsquina(id: EsquinaId, v: Record<EsquinaId, Pt>, bs: Record<Borde
   }
 }
 
+/**
+ * Muesca de esquina: `V` es el vértice base (la esquina que se recorta), `p1` y `p3` los puntos
+ * donde la muesca toca los dos cantos y `p2` su esquina interior. `lIn`/`lOut` son lo que mide
+ * sobre el canto de entrada y el de salida.
+ */
+export function geometriaMuesca(id: EsquinaId, v: Record<EsquinaId, Pt>, bs: Record<BordeId, Borde>, t: { a: number; b: number }) {
+  const V = v[id];
+  const lIn = esHorizontal(BORDE_ENTRADA[id]) ? t.a : t.b;
+  const lOut = esHorizontal(BORDE_SALIDA[id]) ? t.a : t.b;
+  const p1 = add(V, mul(bs[BORDE_ENTRADA[id]].d, -lIn));
+  return { V, p1, p2: add(p1, mul(bs[BORDE_SALIDA[id]].d, lOut)), p3: add(V, mul(bs[BORDE_SALIDA[id]].d, lOut)), lIn, lOut };
+}
+
 /** Tramo [t1, t2] del boquete medido desde S del canto (recorrido horario). */
 export function tramoBoquete(b: Boquete, borde: Borde): [number, number] {
   const desdeS = (b.borde === 'sup' || b.borde === 'der') !== (b.desde === 'fin');

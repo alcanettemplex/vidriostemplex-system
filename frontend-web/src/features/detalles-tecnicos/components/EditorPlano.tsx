@@ -337,9 +337,11 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
               <Typography>En el borde</Typography>
               <Sel value={o.borde} width={130} onChange={(borde) => setOp(o.id, { borde }, 'borde')} opciones={BORDES} />
             </Frase>
+            {/* El plano acota el boquete hasta su CENTRO, como el taller (2026-10-29): el campo edita esa
+                misma medida. El modelo sigue guardando `pos` hasta el inicio del boquete. */}
             <Frase>
-              <Typography>Empieza a</Typography>
-              <Mm value={o.pos} onChange={(pos) => setOp(o.id, { pos }, 'pos')} />
+              <Typography>Centro a</Typography>
+              <Mm value={o.pos + o.largo / 2} onChange={(c) => setOp(o.id, { pos: c - o.largo / 2 }, 'pos')} />
               <Sel
                 value={o.desde}
                 width={176}
@@ -349,7 +351,8 @@ export function EditorPlano({ plano, letra, onCambiar, onCambiarPlantilla, onRes
             </Frase>
             <Frase>
               <Typography>Mide</Typography>
-              <Mm value={o.largo} onChange={(largo) => setOp(o.id, { largo }, 'largo')} />
+              {/* Cambiar el largo deja el centro donde estaba. */}
+              <Mm value={o.largo} onChange={(largo) => setOp(o.id, Number.isFinite(o.pos + o.largo) && Number.isFinite(largo) ? { largo, pos: o.pos + (o.largo - largo) / 2 } : { largo }, 'largo')} />
               <Typography>a lo largo y entra</Typography>
               <Mm value={o.prof} onChange={(prof) => setOp(o.id, { prof }, 'prof')} />
             </Frase>

@@ -1,19 +1,17 @@
 import type { PointerEvent as ReactPointerEvent, ReactNode, Ref } from 'react';
 import {
   add,
-  BORDE_ENTRADA,
-  BORDE_SALIDA,
   bordeCurvo,
   bordesDe,
+  cajaDe,
   centroPerforacion,
   contornoDe,
-  encuadre,
   esCirculo,
-  esHorizontal,
   esquinasDe,
   geometriaAlivios,
   geometriaBoquete,
   geometriaMediaPerforacion,
+  geometriaMuesca,
   largo,
   limitesDe,
   mul,
@@ -24,192 +22,58 @@ import {
   radioArco,
   sub,
   unit,
+  verticesBase,
   type Pt,
 } from '../modelo/geometria';
+import { encuadreHoja } from '../modelo/detalles';
 import type { Boquete, Perforacion, Pieza } from '../modelo/tipos';
+import { ACENTO, anchoTexto, cajaEtiqueta, COTA, colocarCota, crearColocador, DibujoCota, fmt, ladoHacia, SUAVE, Texto, TINTA, VIDRIO, type CotaProps } from './cotas';
+import { DetallesSVG } from './DetallesSVG';
 
-// Estilo «calco del taller» (propuesta 6, 2026-10-27): vidrio en blanco, todo en tinta negra, remates
-// rectos y ANCHO / ALTO en negrita y más grandes, como el plano que dibuja el taller a mano. El azul
-// (ACENTO) queda solo para la selección del editor: la imagen que se exporta no lo lleva.
-const TINTA = '#111';
-const COTA = '#111';
-const VIDRIO = '#fff';
-const ACENTO = '#1565c0';
-const SUAVE = '#6b7280';
-
-const fmt = (n: number) => String(Math.round(n * 10) / 10);
-/** Ancho aproximado que ocupa un texto de cota (Arial), en las mismas unidades que `f`. */
-const anchoTexto = (texto: string, f: number) => texto.length * f * 0.6 + f * 0.5;
 /** Tamaño de las cotas generales (ANCHO, ALTO, Ø del círculo): las que más se leen del plano. */
 const K_GENERAL = 1.3;
 
-interface CotaProps {
-  a: Pt;
-  b: Pt;
-  texto: string;
-  f: number;
-  /** 1 o -1: de qué lado de la línea va el texto (según la normal izquierda de a→b). */
-  lado?: number;
-  color?: string;
-  /**
-   * Dónde va el texto a lo largo de la cota (0 = en `a`, 1 = en `b`). Fuera de [0, 1] el texto queda
-   * desplazado y la línea se prolonga hasta él, como se hace con las cotas muy cortas en un plano.
-   */
-  t?: number;
-  /** Número en negrita (cotas generales). */
-  bold?: boolean;
-}
-
-/** Rectángulo alineado a los ejes, en unidades del plano. */
-interface Caja {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-}
-
-/** ¿El segmento a–b pasa por la caja? (Liang–Barsky) */
-function cruzaCaja(a: Pt, b: Pt, c: Caja): boolean {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const p = [-dx, dx, -dy, dy];
-  const q = [a.x - c.x1, c.x2 - a.x, a.y - c.y1, c.y2 - a.y];
-  let t0 = 0;
-  let t1 = 1;
-  for (let i = 0; i < 4; i++) {
-    if (Math.abs(p[i]) < 1e-9) {
-      if (q[i] < 0) return false;
-      continue;
-    }
-    const r = q[i] / p[i];
-    if (p[i] < 0) {
-      if (r > t1) return false;
-      if (r > t0) t0 = r;
-    } else {
-      if (r < t0) return false;
-      if (r < t1) t1 = r;
-    }
-  }
-  return true;
-}
-
 /**
- * Espacio ocupado del plano (2026-10-23): cada texto que se dibuja anota su caja, y las líneas que un
- * número no debe tapar (borde del vidrio, líneas de cota y auxiliares) se anotan como segmentos. Un
- * texto nuevo prueba sus posiciones en orden y toma la primera libre. Lo que se anota primero
- * manda: por eso las cotas generales se ubican antes que las de herrajes y estas antes que las muescas.
+ * Muescas dibujadas más grandes que a escala (calco del taller, 2026-10-29): una 150×35 en una puerta
+ * de 2 m eran un par de píxeles y sus cotas quedaban sueltas en la esquina. Cada lado se lleva a un
+ * mínimo visible; las cifras siguen siendo las reales. Si la muesca agrandada taparía una perforación
+ * o un recorte del canto, esa esquina queda a escala.
  */
-function crearColocador() {
-  const cajas: Caja[] = [];
-  const lineas: [Pt, Pt][] = [];
-  return {
-    libre: (c: Caja) => cajas.every((o) => c.x2 <= o.x1 || c.x1 >= o.x2 || c.y2 <= o.y1 || c.y1 >= o.y2) && lineas.every(([a, b]) => !cruzaCaja(a, b, c)),
-    ocupar: (c: Caja) => void cajas.push(c),
-    linea: (a: Pt, b: Pt) => void lineas.push([a, b]),
-  };
-}
-type Colocador = ReturnType<typeof crearColocador>;
-
-/** Caja de un texto de ancho `w` y alto `h` centrado en `p` y girado `ang` grados. */
-function cajaTexto(p: Pt, w: number, h: number, ang = 0): Caja {
-  const r = (ang * Math.PI) / 180;
-  const ex = (Math.abs(Math.cos(r)) * w + Math.abs(Math.sin(r)) * h) / 2;
-  const ey = (Math.abs(Math.sin(r)) * w + Math.abs(Math.cos(r)) * h) / 2;
-  return { x1: p.x - ex, y1: p.y - ey, x2: p.x + ex, y2: p.y + ey };
-}
-
-/** Caja de un `<Texto>` según su `anchor`. */
-function cajaEtiqueta(p: Pt, texto: string, f: number, anchor: 'start' | 'middle' | 'end' = 'middle'): Caja {
-  const w = anchoTexto(texto, f);
-  const cx = anchor === 'start' ? p.x + w / 2 - f * 0.25 : anchor === 'end' ? p.x - w / 2 + f * 0.25 : p.x;
-  return cajaTexto({ x: cx, y: p.y }, w, f);
-}
-
-interface Colocacion {
-  tp: Pt;
-  ang: number;
-  /** Tramo que prolonga la línea de cota hasta el texto, si el texto quedó fuera de ella. */
-  prolongacion: [Pt, Pt] | null;
-  caja: Caja;
-}
-
-/**
- * Dónde va el número de una cota. Si cabe entre las marcas: en su sitio (centro o `t`) del lado
- * pedido, o del otro lado. Si no cabe —el 35 de una muesca 150×35 en una puerta de 2 m— o esos
- * sitios están tapados: fuera de la línea, pasado un extremo (primero el que se aleja del vidrio) y
- * **horizontal**, como en los planos del taller. Si nada está libre, el primer candidato.
- */
-function colocarCota(col: Colocador, { a, b, texto, f, lado = 1, t = 0.5, bold }: CotaProps, centro: Pt): Colocacion | null {
-  const L = largo(sub(b, a));
-  if (L < 1e-6) return null;
-  const d = unit(sub(b, a));
-  const n = { x: -d.y, y: d.x };
-  let angLinea = (Math.atan2(d.y, d.x) * 180) / Math.PI;
-  if (angLinea > 90.1) angLinea -= 180;
-  if (angLinea <= -90.1) angLinea += 180;
-  const w = anchoTexto(texto, f) * (bold ? 1.1 : 1);
-  const h = f;
-  // Cabe si la línea es al menos tan larga como las cifras (sin el margen que lleva `anchoTexto`).
-  const cabe = L >= texto.length * f * 0.55 + f * 0.1;
-  const candidatos: Colocacion[] = [];
-  const enLinea = (tt: number, ld: number) => {
-    const base = add(a, mul(d, L * tt));
-    const tp = add(base, mul(n, ld * f * 0.75));
-    const prolongacion: [Pt, Pt] | null = tt < 0 ? [base, a] : tt > 1 ? [b, base] : null;
-    candidatos.push({ tp, ang: angLinea, prolongacion, caja: cajaTexto(tp, w, h, angLinea) });
-  };
-  if (cabe || t < 0 || t > 1) {
-    enLinea(t, lado);
-    enLinea(t, -lado);
-  }
-  // Pasado un extremo, horizontal y sobre el eje de la línea; después, corrido a cada lado.
-  const extension = (Math.abs(d.x) * w + Math.abs(d.y) * h) / 2;
-  const dist = (p: Pt) => largo(sub(p, centro));
-  const extremos: [Pt, Pt][] = [
-    [b, d],
-    [a, mul(d, -1)],
-  ];
-  if (dist(a) > dist(b)) extremos.reverse();
-  for (const lat of [0, lado, -lado]) {
-    for (const [E, dir] of extremos) {
-      const tp = add(add(E, mul(dir, f * 0.45 + extension)), mul(n, lat * (Math.abs(d.x) * h + Math.abs(d.y) * w) * 0.6));
-      candidatos.push({ tp, ang: 0, prolongacion: lat === 0 ? [E, add(E, mul(dir, f * 0.35))] : null, caja: cajaTexto(tp, w, h) });
+function agrandarMuescas(pieza: Pieza, f: number): Pieza {
+  const minimo = f * 1.2;
+  const v = verticesBase(pieza);
+  const bs = bordesDe(v);
+  const ocupadas = pieza.operaciones.flatMap((o) => {
+    if (o.tipo === 'perforacion') {
+      const c = centroPerforacion(pieza, o, v);
+      return [{ minX: c.x - o.d / 2, maxX: c.x + o.d / 2, minY: c.y - o.d / 2, maxY: c.y + o.d / 2 }];
     }
+    if (o.tipo === 'boquete') {
+      const g = geometriaBoquete(o, bs[o.borde]);
+      return [cajaDe([g.A, g.B, g.C, g.D])];
+    }
+    if (o.tipo === 'media-perforacion') {
+      const g = geometriaMediaPerforacion(o, bs[o.borde]);
+      return [{ minX: g.C.x - g.r, maxX: g.C.x + g.r, minY: g.C.y - g.r, maxY: g.C.y + g.r }];
+    }
+    return [];
+  });
+  const esquinas = esquinasDe(pieza);
+  let cambio = false;
+  const nuevas = { ...pieza.esquinas };
+  for (const e of ORDEN_ESQUINAS) {
+    const t = esquinas[e];
+    if (t.tipo !== 'muesca' || (t.a >= minimo && t.b >= minimo)) continue;
+    const n = { tipo: 'muesca' as const, a: Math.max(t.a, minimo), b: Math.max(t.b, minimo) };
+    const g = geometriaMuesca(e, v, bs, n);
+    const c = cajaDe([g.V, g.p1, g.p2, g.p3]);
+    const aire = f * 0.5;
+    const tapa = ocupadas.some((o) => o.maxX >= c.minX - aire && o.minX <= c.maxX + aire && o.maxY >= c.minY - aire && o.minY <= c.maxY + aire);
+    if (tapa) continue;
+    nuevas[e] = n;
+    cambio = true;
   }
-  if (!cabe) enLinea(0.5, lado);
-  const elegido = candidatos.find((c) => col.libre(c.caja)) ?? candidatos[0];
-  col.ocupar(elegido.caja);
-  col.linea(a, b);
-  return elegido;
-}
-
-/** Línea de cota con remates rectos (perpendiculares) en los extremos y el valor, ya colocado. */
-function DibujoCota({ a, b, texto, f, color = COTA, bold, c }: Pick<CotaProps, 'a' | 'b' | 'texto' | 'f' | 'color' | 'bold'> & { c: Colocacion }) {
-  const d = unit(sub(b, a));
-  const n = { x: -d.y, y: d.x };
-  const tick = mul(n, f * 0.4);
-  return (
-    <g stroke={color} fill={color}>
-      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} strokeWidth={0.8} vectorEffect="non-scaling-stroke" />
-      {c.prolongacion && (
-        <line x1={c.prolongacion[0].x} y1={c.prolongacion[0].y} x2={c.prolongacion[1].x} y2={c.prolongacion[1].y} strokeWidth={0.5} vectorEffect="non-scaling-stroke" />
-      )}
-      {[a, b].map((p, i) => (
-        <line key={i} x1={p.x - tick.x} y1={p.y - tick.y} x2={p.x + tick.x} y2={p.y + tick.y} strokeWidth={1.1} vectorEffect="non-scaling-stroke" />
-      ))}
-      <text x={c.tp.x} y={c.tp.y} fontSize={f} fontWeight={bold ? 700 : 400} stroke="none" textAnchor="middle" dominantBaseline="central" fontFamily="Arial, sans-serif" transform={c.ang ? `rotate(${c.ang} ${c.tp.x} ${c.tp.y})` : undefined}>
-        {texto}
-      </text>
-    </g>
-  );
-}
-
-function Texto({ p, children, f, anchor = 'middle', bold, color = TINTA }: { p: Pt; children: ReactNode; f: number; anchor?: 'start' | 'middle' | 'end'; bold?: boolean; color?: string }) {
-  return (
-    <text x={p.x} y={p.y} fontSize={f} fill={color} textAnchor={anchor} dominantBaseline="central" fontFamily="Arial, sans-serif" fontWeight={bold ? 700 : 400}>
-      {children}
-    </text>
-  );
+  return cambio ? { ...pieza, esquinas: nuevas } : pieza;
 }
 
 /**
@@ -261,12 +125,14 @@ interface Props {
 }
 
 export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%', height = '100%', resaltarId, seleccionIds = [], interaccion }: Props) {
-  const { v, caja, W, H, m, f, M, anchoTotal, altoTotal } = encuadre(pieza, conCotas);
-  const viewBox = `${caja.minX - M} ${caja.minY - M} ${anchoTotal} ${altoTotal}`;
+  // La hoja incluye, a la derecha o abajo, el espacio de los detalles ampliados (2026-10-29).
+  const { v, caja, W, H, m, f, zonas, celdas, vista } = encuadreHoja(pieza, conCotas);
+  const viewBox = `${vista.x} ${vista.y} ${vista.w} ${vista.h}`;
   const centro = { x: (caja.minX + caja.maxX) / 2, y: (caja.minY + caja.maxY) / 2 };
   const bs = bordesDe(v);
   const L = limitesDe(v);
-  const contorno = contornoDe(pieza);
+  const piezaVisual = conCotas ? agrandarMuescas(pieza, f) : pieza;
+  const contorno = contornoDe(piezaVisual);
   const path = pathDe(contorno);
   const numero = new Map(pieza.operaciones.map((o, i) => [o.id, i + 1]));
   const sel = new Set(seleccionIds);
@@ -434,18 +300,12 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     }
   });
 
-  /**
-   * Distancia (por fuera del vidrio) de la línea más externa de cotas de perforaciones en cada canto
-   * vertical. La cota de posición de un boquete de ese canto va una línea más afuera: antes iban casi
-   * en la misma línea (1,3 f y 1,4 f) y se leían pegadas, p. ej. «800 1000».
-   */
-  const carrilPerf: Partial<Record<'izq' | 'der', number>> = {};
   if (conCotas) {
     const ext = lineaAux;
     const cadena = (dists: number[]) => Array.from(new Set(dists.map((d) => Math.round(d * 10) / 10))).sort((a, b) => a - b);
     const gap = fc * 0.35;
     /** Dibuja una cadena de cotas encadenadas desde un borde: `punto(s)` da la posición a distancia s. */
-    const dibujarCadena = (k: string, dists: number[], punto: (s: number) => Pt, lado: number) => {
+    const dibujarCadena = (k: string, dists: number[], punto: (s: number) => Pt, lado: number, horizontal = false) => {
       const tramos = dists.map((d, j) => {
         const ini = j === 0 ? 0 : dists[j - 1];
         return { ini, fin: d, ancho: anchoTexto(fmt(d - ini), fc) };
@@ -453,11 +313,13 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       const pos = repartir(tramos, gap);
       tramos.forEach((tr, j) => {
         const t = (pos[j] - tr.ini) / (tr.fin - tr.ini);
-        elementos.push(cota(`${k}${j}`, { a: punto(tr.ini), b: punto(tr.fin), texto: fmt(tr.fin - tr.ini), f: fc, lado, t }));
+        elementos.push(cota(`${k}${j}`, { a: punto(tr.ini), b: punto(tr.fin), texto: fmt(tr.fin - tr.ini), f: fc, lado, t, horizontal }));
       });
     };
 
-    // Verticales: fuera del vidrio, del lado de su referencia, encadenadas desde el borde.
+    // Verticales: encadenadas desde el borde, POR DENTRO del vidrio y junto a las perforaciones (calco
+    // del taller, 2026-10-29). Antes iban por fuera y el 800 · 400 quedaba lejos de lo que mide, en
+    // una segunda columna al lado de la del boquete. Las cifras van hacia el centro del vidrio.
     type Lado = 'izq' | 'der';
     const grupos = new Map<string, { lado: Lado; ref: 'sup' | 'inf'; idx: number[] }>();
     perfs.forEach((o, i) => {
@@ -469,24 +331,25 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     const alcance = (lado: Lado, ref: 'sup' | 'inf') => Math.max(0, ...(grupos.get(lado + ref)?.idx.map((i) => perfs[i].y) ?? []));
     for (const [k, g] of Array.from(grupos)) {
       const solapa = g.ref === 'inf' && alcance(g.lado, 'sup') + alcance(g.lado, 'inf') > H;
-      const off = f * (solapa ? 2.4 : 1.3);
-      carrilPerf[g.lado] = Math.max(carrilPerf[g.lado] ?? 0, off);
-      const xLinea = g.lado === 'izq' ? caja.minX - off : caja.maxX + off;
-      const esq = g.ref === 'sup' ? (g.lado === 'izq' ? v.si : v.sd) : g.lado === 'izq' ? v.ii : v.id;
+      const rMax = Math.max(...g.idx.map((i) => rVisual(perfs[i].d)));
+      const xs = g.idx.map((i) => centros[i].x);
+      const off = rMax + f * (solapa ? 2.6 : 1.4);
+      const xLinea = g.lado === 'izq' ? Math.max(...xs) + off : Math.min(...xs) - off;
+      const yBorde = g.ref === 'sup' ? L.ySup(xLinea) : L.yInf(xLinea);
       const sgn = g.ref === 'sup' ? 1 : -1;
-      dibujarCadena(`${k}v`, cadena(g.idx.map((i) => perfs[i].y)), (s) => ({ x: xLinea, y: esq.y + sgn * s }), -sgn * (g.lado === 'izq' ? -1 : 1));
-      // Una sola línea auxiliar por altura: desde la perforación más cercana a ese lado.
+      dibujarCadena(`${k}v`, cadena(g.idx.map((i) => perfs[i].y)), (s) => ({ x: xLinea, y: yBorde + sgn * s }), sgn * (g.lado === 'izq' ? -1 : 1), true);
+      // Una sola línea auxiliar por altura: desde la perforación más cercana a la cadena.
       const porAltura = new Map<number, number>();
       for (const i of g.idx) {
         const k2 = Math.round(perfs[i].y * 10);
         const actual = porAltura.get(k2);
-        const masCerca = (a: number, b: number) => (g.lado === 'izq' ? centros[a].x < centros[b].x : centros[a].x > centros[b].x);
+        const masCerca = (a: number, b: number) => (g.lado === 'izq' ? centros[a].x > centros[b].x : centros[a].x < centros[b].x);
         if (actual === undefined || masCerca(i, actual)) porAltura.set(k2, i);
       }
       for (const i of Array.from(porAltura.values())) {
         const c = centros[i];
         const r = rVisual(perfs[i].d);
-        elementos.push(ext({ x: c.x + (g.lado === 'izq' ? -r : r), y: c.y }, { x: xLinea + (g.lado === 'izq' ? -1 : 1) * f * 0.3, y: c.y }, `${k}e${i}`));
+        elementos.push(ext({ x: c.x + (g.lado === 'izq' ? r : -r), y: c.y }, { x: xLinea + (g.lado === 'izq' ? 1 : -1) * f * 0.3, y: c.y }, `${k}e${i}`));
       }
     }
 
@@ -546,10 +409,11 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       const c = centros[idx[0]];
       const dir = c.x <= centro.x ? 1 : -1;
       const vert = c.y <= centro.y ? 1 : -1;
-      const x = c.x + dir * (rVisual(d) + f * 0.9);
       const texto = `${idx.length > 1 ? idx.length + ' ' : ''}PERF. Ø${d} mm`;
       const anchor = dir > 0 ? 'start' : 'end';
-      const candidatos = [3.4, -1.6, 5, -3.2, 6.6].map((k) => ({ x, y: c.y + vert * f * k }));
+      // Si junto a la perforación pasa su cadena de cotas (calco, por dentro del vidrio), la etiqueta
+      // se corre más allá de la cadena.
+      const candidatos = [0.9, 3.4, 5.6].flatMap((sx) => [3.4, -1.6, 5, -3.2, 6.6].map((k) => ({ x: c.x + dir * (rVisual(d) + f * sx), y: c.y + vert * f * k })));
       const p = candidatos.find((q) => lejosDeBoquetes(q) && espacio.libre(cajaEtiqueta(q, texto, f * 0.85, anchor))) ?? candidatos[0];
       ocuparTexto(p, texto, f * 0.85, anchor);
       elementos.push(
@@ -587,11 +451,8 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       );
     }
     const inward = mul(add(g.B, g.C), 0.5);
-    const pLbl = add(inward, mul(borde.n, f * 1.3));
-    const anchor = Math.abs(borde.n.x) > 0.5 ? (borde.n.x < 0 ? 'end' : 'start') : 'middle';
     const al = geometriaAlivios(o, borde);
     const conAlivio = !!al && 'pts' in al;
-    const etiqueta = conAlivio ? `BOQ ${o.largo}×${o.prof} · ALIVIOS Ø${fmt(o.alivio!.d)}` : `BOQ ${o.largo}×${o.prof}${o.radio ? ` R${o.radio}` : ''}`;
     pastilla(o.id, add(inward, mul(borde.n, -f * 1.6)));
     if (!conCotas) continue;
     // Ranura tipo «ojo» (boquete que abre una perforación al canto, como el kit Optiglass): la
@@ -618,38 +479,61 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       );
       continue;
     }
-    ocuparTexto(pLbl, etiqueta, fc, anchor);
+    // Calco del taller (2026-10-29): el fondo y el largo se acotan sobre la forma —el 90 sobre un lado
+    // y el 75 al fondo— en vez de la etiqueta «BOQ 75×90 R37.5». Solo queda escrito lo que no es una
+    // medida lineal: el radio o los alivios.
+    const sep = fc * 0.9;
+    const lat = mul(borde.d, -sep);
+    const fa = add(g.A, lat);
+    const fb = add(g.B, lat);
+    const la = add(g.B, mul(borde.n, sep));
+    const lb = add(g.C, mul(borde.n, sep));
+    elementos.push(
+      lineaAux(g.B, add(fb, mul(borde.d, -f * 0.3)), o.id + 'ef'),
+      cota(o.id + 'fo', { a: fa, b: fb, texto: fmt(o.prof), f: fc, lado: ladoHacia(fa, fb, mul(borde.d, -1)), color: col }),
+      lineaAux(g.B, add(la, mul(borde.n, f * 0.3)), o.id + 'el'),
+      lineaAux(g.C, add(lb, mul(borde.n, f * 0.3)), o.id + 'em'),
+      cota(o.id + 'la', { a: la, b: lb, texto: fmt(o.largo), f: fc, lado: ladoHacia(la, lb, borde.n), color: col }),
+    );
+    // El radio lo escribe su detalle; aquí solo si el boquete se quedó sin detalle (más de 4 zonas).
+    const conDetalle = zonas.some((z) => z.elementos.some((e) => e.tipo === 'boquete' && e.id === o.id));
+    const etiqueta = conAlivio ? `ALIVIOS Ø${fmt(o.alivio!.d)}` : o.radio && !conDetalle ? `R${fmt(o.radio)}` : '';
+    if (etiqueta) {
+      const anchor = Math.abs(borde.n.x) > 0.5 ? (borde.n.x < 0 ? 'end' : 'start') : 'middle';
+      const candidatos = [2.6, 3.8, 5].map((k) => add(inward, mul(borde.n, f * k)));
+      const pLbl = candidatos.find((q) => espacio.libre(cajaEtiqueta(q, etiqueta, fc, anchor))) ?? candidatos[0];
+      ocuparTexto(pLbl, etiqueta, fc, anchor);
+      elementos.push(
+        <Texto key={o.id + 'l'} p={pLbl} f={fc} anchor={anchor} color={col} bold={activo}>
+          {etiqueta}
+        </Texto>,
+      );
+    }
     if (conAlivio) {
       // Fondo de los alivios: del canto al punto más profundo, junto al alivio del lado A.
-      const lateral = mul(borde.d, -(al.r + fc * 1.2));
+      const lateral = mul(borde.d, -(al.r + fc * 1.2 + sep));
       const a = add(g.A, lateral);
       const b = add(a, mul(borde.n, o.alivio!.fondo));
       elementos.push(
         cota(o.id + 'f', { a, b, texto: fmt(o.alivio!.fondo), f: fc, lado: 1, color: col, t: o.alivio!.fondo < anchoTexto(fmt(o.alivio!.fondo), fc) + fc ? 1.8 : 0.5 }),
       );
     }
-    elementos.push(
-      <Texto key={o.id + 'l'} p={pLbl} f={fc} anchor={anchor} color={col} bold={activo}>
-        {etiqueta}
-      </Texto>,
-    );
-    if (o.pos > 0) {
-      // Si el canto ya tiene una cadena de cotas de perforaciones, esta va una línea más afuera.
-      const carril = o.borde === 'izq' || o.borde === 'der' ? carrilPerf[o.borde] : undefined;
-      const dist = carril ? carril + f * 1.2 : f * 1.4;
-      const off = mul(borde.n, -dist);
+    if (o.largo > 0) {
+      // Posición hasta el CENTRO del boquete, como la escribe el taller (decisión del usuario,
+      // 2026-10-29): 1000 y no 962,5. El modelo sigue guardando `pos` hasta el inicio del boquete.
+      // Va por fuera del vidrio; las cadenas de perforaciones ya no ocupan ese carril.
+      const off = mul(borde.n, -f * 1.4);
       const origen = origenBoquete(o, borde);
+      const medio = mul(add(g.A, g.D), 0.5);
       const ini = add(origen, off);
-      const desdeS = largo(sub(origen, borde.S)) < 1e-6;
-      const fin = add(desdeS ? g.A : g.D, off);
-      if (carril) elementos.push(lineaAux(origen, add(ini, mul(borde.n, -f * 0.3)), o.id + 'eo'), lineaAux(desdeS ? g.A : g.D, add(fin, mul(borde.n, -f * 0.3)), o.id + 'ep'));
-      const dd = unit(sub(fin, ini));
-      const nn = { x: -dd.y, y: dd.x };
-      const lado = nn.x * -borde.n.x + nn.y * -borde.n.y > 0 ? 1 : -1;
+      const fin = add(medio, off);
+      const posCentro = o.pos + o.largo / 2;
+      elementos.push(lineaAux(medio, add(fin, mul(borde.n, -f * 0.3)), o.id + 'ep'));
+      const lado = ladoHacia(ini, fin, mul(borde.n, -1));
       // Si la distancia es corta, el número se corre hacia el boquete para que no choque con la esquina.
-      const w = anchoTexto(fmt(o.pos), fc);
-      const t = o.pos < w + fc ? (w / 2 + fc * 0.4) / o.pos + 1 : 0.5;
-      elementos.push(cota(o.id + 'p', { a: ini, b: fin, texto: fmt(o.pos), f: fc, lado, color: col, t }));
+      const w = anchoTexto(fmt(posCentro), fc);
+      const t = posCentro < w + fc ? (w / 2 + fc * 0.4) / posCentro + 1 : 0.5;
+      elementos.push(cota(o.id + 'p', { a: ini, b: fin, texto: fmt(posCentro), f: fc, lado, color: col, t }));
     }
   }
 
@@ -731,19 +615,17 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
   // ── Esquinas ───────────────────────────────────────────────────────────────
   if (conCotas) {
     const esquinas = esquinasDe(pieza);
+    const esquinasVisuales = esquinasDe(piezaVisual);
     for (const e of ORDEN_ESQUINAS) {
       const t = esquinas[e];
       if (t.tipo === 'recta') continue;
       const V = v[e];
-      if (t.tipo === 'muesca') {
-        // Cotas sobre los dos lados interiores del recorte, como en la hoja «BOQUETE».
-        const dIn = bs[BORDE_ENTRADA[e]].d;
-        const dOut = bs[BORDE_SALIDA[e]].d;
-        const lIn = esHorizontal(BORDE_ENTRADA[e]) ? t.a : t.b;
-        const lOut = esHorizontal(BORDE_SALIDA[e]) ? t.a : t.b;
-        const p1 = add(V, mul(dIn, -lIn));
-        const p2 = add(p1, mul(dOut, lOut));
-        const p3 = add(V, mul(dOut, lOut));
+      const tv = esquinasVisuales[e];
+      if (t.tipo === 'muesca' && tv.tipo === 'muesca') {
+        // Cotas sobre los dos lados interiores del recorte, como en la hoja «BOQUETE». Las líneas
+        // siguen la muesca dibujada (agrandada si era muy chica); las cifras son las reales.
+        const { lIn, lOut } = geometriaMuesca(e, v, bs, t);
+        const { p1, p2, p3 } = geometriaMuesca(e, v, bs, tv);
         const lado = (a: Pt, b: Pt) => {
           const d = unit(sub(b, a));
           const mid = mul(add(a, b), 0.5);
@@ -880,6 +762,41 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
     }
   }
 
+  // ── Número de cada detalle ─────────────────────────────────────────────────
+  // Va junto a la zona, en el primer sitio libre (se ubica al final: las cotas mandan), con una línea
+  // corta hasta ella. No reemplaza ninguna cota: el detalle repite y amplía las mismas cifras.
+  if (conCotas) {
+    const esquinasVisuales = esquinasDe(piezaVisual);
+    for (const z of zonas) {
+      const e0 = z.elementos[0];
+      const tv = e0.tipo === 'muesca' ? esquinasVisuales[e0.esquina] : null;
+      const ancla = e0.tipo === 'muesca' && tv?.tipo === 'muesca' ? geometriaMuesca(e0.esquina, v, bs, tv).p2 : z.ancla;
+      const r = f * 0.55;
+      const base = unit(sub(ancla, centro));
+      const giro = (k: number) => {
+        const a = (k * Math.PI) / 180;
+        return { x: base.x * Math.cos(a) - base.y * Math.sin(a), y: base.x * Math.sin(a) + base.y * Math.cos(a) };
+      };
+      const candidatos = [0, 35, -35, 70, -70, 110, -110, 180].flatMap((k) => [2.2, 3.4].map((d) => add(ancla, mul(giro(k), f * d))));
+      const cajaB = (p: Pt) => ({ x1: p.x - r * 1.2, y1: p.y - r * 1.2, x2: p.x + r * 1.2, y2: p.y + r * 1.2 });
+      // La línea hasta la zona tampoco debe cruzar un número; si ningún sitio lo logra, basta con que el círculo quede libre.
+      const tramo = (q: Pt) => add(q, mul(unit(sub(ancla, q)), r));
+      const p = candidatos.find((q) => espacio.libre(cajaB(q)) && !espacio.tapaTexto(ancla, tramo(q))) ?? candidatos.find((q) => espacio.libre(cajaB(q))) ?? candidatos[0];
+      espacio.ocupar(cajaB(p));
+      const u = unit(sub(ancla, p));
+      elementos.push(
+        <g key={'zona' + z.numero} pointerEvents="none">
+          <line x1={ancla.x} y1={ancla.y} x2={p.x + u.x * r} y2={p.y + u.y * r} stroke={TINTA} strokeWidth={0.6} vectorEffect="non-scaling-stroke" />
+          <circle cx={ancla.x} cy={ancla.y} r={f * 0.08} fill={TINTA} />
+          <circle cx={p.x} cy={p.y} r={r} fill="#fff" stroke={TINTA} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+          <Texto p={p} f={f * 0.7} bold>
+            {z.numero}
+          </Texto>
+        </g>,
+      );
+    }
+  }
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -894,6 +811,7 @@ export function PlanoSVG({ pieza, selloEnCanto, conCotas = true, width = '100%',
       <path d={path} fill={VIDRIO} stroke={TINTA} strokeWidth={conCotas ? 1.8 : 1.2} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       {elementos}
       {generales}
+      {zonas.length > 0 && <DetallesSVG pieza={pieza} zonas={zonas} celdas={celdas} f={f} />}
       {numeros}
     </svg>
   );

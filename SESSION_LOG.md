@@ -7345,3 +7345,31 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
   - **Falta correrlo con `--aplicar`**, con la orden del usuario.
 - **BD:** sin cambios de estructura.
 - **Verificación:** `tsc` de backend y frontend y ESLint del frontend, limpios. No se probaron escrituras: la base es la de producción.
+
+## 2026-10-29 — Detalles Técnicos: calco completo con detalles ampliados
+
+- **Pedido:** el plano del módulo confundía frente al dibujo del taller. Se revisaron 5 opciones y luego 5 diseños que combinan el calco completo con detalles. El usuario eligió el **diseño 2**: número junto a la zona y cuadro «DETALLE n», que no reemplaza ninguna cota.
+- **Decisiones del usuario:**
+  - los detalles se numeran 1, 2, 3;
+  - la cota del boquete va al centro;
+  - llevan detalle las muescas (con perforaciones cercanas), los boquetes y las medias perforaciones, máximo 4 por hoja;
+  - los detalles se ven también en el editor;
+  - los planos guardados no se tocan.
+- **frontend:**
+  - `modelo/detalles.ts`: archivo nuevo, con las zonas y la hoja con columna o fila de detalles.
+  - `components/DetallesSVG.tsx`: archivo nuevo, dibuja los cuadros.
+  - `components/cotas.tsx`: archivo nuevo, con las primitivas que salieron de `PlanoSVG.tsx`.
+  - `PlanoSVG.tsx`:
+    - muescas agrandadas;
+    - cadena de perforaciones por dentro, con cifras horizontales;
+    - boquete acotado sobre su forma y hasta su centro;
+    - números de zona.
+  - `EditorPlano.tsx`: «Centro a» en el boquete, y el largo conserva el centro.
+  - `geometria.ts`: `geometriaMuesca`.
+  - `exportar/imagen.ts`: la imagen guardada es la hoja con los detalles.
+- **BD / backend:** sin cambios. La imagen cambia de proporción y el backend ya la centra con su ancho × alto.
+- **Hallazgo:** las plantillas de cerradura «a 1000 mm» guardan el inicio del boquete, no el centro, y ahora se leen 1037,5. Queda pendiente la decisión del usuario; ver `docs/modulos/detalles-tecnicos.md`.
+- **Verificación:**
+  - Las 70 plantillas se dibujaron a SVG y se revisaron capturas de 11 casos.
+  - `tsc`, ESLint y `react-scripts build`: limpios.
+  - Sin pruebas en el navegador con datos reales. El arrastre en el editor no se probó a mano.

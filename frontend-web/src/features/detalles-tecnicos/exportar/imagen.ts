@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PlanoSVG } from '../components/PlanoSVG';
-import { encuadre } from '../modelo/geometria';
+import { encuadreHoja } from '../modelo/detalles';
 import type { Pieza } from '../modelo/tipos';
 
 // Área del dibujo dentro de la hoja «PLANO X» del Excel: columnas A–J (10 × 75 px) y filas
@@ -13,8 +13,9 @@ const ESCALA = 2.5;
 
 /** Tamaño en px que ocupa el dibujo respetando su proporción dentro del área disponible. */
 export function encajar(pieza: Pieza, maxW = AREA_DIBUJO.ancho, maxH = AREA_DIBUJO.alto) {
-  const { anchoTotal, altoTotal } = encuadre(pieza);
-  const ratio = anchoTotal / altoTotal;
+  // Incluye el espacio de los detalles ampliados: la imagen guardada es la hoja completa.
+  const { vista } = encuadreHoja(pieza);
+  const ratio = vista.w / vista.h;
   const t = ratio > maxW / maxH ? { w: maxW, h: maxW / ratio } : { w: maxH * ratio, h: maxH };
   return { w: Math.round(t.w), h: Math.round(t.h) };
 }

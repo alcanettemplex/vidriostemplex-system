@@ -345,3 +345,34 @@ Decisión del usuario, tras varias rondas de propuestas: el plano se dibuja como
 - **Perforaciones chicas dibujadas más grandes**: radio mínimo de 0,4 f; antes, 0,28 f. Para que dos vecinas no se toquen, el radio no pasa de 0,42 × la separación mínima entre centros (las 3 Ø16 de la flauta, a 35 mm). Nunca baja de 0,28 f. La medida escrita sigue siendo la real.
 - **No se aplicó** el agrandado de muescas y boquetes que traía la propuesta. El arrastre del editor y las cotas trabajan sobre la geometría real, y deformar el contorno los desalinearía. Queda como mejora posible.
 - **Los planos ya guardados conservan su imagen anterior** (Cloudinary/Excel) hasta que se vuelvan a guardar. Las hojas que se dibujan en pantalla o se imprimen desde el pedido salen con el estilo nuevo.
+
+## Calco completo con detalles ampliados (2026-10-29)
+
+Decisión del usuario: el plano principal conserva **todas** las cotas del calco y, al lado, cada zona pequeña sale en un **«DETALLE n»** ampliado que repite sus cifras. Los detalles no reemplazan ninguna medida. Elegido entre 5 maquetas (diseño 2: número junto a la zona + cuadro con el mismo número).
+
+**Decisiones del usuario:**
+
+| # | Decisión |
+|---|---|
+| 1 | Los detalles se numeran **1, 2, 3…**: la letra ya es la del plano («PLANO A»). |
+| 2 | La posición del boquete se acota **hasta su centro**, como el taller (1000 y no 962,5). |
+| 3 | Llevan detalle las **muescas de esquina** (con las perforaciones cercanas, como el pivote), los **boquetes** (con o sin alivios) y las **medias perforaciones**. Los despuntes y radios no. **Máximo 4** por hoja; si hay más, quedan las zonas más pequeñas. |
+| 4 | Los detalles se ven **también en el editor** (no se pueden arrastrar). |
+| 5 | **Los planos ya guardados no se tocan**: conservan su imagen en Cloudinary/Excel hasta que se vuelvan a guardar. «Imprimir pedido» dibuja en vivo y sale con el estilo nuevo. |
+
+**Dónde vive:**
+- `modelo/detalles.ts`: `zonasDetalle(pieza)` decide las zonas (une las que se tocan, numera de arriba abajo) y `encuadreHoja(pieza)` agrega su espacio. Si el vidrio es más alto que ancho, va una **columna a la derecha** (la hoja de 710 × 720 deja ese espacio libre); si es más ancho, una **fila abajo**. Sin zonas, o en miniaturas (`conCotas = false`), queda el encuadre de siempre. `exportar/imagen.ts › encajar` usa `encuadreHoja`, así que la imagen guardada es la hoja completa. El backend la centra con su `imagen_ancho × imagen_alto` y no cambió.
+- `components/DetallesSVG.tsx` dibuja los cuadros con la misma letra que el plano (`f`). Cada cuadro tiene su propio colocador de textos y un `clipPath` con id de `useId` (en «Imprimir pedido» hay varias hojas en el mismo documento).
+- `components/cotas.tsx`: primitivas compartidas que salieron de `PlanoSVG.tsx` (colocador, `colocarCota`, `DibujoCota`, `Texto`, `ladoHacia`). `CotaProps.horizontal` deja el número horizontal junto a una línea vertical.
+- `geometria.ts › geometriaMuesca`: la geometría de la muesca, compartida por el plano, las zonas y los detalles.
+
+**Cambios del calco en el plano principal (`PlanoSVG.tsx`):**
+- **Muescas agrandadas** a un mínimo de 1,2 f por lado (`agrandarMuescas`). No se agrandan si taparían una perforación, un boquete o una media perforación (el pivote de la muesca 110×35 queda a escala). Las cifras son las reales. Solo cambia el contorno dibujado: el arrastre y la validación siguen sobre la geometría real.
+- **Cadena vertical de perforaciones por dentro del vidrio**, junto a ellas y con cifras horizontales. Antes iba por fuera, en un carril pegado al del boquete. Se retiró `carrilPerf`. La etiqueta «PERF. Ø» prueba posiciones más allá de la cadena.
+- **Boquete acotado sobre su forma**: el fondo sobre un lado y el largo al fondo, en vez de la etiqueta «BOQ L×P R». Queda escrito «ALIVIOS Ø» y, solo si el boquete se quedó sin detalle, «R».
+- **Posición del boquete hasta el centro** (`pos + largo / 2`). El editor dice **«Centro a»** y edita esa misma medida. Cambiar el largo deja el centro donde estaba. El modelo sigue guardando `pos` hasta el inicio, así que los planos guardados no cambian de geometría.
+- Ranura «ojo» (Optiglass): igual que antes en el plano. En su detalle, solo el ancho de la ranura.
+
+**Hallazgo pendiente de decisión:** las plantillas de puerta con cerradura «a 1000 mm» guardan `BQ('der', 1000, 'fin', …)`, o sea el **inicio** del boquete a 1000. Con la cota al centro se leen 1037,5 (75 de largo) y la cerradura queda 37,5 mm por encima del centro de la manija Roma (800 / 1200). Las afectadas son roma40, las A/B roma150 y sin manija, Rompicolo y `cierrePuerta`. Si la intención era el centro a 1000, hay que pasar esas plantillas a `pos = 1000 − largo / 2`. No se cambió sin la orden del usuario.
+
+**Verificación:** las 70 plantillas se dibujaron a SVG con `renderToStaticMarkup` y se revisaron capturas de puertas (roma40, A/B roma150), fijos con 3 muescas, desplome, alivios, Optiglass, muesca 60×100 y un vidrio ancho sintético (fila abajo). `tsc`, ESLint y `react-scripts build` limpios.
