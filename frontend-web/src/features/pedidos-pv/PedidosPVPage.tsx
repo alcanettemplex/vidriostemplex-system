@@ -1899,6 +1899,9 @@ const PedidosPVPage: React.FC = () => {
                           <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Esp.</TableCell>
                           <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>An x Al</TableCell>
                           <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Cant.</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12 }} align="center">Perf.</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12 }} align="center">Boq.</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12 }} align="center">Desp.</TableCell>
                           <TableCell sx={{ fontWeight: 600, fontSize: 12, minWidth: 60 }}>DT</TableCell>
                           <TableCell sx={{ fontWeight: 600, fontSize: 12, minWidth: 160 }}>Observación PV</TableCell>
                           <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Obs. Orig.</TableCell>
@@ -1941,6 +1944,14 @@ const PedidosPVPage: React.FC = () => {
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.espesor || '—'}</TableCell>
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.ancho_mm} x {it.alto_mm}</TableCell>
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.cantidad || 1}</TableCell>
+                              {/* Solo lectura. Un cero se muestra como "—", igual que en los formularios
+                                  impresos, para que no se lea como dato real. Desp. = campo `descuentos`
+                                  ("DES" en el formulario de Vitelsa). */}
+                              {[it.perforaciones, it.boquetes, it.descuentos].map((v, i) => (
+                                <TableCell key={i} sx={{ fontSize: 12 }} align="center" onClick={toggleRow}>
+                                  {v && String(v).trim() !== '0' ? v : '—'}
+                                </TableCell>
+                              ))}
                               <TableCell>
                                 <input
                                   type="text"
