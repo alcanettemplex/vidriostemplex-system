@@ -27,6 +27,7 @@ import { advertenciasPrecioACotizar } from "../lib/motorCalculo";
 import { descripcionComercial } from "../lib/detalleComercial";
 import { opcionesPelicula } from "../lib/peliculas";
 import { opcionesAlfajia } from "../lib/alfajias";
+import { opcionesVidrio } from "../lib/vidrios";
 import type { InputModulo } from "../tipos";
 
 // El orden de este objeto es el orden en que el frontend pinta las tarjetas de
@@ -46,11 +47,12 @@ export const MODULOS = {
 };
 
 /** Opciones que salen del catálogo vigente y no de una constante del módulo
- * (2026-09-27: la película). Se resuelven en cada consulta, así que un alta
- * nueva aparece en el formulario sin reiniciar nada. */
+ * (2026-09-27: la película; 2026-10-30: el vidrio). Se resuelven en cada
+ * consulta, así que un alta nueva aparece en el formulario sin reiniciar nada. */
 const OPCIONES_DINAMICAS: Record<string, () => unknown[]> = {
   peliculas: opcionesPelicula,
   alfajias: opcionesAlfajia,
+  vidrios: opcionesVidrio,
 };
 
 export function listarModulos() {

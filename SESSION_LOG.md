@@ -7373,3 +7373,11 @@ Captura con "2522%" de meta, $0 de meta por asesor y "Sin cartera crítica". La 
   - Las 70 plantillas se dibujaron a SVG y se revisaron capturas de 11 casos.
   - `tsc`, ESLint y `react-scripts build`: limpios.
   - Sin pruebas en el navegador con datos reales. El arrastre en el editor no se probó a mano.
+
+## 2026-10-30 — Pedidos PV: columnas en Asignar ítems, pedido 7211 y vidrio completo en el Cotizador
+
+- **Pedidos PV — Asignar ítems:** el modal muestra Perf., Boq. y Desp. (campo `descuentos`), de solo lectura, con cero como «—». Solo frontend (`PedidosPVPage.tsx`).
+- **ODP-24455 — pedido PV 7211 (producción):** 33 vidrios laminados crudos (`CR-LAM`) Vitelsa: 27 filas de 5+5 PVB 0,76 y 6 de 3+3 PVB 0,38, 45 piezas, pulido A2 H2. Script `scripts/2026-10-30_crear_pedido_pv_odp24455.ts`, ya ejecutado (ítems 2232–2264, pedido id 720). El PVB va en `otros` porque el formulario de Vitelsa no imprime `tipo_vidrio`. Queda en PENDIENTE para que el usuario lo asigne (se parte en 7211, 7211-1 y 7211-2).
+- **Cotizador — vidrio:** Ventanas, Proyectantes y Pérgola ofrecen el listado completo del catálogo (`lib/vidrios.ts`), sin los "precio a cotizar" ni espejos. Decisiones y precios raros a revisar: `docs/modulos/cotizador.md` § "Vidrio: el listado completo del catálogo".
+- **BD:** sin cambios de estructura.
+- **Verificación:** `tsc` de backend y frontend limpios; `test:cotizador` 312/312. Sin prueba en el navegador.

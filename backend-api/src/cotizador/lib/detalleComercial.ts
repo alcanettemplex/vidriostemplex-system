@@ -23,6 +23,7 @@
 import { getModulo } from "../modules/registry";
 import { nombrePelicula } from "./peliculas";
 import { nombreAlfajia } from "./alfajias";
+import { nombreComercialVidrio } from "./vidrios";
 import { composicionDe, type Composicion } from "../modules/divisionFachada";
 
 type Opcion = string | number | { value: unknown; label: string };
@@ -122,7 +123,10 @@ function producto(
   nombreModulo: string
 ): string {
   const color = etiquetaDe(campos, "colorPerfileria", i.colorPerfileria);
-  const codigoVidrio = etiquetaDe(campos, "codigoVidrio", i.codigoVidrio);
+  // El nombre sale del catálogo (2026-10-30: el selector ofrece todo el
+  // catálogo y el meta solo trae la lista de antes). Sin catálogo cargado
+  // (pruebas puras), la etiqueta fija del campo.
+  const codigoVidrio = nombreComercialVidrio(i.codigoVidrio) ?? etiquetaDe(campos, "codigoVidrio", i.codigoVidrio);
   const espesor = i.espesorVidrioMm ?? i.espesorMm;
   const vidrioTemplado = !vacio(espesor) ? `vidrio templado ${espesor} mm` : null;
   const matizado = matizadoDe(campos, i.matizado);

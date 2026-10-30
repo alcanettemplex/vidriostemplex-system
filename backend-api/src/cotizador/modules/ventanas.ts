@@ -36,6 +36,7 @@ import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno, hacerAgregarRol, codigoMatizado } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
 import { codigoPelicula, CAMPO_PELICULA, CAMPO_COSTO_PELICULA } from "../lib/peliculas";
+import { CAMPO_VIDRIO, resolverVidrio } from "../lib/vidrios";
 import { CAMPO_ALFAJIA, CAMPO_ALFAJIA_CODIGO, normalizarColor, resolverAlfajia } from "../lib/alfajias";
 import type { AlfajiaElegida } from "../lib/alfajias";
 import type { LineaBOM } from "../lib/motorCalculo";
@@ -118,20 +119,8 @@ const CATALOGO_SISTEMAS = {
   },
 };
 
-// Crudo en 4/5/6 y templado (línea SP) en 4/5/6/8/10. Se eligió SP y no la
-// variante "02TE" porque es la única que existe en 8 y 10mm, así que mezclarlas
-// dejaría dos criterios de precio en el mismo selector. Las variantes "08SP"
-// (STV) quedan fuera a propósito: están en el catálogo con precio 0.
-const VIDRIOS_VALIDOS = [
-  "CL4MM01CR",
-  "CL5MM01CR",
-  "CL6MM01CR",
-  "CL4MM03SP",
-  "CL5MM03SP",
-  "CL6MM03SP",
-  "CL8MM03SP",
-  "CL10MM03SP",
-];
+// El vidrio sale del catálogo completo desde el 2026-10-30 (lib/vidrios.ts):
+// antes era una lista fija de 8 claros (crudo 4/5/6 y templado SP 4/5/6/8/10).
 // El matizado y la película ya no viven aquí: su mapa es compartido con el
 // camino por diseño (codigoMatizado en cotizarPorDiseno, codigoPelicula en
 // lib/peliculas.ts).
@@ -173,26 +162,9 @@ export const meta = {
     { nombre: "altoCm", tipo: "number", etiqueta: "Alto (mm)", requerido: true, grupo: "medidas" },
     { nombre: "cuerpos", tipo: "number", etiqueta: "Cuerpos", requerido: true, grupo: "medidas" },
     { nombre: "alasCorredizas", tipo: "number", etiqueta: "Alas corredizas", requerido: false, grupo: "medidas" },
-    {
-      // Whitelist real que valida `calcular()` más abajo (VIDRIOS_VALIDOS) — si
-      // se agrega un código aquí sin agregarlo también allá, el backend lo
-      // ignora en silencio y cae al vidrio por defecto (CL4MM01CR).
-      nombre: "codigoVidrio",
-      tipo: "select",
-      opciones: [
-        { value: "CL4MM01CR", label: "Claro 4mm crudo" },
-        { value: "CL5MM01CR", label: "Claro 5mm crudo" },
-        { value: "CL6MM01CR", label: "Claro 6mm crudo" },
-        { value: "CL4MM03SP", label: "Claro 4mm templado" },
-        { value: "CL5MM03SP", label: "Claro 5mm templado" },
-        { value: "CL6MM03SP", label: "Claro 6mm templado" },
-        { value: "CL8MM03SP", label: "Claro 8mm templado" },
-        { value: "CL10MM03SP", label: "Claro 10mm templado" },
-      ],
-      etiqueta: "Tipo de vidrio",
-      requerido: false,
-      grupo: "vidrio",
-    },
+    // Listado completo del catálogo (2026-10-30). `calcular()` valida con la
+    // misma regla que arma el selector (`resolverVidrio`).
+    CAMPO_VIDRIO,
     {
       // Las tres variantes tienen precio propio por metro, así que esto mueve el
       // total. El valor vacío es "sin matizado"; un `true` de una cotización
@@ -357,23 +329,12 @@ export function calcular(input: InputModulo = {}) {
     : 1;
   const descuentoPct = Number.isFinite(Number(input.descuentoPct)) ? Number(input.descuentoPct) : 0;
 
-  // Un código fuera de la whitelist cae al vidrio por defecto. Hasta el
-  // 2026-09-20 eso pasaba EN SILENCIO, que es exactamente lo que este módulo se
-  // prohíbe a sí mismo (ver bug #4, arriba): la cotización salía con claro 4 mm
-  // crudo sin decírselo a nadie. Se volvió crítico al aparecer las variantes por
-  // propuesta: duplicar una propuesta pidiendo "6 mm templado 02TE" —que no está
-  // en esta lista— devolvía una propuesta B con EL MISMO TOTAL que la A, sin una
-  // sola advertencia. Detectado probando el clonado contra datos reales.
-  const pidioVidrio = typeof input.codigoVidrio === "string" && input.codigoVidrio.trim() !== "";
-  const vidrioValido = VIDRIOS_VALIDOS.includes(input.codigoVidrio);
-  const codigoVidrio = vidrioValido ? input.codigoVidrio : "CL4MM01CR";
-  if (pidioVidrio && !vidrioValido) {
-    advertencias.push(
-      `El vidrio "${input.codigoVidrio}" no está entre los que este sistema puede cotizar, así que se ` +
-        `usó Claro 4 mm crudo (CL4MM01CR). Elige uno de la lista del formulario si necesitas otro: ` +
-        `el precio de esta cotización NO corresponde al vidrio que pediste.`
-    );
-  }
+  // Un vidrio que no se puede cotizar cae al claro 4 mm crudo, siempre con
+  // aviso: hasta el 2026-09-20 pasaba EN SILENCIO y una variante de propuesta
+  // salía con el mismo total que la original (ver bug #4, arriba).
+  const vidrio = resolverVidrio(input.codigoVidrio);
+  const codigoVidrio = vidrio.codigo;
+  if (vidrio.advertencia) advertencias.push(vidrio.advertencia);
 
   // El negro entró al selector antes de que el catálogo lo cubriera. Estado
   // verificado el 2026-09-16 (refs con color negro / refs totales del

@@ -37,14 +37,24 @@ test("pérgola: vidrio elegido y película de seguridad, los dos por m²", () =>
   sinErrores(r);
   assert.equal(cant(r, "CL8MM03LM"), 12);
   assert.equal(cant(r, "PEL0106"), 12);
-  assert.match(r.descripcionComercial, /pérgola en vidrio laminado claro 4\+4, con película de seguridad/);
+  // Nombre del catálogo desde el 2026-10-30 ("VIDRIO CLARO 4+4 LAMINADO").
+  assert.match(r.descripcionComercial, /pérgola en vidrio claro 4\+4 laminado, con película de seguridad/);
 });
 
-test("pérgola: sin vidrio elegido usa templado 6 mm; uno fuera de la lista cae a 6 mm con aviso", () => {
+test("pérgola: sin vidrio elegido usa templado 6 mm; uno que no se puede cotizar cae a 6 mm con aviso", () => {
   assert.equal(cant(calcularItem("pergola", { ...BASE, anchoCm: 100, altoCm: 100 }), "CL6MM03SP"), 1);
-  const r: any = calcularItem("pergola", { ...BASE, anchoCm: 100, altoCm: 100, codigoVidrio: "CL4MM01CR" });
-  assert.equal(cant(r, "CL6MM03SP"), 1);
-  assert.ok(r.advertencias.some((a: string) => /no se ofrece para pérgola/.test(a)));
+  // CL4MM03LM existe pero es "precio a cotizar": no se ofrece hasta que tenga precio.
+  for (const codigo of ["NO-EXISTE", "CL4MM03LM"]) {
+    const r: any = calcularItem("pergola", { ...BASE, anchoCm: 100, altoCm: 100, codigoVidrio: codigo });
+    assert.equal(cant(r, "CL6MM03SP"), 1);
+    assert.ok(r.advertencias.some((a: string) => /no se puede cotizar/.test(a)), codigo);
+  }
+});
+
+test("pérgola: acepta cualquier vidrio del catálogo con precio (2026-10-30)", () => {
+  const r: any = calcularItem("pergola", { ...BASE, anchoCm: 100, altoCm: 100, codigoVidrio: "BR6MM01CR" });
+  sinErrores(r);
+  assert.equal(cant(r, "BR6MM01CR"), 1);
 });
 
 test("los 6 vidrios de la pérgola tienen precio", () => {

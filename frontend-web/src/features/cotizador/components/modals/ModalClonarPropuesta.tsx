@@ -16,10 +16,10 @@ import { BotonPrimario, BotonSecundario, Campo, Input, ModalShell, Select } from
 // propuestas: agregar la variante al carrito la SUMABA, como si el cliente
 // comprara las dos.
 //
-// NO BLOQUEA, AVISA. Dos vidrios del catálogo están hoy en $0 (CL4MM03LM y
-// CL4MM08SP): elegirlos no impide clonar —el vendedor no puede arreglar el
-// catálogo— pero se le dice antes, y el backend devuelve además sus propias
-// `advertencias` por ítem, que el padre muestra.
+// NO BLOQUEA, AVISA. Un vidrio sin precio para el segmento del cliente no
+// impide clonar —el vendedor no puede arreglar el catálogo— pero se le dice
+// antes, y el backend devuelve además sus propias `advertencias` por ítem, que
+// el padre muestra. (Los "precio a cotizar" ya no se ofrecen desde el 2026-10-30.)
 //
 // Overlay/panel calcado de ModalDetalleCotizacion (fixed inset-0 + backdrop
 // oscuro + panel blanco redondeado), sin framer-motion.
@@ -68,11 +68,10 @@ const ModalClonarPropuesta: React.FC<Props> = ({ cotizacionId, propuesta, segmen
         // productos y este selector no necesita ni uno más.
         //
         // Y de esas 40 se ofrecen ÚNICAMENTE las que los módulos declaran en su
-        // campo `codigoVidrio`: hoy son 8. El motor valida contra esa misma
-        // whitelist y un código fuera de ella cae al claro 4 mm crudo, así que
-        // ofrecer las 40 significaba que 32 producían una "variante" con el
-        // mismo precio que el original. Desde el 2026-09-20 el backend además
-        // lo advierte, pero es mejor no ofrecer lo que no se puede cotizar.
+        // campo `codigoVidrio`. Desde el 2026-10-30 es el listado completo del
+        // catálogo con precio (backend `lib/vidrios.ts`), sin espejos ni los
+        // "precio a cotizar". El motor valida con esa misma regla: lo que no
+        // se ofrece cae al claro 4 mm crudo con aviso.
         // `meta.campos` es el contrato del módulo — la misma fuente que usa
         // `moduloAcepta` en el store para decidir si un cambio aplica.
         Promise.all([apiGetCatalogo('VIDRIO'), apiGetModulos()])

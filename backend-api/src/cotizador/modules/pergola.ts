@@ -17,12 +17,16 @@
 import { lineaCatalogo, totalizar, areaM2 } from "../lib/motorCalculo";
 import { getParametros, segmentosValidos } from "../lib/catalogo";
 import type { InputModulo } from "../tipos";
+import { CAMPO_VIDRIO, resolverVidrio } from "../lib/vidrios";
 
 /** Película de seguridad transparente 4 mic: obligatoria en toda pérgola. */
 export const PELICULA_PERGOLA = "PEL0106";
 
-/** Vidrios que se ofrecen. El primero es el de por defecto. */
-export const VIDRIOS_PERGOLA = [
+/** Vidrio por defecto: templado claro 6 mm. Desde el 2026-10-30 se ofrece el
+ * catálogo completo (lib/vidrios.ts); estas 6 opciones —la lista de antes— solo
+ * las lee la descripción comercial sin catálogo cargado (pruebas puras). */
+const VIDRIO_PERGOLA_DEFECTO = { codigo: "CL6MM03SP", nombre: "templado claro 6 mm" };
+const VIDRIOS_PERGOLA = [
   { value: "CL6MM03SP", label: "Templado claro 6 mm" },
   { value: "CL8MM03SP", label: "Templado claro 8 mm" },
   { value: "CL10MM03SP", label: "Templado claro 10 mm" },
@@ -30,7 +34,6 @@ export const VIDRIOS_PERGOLA = [
   { value: "CL8MM03LM", label: "Laminado claro 4+4" },
   { value: "CL10MM03LM", label: "Laminado claro 5+5" },
 ];
-const VIDRIOS_VALIDOS = new Set(VIDRIOS_PERGOLA.map((v) => v.value));
 
 export const meta = {
   nombre: "Pérgola",
@@ -39,15 +42,7 @@ export const meta = {
   campos: [
     { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho (mm)", requerido: true, grupo: "medidas" },
     { nombre: "altoCm", tipo: "number", etiqueta: "Largo (mm)", requerido: true, grupo: "medidas" },
-    {
-      nombre: "codigoVidrio",
-      tipo: "select",
-      opciones: VIDRIOS_PERGOLA,
-      etiqueta: "Vidrio",
-      requerido: true,
-      grupo: "vidrio",
-      defecto: "CL6MM03SP",
-    },
+    { ...CAMPO_VIDRIO, opciones: VIDRIOS_PERGOLA, etiqueta: "Vidrio", requerido: true, defecto: VIDRIO_PERGOLA_DEFECTO.codigo },
     { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
     { nombre: "descripcionItem", tipo: "string", etiqueta: "Ubicación (opcional)", requerido: false, grupo: "comercial" },
     { nombre: "conInstalacion", tipo: "boolean", etiqueta: "Con instalación", requerido: false, grupo: "comercial", defecto: true },
@@ -71,11 +66,9 @@ export function calcular(input: InputModulo) {
   if (descuento < 0 || descuento >= 1) throw new Error("descuentoPct debe ser una fracción entre 0 y 1.");
 
   const advertencias: string[] = [];
-  let vidrio = String(input?.codigoVidrio ?? "").trim() || VIDRIOS_PERGOLA[0].value;
-  if (!VIDRIOS_VALIDOS.has(vidrio)) {
-    advertencias.push(`El vidrio "${vidrio}" no se ofrece para pérgola: se usó templado claro 6 mm.`);
-    vidrio = VIDRIOS_PERGOLA[0].value;
-  }
+  const resuelto = resolverVidrio(input?.codigoVidrio, VIDRIO_PERGOLA_DEFECTO);
+  const vidrio = resuelto.codigo;
+  if (resuelto.advertencia) advertencias.push(resuelto.advertencia);
 
   const area = areaM2(ancho, largo);
   const items = [

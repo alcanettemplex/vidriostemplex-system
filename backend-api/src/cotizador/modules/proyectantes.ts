@@ -26,6 +26,7 @@ import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
 import { codigoPelicula, CAMPO_PELICULA, CAMPO_COSTO_PELICULA } from "../lib/peliculas";
+import { CAMPO_VIDRIO, resolverVidrio } from "../lib/vidrios";
 import type { LineaBOM } from "../lib/motorCalculo";
 
 // `lineaManual()` construía las dos líneas de BOM sin código de catálogo —SMO y
@@ -51,7 +52,9 @@ const EMPAQUE = "EMP1301";
 // económica, mismo uso, calidad de importación distinta.
 const MANIJA_POR_TIPO = { importada: "MBL0406", nacional: "MAPR0101" };
 
-const VIDRIOS_VALIDOS = ["CL4MM01CR", "CL5MM01CR", "CL6MM01CR"];
+// El vidrio sale del catálogo completo desde el 2026-10-30 (lib/vidrios.ts):
+// antes eran solo claro 4/5/6 mm crudo. El asesor decide si cabe en el perfil
+// (decisión del usuario: sin tope de espesor por sistema).
 const ACABADOS = { matizado: "MATI07" };
 
 function normalizarColor(color: unknown): string {
@@ -96,19 +99,8 @@ export const meta = {
       requerido: true,
       grupo: "cliente",
     },
-    {
-      // Whitelist real que valida `calcular()` más abajo (VIDRIOS_VALIDOS).
-      nombre: "codigoVidrio",
-      tipo: "select",
-      opciones: [
-        { value: "CL4MM01CR", label: "Claro 4mm crudo" },
-        { value: "CL5MM01CR", label: "Claro 5mm crudo" },
-        { value: "CL6MM01CR", label: "Claro 6mm crudo" },
-      ],
-      etiqueta: "Tipo de vidrio",
-      requerido: false,
-      grupo: "vidrio",
-    },
+    // Listado completo del catálogo (2026-10-30), validado con `resolverVidrio`.
+    CAMPO_VIDRIO,
     { nombre: "matizado", tipo: "boolean", etiqueta: "Incluir matizado", requerido: false, grupo: "vidrio" },
     // Película (2026-09-27): lista del catálogo, ya no sí/no. Ver lib/peliculas.ts.
     CAMPO_PELICULA,
@@ -158,6 +150,11 @@ export function calcular(input: InputModulo = {}) {
   const color = normalizarColor(input.colorPerfileria) || "mate";
   const tipoManija = input.tipoManija === "nacional" ? "nacional" : "importada";
   const manijaCodigo = MANIJA_POR_TIPO[tipoManija];
+  // Antes del 2026-10-30 un vidrio fuera de la lista caía al claro 4 mm crudo
+  // sin avisar; ahora lo dice, igual que Ventanas.
+  const vidrio = resolverVidrio(input.codigoVidrio);
+  const codigoVidrio = vidrio.codigo;
+  if (vidrio.advertencia) advertencias.push(vidrio.advertencia);
 
   // Camino por DISEÑO concreto (O, OO, OOO, W, O_O...): el despiece trae las
   // medidas de corte reales de jamba, nave, sillar-cabezal y pisavidrios, y el
@@ -175,7 +172,7 @@ export function calcular(input: InputModulo = {}) {
       holguraAnchoMm: input.holguraAnchoMm,
       holguraAltoMm: input.holguraAltoMm,
       colorPerfileria: color,
-      codigoVidrio: VIDRIOS_VALIDOS.includes(input.codigoVidrio) ? input.codigoVidrio : "CL4MM01CR",
+      codigoVidrio,
       segmentoCliente,
       cantidadPiezas:
         Number.isFinite(Number(input.cantidadPiezas)) && Number(input.cantidadPiezas) > 0
@@ -226,7 +223,6 @@ export function calcular(input: InputModulo = {}) {
     ? Number(input.cantidadPiezas)
     : 1;
   const descuentoPct = Number.isFinite(Number(input.descuentoPct)) ? Number(input.descuentoPct) : 0;
-  const codigoVidrio = VIDRIOS_VALIDOS.includes(input.codigoVidrio) ? input.codigoVidrio : "CL4MM01CR";
 
   if (!COLORES_DISPONIBLES.jamba[color as keyof typeof COLORES_DISPONIBLES.jamba] || !COLORES_DISPONIBLES.nave[color as keyof typeof COLORES_DISPONIBLES.nave]) {
     advertencias.push(

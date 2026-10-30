@@ -2299,3 +2299,36 @@ mismo formulario del ERP ya lleno**, y el cliente se puede crear ahí si no est�
   sobre COT 17038 y 17025 (ya convertidas): servicios «Venta» con la frase comercial, Acarreo, valor y
   contacto correctos. No había cotizaciones aprobadas sin ODP ese día. **La creación real (los tres
   caminos) queda para la prueba manual con el usuario: la base local es producción.**
+
+## Vidrio: el listado completo del catálogo (2026-10-30, decisión del usuario)
+
+Hasta esta fecha cada producto tenía su propia lista fija de vidrios y validaba contra ella:
+Ventanas 8 (claros crudo 4/5/6 y templado SP 4/5/6/8/10), Proyectantes 3 (claro crudo 4/5/6),
+Pérgola 6 (templado claro 6/8/10 y laminado 3+3, 4+4, 5+5). Ahora los tres ofrecen **el mismo
+listado, armado del catálogo** en cada consulta (`lib/vidrios.ts`, `opcionesDinamicas: "vidrios"`,
+igual que la película).
+
+- **Qué entra:** categoría `VIDRIO`, unidad `X M2`, activo, con precio PA/PM/PB > 0 y sin marca
+  "precio a cotizar". **Queda fuera:** los espejos (tienen su módulo), `GPI1102` (guía de piso mal
+  categorizada), `VC10MMBPB` (BPB por metro), y `CL4MM03LM` / `CL4MM08SP` (sin precio): aparecen
+  solos el día que Compras les ponga precio. Al 2026-10-30 son 35 vidrios.
+- **Validación:** `resolverVidrio()` aplica la misma regla que arma el selector. Lo que no se puede
+  cotizar cae al vidrio por defecto (claro 4 mm crudo; templado claro 6 mm en Pérgola) **con aviso**.
+  Proyectantes lo hacía en silencio hasta esta fecha.
+- **Etiquetas:** de la descripción del catálogo ("VIDRIO CLARO 6MM TEMPLADO SP" → "Claro 6 mm
+  templado SP"). En la descripción comercial del PDF va sin la línea SP ("claro 6 mm templado"),
+  así que las cotizaciones ya hechas siguen diciendo lo mismo. **Cambió la redacción de Pérgola:**
+  "vidrio laminado claro 4+4" pasó a "vidrio claro 4+4 laminado".
+- **El meta conserva la lista vieja** (`CAMPO_VIDRIO.opciones`): solo la lee la descripción
+  comercial sin catálogo cargado (pruebas puras). La lista real la pone `listarModulos()`.
+- **Decisiones del usuario:** (1) solo Ventanas, Proyectantes y Pérgola; Cabinas, Tablero y División
+  siguen con espesor de templado fijo, porque su BPB y perforaciones se cobran por espesor;
+  (2) **sin tope de espesor por sistema**: el asesor decide si el vidrio cabe en el perfil (un
+  laminado 5+5 mide ~10,8 mm y el empaque del 3831 es para 4-6 mm); (3) los "precio a cotizar" se
+  ocultan hasta tener precio; (4) los precios raros del catálogo no se tocan desde aquí.
+- ⚠️ **Precios del catálogo a revisar por Compras/Proveedores** (valores PM al 2026-10-30, ahora a
+  la vista de los asesores): `CL6MM03LM` laminado 3+3 a $44.742 (más barato que el claro 4 mm
+  crudo); `GR4MM01CR` $166.591 contra `GR6MM01CR` $39.903 (invertidos); `BR6MM02TE` $618.097, más
+  caro que `BR10MM03SP` $409.338; `VR10MM03SP` $802.045.
+- **Pruebas:** `vidrios.test.ts` (nueva, en `test:cotizador`) y `pergolaDivision.test.ts`
+  ajustada.
